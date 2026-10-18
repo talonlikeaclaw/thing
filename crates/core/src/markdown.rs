@@ -10,7 +10,7 @@ use serde_yaml_ng::{Mapping, Value as Yaml};
 
 use crate::FORMAT_VERSION;
 use crate::error::CoreError;
-use crate::model::{ObjectDoc, PropertyDef, Revision, TypeDef};
+use crate::model::{ObjectDoc, PropertyDef, Revision, SpaceMeta, TypeDef};
 
 /// Reads `objects/<type-key>/<slug>.md`.
 pub fn parse_object(text: &str) -> Result<ObjectDoc, CoreError> {
@@ -27,6 +27,16 @@ pub fn serialize_object(doc: &ObjectDoc) -> String {
     text.push_str("---\n");
     text.push_str(&doc.body);
     text
+}
+
+/// Reads `space.yml`.
+pub fn parse_space(text: &str) -> Result<SpaceMeta, CoreError> {
+    read_document(text, "space")
+}
+
+/// Writes `space.yml`.
+pub fn serialize_space(meta: &SpaceMeta) -> String {
+    write_document(meta).expect("SpaceMeta serializes to YAML")
 }
 
 /// Reads `types/<key>.yml`.
@@ -294,6 +304,50 @@ Watered today.
         assert_eq!(doc.title, "Monstera");
         assert_eq!(doc.properties.len(), 1);
         assert_eq!(doc.body, "\nWatered today.\n");
+    }
+
+    #[test]
+    fn space_round_trips_and_uses_documented_keys() {
+        let meta = SpaceMeta {
+            id: id(1),
+            name: "Garden".to_owned(),
+            icon: Some("🪴".to_owned()),
+            timezone: "Europe/Berlin".to_owned(),
+            created_at: at(),
+            members: vec![
+                Member {
+                    user: id(2),
+                    role: Role::Owner,
+                },
+                Member {
+                    user: id(3),
+                    role: Role::Editor,
+                },
+            ],
+        };
+        let text = serialize_space(&meta);
+        assert!(text.starts_with("schema: 1\nid: "), "{text}");
+        assert!(text.contains("\ntimezone: Europe/Berlin\n"), "{text}");
+        assert!(text.contains("\n  role: owner\n"), "{text}");
+        assert_eq!(parse_space(&text).expect("parses back"), meta);
+    }
+
+    #[test]
+    fn space_without_an_icon_omits_the_key() {
+        let meta = SpaceMeta {
+            id: id(1),
+            name: "Garden".to_owned(),
+            icon: None,
+            timezone: "UTC".to_owned(),
+            created_at: at(),
+            members: vec![Member {
+                user: id(2),
+                role: Role::Viewer,
+            }],
+        };
+        let text = serialize_space(&meta);
+        assert!(!text.contains("icon"), "{text}");
+        assert_eq!(parse_space(&text).expect("parses back"), meta);
     }
 
     #[test]

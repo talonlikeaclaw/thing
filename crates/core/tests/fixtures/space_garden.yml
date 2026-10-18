@@ -1,0 +1,11 @@
+schema: 1
+id: 0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b
+name: Garden
+icon: 🪴
+timezone: Europe/Berlin
+created_at: 2026-10-17T12:00:00Z
+members:
+- user: 0199f2c1-1111-7c2e-9b1d-2a4f6e8c0a1b
+  role: owner
+- user: 0199f2c1-2222-7c2e-9b1d-2a4f6e8c0a1b
+  role: editor

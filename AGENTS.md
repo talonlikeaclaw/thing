@@ -14,10 +14,10 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 2 landed.** `thing-core` exposes `model`, `error`, `slug`, `value`,
-`markdown`, `FORMAT_VERSION` and `VERSION`, with fixture round-trip tests; `thing-server` only
-prints its version. No store, validation, query, frontend, CI or container yet. Do not assume
-documented paths exist.
+**Current state: checkpoint 3 landed.** `thing-core` exposes `model`, `error`, `slug`, `value`,
+`markdown` and `store` (`SpaceStore` trait + `FsSpaceStore`), with fixture round-trip tests and
+filesystem tests over `tempfile::TempDir`; `thing-server` only prints its version. No validation,
+query, index, frontend, CI or container yet. Do not assume documented paths exist.
 
 ## Where the plan lives
 
@@ -47,12 +47,16 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 
 - **`thing-core` is pure.** No network. Only `store` touches the filesystem; all other modules
   (model, markdown, validation, query, slug, value) are pure functions over data.
+- **Reads hand back a fingerprint, writes demand one.** `SpaceStore` reads return
+  `(value, FileFingerprint)`; a write takes the fingerprint the caller last saw (`None` means "must
+  be absent") and returns `Conflict` with `reason: "file changed on disk"` on a mismatch, after
+  which the caller re-reads and retries. The store keeps no state, so the index owns that record.
 - **`thing-server` is the I/O shell.** Owns HTTP, WebSocket, cookies, auth, SQLite, argument
   parsing, tracing. Must not reimplement domain rules.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
-- **Planned core modules:** domain model, markdown format, validation, query engine, store. Do
-  not create parallel abstractions for these.
+- **Core modules:** `model`, `markdown`, `store` exist; validation, index, filter and query are
+  still to come. Do not create parallel abstractions for these.
 
 ## Key Directories
 
@@ -60,7 +64,7 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 |---|---|
 | `crates/core/` | `thing-core`: domain, format, validation, query, store |
 | `crates/core/src/` | Source: `lib.rs` plus one module per `docs/plan/m1-engine-core.md` §4 entry |
-| `crates/core/tests/` | `roundtrip.rs` walking `fixtures/`; `tempfile` available for store tests |
+| `crates/core/tests/` | `roundtrip.rs` walking `fixtures/`; store tests are inline in `store/fs.rs` over `tempfile::TempDir` |
 | `crates/server/` | `thing-server` binary, axum shell |
 | `web/` | Planned Vite + React 19 SPA; **does not exist yet** |
 | `data/` | Runtime space store; gitignored, never commit fixtures here |
@@ -69,7 +73,7 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 54)
+cargo test --workspace           # all tests (currently 68)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # prints "thing-server 0.1.0"
 ```
@@ -113,7 +117,10 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   never display names.
 - **Unset value = absent key**, never `null`, `""` or `[]`.
 - A relation whose target is gone is **kept and surfaced**, never silently dropped.
-- Writes are **atomic**; conflicts are surfaced, never resolved by dropping data.
+- Writes are **atomic** (`<file>.tmp` → fsync → rename → fsync dir); conflicts are surfaced, never
+  resolved by dropping data.
+- Store paths are **relative to the space directory**; an absolute path or one containing `..` is
+  refused, as is a key that is not a plain name.
 - **One spelling per concept.** No aliases, shims or parallel grammars.
 - **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
   does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
@@ -165,7 +172,9 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug`: filenames under `objects/<type>/` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
-| `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, type/property YAML, history lines |
+| `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, space/type/property YAML, history lines |
+| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile` |
+| `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes and the write guard |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
 | `crates/server/src/main.rs` | Server entry point; prints version only |
 | `README.md` | Product summary, layout, dev commands |
@@ -195,7 +204,7 @@ only truth.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
-- **Current coverage:** 54 tests — one `#[cfg(test)]` module per source file, plus
+- **Current coverage:** 68 tests — one `#[cfg(test)]` module per source file, plus
   `tests/roundtrip.rs`. New behavior needs a test exercising the changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the

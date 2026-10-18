@@ -7,8 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use thing_core::markdown::{
-    parse_object, parse_property, parse_revision, parse_type, serialize_object, serialize_property,
-    serialize_revision, serialize_type,
+    parse_object, parse_property, parse_revision, parse_space, parse_type, serialize_object,
+    serialize_property, serialize_revision, serialize_space, serialize_type,
 };
 use thing_core::model::ObjectDoc;
 use thing_core::slug::slugify;
@@ -85,6 +85,21 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
         let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
         assert_eq!(
             serialize_property(&def),
+            text,
+            "{name} is not reproduced byte for byte"
+        );
+    }
+}
+
+#[test]
+fn space_fixture_round_trips_byte_for_byte() {
+    let names = with_prefix("space_");
+    assert_eq!(names.len(), 1, "expected 1 space fixture, got {names:?}");
+    for name in names {
+        let text = fixture(&name);
+        let meta = parse_space(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert_eq!(
+            serialize_space(&meta),
             text,
             "{name} is not reproduced byte for byte"
         );

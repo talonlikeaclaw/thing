@@ -8,6 +8,7 @@ pub mod error;
 pub mod markdown;
 pub mod model;
 pub mod slug;
+pub mod store;
 pub mod value;
 
 /// On-disk format version written as `schema: 1` in every file.
