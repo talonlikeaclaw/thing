@@ -6,6 +6,7 @@
 
 pub mod error;
 pub mod model;
+pub mod value;
 
 /// On-disk format version written as `schema: 1` in every file.
 pub const FORMAT_VERSION: u32 = 1;
