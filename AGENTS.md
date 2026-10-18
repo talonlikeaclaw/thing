@@ -18,6 +18,18 @@ Two claims drive design:
 `thing-server` only prints its version. No store, model, validation, query, frontend, CI or
 container yet. Do not assume documented paths exist.
 
+## Where the plan lives
+
+| File | Role |
+|---|---|
+| `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
+| `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
+
+M1 is in progress: **checkpoint 1 (scaffold) is landed and pushed**; the next work is checkpoint 2,
+the core model and on-disk format. Work proceeds one numbered checkpoint at a time — finish it, report
+what was built and verified, then stop for review. If the plan is silent on something that matters,
+ask rather than picking silently. Later milestones get their own `docs/plan/mN-*.md`.
+
 ## Architecture & Data Flow
 
 ```
