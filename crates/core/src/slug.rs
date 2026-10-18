@@ -132,9 +132,6 @@ mod tests {
     #[test]
     fn empty_base_falls_back_to_untitled() {
         assert_eq!(unique_slug("", [].into_iter()), EMPTY_SLUG);
-        assert_eq!(
-            unique_slug("", [EMPTY_SLUG].into_iter()),
-            "untitled-2"
-        );
+        assert_eq!(unique_slug("", [EMPTY_SLUG].into_iter()), "untitled-2");
     }
 }

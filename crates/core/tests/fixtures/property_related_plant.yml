@@ -1,0 +1,6 @@
+schema: 1
+key: related_plant
+name: Related plant
+format: relation
+target_type: plant
+multi: true

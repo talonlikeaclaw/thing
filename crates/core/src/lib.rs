@@ -5,6 +5,7 @@
 //! server), link this crate and reuse the same implementation.
 
 pub mod error;
+pub mod markdown;
 pub mod model;
 pub mod slug;
 pub mod value;

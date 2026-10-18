@@ -100,11 +100,14 @@ own initiative.
 For each step, in order:
 
 1. Do the step's work on a clean tree.
-2. Run the step's own verification commands. `cargo fmt` and `cargo clippy` are **not installed** in
-   this environment (the toolchain is Nix-provided, there is no rustup), so for Rust the gate is
-   `cargo build --workspace && cargo test --workspace` and for web work `npm run lint && npm run
-   typecheck`. Never claim a formatting or lint pass that did not run; CI runs those gates on a
-   runner that has them.
+2. Run the step's own verification commands. For Rust the gate is
+   `cargo build --workspace && cargo test --workspace && cargo fmt --all --check &&
+   cargo clippy --workspace --all-targets -- -D warnings`; for web work `npm run lint && npm run
+   typecheck`. `rustfmt` (1.9.0) and `clippy` (0.1.98) come from home-manager alongside `rustc`
+   (`/etc/nixos-config/home/devbox.nix`) and are on `PATH`, so all four commands run as written
+   (verified 2026-10-18). If a machine lacks them, `AGENTS.md` has the
+   `nix shell nixpkgs#rustfmt nixpkgs#clippy -c ...` fallback. Never claim a formatting or lint pass
+   that did not run.
 3. Stop and report, in this order and no longer than it needs to be:
    - **Built** — the files created or changed, and the observable behavior that now exists.
    - **Concepts** — the Rust or React ideas this step introduced, briefly: what the construct is,

@@ -662,13 +662,16 @@ UI pass (`npm run dev` in `web/`, server on 8080), as the final gate:
 
 - `cargo 1.98` and Node 24 are present (verified). `rustc`/`cargo` come from Nix
   (`~/.nix-profile/bin/rustc` → `/nix/store/vy0xilifxb02fwal0wihsrwc8s69rlyk-rustc-wrapper-1.98.1`),
-  there is no rustup, and `cargo fmt` and `cargo clippy` both report `no such command`. So:
-  `rust-toolchain.toml` is inert on this machine (leave it — it is correct for anyone with rustup),
-  and the per-step Rust gate is `cargo build --workspace && cargo test --workspace`. If formatting
-  and linting are wanted locally, the components have to be installed
-  (`nix profile install nixpkgs#rustfmt nixpkgs#clippy`; a nixpkgs clippy must match rustc 1.98.1 or
-  it refuses to run, so confirm with `cargo clippy --version` before trusting it). Until then no
-  formatting or lint pass may be claimed for local work; both run in CI on a runner that has them.
+  there is no rustup. `rustfmt` (1.9.0) and `clippy` (0.1.98) are declared in the same
+  `home.packages` list that provides `rustc` (`/etc/nixos-config/home/devbox.nix`), so one nixpkgs
+  pin keeps clippy matched to rustc, the profile GC-roots both, and `~/.nix-profile/bin` puts them
+  on `PATH` — the four-command gate runs with no setup (verified 2026-10-18). Do not hardcode
+  `/nix/store/...-rustfmt-1.98.1`: a store path with no referrer is deleted by `nix-collect-garbage`.
+  `rust-toolchain.toml` is inert on this machine (leave it — it is correct for anyone with rustup).
+  The per-step Rust gate is `cargo build --workspace && cargo test --workspace &&
+  cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings`, all four at
+  1.98.1; `AGENTS.md` has the `nix shell nixpkgs#rustfmt nixpkgs#clippy -c ...` fallback for a
+  machine that lacks them. Never claim a formatting or lint pass that did not run.
 - The environment has an interactive `nix` (2.34.8) but no `rustup`; do not add rustup to the
   workflow without being asked.
 - An empty `spaces/` directory is a valid first run: the SPA shows the create-space form and the

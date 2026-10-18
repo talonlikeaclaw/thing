@@ -1,0 +1,4 @@
+{"rev":1,"at":"2026-10-17T12:00:00Z","by":"0199f2c1-1111-7c2e-9b1d-2a4f6e8c0a1b","action":"create","snapshot":{"title":"Monstera in the study","properties":{"room":"kitchen"}},"body":"Watered today."}
+{"rev":2,"at":"2026-10-17T12:20:00Z","by":"0199f2c1-1111-7c2e-9b1d-2a4f6e8c0a1b","action":"update","snapshot":{"title":"Monstera in the study","properties":{"room":"kitchen","watering_interval_days":7.0}}}
+{"rev":3,"at":"2026-10-17T12:30:00Z","by":"0199f2c1-2222-7c2e-9b1d-2a4f6e8c0a1b","action":"delete","snapshot":{"title":"Monstera in the study","properties":{"room":"study","watering_interval_days":7.0}}}
+{"rev":4,"at":"2026-10-17T12:40:00Z","by":"0199f2c1-2222-7c2e-9b1d-2a4f6e8c0a1b","action":"restore","snapshot":{"title":"Monstera in the study","properties":{"room":"study"}},"body":"Back on the shelf."}

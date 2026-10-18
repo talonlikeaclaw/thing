@@ -1,0 +1,11 @@
+schema: 1
+key: status
+name: Status
+format: select
+options:
+- key: todo
+  name: To do
+  color: amber
+- key: done
+  name: Done
+  color: green

@@ -14,9 +14,9 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 2, mid-slice.** `thing-core` exposes the domain types (`model`),
-`error`, `slug`, `value`, `FORMAT_VERSION` and `VERSION`; `thing-server` only prints its version.
-No markdown format, store, validation, query, frontend, CI or container yet. Do not assume
+**Current state: checkpoint 2 landed.** `thing-core` exposes `model`, `error`, `slug`, `value`,
+`markdown`, `FORMAT_VERSION` and `VERSION`, with fixture round-trip tests; `thing-server` only
+prints its version. No store, validation, query, frontend, CI or container yet. Do not assume
 documented paths exist.
 
 ## Where the plan lives
@@ -59,8 +59,8 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 | Path | Purpose |
 |---|---|
 | `crates/core/` | `thing-core`: domain, format, validation, query, store |
-| `crates/core/src/` | Source (currently `lib.rs`, `error.rs`, `model.rs`, `slug.rs`, `value.rs`) |
-| `crates/core/tests/` | Integration tests; empty, `tempfile` available |
+| `crates/core/src/` | Source: `lib.rs` plus one module per `docs/plan/m1-engine-core.md` §4 entry |
+| `crates/core/tests/` | `roundtrip.rs` walking `fixtures/`; `tempfile` available for store tests |
 | `crates/server/` | `thing-server` binary, axum shell |
 | `web/` | Planned Vite + React 19 SPA; **does not exist yet** |
 | `data/` | Runtime space store; gitignored, never commit fixtures here |
@@ -69,22 +69,32 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 29)
+cargo test --workspace           # all tests (currently 54)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # prints "thing-server 0.1.0"
 ```
 
 Build and test verified in this environment.
 
-**Tooling caveat:** Nix-provided toolchain (`rustc 1.98.1`, `cargo 1.98.0`), not rustup.
-`rust-toolchain.toml` requests `rustfmt` and `clippy`, but neither binary is installed, so
-`cargo fmt` and `cargo clippy` fail with `no such command`. Do not claim formatting or lint
-passes unless tools are installed. Expected gates once available:
+**Tooling:** Nix-provided toolchain (`rustc 1.98.1`, `cargo 1.98.0`), not rustup;
+`rust-toolchain.toml` is inert here. `rustfmt` (1.9.0) and `clippy` (0.1.98) are declared next to
+`rustc` in `home.packages` (`/etc/nixos-config/home/devbox.nix`), so one nixpkgs pin keeps clippy
+matched to rustc and `~/.nix-profile/bin` puts all four on `PATH` — `cargo fmt` and `cargo clippy`
+work with no setup. Never hardcode a `/nix/store/...` path: a store path with no referrer is deleted
+by `nix-collect-garbage`; the profile symlink is what keeps these alive.
+
+If `cargo fmt` says `no such command: \`fmt\`` on another machine, run the gate through nixpkgs
+instead of skipping it:
 
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
+# tools not on PATH:
+nix shell nixpkgs#rustfmt nixpkgs#clippy -c sh -c 'cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings'
 ```
+
+Both gates are part of the checkpoint, not optional: fmt decides whitespace, clippy runs with
+`-D warnings`. Never claim either pass without having run it.
 
 ## Code Conventions & Common Patterns
 
@@ -105,6 +115,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 - A relation whose target is gone is **kept and surfaced**, never silently dropped.
 - Writes are **atomic**; conflicts are surfaced, never resolved by dropping data.
 - **One spelling per concept.** No aliases, shims or parallel grammars.
+- **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
+  does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
+  deserializing; a version other than `FORMAT_VERSION` is refused.
 - Unknown `schema` version is **refused loudly**, not guessed at.
 - Space content never lives in SQLite; only accounts, sessions, invites do.
 
@@ -151,15 +164,18 @@ cargo clippy --workspace --all-targets -- -D warnings
 | `crates/core/src/model.rs` | Domain model: every type the crate is typed against; no serde yet |
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug`: filenames under `objects/<type>/` |
-| `crates/core/src/value.rs` | The only YAML/JSON/`Value` mapping, plus ordering for sorting |
+| `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
+| `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, type/property YAML, history lines |
+| `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
 | `crates/server/src/main.rs` | Server entry point; prints version only |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
 | `.gitignore` | Ignores `/target`, `web/dist`, `data/`, `.env` |
 
-**Stale artifacts:** `target/doc/` and old fingerprints in `target/debug/` describe a discarded,
-fuller core API (modules `error`, `markdown`, `model`, `slug`, `value`). Gitignored build residue;
-not current source, not a reference. Tracked source is the only truth.
+**Stale artifacts:** `target/doc/` and old fingerprints in `target/debug/` come from a discarded
+earlier attempt. Some module names coincide with today's (`error`, `markdown`, `model`, `slug`,
+`value`) but the contents differ. Gitignored build residue; not a reference. Tracked source is the
+only truth.
 
 `README.md` points at `DESIGN.md` and `web/`; neither exists. Do not invent them.
 
@@ -179,8 +195,11 @@ not current source, not a reference. Tracked source is the only truth.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
-- **Current coverage:** 29 tests, one `#[cfg(test)]` module per source file. New behavior needs a
-  test exercising the changed path.
+- **Current coverage:** 54 tests — one `#[cfg(test)]` module per source file, plus
+  `tests/roundtrip.rs`. New behavior needs a test exercising the changed path.
+- **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
+  `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the
+  format changes, and check it still reads like `docs/plan/m1-engine-core.md` §3.
 - **QA:** run `cargo test --workspace` and smoke-run the changed binary. No formatter or linter
   available unless installed (see caveat).
 - **Regression tests:** keep when they pin behavior, not wording or incidental details.

@@ -1,7 +1,9 @@
 //! Per-format value conversion and ordering.
 //!
 //! Frontmatter, history and the HTTP API all spell a value three ways: YAML,
-//! JSON and [`Value`]. This module is the only place those mappings exist.
+//! JSON and [`Value`]. Documents embed a value through `Value`'s derived serde
+//! impls; the functions here are for callers that hold the property key, so a
+//! failure reads `invalid days: expected a number, found text`.
 
 use std::cmp::Ordering;
 
@@ -66,9 +68,9 @@ pub fn to_yaml(value: &Value) -> Yaml {
 pub fn to_json(value: &Value) -> Json {
     match value {
         Value::Text(s) => Json::String(s.clone()),
-        Value::Number(n) => Json::Number(
-            serde_json::Number::from_f64(*n).expect("Value::Number is always finite"),
-        ),
+        Value::Number(n) => {
+            Json::Number(serde_json::Number::from_f64(*n).expect("Value::Number is always finite"))
+        }
         Value::Bool(b) => Json::Bool(*b),
         Value::List(items) => Json::Array(items.iter().cloned().map(Json::String).collect()),
     }
@@ -218,11 +220,20 @@ mod tests {
 
     #[test]
     fn parses_scalars_by_format() {
-        assert_eq!(parsed(PropertyFormat::Text, "kitchen"), Value::Text("kitchen".into()));
+        assert_eq!(
+            parsed(PropertyFormat::Text, "kitchen"),
+            Value::Text("kitchen".into())
+        );
         assert_eq!(parsed(PropertyFormat::Number, "7"), Value::Number(7.0));
         assert_eq!(parsed(PropertyFormat::Checkbox, "true"), Value::Bool(true));
-        assert_eq!(parsed(PropertyFormat::Select, "todo"), Value::Text("todo".into()));
-        assert_eq!(parsed(PropertyFormat::Date, "2026-10-15"), Value::Text("2026-10-15".into()));
+        assert_eq!(
+            parsed(PropertyFormat::Select, "todo"),
+            Value::Text("todo".into())
+        );
+        assert_eq!(
+            parsed(PropertyFormat::Date, "2026-10-15"),
+            Value::Text("2026-10-15".into())
+        );
         assert_eq!(
             parsed(PropertyFormat::Datetime, "2026-10-17T12:30:00Z"),
             Value::Text("2026-10-17T12:30:00Z".into())
@@ -236,7 +247,10 @@ mod tests {
             Value::List(vec!["easy".into(), "indoors".into()])
         );
         assert_eq!(
-            parsed(PropertyFormat::Relation, "0199f2c1-3333-7c2e-9b1d-2a4f6e8c0a1b"),
+            parsed(
+                PropertyFormat::Relation,
+                "0199f2c1-3333-7c2e-9b1d-2a4f6e8c0a1b"
+            ),
             Value::Text("0199f2c1-3333-7c2e-9b1d-2a4f6e8c0a1b".into())
         );
         assert_eq!(
@@ -269,11 +283,17 @@ mod tests {
             (PropertyFormat::Text, Value::Text("Monstera".into())),
             (PropertyFormat::Number, Value::Number(1.5)),
             (PropertyFormat::Checkbox, Value::Bool(false)),
-            (PropertyFormat::MultiSelect, Value::List(vec!["easy".into()])),
+            (
+                PropertyFormat::MultiSelect,
+                Value::List(vec!["easy".into()]),
+            ),
         ];
         for (format, value) in cases {
             let node = to_yaml(&value);
-            assert_eq!(parse_value(format, "field", &node).expect("round trip"), value);
+            assert_eq!(
+                parse_value(format, "field", &node).expect("round trip"),
+                value
+            );
         }
     }
 
@@ -285,7 +305,10 @@ mod tests {
             Value::Bool(true),
             Value::List(vec!["a".into(), "b".into()]),
         ] {
-            assert_eq!(from_json("field", &to_json(&value)).expect("round trip"), value);
+            assert_eq!(
+                from_json("field", &to_json(&value)).expect("round trip"),
+                value
+            );
         }
     }
 
@@ -294,6 +317,50 @@ mod tests {
         assert!(from_json("field", &json("null")).is_err());
         assert!(from_json("field", &json("{}")).is_err());
         assert!(from_json("field", &json("[1]")).is_err());
+    }
+
+    #[test]
+    fn derived_serde_agrees_with_these_functions() {
+        let cases = [
+            (PropertyFormat::Text, Value::Text("kitchen".into())),
+            (PropertyFormat::Number, Value::Number(-2.5)),
+            (PropertyFormat::Checkbox, Value::Bool(true)),
+            (
+                PropertyFormat::MultiSelect,
+                Value::List(vec!["easy".into(), "indoors".into()]),
+            ),
+        ];
+        for (format, value) in cases {
+            let json = to_json(&value);
+            assert_eq!(serde_json::to_value(&value).expect("derived encode"), json);
+            assert_eq!(
+                serde_json::from_value::<Value>(json.clone()).expect("derived decode"),
+                value
+            );
+            assert_eq!(from_json("field", &json).expect("decode"), value);
+
+            let node = to_yaml(&value);
+            assert_eq!(
+                serde_yaml_ng::to_value(&value).expect("derived encode"),
+                node
+            );
+            assert_eq!(
+                serde_yaml_ng::from_value::<Value>(node.clone()).expect("derived decode"),
+                value
+            );
+            assert_eq!(parse_value(format, "field", &node).expect("decode"), value);
+        }
+    }
+
+    #[test]
+    fn derived_serde_refuses_the_same_json_as_these_functions() {
+        for raw in [json("null"), json("{}"), json("[1]")] {
+            assert!(from_json("field", &raw).is_err(), "{raw}");
+            assert!(
+                serde_json::from_value::<Value>(raw.clone()).is_err(),
+                "{raw}"
+            );
+        }
     }
 
     #[test]
@@ -309,7 +376,11 @@ mod tests {
     #[test]
     fn numbers_sort_numerically() {
         assert_eq!(
-            compare(PropertyFormat::Number, &Value::Number(2.0), &Value::Number(10.0)),
+            compare(
+                PropertyFormat::Number,
+                &Value::Number(2.0),
+                &Value::Number(10.0)
+            ),
             Ordering::Less
         );
     }
@@ -338,7 +409,10 @@ mod tests {
     fn datetimes_sort_chronologically_not_lexicographically() {
         let earlier = Value::Text("2026-10-17T01:30:00+02:00".into());
         let later = Value::Text("2026-10-17T00:00:00Z".into());
-        assert_eq!(compare(PropertyFormat::Datetime, &earlier, &later), Ordering::Less);
+        assert_eq!(
+            compare(PropertyFormat::Datetime, &earlier, &later),
+            Ordering::Less
+        );
     }
 
     #[test]
@@ -371,14 +445,23 @@ mod tests {
         let b = Value::List(vec!["a".into(), "c".into()]);
         let c = Value::List(vec!["a".into()]);
         assert_eq!(compare(PropertyFormat::MultiSelect, &a, &b), Ordering::Less);
-        assert_eq!(compare(PropertyFormat::MultiSelect, &a, &c), Ordering::Greater);
+        assert_eq!(
+            compare(PropertyFormat::MultiSelect, &a, &c),
+            Ordering::Greater
+        );
     }
 
     #[test]
     fn mismatched_variants_have_a_stable_order() {
         let number = Value::Number(1.0);
         let text = Value::Text("a".into());
-        assert_eq!(compare(PropertyFormat::Text, &number, &text), Ordering::Less);
-        assert_eq!(compare(PropertyFormat::Text, &text, &number), Ordering::Greater);
+        assert_eq!(
+            compare(PropertyFormat::Text, &number, &text),
+            Ordering::Less
+        );
+        assert_eq!(
+            compare(PropertyFormat::Text, &text, &number),
+            Ordering::Greater
+        );
     }
 }

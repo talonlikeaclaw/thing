@@ -1,0 +1,24 @@
+schema: 1
+key: plant
+name: Plant
+name_plural: Plants
+icon: 🪴
+description: ''
+properties:
+- key: room
+  required: false
+  featured: true
+- key: watering_interval_days
+  required: false
+  featured: true
+view:
+  sorts:
+  - property: updated_at
+    direction: desc
+  filter:
+    op: and
+    conditions: []
+  columns:
+  - title
+  - room
+  - watering_interval_days
