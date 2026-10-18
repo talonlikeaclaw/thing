@@ -4,6 +4,7 @@
 //! filesystem. The server, and every later binary (CLI, Tauri desktop, MCP
 //! server), link this crate and reuse the same implementation.
 
+pub mod error;
 pub mod model;
 
 /// On-disk format version written as `schema: 1` in every file.
