@@ -14,9 +14,10 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 2, first slice.** `thing-core` exposes `model` (all domain types),
-`FORMAT_VERSION` and `VERSION`; `thing-server` only prints its version. No format, store,
-validation, query, frontend, CI or container yet. Do not assume documented paths exist.
+**Current state: checkpoint 2, mid-slice.** `thing-core` exposes the domain types (`model`),
+`error`, `slug`, `value`, `FORMAT_VERSION` and `VERSION`; `thing-server` only prints its version.
+No markdown format, store, validation, query, frontend, CI or container yet. Do not assume
+documented paths exist.
 
 ## Where the plan lives
 
@@ -58,7 +59,7 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 | Path | Purpose |
 |---|---|
 | `crates/core/` | `thing-core`: domain, format, validation, query, store |
-| `crates/core/src/` | Source (currently `lib.rs`, `model.rs`) |
+| `crates/core/src/` | Source (currently `lib.rs`, `error.rs`, `model.rs`, `slug.rs`, `value.rs`) |
 | `crates/core/tests/` | Integration tests; empty, `tempfile` available |
 | `crates/server/` | `thing-server` binary, axum shell |
 | `web/` | Planned Vite + React 19 SPA; **does not exist yet** |
@@ -68,7 +69,7 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 2)
+cargo test --workspace           # all tests (currently 29)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # prints "thing-server 0.1.0"
 ```
@@ -146,8 +147,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 | `Cargo.toml` | Workspace root: members, package metadata, all dependency pins |
 | `rust-toolchain.toml` | Pins Rust 1.98; requests rustfmt/clippy |
 | `Cargo.lock` | Committed exact resolutions |
-| `crates/core/src/lib.rs` | Core crate root; 2 consts + 1 unit test |
+| `crates/core/src/lib.rs` | Core crate root: module list, 2 consts, 1 unit test |
 | `crates/core/src/model.rs` | Domain model: every type the crate is typed against; no serde yet |
+| `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
+| `crates/core/src/slug.rs` | `slugify` / `unique_slug`: filenames under `objects/<type>/` |
+| `crates/core/src/value.rs` | The only YAML/JSON/`Value` mapping, plus ordering for sorting |
 | `crates/server/src/main.rs` | Server entry point; prints version only |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
@@ -175,8 +179,8 @@ not current source, not a reference. Tracked source is the only truth.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
-- **Current coverage:** two tests (`format_version_is_one`,
-  `empty_placement_defaults_to_end`). New behavior needs a test exercising the changed path.
+- **Current coverage:** 29 tests, one `#[cfg(test)]` module per source file. New behavior needs a
+  test exercising the changed path.
 - **QA:** run `cargo test --workspace` and smoke-run the changed binary. No formatter or linter
   available unless installed (see caveat).
 - **Regression tests:** keep when they pin behavior, not wording or incidental details.
