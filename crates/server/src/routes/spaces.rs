@@ -213,19 +213,18 @@ async fn update(
     }
     let name = body.name.as_deref().map(clean_name).transpose()?;
 
-    handle
-        .update_meta(|meta| {
-            if let Some(name) = name {
-                meta.name = name;
-            }
-            if let Some(icon) = body.icon {
-                meta.icon = clean_icon(icon);
-            }
-            if let Some(timezone) = body.timezone {
-                meta.timezone = timezone.trim().to_owned();
-            }
-        })
-        .await?;
+    let _guard = handle.write.lock().await;
+    handle.update_meta_locked(|meta| {
+        if let Some(name) = name {
+            meta.name = name;
+        }
+        if let Some(icon) = body.icon {
+            meta.icon = clean_icon(icon);
+        }
+        if let Some(timezone) = body.timezone {
+            meta.timezone = timezone.trim().to_owned();
+        }
+    })?;
     handle.broadcast("space.updated", json!({}));
     tracing::info!(space = %space, user = %caller.user.id, "space updated");
     Ok(Json(detail_of(&state, &handle, caller.user.id)?))
@@ -356,17 +355,16 @@ async fn set_member(
     if state.accounts.user_by_id(user)?.is_none() {
         return Err(ApiError::not_found(format!("user {user}")));
     }
+
+    let _guard = handle.write.lock().await;
+    let existing = handle.meta().role_of(user);
     if handle.meta().is_last_owner(user) && body.role != Role::Owner {
         return Err(ApiError::validation(
             "role",
             "the last owner cannot step down; make someone else an owner first",
         ));
     }
-
-    let existing = handle.meta().role_of(user);
-    handle
-        .update_meta(|meta| meta.set_member(user, body.role))
-        .await?;
+    handle.update_meta_locked(|meta| meta.set_member(user, body.role))?;
     handle.broadcast(
         if existing.is_some() {
             "member.updated"
@@ -388,6 +386,7 @@ async fn remove_member(
     let space = uuid_param(&space, "space")?;
     let user = uuid_param(&user, "user")?;
     let handle = space_for(&state, &caller, space, Role::Owner)?;
+    let _guard = handle.write.lock().await;
     if handle.meta().is_last_owner(user) {
         return Err(ApiError::validation(
             "user",
@@ -398,11 +397,9 @@ async fn remove_member(
         return Err(ApiError::not_found(format!("member {user}")));
     }
 
-    handle
-        .update_meta(|meta| {
-            meta.remove_member(user);
-        })
-        .await?;
+    handle.update_meta_locked(|meta| {
+        meta.remove_member(user);
+    })?;
     handle.broadcast("member.removed", json!({ "user": user }));
     tracing::info!(space = %space, user = %user, "member removed");
     Ok(StatusCode::NO_CONTENT)

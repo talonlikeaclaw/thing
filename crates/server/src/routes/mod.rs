@@ -65,7 +65,18 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         );
         app.fallback(spa_missing)
     };
-    app.layer(TraceLayer::new_for_http()).with_state(state)
+    app.layer(TraceLayer::new_for_http().make_span_with(trace_span))
+        .with_state(state)
+}
+
+/// What one request's trace span records: never the query string, which can
+/// carry a session token when a non-browser client uses `?session=`.
+fn trace_span(request: &Request) -> tracing::Span {
+    tracing::debug_span!(
+        "request",
+        method = %request.method(),
+        path = %request.uri().path()
+    )
 }
 
 /// `GET /api/health` — liveness, and the version the client is talking to.
@@ -387,6 +398,20 @@ mod tests {
             self.call("POST", "/api/auth/register", Some(body), None)
                 .await
         }
+    }
+
+    /// Serves the router on a loopback port for tests that need a real socket.
+    async fn serve(router: Router) -> std::net::SocketAddr {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("a listener");
+        let addr = listener.local_addr().expect("a local address");
+        tokio::spawn(async move {
+            axum::serve(listener, router)
+                .await
+                .expect("the test server runs");
+        });
+        addr
     }
 
     fn cookie_of(reply: &Reply) -> &str {
@@ -1532,13 +1557,18 @@ mod tests {
     }
 
     /// Writes a handshake request and returns the stream and the response head.
-    async fn handshake(addr: std::net::SocketAddr, path: &str) -> (tokio::net::TcpStream, String) {
+    async fn handshake(
+        addr: std::net::SocketAddr,
+        path: &str,
+        origin: Option<&str>,
+    ) -> (tokio::net::TcpStream, String) {
         use tokio::io::AsyncWriteExt;
         let mut stream = tokio::net::TcpStream::connect(addr)
             .await
             .expect("a connection");
+        let origin = origin.map_or_else(String::new, |origin| format!("Origin: {origin}\r\n"));
         let request = format!(
-            "GET {path} HTTP/1.1\r\nHost: {addr}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+            "GET {path} HTTP/1.1\r\nHost: {addr}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n{origin}\r\n"
         );
         stream
             .write_all(request.as_bytes())
@@ -1559,22 +1589,10 @@ mod tests {
             let token = cookie
                 .strip_prefix("thing_session=")
                 .expect("the session cookie");
-            let addr = {
-                let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-                    .await
-                    .expect("a listener");
-                let addr = listener.local_addr().expect("a local address");
-                let router = server.router.clone();
-                tokio::spawn(async move {
-                    axum::serve(listener, router)
-                        .await
-                        .expect("the test server runs");
-                });
-                addr
-            };
+            let addr = serve(server.router.clone()).await;
 
             let path = format!("/api/spaces/{}/events?session={token}", garden.space);
-            let (mut socket, head) = handshake(addr, &path).await;
+            let (mut socket, head) = handshake(addr, &path, None).await;
             assert!(head.starts_with("HTTP/1.1 101"), "{head}");
             let hello: serde_json::Value =
                 serde_json::from_str(&read_text_frame(&mut socket).await).expect("a hello frame");
@@ -1600,9 +1618,19 @@ mod tests {
             // The session query parameter is the only credential; without it
             // the upgrade is refused before a socket exists.
             let (anonymous, head) =
-                handshake(addr, &format!("/api/spaces/{}/events", garden.space)).await;
+                handshake(addr, &format!("/api/spaces/{}/events", garden.space), None).await;
             assert!(head.starts_with("HTTP/1.1 401"), "{head}");
             drop(anonymous);
+
+            // A browser origin that is not this app is refused before a socket.
+            let (foreign, head) = handshake(addr, &path, Some("https://evil.example")).await;
+            assert!(head.starts_with("HTTP/1.1 403"), "{head}");
+            drop(foreign);
+
+            // The public URL's own origin is accepted.
+            let (same, head) = handshake(addr, &path, Some("http://localhost:5173")).await;
+            assert!(head.starts_with("HTTP/1.1 101"), "{head}");
+            drop(same);
         });
     }
     #[test]
@@ -1673,6 +1701,73 @@ mod tests {
                 )
                 .await;
             assert_eq!(next_event(&mut events).await.event, "member.added");
+        });
+    }
+    /// Waits for the server to end the socket, allowing a close frame first.
+    async fn expect_closed(socket: &mut tokio::net::TcpStream) {
+        use tokio::io::AsyncReadExt;
+        let mut buffer = [0u8; 2];
+        let outcome =
+            tokio::time::timeout(std::time::Duration::from_secs(2), socket.read(&mut buffer))
+                .await
+                .expect("the server closes the socket");
+        match outcome {
+            Ok(0) | Err(_) => {}
+            Ok(_) => assert_eq!(buffer[0] & 0x0f, 8, "a close frame"),
+        }
+    }
+
+    #[test]
+    fn removing_a_member_closes_their_live_socket() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server.register("viewer@example.com", Some(&code)).await;
+            let viewer_token = cookie_of(&viewer)
+                .strip_prefix("thing_session=")
+                .expect("the session cookie")
+                .to_owned();
+            let viewer_id = viewer.body["user"]["id"]
+                .as_str()
+                .expect("an id")
+                .to_owned();
+
+            let addr = serve(server.router.clone()).await;
+            let path = format!("/api/spaces/{space}/events?session={viewer_token}");
+            let (mut socket, head) = handshake(addr, &path, None).await;
+            assert!(head.starts_with("HTTP/1.1 101"), "{head}");
+            let hello: serde_json::Value =
+                serde_json::from_str(&read_text_frame(&mut socket).await).expect("a hello frame");
+            assert_eq!(hello["event"], "hello");
+
+            let removed = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{space}/members/{viewer_id}"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(removed.status, StatusCode::NO_CONTENT);
+
+            let event: serde_json::Value =
+                serde_json::from_str(&read_text_frame(&mut socket).await).expect("an event");
+            assert_eq!(event["event"], "member.removed");
+            assert_eq!(event["payload"]["user"], viewer_id.as_str());
+
+            expect_closed(&mut socket).await;
         });
     }
 }

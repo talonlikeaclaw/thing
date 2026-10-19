@@ -241,7 +241,7 @@ async fn rename(
         .store
         .rename_property_key(&key, &next, OffsetDateTime::now_utc(), caller.user.id)?;
     rebuild(&handle)?;
-    handle.broadcast("property.updated", json!({ "key": next, "previous": key }));
+    handle.broadcast("property.updated", json!({ "key": next }));
     tracing::info!(space = %space, user = %caller.user.id, from = %key, to = %next, "property renamed");
     Ok(Json(json!(property_of(&handle, &next)?)))
 }

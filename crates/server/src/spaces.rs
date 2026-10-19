@@ -61,10 +61,12 @@ impl SpaceHandle {
         f(&mut index)
     }
 
-    /// Applies `change` to `space.yml` under the write lock, then re-reads it,
-    /// so the rename a caller asked for is what the index serves next.
-    pub async fn update_meta(&self, change: impl FnOnce(&mut SpaceMeta)) -> Result<(), CoreError> {
-        let _guard = self.write.lock().await;
+    /// Applies `change` to `space.yml` and re-reads it, so the rename a caller
+    /// asked for is what the index serves next.
+    ///
+    /// The caller holds [`SpaceHandle::write`], so it can broadcast the change
+    /// before another writer gets a turn.
+    pub fn update_meta_locked(&self, change: impl FnOnce(&mut SpaceMeta)) -> Result<(), CoreError> {
         let (mut meta, expected) = self.with_index(|index| {
             (
                 index.meta().clone(),

@@ -96,12 +96,15 @@ async fn register(
             .registry
             .get(invite.space_id)
             .ok_or_else(|| ApiError::not_found(format!("space {}", invite.space_id)))?;
-        handle
-            .update_meta(|meta| meta.set_member(user.id, invite.role))
-            .await?;
+        let _guard = handle.write.lock().await;
+        handle.update_meta_locked(|meta| meta.set_member(user.id, invite.role))?;
         state
             .accounts
             .mark_invite_used(&invite.code, user.id, now)?;
+        handle.broadcast(
+            "member.added",
+            serde_json::json!({ "user": user.id, "role": invite.role }),
+        );
         tracing::info!(
             space = %invite.space_id,
             user = %user.id,
