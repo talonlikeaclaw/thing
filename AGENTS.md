@@ -14,11 +14,14 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 4 landed.** `thing-core` exposes `model`, `error`, `slug`, `value`,
-`markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and
-`index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over `tempfile::TempDir`,
-and table-view tests over a space built on disk; `thing-server` only prints its version. No
-frontend, CI or container yet. Do not assume documented paths exist.
+**Current state: checkpoint 5 in the working tree.** `thing-core` exposes `model`, `error`, `slug`,
+`value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
+and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
+`tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` now has its
+shell: `config` (environment knobs), `error` (`CoreError` → HTTP), `spaces` (`SpaceRegistry`),
+`watcher` (`notify` over the data directory) and `routes` (`/api/health`, an API JSON 404, the SPA
+fallback); `set-password`, auth and the space routes are still to come, so no route reaches a
+space yet. No frontend, CI or container yet. Do not assume documented paths exist.
 
 ## Where the plan lives
 
@@ -27,10 +30,11 @@ frontend, CI or container yet. Do not assume documented paths exist.
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is in progress: **checkpoint 1 (scaffold) is landed and pushed**; the next work is checkpoint 2,
-the core model and on-disk format. Work proceeds one numbered checkpoint at a time — finish it, report
-what was built and verified, then stop for review. If the plan is silent on something that matters,
-ask rather than picking silently. Later milestones get their own `docs/plan/mN-*.md`.
+M1 is in progress: **checkpoints 1–4 (scaffold; core model and format; store; index, validation and
+query) are landed and pushed**; checkpoint 5, the server shell, is implemented and awaiting review.
+Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
+stop for review. If the plan is silent on something that matters, ask rather than picking silently.
+Later milestones get their own `docs/plan/mN-*.md`.
 
 ## Architecture & Data Flow
 
@@ -75,9 +79,10 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 128)
+cargo test --workspace           # all tests (currently 132)
 cargo test -p thing-core         # core crate only
-cargo run -p thing-server        # prints "thing-server 0.1.0"
+cargo run -p thing-server        # serves ./data on 127.0.0.1:8080
+cargo run -p thing-server -- reindex --space <space-uuid>   # prints a space's file problems
 ```
 
 Build and test verified in this environment.
@@ -191,7 +196,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, and the property-rename rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard and `rename_property_key` |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
-| `crates/server/src/main.rs` | Server entry point; prints version only |
+| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `error`, `spaces`, `watcher`, `routes` |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
 | `.gitignore` | Ignores `/target`, `web/dist`, `data/`, `.env` |
@@ -219,7 +224,7 @@ only truth.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
-- **Current coverage:** 128 tests — one `#[cfg(test)]` module per source file, plus
+- **Current coverage:** 132 tests — one `#[cfg(test)]` module per source file, plus
   `tests/roundtrip.rs`. New behavior needs a test exercising the changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the
