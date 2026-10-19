@@ -6,15 +6,22 @@
 //! axum's own rejections.
 
 mod auth;
+mod objects;
+mod properties;
 mod spaces;
+mod types;
+mod values;
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use axum::extract::{FromRequest, Request};
+use axum::extract::{FromRequest, FromRequestParts, Query, Request};
+use axum::http::request::Parts;
 use axum::http::{Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::{Json, Router};
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use thing_core::error::CoreError;
@@ -38,6 +45,9 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .route("/api/health", get(health))
         .merge(auth::routes())
         .merge(spaces::routes())
+        .merge(types::routes())
+        .merge(properties::routes())
+        .merge(objects::routes())
         .route("/api", any(no_such_route))
         .route("/api/{*rest}", any(no_such_route));
 
@@ -93,9 +103,94 @@ where
     }
 }
 
+/// The query string, read by hand for two reasons: a bad parameter leaves as our
+/// error envelope rather than axum's own rejection, and a parameter the route
+/// does not know is refused by name instead of ignored.
+pub struct ApiQuery(BTreeMap<String, String>);
+
+impl ApiQuery {
+    /// Reads `name`; absent or empty is `None`.
+    pub fn raw(&mut self, name: &str) -> Option<String> {
+        self.0.remove(name).filter(|value| !value.is_empty())
+    }
+
+    /// Reads `name` as `T`; unparseable is a `422` naming it.
+    pub fn parse<T>(&mut self, name: &str) -> Result<Option<T>, ApiError>
+    where
+        T: std::str::FromStr,
+        T::Err: std::fmt::Display,
+    {
+        let Some(raw) = self.raw(name) else {
+            return Ok(None);
+        };
+        raw.parse::<T>()
+            .map(Some)
+            .map_err(|err| ApiError::validation(name, err.to_string()))
+    }
+
+    /// Refuses whatever the route did not read.
+    pub fn finish(self) -> Result<(), ApiError> {
+        match self.0.keys().next() {
+            Some(unknown) => Err(ApiError::validation(
+                unknown,
+                "is not a parameter of this route",
+            )),
+            None => Ok(()),
+        }
+    }
+}
+
+impl<S> FromRequestParts<S> for ApiQuery
+where
+    S: Send + Sync,
+{
+    type Rejection = ApiError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, ApiError> {
+        let Query(pairs) = Query::<BTreeMap<String, String>>::from_request_parts(parts, state)
+            .await
+            .map_err(|err| ApiError::validation("query", err.body_text()))?;
+        Ok(Self(pairs))
+    }
+}
+
 /// A path parameter that must be a UUID; anything else is a `422` naming it.
 pub fn uuid_param(value: &str, field: &str) -> Result<Uuid, ApiError> {
     Uuid::parse_str(value).map_err(|_| ApiError::validation(field, format!("{value} is not an id")))
+}
+
+/// Trims a display string and checks it is there and not too long.
+pub fn clean_text(field: &str, value: &str, max: usize) -> Result<String, ApiError> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err(ApiError::validation(
+            field,
+            format!("a {field} is required"),
+        ));
+    }
+    if value.chars().count() > max {
+        return Err(ApiError::validation(
+            field,
+            format!("keep {field} under {max} characters"),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+/// An icon of nothing is no icon, so `""` and `"  "` both mean the key is absent.
+pub fn clean_icon(icon: Option<String>) -> Option<String> {
+    icon.map(|icon| icon.trim().to_owned())
+        .filter(|icon| !icon.is_empty())
+}
+
+/// Tells `null` apart from a missing field, so `icon: null` clears the icon
+/// while leaving the field out leaves it alone.
+pub fn double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 /// The space the caller may act on at this role.
@@ -601,5 +696,647 @@ mod tests {
             .await;
         assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
         created.body["id"].as_str().expect("an id").to_owned()
+    }
+
+    /// A space with a `Plant` type that shows `room`, and one plant in it.
+    struct Garden {
+        space: String,
+        plant: String,
+    }
+
+    async fn garden(server: &Server, cookie: &str) -> Garden {
+        let space = create_space(server, cookie, "Garden").await;
+        for (method, path, body, expected) in [
+            (
+                "POST",
+                format!("/api/spaces/{space}/types"),
+                json!({ "name": "Plant", "icon": "🪴" }),
+                StatusCode::CREATED,
+            ),
+            (
+                "POST",
+                format!("/api/spaces/{space}/properties"),
+                json!({
+                    "name": "Room",
+                    "format": "select",
+                    "options": [
+                        { "name": "Kitchen", "color": "amber" },
+                        { "name": "Study", "color": "blue" }
+                    ]
+                }),
+                StatusCode::CREATED,
+            ),
+            (
+                "PATCH",
+                format!("/api/spaces/{space}/types/plant"),
+                json!({
+                    "properties": [{ "key": "room", "featured": true }],
+                    "view": {
+                        "columns": ["title", "room"],
+                        "sorts": [{ "property": "updated_at", "direction": "desc" }],
+                        "filter": { "op": "and", "conditions": [] }
+                    }
+                }),
+                StatusCode::OK,
+            ),
+        ] {
+            let reply = server.call(method, &path, Some(body), Some(cookie)).await;
+            assert_eq!(reply.status, expected, "{:?}", reply.body);
+        }
+
+        let created = server
+            .call(
+                "POST",
+                &format!("/api/spaces/{space}/objects"),
+                Some(json!({
+                    "type": "plant",
+                    "title": "Monstera in the study",
+                    "properties": { "room": "kitchen" },
+                    "body": "\nWatered.\n",
+                })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+        Garden {
+            space,
+            plant: created.body["id"].as_str().expect("an id").to_owned(),
+        }
+    }
+
+    #[test]
+    fn a_type_shows_its_properties_and_a_row_carries_their_labels() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            let types = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/types", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(types.status, StatusCode::OK);
+            assert_eq!(types.body[0]["key"], "plant");
+            assert_eq!(types.body[0]["property_count"], 1);
+            assert_eq!(types.body[0]["object_count"], 1);
+
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/types/plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(detail.body["properties"][0]["key"], "room");
+            assert_eq!(detail.body["view"]["columns"], json!(["title", "room"]));
+
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.status, StatusCode::OK, "{:?}", list.body);
+            assert_eq!(list.body["total"], 1);
+            assert_eq!(list.body["has_more"], false);
+            let row = &list.body["objects"][0];
+            assert_eq!(row["title"], "Monstera in the study");
+            assert_eq!(
+                row["values"]["room"],
+                json!({ "value": "kitchen", "label": "Kitchen" }),
+                "the option key travels with the name a cell shows"
+            );
+        });
+    }
+
+    #[test]
+    fn a_filter_narrows_the_list_and_a_bad_one_names_its_field() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let list = format!("/api/spaces/{}/objects", garden.space);
+
+            let kept = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{list}?type=plant&filter={}",
+                        url_encoded(
+                            &json!({
+                                "op": "and",
+                                "conditions": [{
+                                    "property": "room",
+                                    "condition": "equal",
+                                    "value": "kitchen"
+                                }]
+                            })
+                            .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(kept.status, StatusCode::OK, "{:?}", kept.body);
+            assert_eq!(kept.body["total"], 1);
+
+            let dropped = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{list}?type=plant&filter={}",
+                        url_encoded(
+                            &json!({
+                                "op": "and",
+                                "conditions": [{
+                                    "property": "room",
+                                    "condition": "equal",
+                                    "value": "study"
+                                }]
+                            })
+                            .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(dropped.body["total"], 0);
+
+            let unknown = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{list}?type=plant&filter={}",
+                        url_encoded(
+                            &json!({
+                                "op": "and",
+                                "conditions": [{
+                                    "property": "ghost",
+                                    "condition": "equal",
+                                    "value": "x"
+                                }]
+                            })
+                            .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unknown.field(), "ghost");
+
+            let nonsense = server
+                .call(
+                    "GET",
+                    &format!("{list}?type=plant&nonsense=1"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(nonsense.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(nonsense.field(), "nonsense");
+        });
+    }
+
+    #[test]
+    fn a_search_matches_a_title_and_a_write_needs_the_current_revision() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let object = format!("/api/spaces/{}/objects/{}", garden.space, garden.plant);
+
+            let found = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant&q=watered", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(found.body["total"], 1, "the body is searched too");
+            let missing = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant&q=ficus", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(missing.body["total"], 0);
+
+            let stale = server
+                .call(
+                    "PATCH",
+                    &object,
+                    Some(json!({ "rev": 7, "title": "Fern" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(stale.status, StatusCode::CONFLICT);
+            assert_eq!(stale.body["error"]["details"]["current_rev"], 1);
+            assert_eq!(stale.body["error"]["details"]["reason"], "stale revision");
+
+            let missing_rev = server
+                .call(
+                    "PATCH",
+                    &object,
+                    Some(json!({ "title": "Fern" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(missing_rev.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(missing_rev.field(), "body");
+
+            let written = server
+                .call(
+                    "PATCH",
+                    &object,
+                    Some(json!({ "rev": 1, "title": "Monstera by the window" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(written.status, StatusCode::OK, "{:?}", written.body);
+            assert_eq!(written.body["rev"], 2);
+            assert_eq!(written.body["title"], "Monstera by the window");
+            assert_eq!(
+                written.body["properties"]["room"]["value"], "kitchen",
+                "a title write leaves the values alone"
+            );
+
+            // The title names the file, so the object moved, and the id did not.
+            let listed = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(listed.body["objects"][0]["id"], garden.plant);
+        });
+    }
+
+    #[test]
+    fn a_trashed_object_leaves_the_list_and_comes_back_with_its_revision() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let object = format!("/api/spaces/{}/objects/{}", garden.space, garden.plant);
+
+            let trashed = server.call("DELETE", &object, None, Some(&cookie)).await;
+            assert_eq!(trashed.status, StatusCode::OK, "{:?}", trashed.body);
+            assert_eq!(trashed.body["rev"], 1);
+            assert!(trashed.body["trashed_at"].is_string());
+            assert_eq!(trashed.body["title"], "Monstera in the study");
+
+            let gone = server.call("GET", &object, None, Some(&cookie)).await;
+            assert_eq!(gone.status, StatusCode::NOT_FOUND);
+
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.body["total"], 0);
+
+            let trash = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/trash", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(trash.body[0]["id"], garden.plant);
+            assert_eq!(
+                trash.body[0]["trashed_from"],
+                "objects/plant/monstera-in-the-study.md"
+            );
+
+            let restored = server
+                .call("POST", &format!("{object}/restore"), None, Some(&cookie))
+                .await;
+            assert_eq!(restored.status, StatusCode::OK, "{:?}", restored.body);
+            assert_eq!(restored.body["rev"], 1, "trashing is not a revision");
+            assert_eq!(restored.body["trashed_at"], Value::Null);
+
+            let back = server.call("GET", &object, None, Some(&cookie)).await;
+            assert_eq!(back.status, StatusCode::OK);
+
+            let history = server
+                .call("GET", &format!("{object}/history"), None, Some(&cookie))
+                .await;
+            let actions: Vec<&str> = history
+                .body
+                .as_array()
+                .expect("revisions")
+                .iter()
+                .filter_map(|revision| revision["action"].as_str())
+                .collect();
+            assert_eq!(actions, vec!["create", "delete", "restore"]);
+        });
+    }
+
+    #[test]
+    fn renaming_a_property_key_rewrites_what_names_it() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            let renamed = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/properties/room/rename", garden.space),
+                    Some(json!({ "key": "space" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(renamed.status, StatusCode::OK, "{:?}", renamed.body);
+            assert_eq!(renamed.body["key"], "space");
+
+            let gone = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/properties/room", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(gone.status, StatusCode::NOT_FOUND);
+
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                detail.body["properties"]["space"]["value"], "kitchen",
+                "the value moved with the key"
+            );
+            assert_eq!(detail.body["properties"].get("room"), None);
+            assert_eq!(detail.body["rev"], 2, "the rewrite counts as a write");
+
+            let history = server
+                .call(
+                    "GET",
+                    &format!(
+                        "/api/spaces/{}/objects/{}/history",
+                        garden.space, garden.plant
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let revisions = history.body.as_array().expect("revisions");
+            assert_eq!(revisions.len(), 2);
+            assert_eq!(revisions[1]["changed"], json!(["space", "room"]));
+        });
+    }
+
+    #[test]
+    fn a_type_with_objects_is_only_deleted_when_the_caller_says_so() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let types = format!("/api/spaces/{}/types/plant", garden.space);
+
+            let refused = server.call("DELETE", &types, None, Some(&cookie)).await;
+            assert_eq!(refused.status, StatusCode::CONFLICT);
+            assert_eq!(refused.body["error"]["details"]["objects"], 1);
+
+            let deleted = server
+                .call(
+                    "DELETE",
+                    &format!("{types}?delete_objects=true"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(deleted.status, StatusCode::NO_CONTENT);
+
+            let gone = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(gone.status, StatusCode::NOT_FOUND);
+
+            let trash = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/trash", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                trash.body.as_array().expect("trash").len(),
+                1,
+                "its objects were trashed, not destroyed"
+            );
+        });
+    }
+
+    #[test]
+    fn a_viewer_may_read_the_schema_and_an_outside_caller_sees_nothing() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let owner_cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &owner_cookie).await;
+            let work = create_space(&server, &owner_cookie, "Work").await;
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", garden.space),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server.register("viewer@example.com", Some(&code)).await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+
+            for path in [
+                format!("/api/spaces/{}/types", garden.space),
+                format!("/api/spaces/{}/properties", garden.space),
+                format!("/api/spaces/{}/objects?type=plant", garden.space),
+                format!("/api/spaces/{}/trash", garden.space),
+                format!("/api/spaces/{}/health", garden.space),
+            ] {
+                let read = server.call("GET", &path, None, Some(&viewer_cookie)).await;
+                assert_eq!(read.status, StatusCode::OK, "{path}");
+            }
+
+            let write = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "plant", "title": "Sneaky" })),
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(write.status, StatusCode::FORBIDDEN);
+
+            // A space the caller is not in is 404 on every one of these, never 403.
+            for path in [
+                format!("/api/spaces/{work}/types"),
+                format!("/api/spaces/{work}/objects?type=plant"),
+                format!("/api/spaces/{work}/health"),
+            ] {
+                let foreign = server.call("GET", &path, None, Some(&viewer_cookie)).await;
+                assert_eq!(foreign.status, StatusCode::NOT_FOUND, "{path}");
+            }
+        });
+    }
+
+    #[test]
+    fn an_object_needs_a_type_that_exists_and_a_title_that_is_there() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            let unknown_type = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "ghost", "title": "Boo" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown_type.status, StatusCode::NOT_FOUND);
+
+            let blank = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "plant", "title": "   " })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(blank.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(blank.field(), "title");
+
+            let unknown_property = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Fern",
+                        "properties": { "ghost": "x" }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown_property.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(
+                unknown_property.body["error"]["details"]["errors"][0]["field"],
+                "ghost"
+            );
+
+            let unknown_option = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Fern",
+                        "properties": { "room": "attic" }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown_option.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(
+                unknown_option.body["error"]["details"]["errors"][0]["message"],
+                "unknown option attic"
+            );
+        });
+    }
+
+    #[test]
+    fn a_second_type_of_the_same_name_conflicts_and_a_reserved_name_is_refused() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let types = format!("/api/spaces/{}/types", garden.space);
+
+            let again = server
+                .call(
+                    "POST",
+                    &types,
+                    Some(json!({ "name": "plant" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(again.status, StatusCode::CONFLICT);
+
+            let reserved = server
+                .call(
+                    "POST",
+                    &types,
+                    Some(json!({ "name": "Properties" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(reserved.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(reserved.field(), "name");
+        });
+    }
+
+    /// Percent-encodes a JSON document the way a browser sends it in a query.
+    fn url_encoded(text: &str) -> String {
+        text.bytes()
+            .map(|byte| match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    (byte as char).to_string()
+                }
+                other => format!("%{other:02X}"),
+            })
+            .collect()
     }
 }

@@ -15,7 +15,7 @@ use thing_core::store::fs::FsSpaceStore;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::{ApiJson, space_for, uuid_param};
+use super::{ApiJson, clean_icon, clean_text, double_option, space_for, uuid_param};
 use crate::accounts::{Invite, User};
 use crate::auth::Caller;
 use crate::error::ApiError;
@@ -39,6 +39,7 @@ pub fn routes() -> Router<SharedState> {
             get(list_invites).post(create_invite),
         )
         .route("/api/spaces/{space}/invites/{code}", delete(revoke_invite))
+        .route("/api/spaces/{space}/health", get(health))
         .route(
             "/api/spaces/{space}/members/{user}",
             post(set_member).delete(remove_member),
@@ -158,6 +159,21 @@ async fn create(
 
     let body = detail_of(&state, &handle, caller.user.id)?;
     Ok((StatusCode::CREATED, Json(body)))
+}
+
+/// `GET /api/spaces/{space}/health` [viewer]
+///
+/// What is wrong with the files: a file that will not parse, a relation whose
+/// target is gone, or two objects whose titles collide on one file name.
+async fn health(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path(space): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Viewer)?;
+    let problems = handle.with_index(|index| index.problems());
+    Ok(Json(super::problems_json(&problems)))
 }
 
 /// `GET /api/spaces/{space}`
@@ -434,32 +450,7 @@ fn invite_view(invite: Invite) -> InviteView {
     }
 }
 
-/// An icon of nothing is no icon, so `""` and `"  "` both mean the key is absent.
-fn clean_icon(icon: Option<String>) -> Option<String> {
-    icon.map(|icon| icon.trim().to_owned())
-        .filter(|icon| !icon.is_empty())
-}
-
+/// A space name is a display string like any other, one limit long.
 fn clean_name(name: &str) -> Result<String, ApiError> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(ApiError::validation("name", "a name is required"));
-    }
-    if name.chars().count() > MAX_SPACE_NAME_LEN {
-        return Err(ApiError::validation(
-            "name",
-            format!("keep it under {MAX_SPACE_NAME_LEN} characters"),
-        ));
-    }
-    Ok(name.to_owned())
-}
-
-/// Tells `null` apart from a missing field, so `icon: null` clears the icon
-/// while leaving the field out leaves it alone.
-fn double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Some)
+    clean_text("name", name, MAX_SPACE_NAME_LEN)
 }

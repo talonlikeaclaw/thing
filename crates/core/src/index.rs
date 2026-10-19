@@ -169,6 +169,11 @@ impl SpaceIndex {
         self.trash.values()
     }
 
+    /// The trashed object with this id, if one is in the trash.
+    pub fn trashed(&self, id: Uuid) -> Option<&ObjectDoc> {
+        self.trash.get(&id)
+    }
+
     /// The object's file under `objects/`, for a caller that writes it back.
     pub fn object_path(&self, id: Uuid) -> Option<&Path> {
         self.paths.get(&id).map(PathBuf::as_path)

@@ -14,15 +14,17 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 6 in the working tree.** `thing-core` exposes `model`, `error`, `slug`,
-`value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
-and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
-`tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` has its shell
-(`config`, `error`, `spaces`, `watcher`, `state`) and its auth and membership surface: `accounts`
-(users, sessions, invites in SQLite, ladder behind a test), `auth` (argon2, session tokens, the
-`thing_session` cookie and the `Caller` extractor), `routes/auth` (register, login, logout, me) and
-`routes/spaces` (space CRUD, invites, members, the role guard). Types, properties, objects, history
-and trash routes are still to come, as are the WebSocket and the SPA. No frontend, CI or container
+**Current state: checkpoint 7 in the working tree.** `thing-core` exposes `model`, `error`, `slug`
+(with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
+(`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
+with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
+a space built on disk. `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`,
+`state`), its auth and membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and
+its schema and object APIs: `routes/types` (types and their saved view), `routes/properties`
+(properties and options, key rename, forced removal), `routes/objects` (records, list with
+filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
+`{value, label}` rendering every response uses). `scripts/seed.sh` builds the Garden demo space
+against a running server. The WebSocket and the SPA are still to come. No frontend, CI or container
 yet. Do not assume documented paths exist.
 
 ## Where the plan lives
@@ -32,9 +34,9 @@ yet. Do not assume documented paths exist.
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is in progress: **checkpoints 1–5 (scaffold; core model and format; store; index, validation and
-query; server shell) are landed and pushed**; checkpoint 6, auth and membership, is implemented and
-awaiting review.
+M1 is in progress: **checkpoints 1–6 (scaffold; core model and format; store; index, validation and
+query; server shell; auth and membership) are landed**; checkpoint 7, the schema and object APIs, is
+implemented and awaiting review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -75,6 +77,7 @@ Later milestones get their own `docs/plan/mN-*.md`.
 | `crates/core/src/` | Source: `lib.rs` plus one module per `docs/plan/m1-engine-core.md` §4 entry |
 | `crates/core/tests/` | `roundtrip.rs` walking `fixtures/`; store tests are inline in `store/fs.rs` over `tempfile::TempDir` |
 | `crates/server/` | `thing-server` binary, axum shell |
+| `scripts/` | `seed.sh`: the curl walkthrough that builds the Garden demo space |
 | `web/` | Planned Vite + React 19 SPA; **does not exist yet** |
 | `data/` | Runtime space store; gitignored, never commit fixtures here |
 
@@ -82,11 +85,12 @@ Later milestones get their own `docs/plan/mN-*.md`.
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 155)
+cargo test --workspace           # all tests (currently 191)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # serves ./data on 127.0.0.1:8080
 cargo run -p thing-server -- set-password --email you@example.com   # reads the password from stdin
 cargo run -p thing-server -- reindex --space <space-uuid>   # prints a space's file problems
+THING_DATA_DIR=./data scripts/seed.sh   # builds the Garden demo space against a running server
 ```
 
 Build and test verified in this environment.
@@ -142,6 +146,19 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   resolved by dropping data.
 - Store paths are **relative to the space directory**; an absolute path or one containing `..` is
   refused, as is a key that is not a plain name.
+- **A key is minted once.** Type and property keys derive from the display name at creation
+  (`slug::key_from_name`), match `^[a-z][a-z0-9_]{0,39}$`, and are never touched by a later rename —
+  except `POST /properties/{key}/rename`, which rewrites the key and the values with it. A name that
+  derives a reserved frontmatter key is refused.
+- **A display name is not an identity.** Option keys, not option names, are stored; changing an
+  option's name or colour never moves a value, and removing an option objects still hold is refused.
+- **The file follows the title.** Retitling an object writes it at its new slug and removes the old
+  file; its id, revisions and body are untouched.
+- **Trashing is not a write.** Delete and restore move the file, stamp `trashed_at`, and append a
+  revision that repeats the object's current `rev`; only a content write increments it.
+- **A PATCH merges, and `null` removes.** `properties: {"room": "study"}` sets one value without
+  touching the others; `properties: {"room": null}` drops the key. Every `PATCH` carries the `rev`
+  the caller read, and a different one is a `409` with `details.current_rev`.
 - **One spelling per concept.** No aliases, shims or parallel grammars.
 - **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
   does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
@@ -189,19 +206,21 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `rust-toolchain.toml` | Pins Rust 1.98; requests rustfmt/clippy |
 | `Cargo.lock` | Committed exact resolutions |
 | `crates/core/src/lib.rs` | Core crate root: module list, 2 consts, 1 unit test |
-| `crates/core/src/model.rs` | Domain model: every type the crate is typed against, plus the `ObjectSummary` projection and `TITLE_KEY` |
+| `crates/core/src/model.rs` | Domain model: every type the crate is typed against, plus the `ObjectSummary` projection, `TITLE_KEY`, `UPDATED_AT_KEY` and `RESERVED_KEYS` |
 | `crates/core/src/validate.rs` | `Schema` (borrowed from the index), `validate_object`, `validate_filter`, `validate_sorts`, `missing_relations` |
 | `crates/core/src/filter.rs` | `matches` / `row_matches`: one condition against one row, over every `CondOp` |
 | `crates/core/src/query.rs` | `apply`: the view's filter, then its total sort order |
 | `crates/core/src/index.rs` | `SpaceIndex`: a whole space in memory, `rebuild_from_disk`, `reload_file`, `problems`, `detail` |
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
-| `crates/core/src/slug.rs` | `slugify` / `unique_slug`: filenames under `objects/<type>/` |
+| `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
 | `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, space/type/property YAML, history lines |
-| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, and the property-rename rewrites |
-| `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard and `rename_property_key` |
+| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`) and the property rename/removal rewrites |
+| `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
-| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `watcher`, `routes/{mod,auth,spaces}` |
+| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `watcher`, `routes/{mod,auth,spaces,types,properties,objects,values}` |
+| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload), the list endpoint and the trash, restore and history routes |
+| `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
 | `.gitignore` | Ignores `/target`, `web/dist`, `data/`, `.env` |
@@ -218,8 +237,9 @@ only truth.
 - **Runtime:** Rust only. Frontend (later): Vite + React 19 + Tailwind v4 + Base UI.
 - **Package manager:** Cargo workspace. No npm/pnpm/bun tooling yet.
 - **Compiler:** Nix-provided Rust 1.98.1, x86_64-unknown-linux-gnu. No rustup.
-- **No CI, container or scripts.** PRODUCT.md lists CI, a seed script and a container as
-  milestone-1 deliverables; none implemented.
+- **No CI or container.** PRODUCT.md lists CI and a container as milestone-1 deliverables; neither
+  is implemented. `scripts/seed.sh` exists: the curl walkthrough that builds the Garden demo space
+  against a running server.
 - Keep `tokio`, `axum`, `rusqlite` and `notify` out of `thing-core`; they belong in the shell or
   the store boundary.
 
@@ -233,8 +253,8 @@ only truth.
   router over a `tempfile::TempDir` with `tower::ServiceExt::oneshot` and
   `http_body_util::BodyExt::collect` (see `routes::tests`); that is how the auth and role rules are
   pinned.
-- **Current coverage:** 155 tests — one `#[cfg(test)]` module per source file, plus
-  `tests/roundtrip.rs`. New behavior needs a test exercising the changed path.
+- **Current coverage:** 191 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 47 `thing-server`) —
+  one `#[cfg(test)]` module per source file. New behavior needs a test exercising the changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the
   format changes, and check it still reads like `docs/plan/m1-engine-core.md` §3.

@@ -14,9 +14,12 @@ use uuid::Uuid;
 use crate::error::CoreError;
 use crate::model::{
     CondOp, Condition, Filter, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
-    Value,
+    UPDATED_AT_KEY, Value, is_reserved_key,
 };
 use crate::value;
+
+/// Longest object title, in characters.
+pub const MAX_TITLE_LEN: usize = 200;
 
 /// The definitions every validation and query runs against.
 ///
@@ -76,8 +79,17 @@ pub fn validate_object(schema: &Schema, doc: &ObjectDoc) -> Result<(), Vec<CoreE
     let mut errors = Vec::new();
     if doc.title.trim().is_empty() {
         errors.push(invalid("title", "must not be empty"));
+    } else if doc.title.chars().count() > MAX_TITLE_LEN {
+        errors.push(invalid(
+            "title",
+            format!("keep it under {MAX_TITLE_LEN} characters"),
+        ));
     }
     for (key, value) in &doc.properties {
+        if is_reserved_key(key) {
+            errors.push(invalid(key, "is a reserved frontmatter key"));
+            continue;
+        }
         let Some(property) = schema.property(key) else {
             errors.push(invalid(key, "unknown property"));
             continue;
@@ -129,6 +141,9 @@ pub fn validate_filter(
 }
 
 /// Checks sort keys against a type.
+///
+/// `updated_at` is accepted as well: it is the column every type's default view
+/// sorts by, and the one the total order breaks ties on.
 pub fn validate_sorts(
     schema: &Schema,
     def: &TypeDef,
@@ -138,6 +153,7 @@ pub fn validate_sorts(
         .iter()
         .filter_map(|sort| match column(schema, def, &sort.property) {
             Some(_) => None,
+            None if sort.property == UPDATED_AT_KEY => None,
             None => Some(not_on_type(def, &sort.property)),
         })
         .collect();
@@ -639,6 +655,40 @@ mod tests {
         assert_eq!(
             problems(validate_object(&fixture.schema(), &object)),
             vec!["invalid type: unknown type fern"]
+        );
+    }
+
+    #[test]
+    fn a_title_must_not_be_empty_or_longer_than_the_limit() {
+        let fixture = Fixture::new();
+        let mut long = doc(9, "plant", &"a".repeat(MAX_TITLE_LEN + 1));
+        long.properties.insert("room".to_owned(), text("Kitchen"));
+        assert_eq!(
+            problems(validate_object(&fixture.schema(), &long)),
+            vec!["invalid title: keep it under 200 characters"]
+        );
+
+        let mut blank = doc(9, "plant", "   ");
+        blank.properties.insert("room".to_owned(), text("Kitchen"));
+        assert_eq!(
+            problems(validate_object(&fixture.schema(), &blank)),
+            vec!["invalid title: must not be empty"]
+        );
+
+        let mut exact = doc(9, "plant", &"a".repeat(MAX_TITLE_LEN));
+        exact.properties.insert("room".to_owned(), text("Kitchen"));
+        valid(validate_object(&fixture.schema(), &exact));
+    }
+
+    #[test]
+    fn a_property_named_after_reserved_frontmatter_is_refused() {
+        let fixture = Fixture::new();
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("Kitchen")), ("updated_at", text("x"))])
+            )),
+            vec!["invalid updated_at: is a reserved frontmatter key"]
         );
     }
 

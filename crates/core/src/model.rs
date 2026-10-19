@@ -395,6 +395,33 @@ pub struct ObjectDetail {
 /// The property key that names an object's title in views, filters and sorts.
 pub const TITLE_KEY: &str = "title";
 
+/// The frontmatter key an object's last-write time is stored under. It is a
+/// sort column like `title`, but not a filter column: a filter names a property
+/// or the title.
+pub const UPDATED_AT_KEY: &str = "updated_at";
+
+/// Frontmatter keys no property may be named after: each one is written by the
+/// object format itself, so a property with the same key would have two writers.
+pub const RESERVED_KEYS: &[&str] = &[
+    "schema",
+    "id",
+    "type",
+    "title",
+    "rev",
+    "created_at",
+    "updated_at",
+    "created_by",
+    "updated_by",
+    "properties",
+    "trashed_at",
+    "trashed_from",
+];
+
+/// Whether a property may be keyed `key`.
+pub fn is_reserved_key(key: &str) -> bool {
+    RESERVED_KEYS.contains(&key)
+}
+
 fn is_false(value: &bool) -> bool {
     !*value
 }

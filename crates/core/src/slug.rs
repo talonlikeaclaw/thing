@@ -56,6 +56,60 @@ pub fn unique_slug<'a>(base: &str, taken: impl Iterator<Item = &'a str>) -> Stri
     }
 }
 
+/// Longest type or property key, leading character included.
+pub const MAX_KEY_LEN: usize = 40;
+
+/// The prefix a name that cannot start a key gets: a key begins with a letter,
+/// so `2026 goals` derives `key_2026_goals` rather than an illegal `2026_goals`.
+pub const KEY_PREFIX: &str = "key_";
+
+/// Whether `key` is a legal type or property key: `^[a-z][a-z0-9_]{0,39}$`.
+pub fn is_valid_key(key: &str) -> bool {
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    key.len() <= MAX_KEY_LEN
+        && chars.all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+}
+
+/// The key a display name derives: lowercased, every run of other characters
+/// folded to one `_`, trimmed of separators and cut to [`MAX_KEY_LEN`].
+///
+/// A name with nothing to keep is [`EMPTY_SLUG`], the same word a title with no
+/// letters slugs to; a name that would start the key with a digit is prefixed
+/// with [`KEY_PREFIX`], because a key must start with a letter.
+pub fn key_from_name(name: &str) -> String {
+    let mut key = String::with_capacity(name.len());
+    let mut separator = false;
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if separator && !key.is_empty() {
+                key.push('_');
+            }
+            separator = false;
+            key.push(ch.to_ascii_lowercase());
+        } else {
+            separator = !key.is_empty();
+        }
+    }
+    while key.ends_with('_') {
+        key.pop();
+    }
+    if key.is_empty() {
+        return EMPTY_SLUG.to_owned();
+    }
+    if !key.starts_with(|ch: char| ch.is_ascii_lowercase()) {
+        key.insert_str(0, KEY_PREFIX);
+    }
+    truncate(&mut key, MAX_KEY_LEN);
+    while key.ends_with('_') {
+        key.pop();
+    }
+    key
+}
+
 /// Truncates at a character boundary, never past `max` bytes.
 fn truncate(s: &mut String, max: usize) {
     if let Some((cut, _)) = s.char_indices().nth(max) {
@@ -133,5 +187,68 @@ mod tests {
     fn empty_base_falls_back_to_untitled() {
         assert_eq!(unique_slug("", [].into_iter()), EMPTY_SLUG);
         assert_eq!(unique_slug("", [EMPTY_SLUG].into_iter()), "untitled-2");
+    }
+
+    #[test]
+    fn a_key_is_lowercase_letters_digits_and_underscores() {
+        for key in [
+            "plant",
+            "watering_interval_days",
+            "q3_total",
+            "a",
+            &"a".repeat(40),
+        ] {
+            assert!(is_valid_key(key), "{key}");
+        }
+        for key in [
+            "",
+            "Plant",
+            "1plant",
+            "_plant",
+            "plant-2",
+            "plant care",
+            "plant.care",
+            &"a".repeat(41),
+        ] {
+            assert!(!is_valid_key(key), "{key}");
+        }
+    }
+
+    #[test]
+    fn a_key_from_a_name_folds_separators_and_lowercases() {
+        assert_eq!(
+            key_from_name("Watering interval days"),
+            "watering_interval_days"
+        );
+        assert_eq!(key_from_name("  Room // 2 -- window "), "room_2_window");
+        assert_eq!(key_from_name("Last watered"), "last_watered");
+    }
+
+    #[test]
+    fn a_key_from_a_name_is_always_a_valid_key() {
+        for name in [
+            "Plant",
+            "2026 goals",
+            "3D printer",
+            "日本語",
+            "!!!",
+            "   ",
+            &"-".repeat(200),
+        ] {
+            let key = key_from_name(name);
+            assert!(is_valid_key(&key), "{name} derived {key}");
+        }
+        assert_eq!(key_from_name("2026 goals"), "key_2026_goals");
+        assert_eq!(key_from_name("3d printer"), "key_3d_printer");
+        assert_eq!(key_from_name("日本語"), EMPTY_SLUG);
+        assert_eq!(key_from_name(""), EMPTY_SLUG);
+    }
+
+    #[test]
+    fn a_key_from_a_name_keeps_the_prefix_inside_the_length_limit() {
+        let key = key_from_name(&format!("2026 {}", "a".repeat(100)));
+        assert!(is_valid_key(&key), "{key}");
+        assert_eq!(key.len(), MAX_KEY_LEN);
+        assert!(key.starts_with(KEY_PREFIX));
     }
 }

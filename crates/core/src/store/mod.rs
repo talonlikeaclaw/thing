@@ -76,6 +76,26 @@ pub fn key_from_path(path: &Path) -> Option<&str> {
     path.file_stem().and_then(|stem| stem.to_str())
 }
 
+/// The relative path of a type's definition, `types/<key>.yml`.
+pub fn type_path(key: &str) -> PathBuf {
+    Path::new(TYPES_DIR).join(format!("{key}.yml"))
+}
+
+/// The relative path of a property's definition, `properties/<key>.yml`.
+pub fn property_path(key: &str) -> PathBuf {
+    Path::new(PROPERTIES_DIR).join(format!("{key}.yml"))
+}
+
+/// The relative path of a trashed object, `trash/<id>.md`.
+pub fn trash_path(id: Uuid) -> PathBuf {
+    Path::new(TRASH_DIR).join(format!("{id}.md"))
+}
+
+/// The relative path of an object's revisions, `history/<id>.ndjson`.
+pub fn history_path(id: Uuid) -> PathBuf {
+    Path::new(HISTORY_DIR).join(format!("{id}.ndjson"))
+}
+
 fn has_extension(path: &Path, extension: &str) -> bool {
     path.extension().is_some_and(|found| found == extension)
 }
@@ -115,6 +135,9 @@ pub trait SpaceStore {
         expected: Option<FileFingerprint>,
     ) -> Result<FileFingerprint, CoreError>;
 
+    /// Deletes a type's definition file. Its objects are the caller's problem.
+    fn remove_type(&self, key: &str) -> Result<(), CoreError>;
+
     fn load_property(&self, key: &str) -> Result<(PropertyDef, FileFingerprint), CoreError>;
 
     fn save_property(
@@ -135,6 +158,13 @@ pub trait SpaceStore {
 
     /// An unused object path for a title, `objects/<type-key>/<slug>.md`.
     fn new_object_path(&self, type_key: &str, title: &str) -> Result<PathBuf, CoreError>;
+
+    /// Deletes an object's file, which a retitle leaves behind under its old slug.
+    fn remove_object(
+        &self,
+        path: &Path,
+        expected: Option<FileFingerprint>,
+    ) -> Result<(), CoreError>;
 
     /// Moves an object to `trash/<uuid>.md`, stamping `trashed_at`/`trashed_from`.
     fn move_to_trash(
@@ -157,9 +187,21 @@ pub trait SpaceStore {
     fn read_revisions(&self, id: Uuid) -> Result<Vec<Revision>, CoreError>;
 
     /// Renames a property key in its definition, in every type that uses it and
-    /// in every object that holds a value for it. History is left alone: it
-    /// records what was written at the time.
-    fn rename_property_key(&self, old: &str, new: &str) -> Result<(), CoreError>;
+    /// in every object that holds a value for it, appending a revision to each
+    /// object it rewrote. History keeps the keys it recorded at the time.
+    fn rename_property_key(
+        &self,
+        old: &str,
+        new: &str,
+        at: OffsetDateTime,
+        by: Uuid,
+    ) -> Result<(), CoreError>;
+
+    /// Deletes a property's definition and strips its key from every type and
+    /// every object, appending a revision to each object it rewrote so the
+    /// values it dropped stay readable in history.
+    fn remove_property_key(&self, key: &str, at: OffsetDateTime, by: Uuid)
+    -> Result<(), CoreError>;
 }
 
 /// Rewrites `old` to `new` in a type's property list, view columns, filter and
@@ -209,6 +251,31 @@ pub(crate) fn rename_property_in_object(doc: &mut ObjectDoc, old: &str, new: &st
         }
         None => false,
     }
+}
+
+/// Drops a key from a type's property list, view columns, filter and sorts;
+/// returns whether anything changed.
+pub(crate) fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
+    let before = (
+        def.properties.len(),
+        def.view.columns.len(),
+        def.view.sorts.len(),
+        def.view.filter.conditions.len(),
+    );
+    def.properties.retain(|member| member.key != key);
+    def.view.columns.retain(|column| column != key);
+    def.view.sorts.retain(|sort| sort.property != key);
+    def.view
+        .filter
+        .conditions
+        .retain(|condition| condition.property != key);
+    before
+        != (
+            def.properties.len(),
+            def.view.columns.len(),
+            def.view.sorts.len(),
+            def.view.filter.conditions.len(),
+        )
 }
 
 #[cfg(test)]
@@ -360,6 +427,23 @@ mod tests {
         );
         assert_eq!(doc.properties.get("room"), None);
         assert!(!rename_property_in_object(&mut doc, "room", "space"));
+    }
+
+    #[test]
+    fn removing_a_property_from_a_type_drops_every_reference() {
+        let mut def = type_def();
+        assert!(remove_property_from_type(&mut def, "room"));
+        assert_eq!(
+            def.properties
+                .iter()
+                .map(|member| member.key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["notes"]
+        );
+        assert_eq!(def.view.columns, vec!["title"]);
+        assert!(def.view.sorts.is_empty());
+        assert!(def.view.filter.conditions.is_empty());
+        assert!(!remove_property_from_type(&mut def, "room"));
     }
 
     #[test]

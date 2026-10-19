@@ -7,7 +7,9 @@
 use std::cmp::Ordering;
 
 use crate::filter::{self, Row};
-use crate::model::{Direction, EmptyPlacement, ObjectSummary, PropertyFormat, Sort, ViewDef};
+use crate::model::{
+    Direction, EmptyPlacement, ObjectSummary, PropertyFormat, Sort, UPDATED_AT_KEY, ViewDef,
+};
 use crate::validate::Schema;
 
 /// The rows the view keeps, in the order it shows them.
@@ -45,6 +47,15 @@ fn compare_key(
     right: &ObjectSummary,
     schema: &Schema,
 ) -> Ordering {
+    // `updated_at` is a column like `title`, but every row has one, so it does
+    // not go through the empty-value machinery.
+    if sort.property == UPDATED_AT_KEY {
+        let ordering = left.updated_at.cmp(&right.updated_at);
+        return match sort.direction {
+            Direction::Asc => ordering,
+            Direction::Desc => ordering.reverse(),
+        };
+    }
     let format = schema
         .property(&sort.property)
         .map_or(PropertyFormat::Text, |def| def.format);
@@ -220,6 +231,33 @@ mod tests {
         assert_eq!(
             ids(&apply(&view(Vec::new()), &rows, &fixture.schema())),
             vec![3, 1, 2]
+        );
+    }
+
+    #[test]
+    fn the_updated_at_column_sorts_in_both_directions() {
+        let fixture = Fixture::new();
+        let rows = [
+            row(1, "A", 10, &[]),
+            row(2, "B", 30, &[]),
+            row(3, "C", 20, &[]),
+        ];
+        let schema = fixture.schema();
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort(UPDATED_AT_KEY, Direction::Asc)]),
+                &rows,
+                &schema
+            )),
+            vec![1, 3, 2]
+        );
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort(UPDATED_AT_KEY, Direction::Desc)]),
+                &rows,
+                &schema
+            )),
+            vec![2, 3, 1]
         );
     }
 

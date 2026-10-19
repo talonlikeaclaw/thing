@@ -50,6 +50,48 @@ impl ApiError {
         }
     }
 
+    /// `422` — a document failed more than one rule. The first error is the
+    /// response's own; `details.errors` carries every message, so a form can
+    /// show each one at once instead of one per round trip.
+    pub fn validation_all(errors: Vec<CoreError>) -> Self {
+        let details: Vec<Value> = errors
+            .iter()
+            .map(|error| match error {
+                CoreError::ValidationFailed { field, message } => {
+                    json!({ "field": field, "message": message })
+                }
+                other => json!({ "field": "body", "message": other.to_string() }),
+            })
+            .collect();
+        let mut refused = errors.into_iter().next().map_or_else(
+            || Self::validation("body", "the request was refused"),
+            Self::from,
+        );
+        refused.status = StatusCode::UNPROCESSABLE_ENTITY;
+        refused.code = "validation_failed";
+        if let Some(field) = details.first().and_then(|error| error["field"].as_str()) {
+            refused.details = json!({ "field": field, "errors": details });
+        }
+        refused
+    }
+
+    /// The message the response carries, for tests.
+    #[cfg(test)]
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// `409` — the request cannot be applied to the current state; `details`
+    /// says which state and what about it.
+    pub fn conflict(message: impl Into<String>, details: Value) -> Self {
+        Self {
+            status: StatusCode::CONFLICT,
+            code: "conflict",
+            message: message.into(),
+            details,
+        }
+    }
+
     /// `500` — the server broke, not the request.
     pub fn internal(message: impl Into<String>) -> Self {
         Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", message)

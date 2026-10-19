@@ -12,12 +12,15 @@ use uuid::Uuid;
 
 use super::{
     FileFingerprint, HISTORY_DIR, OBJECTS_DIR, PROPERTIES_DIR, SPACE_FILE, SpaceFile,
-    SpaceFileKind, SpaceStore, TMP_SUFFIX, TRASH_DIR, TYPES_DIR, key_from_path,
-    rename_property_in_object, rename_property_in_type,
+    SpaceFileKind, SpaceStore, TMP_SUFFIX, TRASH_DIR, TYPES_DIR, history_path, key_from_path,
+    property_path, remove_property_from_type, rename_property_in_object, rename_property_in_type,
+    trash_path, type_path,
 };
 use crate::error::CoreError;
 use crate::markdown;
-use crate::model::{ObjectDoc, PropertyDef, Revision, SpaceMeta, TypeDef};
+use crate::model::{
+    ObjectDoc, PropertyDef, Revision, RevisionAction, Snapshot, SpaceMeta, TypeDef,
+};
 use crate::slug::{slugify, unique_slug};
 
 /// A space directory on disk.
@@ -57,6 +60,16 @@ impl FsSpaceStore {
         self.root.join(relative)
     }
 
+    /// Deletes a definition file, `types/<key>.yml` or `properties/<key>.yml`.
+    fn remove_definition(&self, relative: &Path) -> Result<(), CoreError> {
+        check_relative(relative)?;
+        if !self.full(relative).is_file() {
+            return Err(CoreError::NotFound(relative.display().to_string()));
+        }
+        fs::remove_file(self.full(relative))?;
+        fsync_dir(self.full(relative).parent())
+    }
+
     /// Writes `contents`, then returns the fingerprint of the renamed file.
     fn write_atomic(&self, relative: &Path, contents: &str) -> Result<FileFingerprint, CoreError> {
         let full = self.full(relative);
@@ -94,14 +107,6 @@ impl FsSpaceStore {
                 reason: "file changed on disk".to_owned(),
             })
         }
-    }
-
-    fn history_path(id: Uuid) -> PathBuf {
-        Path::new(HISTORY_DIR).join(format!("{id}.ndjson"))
-    }
-
-    fn trash_path(id: Uuid) -> PathBuf {
-        Path::new(TRASH_DIR).join(format!("{id}.md"))
     }
 }
 
@@ -184,7 +189,7 @@ impl SpaceStore for FsSpaceStore {
     }
 
     fn load_type(&self, key: &str) -> Result<(TypeDef, FileFingerprint), CoreError> {
-        let path = key_path(TYPES_DIR, key, "yml")?;
+        let path = type_path(check_key(key)?);
         let (text, at) = self.read(&path)?;
         Ok((markdown::parse_type(&text)?, at))
     }
@@ -194,13 +199,17 @@ impl SpaceStore for FsSpaceStore {
         def: &TypeDef,
         expected: Option<FileFingerprint>,
     ) -> Result<FileFingerprint, CoreError> {
-        let path = key_path(TYPES_DIR, &def.key, "yml")?;
+        let path = type_path(check_key(&def.key)?);
         self.guard(&path, expected)?;
         self.write_atomic(&path, &markdown::serialize_type(def))
     }
 
+    fn remove_type(&self, key: &str) -> Result<(), CoreError> {
+        self.remove_definition(&type_path(check_key(key)?))
+    }
+
     fn load_property(&self, key: &str) -> Result<(PropertyDef, FileFingerprint), CoreError> {
-        let path = key_path(PROPERTIES_DIR, key, "yml")?;
+        let path = property_path(check_key(key)?);
         let (text, at) = self.read(&path)?;
         Ok((markdown::parse_property(&text)?, at))
     }
@@ -210,7 +219,7 @@ impl SpaceStore for FsSpaceStore {
         def: &PropertyDef,
         expected: Option<FileFingerprint>,
     ) -> Result<FileFingerprint, CoreError> {
-        let path = key_path(PROPERTIES_DIR, &def.key, "yml")?;
+        let path = property_path(check_key(&def.key)?);
         self.guard(&path, expected)?;
         self.write_atomic(&path, &markdown::serialize_property(def))
     }
@@ -242,6 +251,17 @@ impl SpaceStore for FsSpaceStore {
         Ok(dir.join(format!("{slug}.md")))
     }
 
+    fn remove_object(
+        &self,
+        path: &Path,
+        expected: Option<FileFingerprint>,
+    ) -> Result<(), CoreError> {
+        check_relative(path)?;
+        self.guard(path, expected)?;
+        fs::remove_file(self.full(path))?;
+        fsync_dir(self.full(path).parent())
+    }
+
     fn move_to_trash(
         &self,
         path: &Path,
@@ -254,7 +274,7 @@ impl SpaceStore for FsSpaceStore {
                 reason: "file changed on disk".to_owned(),
             });
         }
-        let trash = Self::trash_path(doc.id);
+        let trash = trash_path(doc.id);
         if self.full(&trash).exists() {
             return Err(CoreError::AlreadyExists(trash.display().to_string()));
         }
@@ -270,7 +290,7 @@ impl SpaceStore for FsSpaceStore {
     }
 
     fn restore(&self, id: Uuid) -> Result<PathBuf, CoreError> {
-        let trash = Self::trash_path(id);
+        let trash = trash_path(id);
         let (mut doc, _) = self.load_object(&trash)?;
         let from = doc
             .trashed_from
@@ -296,14 +316,14 @@ impl SpaceStore for FsSpaceStore {
     }
 
     fn purge(&self, id: Uuid) -> Result<(), CoreError> {
-        let trash = Self::trash_path(id);
+        let trash = trash_path(id);
         if !self.full(&trash).exists() {
             return Err(CoreError::NotFound(trash.display().to_string()));
         }
         fs::remove_file(self.full(&trash))?;
         fsync_dir(self.full(&trash).parent())?;
 
-        let history = Self::history_path(id);
+        let history = history_path(id);
         if self.full(&history).exists() {
             fs::remove_file(self.full(&history))?;
             fsync_dir(self.full(&history).parent())?;
@@ -312,7 +332,7 @@ impl SpaceStore for FsSpaceStore {
     }
 
     fn append_revision(&self, id: Uuid, revision: &Revision) -> Result<(), CoreError> {
-        let path = Self::history_path(id);
+        let path = history_path(id);
         let full = self.full(&path);
         fs::create_dir_all(full.parent().ok_or_else(|| malformed(&path))?)?;
 
@@ -327,7 +347,13 @@ impl SpaceStore for FsSpaceStore {
         Ok(())
     }
 
-    fn rename_property_key(&self, old: &str, new: &str) -> Result<(), CoreError> {
+    fn rename_property_key(
+        &self,
+        old: &str,
+        new: &str,
+        at: OffsetDateTime,
+        by: Uuid,
+    ) -> Result<(), CoreError> {
         check_key(new)?;
         if old == new {
             return Err(CoreError::ValidationFailed {
@@ -336,7 +362,7 @@ impl SpaceStore for FsSpaceStore {
             });
         }
         let (mut def, _) = self.load_property(old)?;
-        let new_path = key_path(PROPERTIES_DIR, new, "yml")?;
+        let new_path = property_path(check_key(new)?);
         if self.full(&new_path).exists() {
             return Err(CoreError::AlreadyExists(new_path.display().to_string()));
         }
@@ -357,22 +383,93 @@ impl SpaceStore for FsSpaceStore {
                     }
                 }
                 SpaceFileKind::Object | SpaceFileKind::Trash => {
-                    let (mut doc, at) = self.load_object(&file.path)?;
-                    if rename_property_in_object(&mut doc, old, new) {
-                        self.save_object(&file.path, &doc, Some(at))?;
+                    let (mut doc, expected) = self.load_object(&file.path)?;
+                    if !rename_property_in_object(&mut doc, old, new) {
+                        continue;
                     }
+                    // The rewrite is a write like any other: it counts as one.
+                    doc.rev += 1;
+                    doc.updated_at = at;
+                    doc.updated_by = by;
+                    self.save_object(&file.path, &doc, Some(expected))?;
+                    self.append_revision(
+                        doc.id,
+                        &Revision {
+                            rev: doc.rev,
+                            at,
+                            by,
+                            action: RevisionAction::Update,
+                            snapshot: Snapshot {
+                                title: doc.title.clone(),
+                                properties: doc.properties.clone(),
+                            },
+                            body: None,
+                        },
+                    )?;
                 }
                 SpaceFileKind::Space | SpaceFileKind::Property | SpaceFileKind::History => {}
             }
         }
 
-        let old_path = key_path(PROPERTIES_DIR, old, "yml")?;
+        let old_path = property_path(check_key(old)?);
         fs::remove_file(self.full(&old_path))?;
         fsync_dir(self.full(&old_path).parent())
     }
 
+    fn remove_property_key(
+        &self,
+        key: &str,
+        at: OffsetDateTime,
+        by: Uuid,
+    ) -> Result<(), CoreError> {
+        // The definition goes first: a crash halfway then leaves values under a
+        // key nothing defines, which validation reports, rather than a key that
+        // still looks usable while its consumers were already stripped.
+        let path = property_path(check_key(key)?);
+        self.remove_definition(&path)?;
+        for file in self.list_files()? {
+            match file.kind {
+                SpaceFileKind::Type => {
+                    let Some(definition_key) = key_from_path(&file.path) else {
+                        continue;
+                    };
+                    let (mut type_def, expected) = self.load_type(definition_key)?;
+                    if remove_property_from_type(&mut type_def, key) {
+                        self.save_type(&type_def, Some(expected))?;
+                    }
+                }
+                SpaceFileKind::Object | SpaceFileKind::Trash => {
+                    let (mut doc, expected) = self.load_object(&file.path)?;
+                    if doc.properties.remove(key).is_none() {
+                        continue;
+                    }
+                    doc.rev += 1;
+                    doc.updated_at = at;
+                    doc.updated_by = by;
+                    self.save_object(&file.path, &doc, Some(expected))?;
+                    self.append_revision(
+                        doc.id,
+                        &Revision {
+                            rev: doc.rev,
+                            at,
+                            by,
+                            action: RevisionAction::Update,
+                            snapshot: Snapshot {
+                                title: doc.title.clone(),
+                                properties: doc.properties.clone(),
+                            },
+                            body: None,
+                        },
+                    )?;
+                }
+                SpaceFileKind::Space | SpaceFileKind::Property | SpaceFileKind::History => {}
+            }
+        }
+        Ok(())
+    }
+
     fn read_revisions(&self, id: Uuid) -> Result<Vec<Revision>, CoreError> {
-        let path = Self::history_path(id);
+        let path = history_path(id);
         if !self.full(&path).exists() {
             return Ok(Vec::new());
         }
@@ -450,14 +547,6 @@ fn check_relative(path: &Path) -> Result<(), CoreError> {
         return Err(malformed(path));
     }
     Ok(())
-}
-
-/// Builds `<dir>/<key>.<extension>`, rejecting a key that is not a plain name.
-///
-/// The extension is appended rather than replaced, so a key containing a dot
-/// keeps its full name on both the read and the write side.
-fn key_path(dir: &str, key: &str, extension: &str) -> Result<PathBuf, CoreError> {
-    Ok(Path::new(dir).join(format!("{}.{extension}", check_key(key)?)))
 }
 
 /// Rejects a key that could name a file outside its directory.
@@ -647,6 +736,34 @@ mod tests {
         }
     }
 
+    #[test]
+    fn removing_an_object_leaves_its_history_behind() {
+        let (dir, store) = store();
+        let path = store.new_object_path("plant", "Old title").expect("path");
+        let saved = store
+            .save_object(&path, &object("plant", "Old title"), None)
+            .expect("save");
+        store.append_revision(id(9), &revision(1)).expect("history");
+
+        let stale = FileFingerprint {
+            modified: std::time::SystemTime::UNIX_EPOCH,
+            len: 0,
+        };
+        assert!(matches!(
+            store.remove_object(&path, Some(stale)),
+            Err(CoreError::Conflict { .. })
+        ));
+
+        store.remove_object(&path, Some(saved)).expect("remove");
+        assert!(!dir.path().join(&path).exists());
+        assert!(
+            dir.path()
+                .join(format!("history/{}.ndjson", id(9)))
+                .exists(),
+            "a retitle keeps the object's history"
+        );
+    }
+
     fn plant_type() -> TypeDef {
         TypeDef {
             key: "plant".to_owned(),
@@ -713,7 +830,10 @@ mod tests {
             .move_to_trash(&gone_path, at(1_760_100_000), None)
             .expect("trash");
 
-        store.rename_property_key("room", "space").expect("rename");
+        let renamed_at = at(1_760_200_000);
+        store
+            .rename_property_key("room", "space", renamed_at, id(2))
+            .expect("rename");
 
         assert!(!dir.path().join("properties/room.yml").exists());
         let (def, _) = store.load_property("space").expect("renamed property");
@@ -745,12 +865,105 @@ mod tests {
             assert_eq!(doc.properties.get("room"), None, "{expected}");
         }
 
-        // History keeps the keys it recorded at the time.
+        // History keeps the keys it recorded at the time, and the rewrite itself
+        // counts as a write: the object's rev moved and a line was appended.
+        let (plant_doc, _) = store.load_object(&path).expect("object after rename");
+        assert_eq!(plant_doc.rev, 2);
+        assert_eq!(plant_doc.updated_at, renamed_at);
+        let update = markdown::serialize_revision(&Revision {
+            rev: 2,
+            at: renamed_at,
+            by: id(2),
+            action: RevisionAction::Update,
+            snapshot: Snapshot {
+                title: "Monstera".to_owned(),
+                properties: BTreeMap::from([(
+                    "space".to_owned(),
+                    Value::Text("kitchen".to_owned()),
+                )]),
+            },
+            body: None,
+        });
         let history = fs::read_to_string(dir.path().join(format!("history/{}.ndjson", id(9))))
             .expect("history");
         assert_eq!(
             history,
-            format!("{}\n", crate::markdown::serialize_revision(&revision(1)))
+            format!("{}\n{update}\n", markdown::serialize_revision(&revision(1)))
+        );
+    }
+
+    #[test]
+    fn removing_a_property_key_strips_its_consumers_and_deletes_the_definition() {
+        let (dir, store) = store();
+        store
+            .save_property(&room_property("room"), None)
+            .expect("property");
+        store.save_type(&plant_type(), None).expect("type");
+        let path = store.new_object_path("plant", "Monstera").expect("path");
+        store
+            .save_object(&path, &object("plant", "Monstera"), None)
+            .expect("object");
+
+        let removed_at = at(1_760_300_000);
+        store
+            .remove_property_key("room", removed_at, id(2))
+            .expect("remove");
+
+        assert!(!dir.path().join("properties/room.yml").exists());
+        let (plant, _) = store.load_type("plant").expect("type");
+        assert_eq!(
+            plant
+                .properties
+                .iter()
+                .map(|member| member.key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["notes"]
+        );
+        assert_eq!(plant.view.columns, vec!["title"]);
+        assert!(plant.view.sorts.is_empty());
+        assert!(plant.view.filter.conditions.is_empty());
+
+        let (doc, _) = store.load_object(&path).expect("object");
+        assert_eq!(doc.properties.get("room"), None);
+        assert_eq!(doc.rev, 2);
+        assert_eq!(doc.updated_at, removed_at);
+
+        // The value it dropped stays readable: the revision records it.
+        let history = fs::read_to_string(dir.path().join(format!("history/{}.ndjson", id(9))))
+            .expect("history");
+        let recorded = crate::markdown::parse_revision(history.trim()).expect("revision");
+        assert_eq!(recorded.rev, 2);
+        assert_eq!(recorded.action, RevisionAction::Update);
+        assert_eq!(recorded.snapshot.title, "Monstera");
+        assert!(recorded.snapshot.properties.is_empty());
+
+        assert_eq!(
+            store
+                .remove_property_key("room", removed_at, id(2))
+                .expect_err("a second removal")
+                .to_string(),
+            "properties/room.yml not found"
+        );
+    }
+
+    #[test]
+    fn removing_a_type_deletes_its_definition_and_leaves_its_objects_alone() {
+        let (dir, store) = store();
+        store.save_type(&plant_type(), None).expect("type");
+        let path = store.new_object_path("plant", "Monstera").expect("path");
+        store
+            .save_object(&path, &object("plant", "Monstera"), None)
+            .expect("object");
+
+        store.remove_type("plant").expect("remove");
+        assert!(!dir.path().join("types/plant.yml").exists());
+        assert!(
+            dir.path().join(&path).exists(),
+            "moving the objects is the caller's decision"
+        );
+        assert_eq!(
+            store.remove_type("plant").expect_err("twice").to_string(),
+            "types/plant.yml not found"
         );
     }
 
@@ -780,7 +993,7 @@ mod tests {
         ] {
             assert_eq!(
                 store
-                    .rename_property_key(old, new)
+                    .rename_property_key(old, new, at(1_760_200_000), id(2))
                     .expect_err("{old} to {new}")
                     .to_string(),
                 expected
