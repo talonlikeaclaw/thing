@@ -16,6 +16,21 @@ use crate::model::{ObjectDoc, PropertyDef, Revision, SpaceMeta, TypeDef};
 
 pub mod fs;
 
+/// `space.yml`: the file that makes a directory a space.
+pub const SPACE_FILE: &str = "space.yml";
+/// Types, one `<key>.yml` per type.
+pub const TYPES_DIR: &str = "types";
+/// Properties, one `<key>.yml` per property.
+pub const PROPERTIES_DIR: &str = "properties";
+/// Live objects, `<type-key>/<slug>.md`.
+pub const OBJECTS_DIR: &str = "objects";
+/// Trashed objects, `<object-uuid>.md`.
+pub const TRASH_DIR: &str = "trash";
+/// Revision lines, `<object-uuid>.ndjson`.
+pub const HISTORY_DIR: &str = "history";
+/// Suffix of the temporary file an atomic write renames into place.
+pub const TMP_SUFFIX: &str = ".tmp";
+
 /// What a file under the space directory is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SpaceFileKind {
@@ -34,6 +49,37 @@ pub struct SpaceFile {
     pub path: PathBuf,
 }
 
+/// What a space-relative path names, or `None` when it is not part of the layout.
+pub fn classify(path: &Path) -> Option<SpaceFileKind> {
+    if path == Path::new(SPACE_FILE) {
+        return Some(SpaceFileKind::Space);
+    }
+    let parent = path.parent()?;
+    let directory = parent.file_name()?.to_str()?;
+    let above = parent
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str());
+    match (above, directory) {
+        (None, TYPES_DIR) if has_extension(path, "yml") => Some(SpaceFileKind::Type),
+        (None, PROPERTIES_DIR) if has_extension(path, "yml") => Some(SpaceFileKind::Property),
+        (None, TRASH_DIR) if has_extension(path, "md") => Some(SpaceFileKind::Trash),
+        (None, HISTORY_DIR) if has_extension(path, "ndjson") => Some(SpaceFileKind::History),
+        (Some(OBJECTS_DIR), _) if has_extension(path, "md") => Some(SpaceFileKind::Object),
+        _ => None,
+    }
+}
+
+/// The key a `types/<key>.yml` or `properties/<key>.yml` path names.
+pub fn key_from_path(path: &Path) -> Option<&str> {
+    path.extension()?;
+    path.file_stem().and_then(|stem| stem.to_str())
+}
+
+fn has_extension(path: &Path, extension: &str) -> bool {
+    path.extension().is_some_and(|found| found == extension)
+}
+
 /// Modification time and length of a file, as recorded when it was read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FileFingerprint {
@@ -48,6 +94,9 @@ pub trait SpaceStore {
 
     /// Every canonical file in the space, sorted by path.
     fn list_files(&self) -> Result<Vec<SpaceFile>, CoreError>;
+
+    /// Whether a space-relative path currently exists.
+    fn exists(&self, path: &Path) -> Result<bool, CoreError>;
 
     fn load_space(&self) -> Result<(SpaceMeta, FileFingerprint), CoreError>;
 
@@ -106,4 +155,227 @@ pub trait SpaceStore {
 
     /// Every revision of an object, oldest first; empty when it has none.
     fn read_revisions(&self, id: Uuid) -> Result<Vec<Revision>, CoreError>;
+
+    /// Renames a property key in its definition, in every type that uses it and
+    /// in every object that holds a value for it. History is left alone: it
+    /// records what was written at the time.
+    fn rename_property_key(&self, old: &str, new: &str) -> Result<(), CoreError>;
+}
+
+/// Rewrites `old` to `new` in a type's property list, view columns, filter and
+/// sorts; returns whether anything changed.
+pub(crate) fn rename_property_in_type(def: &mut TypeDef, old: &str, new: &str) -> bool {
+    let mut changed = false;
+    for member in &mut def.properties {
+        if member.key == old {
+            member.key = new.to_owned();
+            changed = true;
+        }
+    }
+    for column in &mut def.view.columns {
+        if column == old {
+            *column = new.to_owned();
+            changed = true;
+        }
+    }
+    for sort in &mut def.view.sorts {
+        if sort.property == old {
+            sort.property = new.to_owned();
+            changed = true;
+        }
+    }
+    for condition in &mut def.view.filter.conditions {
+        if condition.property == old {
+            condition.property = new.to_owned();
+            changed = true;
+        }
+    }
+    changed
+}
+
+/// Moves an object's stored value onto the new key; returns whether it moved.
+///
+/// An object that already holds `new` is left alone: the rename never drops a
+/// value that is already stored, and the leftover old key is then reported as an
+/// unknown property rather than lost.
+pub(crate) fn rename_property_in_object(doc: &mut ObjectDoc, old: &str, new: &str) -> bool {
+    if doc.properties.contains_key(new) {
+        return false;
+    }
+    match doc.properties.remove(old) {
+        Some(value) => {
+            doc.properties.insert(new.to_owned(), value);
+            true
+        }
+        None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use time::OffsetDateTime;
+
+    use super::*;
+    use crate::model::{
+        CondOp, Condition, Direction, EmptyPlacement, Filter, FilterOp, Sort, TypeProperty, Value,
+        ViewDef,
+    };
+
+    fn at() -> OffsetDateTime {
+        OffsetDateTime::from_unix_timestamp(1_760_000_000).expect("valid timestamp")
+    }
+
+    #[test]
+    fn classify_names_every_part_of_the_layout() {
+        for (path, kind) in [
+            ("space.yml", SpaceFileKind::Space),
+            ("types/plant.yml", SpaceFileKind::Type),
+            ("properties/room.yml", SpaceFileKind::Property),
+            ("objects/plant/monstera.md", SpaceFileKind::Object),
+            (
+                "trash/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b.md",
+                SpaceFileKind::Trash,
+            ),
+            (
+                "history/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b.ndjson",
+                SpaceFileKind::History,
+            ),
+        ] {
+            assert_eq!(classify(Path::new(path)), Some(kind), "{path}");
+        }
+    }
+
+    #[test]
+    fn classify_refuses_anything_else() {
+        for path in [
+            "space.yaml",
+            "spaces/space.yml",
+            "types/plant.yaml",
+            "objects/plant/monstera.md.bak",
+            "objects/monstera.md",
+            "trash/note.txt",
+            "notes/todo.md",
+            "objects/plant/room.yml",
+        ] {
+            assert_eq!(classify(Path::new(path)), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn key_from_path_strips_only_the_extension() {
+        assert_eq!(key_from_path(Path::new("types/plant.yml")), Some("plant"));
+        assert_eq!(
+            key_from_path(Path::new("properties/room.yml")),
+            Some("room")
+        );
+        // A dotted key keeps its dots on both sides of the read.
+        assert_eq!(
+            key_from_path(Path::new("types/plant.care.yml")),
+            Some("plant.care")
+        );
+        assert_eq!(key_from_path(Path::new("types")), None);
+    }
+
+    fn type_def() -> TypeDef {
+        TypeDef {
+            key: "plant".to_owned(),
+            name: "Plant".to_owned(),
+            name_plural: "Plants".to_owned(),
+            icon: None,
+            description: String::new(),
+            properties: vec![
+                TypeProperty {
+                    key: "room".to_owned(),
+                    required: true,
+                    featured: true,
+                },
+                TypeProperty {
+                    key: "notes".to_owned(),
+                    required: false,
+                    featured: false,
+                },
+            ],
+            view: ViewDef {
+                sorts: vec![Sort {
+                    property: "room".to_owned(),
+                    direction: Direction::Asc,
+                    empty: EmptyPlacement::End,
+                }],
+                filter: Filter {
+                    op: FilterOp::And,
+                    conditions: vec![Condition {
+                        property: "room".to_owned(),
+                        condition: CondOp::Equal,
+                        value: Some(Value::Text("kitchen".to_owned())),
+                    }],
+                },
+                columns: vec!["title".to_owned(), "room".to_owned()],
+            },
+        }
+    }
+
+    fn object() -> ObjectDoc {
+        ObjectDoc {
+            id: Uuid::from_u128(9),
+            type_key: "plant".to_owned(),
+            title: "Monstera".to_owned(),
+            rev: 1,
+            created_at: at(),
+            updated_at: at(),
+            created_by: Uuid::from_u128(1),
+            updated_by: Uuid::from_u128(1),
+            trashed_at: None,
+            trashed_from: None,
+            properties: BTreeMap::from([("room".to_owned(), Value::Text("kitchen".to_owned()))]),
+            body: String::new(),
+        }
+    }
+
+    #[test]
+    fn renaming_a_property_rewrites_every_reference_in_a_type() {
+        let mut def = type_def();
+        assert!(rename_property_in_type(&mut def, "room", "space"));
+        assert_eq!(
+            def.properties
+                .iter()
+                .map(|member| member.key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["space", "notes"]
+        );
+        assert_eq!(def.view.columns, vec!["title", "space"]);
+        assert_eq!(def.view.sorts[0].property, "space");
+        assert_eq!(def.view.filter.conditions[0].property, "space");
+        assert!(!rename_property_in_type(&mut def, "room", "space"));
+    }
+
+    #[test]
+    fn renaming_a_property_moves_the_stored_value() {
+        let mut doc = object();
+        assert!(rename_property_in_object(&mut doc, "room", "space"));
+        assert_eq!(
+            doc.properties.get("space"),
+            Some(&Value::Text("kitchen".to_owned()))
+        );
+        assert_eq!(doc.properties.get("room"), None);
+        assert!(!rename_property_in_object(&mut doc, "room", "space"));
+    }
+
+    #[test]
+    fn renaming_never_drops_a_value_already_stored_under_the_new_key() {
+        let mut doc = object();
+        doc.properties
+            .insert("space".to_owned(), Value::Text("attic".to_owned()));
+        assert!(!rename_property_in_object(&mut doc, "room", "space"));
+        assert_eq!(
+            doc.properties.get("space"),
+            Some(&Value::Text("attic".to_owned()))
+        );
+        assert_eq!(
+            doc.properties.get("room"),
+            Some(&Value::Text("kitchen".to_owned())),
+            "the value that could not move stays put, and validation reports it"
+        );
+    }
 }

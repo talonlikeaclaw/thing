@@ -5,10 +5,14 @@
 //! server), link this crate and reuse the same implementation.
 
 pub mod error;
+pub mod filter;
+pub mod index;
 pub mod markdown;
 pub mod model;
+pub mod query;
 pub mod slug;
 pub mod store;
+pub mod validate;
 pub mod value;
 
 /// On-disk format version written as `schema: 1` in every file.

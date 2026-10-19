@@ -2,6 +2,7 @@
 
 use thiserror::Error;
 
+/// Every failure the domain reports; the server maps each to one status code.
 #[derive(Debug, Error)]
 pub enum CoreError {
     #[error("{0} not found")]

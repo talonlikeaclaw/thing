@@ -283,12 +283,28 @@ pub struct ObjectSummary {
     pub properties: BTreeMap<String, Value>,
 }
 
+impl From<&ObjectDoc> for ObjectSummary {
+    fn from(doc: &ObjectDoc) -> Self {
+        Self {
+            id: doc.id,
+            type_key: doc.type_key.clone(),
+            title: doc.title.clone(),
+            rev: doc.rev,
+            updated_at: doc.updated_at,
+            properties: doc.properties.clone(),
+        }
+    }
+}
+
 /// An object plus the ids of relation targets that no longer exist.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectDetail {
     pub object: ObjectDoc,
     pub missing_relations: Vec<Uuid>,
 }
+
+/// The property key that names an object's title in views, filters and sorts.
+pub const TITLE_KEY: &str = "title";
 
 fn is_false(value: &bool) -> bool {
     !*value

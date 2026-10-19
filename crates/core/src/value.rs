@@ -143,12 +143,52 @@ fn rank(value: &Value) -> u8 {
     }
 }
 
-fn compare_text(a: &str, b: &str) -> Ordering {
-    let folded = a
-        .chars()
+/// Whether two values are the same value: text case-insensitively, numbers
+/// numerically, dates by the instant they name.
+///
+/// [`compare`] adds a case-sensitive tie-break so that sorting is total;
+/// equality must not see it, or `Kitchen` and `kitchen` would differ.
+pub(crate) fn equals(format: PropertyFormat, a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(left), Value::Number(right)) => left == right,
+        (Value::Bool(left), Value::Bool(right)) => left == right,
+        (Value::Text(left), Value::Text(right)) => text_equals(format, left, right),
+        (Value::List(left), Value::List(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| text_equals(format, left, right))
+        }
+        _ => false,
+    }
+}
+
+/// Case-insensitive text equality that honours the format's calendar: two
+/// spellings of one instant are the same date.
+pub(crate) fn text_equals(format: PropertyFormat, a: &str, b: &str) -> bool {
+    let parsed = match format {
+        PropertyFormat::Date => Some((parse_date(a), parse_date(b))),
+        PropertyFormat::Datetime => Some((parse_datetime(a), parse_datetime(b))),
+        _ => None,
+    };
+    match parsed {
+        Some((Some(left), Some(right))) => left == right,
+        _ => folded(a, b) == Ordering::Equal,
+    }
+}
+
+/// Unicode-lowercased comparison, without the tie-break `compare_text` adds.
+fn folded(a: &str, b: &str) -> Ordering {
+    a.chars()
         .flat_map(char::to_lowercase)
-        .cmp(b.chars().flat_map(char::to_lowercase));
-    folded.then_with(|| a.cmp(b))
+        .cmp(b.chars().flat_map(char::to_lowercase))
+}
+
+/// Case-insensitive comparison that falls back to a case-sensitive tie-break,
+/// so sorting is total.
+pub(crate) fn compare_text(a: &str, b: &str) -> Ordering {
+    folded(a, b).then_with(|| a.cmp(b))
 }
 
 fn compare_parsed(a: &str, b: &str, parse: fn(&str) -> Option<OffsetDateTime>) -> Ordering {
@@ -158,13 +198,15 @@ fn compare_parsed(a: &str, b: &str, parse: fn(&str) -> Option<OffsetDateTime>) -
     }
 }
 
-fn parse_date(s: &str) -> Option<OffsetDateTime> {
+/// A `YYYY-MM-DD` date as midnight UTC, or `None` when it is not one.
+pub(crate) fn parse_date(s: &str) -> Option<OffsetDateTime> {
     let format = format_description!("[year]-[month]-[day]");
     let date = time::Date::parse(s, &format).ok()?;
     Some(date.midnight().assume_utc())
 }
 
-fn parse_datetime(s: &str) -> Option<OffsetDateTime> {
+/// An RFC 3339 datetime, or `None` when it is not one.
+pub(crate) fn parse_datetime(s: &str) -> Option<OffsetDateTime> {
     OffsetDateTime::parse(s, &Rfc3339).ok()
 }
 
@@ -175,7 +217,8 @@ fn string_list(raw: &Yaml) -> Option<Vec<String>> {
         .collect()
 }
 
-fn expected(format: PropertyFormat) -> &'static str {
+/// What a format's value reads as, for error messages.
+pub(crate) fn expected(format: PropertyFormat) -> &'static str {
     match format {
         PropertyFormat::Text => "text",
         PropertyFormat::Number => "a number",

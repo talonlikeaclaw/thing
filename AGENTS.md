@@ -14,10 +14,11 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 3 landed.** `thing-core` exposes `model`, `error`, `slug`, `value`,
-`markdown` and `store` (`SpaceStore` trait + `FsSpaceStore`), with fixture round-trip tests and
-filesystem tests over `tempfile::TempDir`; `thing-server` only prints its version. No validation,
-query, index, frontend, CI or container yet. Do not assume documented paths exist.
+**Current state: checkpoint 4 landed.** `thing-core` exposes `model`, `error`, `slug`, `value`,
+`markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and
+`index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over `tempfile::TempDir`,
+and table-view tests over a space built on disk; `thing-server` only prints its version. No
+frontend, CI or container yet. Do not assume documented paths exist.
 
 ## Where the plan lives
 
@@ -45,8 +46,9 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
         +-- file watcher notices external edits (notify)
 ```
 
-- **`thing-core` is pure.** No network. Only `store` touches the filesystem; all other modules
-  (model, markdown, validation, query, slug, value) are pure functions over data.
+- **`thing-core` is pure.** No network. Only `store` touches the filesystem — even the index asks
+  the store whether a path exists; all other modules (model, markdown, validate, filter, query,
+  slug, value) are pure functions over data.
 - **Reads hand back a fingerprint, writes demand one.** `SpaceStore` reads return
   `(value, FileFingerprint)`; a write takes the fingerprint the caller last saw (`None` means "must
   be absent") and returns `Conflict` with `reason: "file changed on disk"` on a mismatch, after
@@ -55,8 +57,8 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
   parsing, tracing. Must not reimplement domain rules.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
-- **Core modules:** `model`, `markdown`, `store` exist; validation, index, filter and query are
-  still to come. Do not create parallel abstractions for these.
+- **Core modules:** `model`, `markdown`, `store`, `validate`, `filter`, `query`, `index` exist.
+  The server shell and everything after it is still to come.
 
 ## Key Directories
 
@@ -73,7 +75,7 @@ ask rather than picking silently. Later milestones get their own `docs/plan/mN-*
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 68)
+cargo test --workspace           # all tests (currently 128)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # prints "thing-server 0.1.0"
 ```
@@ -116,7 +118,16 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 - Type and property **keys are lowercase slugs**, unique per space; frontmatter stores keys,
   never display names.
 - **Unset value = absent key**, never `null`, `""` or `[]`.
-- A relation whose target is gone is **kept and surfaced**, never silently dropped.
+- A relation whose target is gone is **kept and surfaced**, never silently dropped, and never
+  blocks a later edit: `validate_object` accepts it, `validate::missing_relations` and the index's
+  `problems()` report it. A relation to a *trashed* object is not dangling.
+- **An unparseable file is reported, not guessed at.** `SpaceIndex` leaves it out, records it in
+  `problems().unparseable`, and never rewrites it; the file on disk stays untouched.
+- **`title` is a column.** Filters, sorts and view columns may name it like a property key
+  (`model::TITLE_KEY`); it is the only column that is not a property.
+- **Query order is total**: each sort key in order, then `updated_at` newest first, then the id, so
+  a table never reshuffles between identical requests. `empty: start|end` is applied *after* the
+  sort direction; an empty filter passes every row whatever its operator.
 - Writes are **atomic** (`<file>.tmp` → fsync → rename → fsync dir); conflicts are surfaced, never
   resolved by dropping data.
 - Store paths are **relative to the space directory**; an absolute path or one containing `..` is
@@ -168,13 +179,17 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `rust-toolchain.toml` | Pins Rust 1.98; requests rustfmt/clippy |
 | `Cargo.lock` | Committed exact resolutions |
 | `crates/core/src/lib.rs` | Core crate root: module list, 2 consts, 1 unit test |
-| `crates/core/src/model.rs` | Domain model: every type the crate is typed against; no serde yet |
+| `crates/core/src/model.rs` | Domain model: every type the crate is typed against, plus the `ObjectSummary` projection and `TITLE_KEY` |
+| `crates/core/src/validate.rs` | `Schema` (borrowed from the index), `validate_object`, `validate_filter`, `validate_sorts`, `missing_relations` |
+| `crates/core/src/filter.rs` | `matches` / `row_matches`: one condition against one row, over every `CondOp` |
+| `crates/core/src/query.rs` | `apply`: the view's filter, then its total sort order |
+| `crates/core/src/index.rs` | `SpaceIndex`: a whole space in memory, `rebuild_from_disk`, `reload_file`, `problems`, `detail` |
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug`: filenames under `objects/<type>/` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
 | `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, space/type/property YAML, history lines |
-| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile` |
-| `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes and the write guard |
+| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, and the property-rename rewrites |
+| `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard and `rename_property_key` |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
 | `crates/server/src/main.rs` | Server entry point; prints version only |
 | `README.md` | Product summary, layout, dev commands |
@@ -204,7 +219,7 @@ only truth.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
-- **Current coverage:** 68 tests — one `#[cfg(test)]` module per source file, plus
+- **Current coverage:** 128 tests — one `#[cfg(test)]` module per source file, plus
   `tests/roundtrip.rs`. New behavior needs a test exercising the changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the

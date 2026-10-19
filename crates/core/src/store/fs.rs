@@ -10,19 +10,15 @@ use std::path::{Component, Path, PathBuf};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::{FileFingerprint, SpaceFile, SpaceFileKind, SpaceStore};
+use super::{
+    FileFingerprint, HISTORY_DIR, OBJECTS_DIR, PROPERTIES_DIR, SPACE_FILE, SpaceFile,
+    SpaceFileKind, SpaceStore, TMP_SUFFIX, TRASH_DIR, TYPES_DIR, key_from_path,
+    rename_property_in_object, rename_property_in_type,
+};
 use crate::error::CoreError;
 use crate::markdown;
 use crate::model::{ObjectDoc, PropertyDef, Revision, SpaceMeta, TypeDef};
 use crate::slug::{slugify, unique_slug};
-
-const SPACE_FILE: &str = "space.yml";
-const TYPES_DIR: &str = "types";
-const PROPERTIES_DIR: &str = "properties";
-const OBJECTS_DIR: &str = "objects";
-const TRASH_DIR: &str = "trash";
-const HISTORY_DIR: &str = "history";
-const TMP_SUFFIX: &str = ".tmp";
 
 /// A space directory on disk.
 #[derive(Debug, Clone)]
@@ -165,6 +161,11 @@ impl SpaceStore for FsSpaceStore {
 
         files.sort_by(|left, right| left.path.cmp(&right.path));
         Ok(files)
+    }
+
+    fn exists(&self, path: &Path) -> Result<bool, CoreError> {
+        check_relative(path)?;
+        Ok(self.full(path).exists())
     }
 
     fn load_space(&self) -> Result<(SpaceMeta, FileFingerprint), CoreError> {
@@ -326,6 +327,50 @@ impl SpaceStore for FsSpaceStore {
         Ok(())
     }
 
+    fn rename_property_key(&self, old: &str, new: &str) -> Result<(), CoreError> {
+        check_key(new)?;
+        if old == new {
+            return Err(CoreError::ValidationFailed {
+                field: "key".to_owned(),
+                message: format!("{new} is already the property key"),
+            });
+        }
+        let (mut def, _) = self.load_property(old)?;
+        let new_path = key_path(PROPERTIES_DIR, new, "yml")?;
+        if self.full(&new_path).exists() {
+            return Err(CoreError::AlreadyExists(new_path.display().to_string()));
+        }
+
+        // Definition first, then its consumers, then the old file: a crash
+        // halfway leaves values under a key whose definition already exists.
+        def.key = new.to_owned();
+        self.write_atomic(&new_path, &markdown::serialize_property(&def))?;
+        for file in self.list_files()? {
+            match file.kind {
+                SpaceFileKind::Type => {
+                    let Some(key) = key_from_path(&file.path) else {
+                        continue;
+                    };
+                    let (mut type_def, at) = self.load_type(key)?;
+                    if rename_property_in_type(&mut type_def, old, new) {
+                        self.save_type(&type_def, Some(at))?;
+                    }
+                }
+                SpaceFileKind::Object | SpaceFileKind::Trash => {
+                    let (mut doc, at) = self.load_object(&file.path)?;
+                    if rename_property_in_object(&mut doc, old, new) {
+                        self.save_object(&file.path, &doc, Some(at))?;
+                    }
+                }
+                SpaceFileKind::Space | SpaceFileKind::Property | SpaceFileKind::History => {}
+            }
+        }
+
+        let old_path = key_path(PROPERTIES_DIR, old, "yml")?;
+        fs::remove_file(self.full(&old_path))?;
+        fsync_dir(self.full(&old_path).parent())
+    }
+
     fn read_revisions(&self, id: Uuid) -> Result<Vec<Revision>, CoreError> {
         let path = Self::history_path(id);
         if !self.full(&path).exists() {
@@ -408,10 +453,11 @@ fn check_relative(path: &Path) -> Result<(), CoreError> {
 }
 
 /// Builds `<dir>/<key>.<extension>`, rejecting a key that is not a plain name.
+///
+/// The extension is appended rather than replaced, so a key containing a dot
+/// keeps its full name on both the read and the write side.
 fn key_path(dir: &str, key: &str, extension: &str) -> Result<PathBuf, CoreError> {
-    Ok(Path::new(dir)
-        .join(check_key(key)?)
-        .with_extension(extension))
+    Ok(Path::new(dir).join(format!("{}.{extension}", check_key(key)?)))
 }
 
 /// Rejects a key that could name a file outside its directory.
@@ -588,6 +634,158 @@ mod tests {
         let second = store.new_object_path("plant", "Monstera").expect("second");
         assert_eq!(first, PathBuf::from("objects/plant/monstera.md"));
         assert_eq!(second, PathBuf::from("objects/plant/monstera-2.md"));
+    }
+
+    fn room_property(key: &str) -> PropertyDef {
+        PropertyDef {
+            key: key.to_owned(),
+            name: "Room".to_owned(),
+            format: PropertyFormat::Text,
+            options: Vec::new(),
+            target_type: None,
+            multi: false,
+        }
+    }
+
+    fn plant_type() -> TypeDef {
+        TypeDef {
+            key: "plant".to_owned(),
+            name: "Plant".to_owned(),
+            name_plural: "Plants".to_owned(),
+            icon: None,
+            description: String::new(),
+            properties: vec![
+                TypeProperty {
+                    key: "room".to_owned(),
+                    required: false,
+                    featured: true,
+                },
+                TypeProperty {
+                    key: "notes".to_owned(),
+                    required: false,
+                    featured: false,
+                },
+            ],
+            view: ViewDef {
+                sorts: vec![crate::model::Sort {
+                    property: "room".to_owned(),
+                    direction: crate::model::Direction::Asc,
+                    empty: crate::model::EmptyPlacement::End,
+                }],
+                filter: Filter {
+                    op: FilterOp::And,
+                    conditions: vec![crate::model::Condition {
+                        property: "room".to_owned(),
+                        condition: crate::model::CondOp::NotEqual,
+                        value: Some(Value::Text("attic".to_owned())),
+                    }],
+                },
+                columns: vec!["title".to_owned(), "room".to_owned()],
+            },
+        }
+    }
+
+    #[test]
+    fn renaming_a_property_key_rewrites_its_consumers() {
+        let (dir, store) = store();
+        store
+            .save_property(&room_property("room"), None)
+            .expect("property");
+        store.save_type(&plant_type(), None).expect("type");
+        let path = store.new_object_path("plant", "Monstera").expect("path");
+        store
+            .save_object(&path, &object("plant", "Monstera"), None)
+            .expect("object");
+        store
+            .append_revision(id(9), &revision(1))
+            .expect("history file");
+
+        // A second object, trashed, so the rewrite has to reach trash/ too.
+        let mut gone = object("plant", "Ficus");
+        gone.id = id(10);
+        let gone_path = store
+            .new_object_path("plant", "Ficus")
+            .expect("second path");
+        store
+            .save_object(&gone_path, &gone, None)
+            .expect("second object");
+        store
+            .move_to_trash(&gone_path, at(1_760_100_000), None)
+            .expect("trash");
+
+        store.rename_property_key("room", "space").expect("rename");
+
+        assert!(!dir.path().join("properties/room.yml").exists());
+        let (def, _) = store.load_property("space").expect("renamed property");
+        assert_eq!(def.key, "space");
+
+        let (plant, _) = store.load_type("plant").expect("type");
+        assert_eq!(
+            plant
+                .properties
+                .iter()
+                .map(|member| member.key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["space", "notes"]
+        );
+        assert_eq!(plant.view.columns, vec!["title", "space"]);
+        assert_eq!(plant.view.sorts[0].property, "space");
+        assert_eq!(plant.view.filter.conditions[0].property, "space");
+
+        for (path, expected) in [
+            (path.clone(), "objects/plant/monstera.md"),
+            (PathBuf::from(format!("trash/{}.md", id(10))), "trash"),
+        ] {
+            let (doc, _) = store.load_object(&path).expect("object after rename");
+            assert_eq!(
+                doc.properties.get("space"),
+                Some(&Value::Text("kitchen".to_owned())),
+                "{expected}"
+            );
+            assert_eq!(doc.properties.get("room"), None, "{expected}");
+        }
+
+        // History keeps the keys it recorded at the time.
+        let history = fs::read_to_string(dir.path().join(format!("history/{}.ndjson", id(9))))
+            .expect("history");
+        assert_eq!(
+            history,
+            format!("{}\n", crate::markdown::serialize_revision(&revision(1)))
+        );
+    }
+
+    #[test]
+    fn renaming_a_property_key_refuses_a_missing_or_taken_name() {
+        let (_dir, store) = store();
+        store
+            .save_property(&room_property("room"), None)
+            .expect("property");
+        store
+            .save_property(&room_property("attic"), None)
+            .expect("second");
+
+        for (old, new, expected) in [
+            ("ghost", "space", "properties/ghost.yml not found"),
+            ("room", "attic", "properties/attic.yml already exists"),
+            (
+                "room",
+                "room",
+                "invalid key: room is already the property key",
+            ),
+            (
+                "room",
+                "../escape",
+                "invalid key: \"../escape\" is not a plain name",
+            ),
+        ] {
+            assert_eq!(
+                store
+                    .rename_property_key(old, new)
+                    .expect_err("{old} to {new}")
+                    .to_string(),
+                expected
+            );
+        }
     }
 
     #[test]
