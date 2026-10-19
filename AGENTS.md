@@ -14,14 +14,16 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 5 in the working tree.** `thing-core` exposes `model`, `error`, `slug`,
+**Current state: checkpoint 6 in the working tree.** `thing-core` exposes `model`, `error`, `slug`,
 `value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
 and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
-`tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` now has its
-shell: `config` (environment knobs), `error` (`CoreError` → HTTP), `spaces` (`SpaceRegistry`),
-`watcher` (`notify` over the data directory) and `routes` (`/api/health`, an API JSON 404, the SPA
-fallback); `set-password`, auth and the space routes are still to come, so no route reaches a
-space yet. No frontend, CI or container yet. Do not assume documented paths exist.
+`tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` has its shell
+(`config`, `error`, `spaces`, `watcher`, `state`) and its auth and membership surface: `accounts`
+(users, sessions, invites in SQLite, ladder behind a test), `auth` (argon2, session tokens, the
+`thing_session` cookie and the `Caller` extractor), `routes/auth` (register, login, logout, me) and
+`routes/spaces` (space CRUD, invites, members, the role guard). Types, properties, objects, history
+and trash routes are still to come, as are the WebSocket and the SPA. No frontend, CI or container
+yet. Do not assume documented paths exist.
 
 ## Where the plan lives
 
@@ -30,8 +32,9 @@ space yet. No frontend, CI or container yet. Do not assume documented paths exis
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is in progress: **checkpoints 1–4 (scaffold; core model and format; store; index, validation and
-query) are landed and pushed**; checkpoint 5, the server shell, is implemented and awaiting review.
+M1 is in progress: **checkpoints 1–5 (scaffold; core model and format; store; index, validation and
+query; server shell) are landed and pushed**; checkpoint 6, auth and membership, is implemented and
+awaiting review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -79,9 +82,10 @@ Later milestones get their own `docs/plan/mN-*.md`.
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 132)
+cargo test --workspace           # all tests (currently 155)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # serves ./data on 127.0.0.1:8080
+cargo run -p thing-server -- set-password --email you@example.com   # reads the password from stdin
 cargo run -p thing-server -- reindex --space <space-uuid>   # prints a space's file problems
 ```
 
@@ -115,8 +119,9 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   `[workspace.dependencies]`; members inherit via `dep.workspace = true`. Add to the workspace
   table first, then reference from the crate.
 - `Cargo.lock` is committed; keep in sync.
-- Declared-but-unused deps (`argon2`, `rusqlite`, `notify`, `sha2`, `tower`, `futures-util`,
-  `http-body-util`) signal planned modules; do not delete without checking the roadmap.
+- `argon2`, `rusqlite`, `notify`, `sha2`, `tower` and `http-body-util` are in use by `thing-server`
+  (accounts, auth, the watcher, the HTTP tests). `futures-util` is still declared-but-unused: the
+  WebSocket route is what needs it; do not delete without checking the roadmap.
 
 ### Domain invariants (non-negotiable)
 - Object identity is **UUIDv7** in frontmatter; renaming, moving or retyping never breaks links.
@@ -196,7 +201,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, and the property-rename rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard and `rename_property_key` |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
-| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `error`, `spaces`, `watcher`, `routes` |
+| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `watcher`, `routes/{mod,auth,spaces}` |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
 | `.gitignore` | Ignores `/target`, `web/dist`, `data/`, `.env` |
@@ -224,7 +229,11 @@ only truth.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
-- **Current coverage:** 132 tests — one `#[cfg(test)]` module per source file, plus
+- **HTTP tests:** `thing-server` is a binary crate, so its tests are inline and drive the real
+  router over a `tempfile::TempDir` with `tower::ServiceExt::oneshot` and
+  `http_body_util::BodyExt::collect` (see `routes::tests`); that is how the auth and role rules are
+  pinned.
+- **Current coverage:** 155 tests — one `#[cfg(test)]` module per source file, plus
   `tests/roundtrip.rs`. New behavior needs a test exercising the changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the

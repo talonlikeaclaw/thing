@@ -11,8 +11,9 @@ use std::sync::{Arc, PoisonError, RwLock};
 
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
-use thing_core::store::SpaceStore;
+use thing_core::model::SpaceMeta;
 use thing_core::store::fs::FsSpaceStore;
+use thing_core::store::{SPACE_FILE, SpaceStore};
 use uuid::Uuid;
 
 /// Directory under the data directory holding one directory per space.
@@ -32,6 +33,16 @@ impl SpaceHandle {
         self.with_index(|index| index.meta().id)
     }
 
+    /// The space's own metadata, as the index last read it.
+    pub fn meta(&self) -> SpaceMeta {
+        self.with_index(|index| index.meta().clone())
+    }
+
+    /// How many types the space defines.
+    pub fn type_count(&self) -> usize {
+        self.with_index(|index| index.types().count())
+    }
+
     /// Runs `f` over the index under the read lock.
     pub fn with_index<T>(&self, f: impl FnOnce(&SpaceIndex) -> T) -> T {
         let index = self.index.read().unwrap_or_else(PoisonError::into_inner);
@@ -45,6 +56,21 @@ impl SpaceHandle {
     pub fn with_index_mut<T>(&self, f: impl FnOnce(&mut SpaceIndex) -> T) -> T {
         let mut index = self.index.write().unwrap_or_else(PoisonError::into_inner);
         f(&mut index)
+    }
+
+    /// Applies `change` to `space.yml` under the write lock, then re-reads it,
+    /// so the rename a caller asked for is what the index serves next.
+    pub async fn update_meta(&self, change: impl FnOnce(&mut SpaceMeta)) -> Result<(), CoreError> {
+        let _guard = self.write.lock().await;
+        let (mut meta, expected) = self.with_index(|index| {
+            (
+                index.meta().clone(),
+                index.fingerprint(Path::new(SPACE_FILE)),
+            )
+        });
+        change(&mut meta);
+        self.store.save_space(&meta, expected)?;
+        self.with_index_mut(|index| index.reload_file(&self.store, Path::new(SPACE_FILE)))
     }
 }
 
@@ -127,6 +153,25 @@ impl SpaceRegistry {
             "space loaded"
         );
         Ok(handle)
+    }
+
+    /// The space with this id, if it is loaded.
+    pub fn get(&self, id: Uuid) -> Option<Arc<SpaceHandle>> {
+        self.spaces
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&id)
+            .map(Arc::clone)
+    }
+
+    /// Every loaded space, in id order.
+    pub fn spaces(&self) -> Vec<Arc<SpaceHandle>> {
+        self.spaces
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .values()
+            .map(Arc::clone)
+            .collect()
     }
 
     /// Forgets a space whose directory is gone, so nothing serves stale state for it.

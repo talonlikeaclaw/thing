@@ -53,7 +53,10 @@ async fn run(
 async fn apply(registry: &SpaceRegistry, paths: HashSet<PathBuf>) {
     for path in paths {
         let Some((handle, relative)) = registry.resolve(&path) else {
+            // A space's own delete removes its directory, so only load when the
+            // file that makes it a space is actually there.
             if let Some(dir) = new_space_dir(registry, &path)
+                && dir.join(SPACE_FILE).is_file()
                 && let Err(err) = registry.load(&dir)
             {
                 tracing::warn!(space_dir = %dir.display(), %err, "space skipped");

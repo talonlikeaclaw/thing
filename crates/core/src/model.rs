@@ -3,10 +3,14 @@
 //! Field names are the JSON field names and the frontmatter keys.
 
 use std::collections::BTreeMap;
+use std::fmt;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
+
+use crate::error::CoreError;
 
 /// The format of a property's value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -239,6 +243,91 @@ pub enum Role {
     Viewer,
 }
 
+impl Role {
+    /// Whether this role may do what `required` requires; the order is
+    /// `owner` > `editor` > `viewer`, so an owner passes every check.
+    pub fn allows(self, required: Self) -> bool {
+        self.rank() >= required.rank()
+    }
+
+    /// The spelling used in `space.yml` and in the API, matching serde's
+    /// `snake_case` rename (pinned by a test).
+    pub const fn text(self) -> &'static str {
+        match self {
+            Self::Owner => "owner",
+            Self::Editor => "editor",
+            Self::Viewer => "viewer",
+        }
+    }
+
+    fn rank(self) -> u8 {
+        match self {
+            Self::Owner => 3,
+            Self::Editor => 2,
+            Self::Viewer => 1,
+        }
+    }
+}
+
+impl fmt::Display for Role {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.text())
+    }
+}
+
+impl FromStr for Role {
+    type Err = CoreError;
+
+    fn from_str(text: &str) -> Result<Self, CoreError> {
+        match text {
+            "owner" => Ok(Self::Owner),
+            "editor" => Ok(Self::Editor),
+            "viewer" => Ok(Self::Viewer),
+            other => Err(CoreError::ValidationFailed {
+                field: "role".to_owned(),
+                message: format!("unknown role {other}"),
+            }),
+        }
+    }
+}
+
+impl SpaceMeta {
+    /// The role this user holds, or `None` when they are not a member.
+    pub fn role_of(&self, user: Uuid) -> Option<Role> {
+        self.members
+            .iter()
+            .find(|member| member.user == user)
+            .map(|member| member.role)
+    }
+
+    /// Adds this user, or changes the role of one already a member.
+    pub fn set_member(&mut self, user: Uuid, role: Role) {
+        match self.members.iter_mut().find(|member| member.user == user) {
+            Some(existing) => existing.role = role,
+            None => self.members.push(Member { user, role }),
+        }
+    }
+
+    /// Removes this user; reports whether they were a member.
+    pub fn remove_member(&mut self, user: Uuid) -> bool {
+        let before = self.members.len();
+        self.members.retain(|member| member.user != user);
+        self.members.len() != before
+    }
+
+    /// Whether this user is the only owner, so demoting or removing them would
+    /// leave the space unowned.
+    pub fn is_last_owner(&self, user: Uuid) -> bool {
+        self.role_of(user) == Some(Role::Owner)
+            && self
+                .members
+                .iter()
+                .filter(|member| member.role == Role::Owner)
+                .count()
+                == 1
+    }
+}
+
 /// One history entry (`history/<object-uuid>.ndjson`, one JSON object per line).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -314,8 +403,80 @@ fn is_false(value: &bool) -> bool {
 mod tests {
     use super::*;
 
+    fn space() -> SpaceMeta {
+        SpaceMeta {
+            id: Uuid::now_v7(),
+            name: "Garden".to_owned(),
+            icon: None,
+            timezone: "UTC".to_owned(),
+            created_at: OffsetDateTime::UNIX_EPOCH,
+            members: Vec::new(),
+        }
+    }
+
     #[test]
     fn empty_placement_defaults_to_end() {
         assert_eq!(EmptyPlacement::default(), EmptyPlacement::End);
+    }
+
+    #[test]
+    fn the_wire_spelling_is_the_rendered_one() {
+        for role in [Role::Owner, Role::Editor, Role::Viewer] {
+            let yaml = serde_yaml_ng::to_string(&role).expect("serializes");
+            assert_eq!(yaml.trim(), role.to_string());
+            assert_eq!(role.to_string().parse::<Role>().expect("parses back"), role);
+        }
+        assert!(matches!(
+            "admin".parse::<Role>(),
+            Err(CoreError::ValidationFailed { .. })
+        ));
+    }
+
+    #[test]
+    fn a_higher_role_allows_everything_a_lower_one_does() {
+        assert!(Role::Owner.allows(Role::Owner));
+        assert!(Role::Owner.allows(Role::Editor));
+        assert!(Role::Owner.allows(Role::Viewer));
+        assert!(Role::Editor.allows(Role::Editor));
+        assert!(Role::Editor.allows(Role::Viewer));
+        assert!(Role::Viewer.allows(Role::Viewer));
+        assert!(!Role::Editor.allows(Role::Owner));
+        assert!(!Role::Viewer.allows(Role::Editor));
+        assert!(!Role::Viewer.allows(Role::Owner));
+    }
+
+    #[test]
+    fn set_member_adds_once_and_then_changes_the_role() {
+        let mut meta = space();
+        let user = Uuid::now_v7();
+        meta.set_member(user, Role::Viewer);
+        meta.set_member(user, Role::Editor);
+        assert_eq!(meta.members.len(), 1);
+        assert_eq!(meta.role_of(user), Some(Role::Editor));
+        assert_eq!(meta.role_of(Uuid::now_v7()), None);
+    }
+
+    #[test]
+    fn remove_member_reports_whether_anyone_was_removed() {
+        let mut meta = space();
+        let user = Uuid::now_v7();
+        meta.set_member(user, Role::Owner);
+        assert!(meta.remove_member(user));
+        assert!(!meta.remove_member(user));
+        assert!(meta.members.is_empty());
+    }
+
+    #[test]
+    fn the_last_owner_is_the_only_one_that_blocks_a_demotion() {
+        let mut meta = space();
+        let first = Uuid::now_v7();
+        let second = Uuid::now_v7();
+        meta.set_member(first, Role::Owner);
+        assert!(meta.is_last_owner(first));
+        meta.set_member(second, Role::Owner);
+        assert!(!meta.is_last_owner(first));
+        meta.set_member(second, Role::Viewer);
+        assert!(meta.is_last_owner(first));
+        assert!(!meta.is_last_owner(second));
     }
 }

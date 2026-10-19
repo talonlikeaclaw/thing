@@ -1,11 +1,15 @@
 //! `thing-server`: the HTTP shell around `thing-core`.
 
+mod accounts;
+mod auth;
 mod config;
 mod error;
 mod routes;
 mod spaces;
+mod state;
 mod watcher;
 
+use std::io::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -14,8 +18,10 @@ use thing_core::index::SpaceIndex;
 use thing_core::store::fs::FsSpaceStore;
 use uuid::Uuid;
 
+use crate::accounts::Accounts;
 use crate::config::Config;
 use crate::spaces::SpaceRegistry;
+use crate::state::{ACCOUNTS_FILE, AppState};
 
 /// The HTTP server and the maintenance commands that go with it.
 #[derive(Debug, Parser)]
@@ -29,6 +35,12 @@ struct Cli {
 enum Command {
     /// Serve the API and the SPA. This is the default.
     Serve,
+    /// Read a new password from stdin and store its hash. The only account
+    /// recovery in M1, because there is no mail.
+    SetPassword {
+        #[arg(long)]
+        email: String,
+    },
     /// Rebuild a space's index from disk and print what is wrong with its files.
     Reindex {
         /// The space's directory name under `spaces/`.
@@ -43,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     match Cli::parse().command.unwrap_or(Command::Serve) {
         Command::Serve => serve(config).await,
+        Command::SetPassword { email } => set_password(&config, &email),
         Command::Reindex { space } => reindex(&config, space),
     }
 }
@@ -53,14 +66,44 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     let loaded = registry.load_all()?;
     watcher::spawn(Arc::clone(&registry))?;
 
+    let accounts = Accounts::open(&config.data_dir.join(ACCOUNTS_FILE))
+        .context("opening the accounts database")?;
+    let state = AppState::new(config.clone(), Arc::clone(&registry), accounts);
+
     let listener = tokio::net::TcpListener::bind(config.bind).await?;
     tracing::info!(
         bind = %config.bind,
         data_dir = %config.data_dir.display(),
         spaces = loaded,
+        accounts = state.accounts.user_count()?,
         "thing-server listening"
     );
-    axum::serve(listener, routes::router(&config)).await?;
+    axum::serve(listener, routes::router(&config, state)).await?;
+    Ok(())
+}
+
+/// Reads one line from stdin, hashes it, and replaces the account's hash.
+fn set_password(config: &Config, email: &str) -> anyhow::Result<()> {
+    let accounts = Accounts::open(&config.data_dir.join(ACCOUNTS_FILE))
+        .context("opening the accounts database")?;
+    let email = email.trim().to_lowercase();
+    if accounts.credentials(&email)?.is_none() {
+        anyhow::bail!("no account with the email {email}");
+    }
+
+    eprint!("new password for {email}: ");
+    std::io::stderr().flush()?;
+    let mut password = String::new();
+    std::io::stdin().read_line(&mut password)?;
+    let password = password.trim_end_matches(['\n', '\r']);
+    if password.chars().count() < auth::MIN_PASSWORD_LEN {
+        anyhow::bail!("use at least {} characters", auth::MIN_PASSWORD_LEN);
+    }
+
+    let hash = auth::hash_password(password)
+        .map_err(|err| anyhow::anyhow!("hashing the password failed: {err}"))?;
+    accounts.set_password(&email, &hash)?;
+    eprintln!("password updated for {email}");
     Ok(())
 }
 

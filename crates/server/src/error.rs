@@ -9,6 +9,8 @@ use axum::response::{IntoResponse, Response};
 use serde_json::{Value, json};
 use thing_core::error::CoreError;
 
+use crate::accounts::AccountError;
+
 /// A failed API call: the status and body it renders as.
 #[derive(Debug)]
 pub struct ApiError {
@@ -16,6 +18,51 @@ pub struct ApiError {
     code: &'static str,
     message: String,
     details: Value,
+}
+
+impl ApiError {
+    /// `401` — no session, or one that has ended.
+    pub fn unauthenticated(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::UNAUTHORIZED, "unauthenticated", message)
+    }
+
+    /// `403` — signed in, but not allowed to do this.
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    }
+
+    /// `404` — nothing here, or not for this caller.
+    pub fn not_found(what: impl std::fmt::Display) -> Self {
+        Self::new(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            format!("{what} not found"),
+        )
+    }
+
+    /// `422` — the request is well-formed but not acceptable.
+    pub fn validation(field: &str, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            code: "validation_failed",
+            message: message.into(),
+            details: json!({ "field": field }),
+        }
+    }
+
+    /// `500` — the server broke, not the request.
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "internal", message)
+    }
+
+    fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            status,
+            code,
+            message: message.into(),
+            details: json!({}),
+        }
+    }
 }
 
 impl From<CoreError> for ApiError {
@@ -57,6 +104,21 @@ impl From<CoreError> for ApiError {
                 message: err.to_string(),
                 details: json!({}),
             },
+        }
+    }
+}
+
+/// `AccountError` has no domain status of its own: a taken email is a conflict,
+/// everything else is the database failing.
+impl From<AccountError> for ApiError {
+    fn from(err: AccountError) -> Self {
+        match err {
+            AccountError::EmailTaken(email) => Self::new(
+                StatusCode::CONFLICT,
+                "conflict",
+                format!("{email} is already registered"),
+            ),
+            other => Self::internal(other.to_string()),
         }
     }
 }
@@ -124,6 +186,49 @@ mod tests {
             assert_eq!(error.status, status, "status for {code}");
             assert_eq!(error.code, code);
         }
+    }
+
+    #[test]
+    fn the_documented_codes_map_to_the_documented_statuses() {
+        let cases = [
+            (
+                ApiError::unauthenticated("x"),
+                StatusCode::UNAUTHORIZED,
+                "unauthenticated",
+            ),
+            (ApiError::forbidden("x"), StatusCode::FORBIDDEN, "forbidden"),
+            (ApiError::not_found("x"), StatusCode::NOT_FOUND, "not_found"),
+            (
+                ApiError::from(CoreError::AlreadyExists("x".to_owned())),
+                StatusCode::CONFLICT,
+                "conflict",
+            ),
+            (
+                ApiError::validation("name", "x"),
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "validation_failed",
+            ),
+            (
+                ApiError::internal("x"),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal",
+            ),
+        ];
+
+        for (error, status, code) in cases {
+            assert_eq!(error.status, status, "status for {code}");
+            assert_eq!(error.code, code);
+        }
+    }
+
+    #[test]
+    fn a_taken_email_is_a_conflict_and_a_broken_database_is_not() {
+        let taken = ApiError::from(AccountError::EmailTaken("a@b.c".to_owned()));
+        assert_eq!(taken.status, StatusCode::CONFLICT);
+        assert_eq!(taken.message, "a@b.c is already registered");
+
+        let broken = ApiError::from(AccountError::Database(rusqlite::Error::QueryReturnedNoRows));
+        assert_eq!(broken.status, StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]

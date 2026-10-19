@@ -10,15 +10,20 @@ use anyhow::Context;
 
 pub const DEFAULT_DATA_DIR: &str = "./data";
 pub const DEFAULT_BIND: &str = "127.0.0.1:8080";
+pub const DEFAULT_PUBLIC_URL: &str = "http://localhost:5173";
 pub const DEFAULT_STATIC_DIR: &str = "web/dist";
 pub const DEFAULT_LOG: &str = "info";
 
-/// The variables this binary reads: data directory, listen address and the SPA build.
+/// The variables this binary reads: data directory, listen address, the SPA
+/// build, the public URL invite links are rendered against, and whether cookies
+/// are marked `Secure`.
 #[derive(Debug, Clone)]
 pub struct Config {
     pub data_dir: PathBuf,
     pub bind: SocketAddr,
+    pub public_url: String,
     pub static_dir: PathBuf,
+    pub cookie_secure: bool,
 }
 
 impl Config {
@@ -28,7 +33,9 @@ impl Config {
             bind: env_or("THING_BIND", DEFAULT_BIND)
                 .parse()
                 .context("THING_BIND is not a socket address")?,
+            public_url: env_or("THING_PUBLIC_URL", DEFAULT_PUBLIC_URL),
             static_dir: env_or("THING_STATIC_DIR", DEFAULT_STATIC_DIR).into(),
+            cookie_secure: matches!(env_or("THING_COOKIE_SECURE", "false").as_str(), "true"),
         })
     }
 }
