@@ -19,12 +19,15 @@ use uuid::Uuid;
 /// Directory under the data directory holding one directory per space.
 pub const SPACES_DIR: &str = "spaces";
 
-/// One space: its store, its index, and the lock that serializes writes to it.
+/// One space: its store, its index, the lock that serializes writes to it, and
+/// the channel every live client listens on.
 pub struct SpaceHandle {
     pub store: FsSpaceStore,
     index: RwLock<SpaceIndex>,
     /// Taken by every writer — the API and the watcher — so those serialize.
     pub write: tokio::sync::Mutex<()>,
+    /// One broadcast channel per space, shared by the write path and the watcher.
+    pub events: tokio::sync::broadcast::Sender<crate::events::SpaceEvent>,
 }
 
 impl SpaceHandle {
@@ -127,10 +130,16 @@ impl SpaceRegistry {
         let clean = problems.unparseable.is_empty()
             && problems.dangling_relations.is_empty()
             && problems.duplicate_slugs.is_empty();
+        // A reload keeps the channel, so a client that connected before it
+        // still hears about the space afterwards.
+        let events = self
+            .get(id)
+            .map_or_else(crate::events::channel, |existing| existing.events.clone());
         let handle = Arc::new(SpaceHandle {
             store,
             index: RwLock::new(index),
             write: tokio::sync::Mutex::new(()),
+            events,
         });
         if !clean {
             tracing::warn!(

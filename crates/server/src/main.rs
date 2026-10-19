@@ -4,6 +4,7 @@ mod accounts;
 mod auth;
 mod config;
 mod error;
+mod events;
 mod routes;
 mod spaces;
 mod state;

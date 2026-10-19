@@ -226,6 +226,7 @@ async fn update(
             }
         })
         .await?;
+    handle.broadcast("space.updated", json!({}));
     tracing::info!(space = %space, user = %caller.user.id, "space updated");
     Ok(Json(detail_of(&state, &handle, caller.user.id)?))
 }
@@ -260,6 +261,7 @@ async fn remove(
     let _guard = handle.write.lock().await;
     let dir = handle.store.space_dir().to_owned();
     std::fs::remove_dir_all(&dir).map_err(|err| ApiError::from(CoreError::Io(err)))?;
+    handle.broadcast("space.deleted", json!({}));
     state.registry.remove(space);
     tracing::info!(space = %space, user = %caller.user.id, path = %dir.display(), "space deleted");
     Ok(StatusCode::NO_CONTENT)
@@ -361,9 +363,18 @@ async fn set_member(
         ));
     }
 
+    let existing = handle.meta().role_of(user);
     handle
         .update_meta(|meta| meta.set_member(user, body.role))
         .await?;
+    handle.broadcast(
+        if existing.is_some() {
+            "member.updated"
+        } else {
+            "member.added"
+        },
+        json!({ "user": user, "role": body.role }),
+    );
     tracing::info!(space = %space, user = %user, role = %body.role, "member set");
     Ok(Json(detail_of(&state, &handle, caller.user.id)?))
 }
@@ -392,6 +403,7 @@ async fn remove_member(
             meta.remove_member(user);
         })
         .await?;
+    handle.broadcast("member.removed", json!({ "user": user }));
     tracing::info!(space = %space, user = %user, "member removed");
     Ok(StatusCode::NO_CONTENT)
 }

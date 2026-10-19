@@ -127,6 +127,7 @@ async fn create(
     handle.store.save_property(&def, None)?;
     let path = property_path(&key);
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast("property.created", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "property created");
     Ok((
         StatusCode::CREATED,
@@ -186,6 +187,7 @@ async fn update(
     let expected = handle.with_index(|index| index.fingerprint(&path));
     handle.store.save_property(&next, expected)?;
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast("property.updated", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "property updated");
     Ok(Json(json!(property_of(&handle, &key)?)))
 }
@@ -239,6 +241,7 @@ async fn rename(
         .store
         .rename_property_key(&key, &next, OffsetDateTime::now_utc(), caller.user.id)?;
     rebuild(&handle)?;
+    handle.broadcast("property.updated", json!({ "key": next, "previous": key }));
     tracing::info!(space = %space, user = %caller.user.id, from = %key, to = %next, "property renamed");
     Ok(Json(json!(property_of(&handle, &next)?)))
 }
@@ -277,6 +280,7 @@ async fn remove(
         .store
         .remove_property_key(&key, OffsetDateTime::now_utc(), caller.user.id)?;
     rebuild(&handle)?;
+    handle.broadcast("property.deleted", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "property deleted");
     Ok(StatusCode::NO_CONTENT)
 }

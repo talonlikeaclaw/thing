@@ -48,6 +48,7 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .merge(types::routes())
         .merge(properties::routes())
         .merge(objects::routes())
+        .merge(crate::events::routes())
         .route("/api", any(no_such_route))
         .route("/api/{*rest}", any(no_such_route));
 
@@ -287,6 +288,7 @@ mod tests {
     struct Server {
         _root: TempDir,
         router: Router,
+        state: SharedState,
     }
 
     /// A server over a temporary data directory, with no SPA build.
@@ -303,10 +305,12 @@ mod tests {
         registry.prepare().expect("creates spaces/");
         let accounts = Accounts::open(&config.data_dir.join(ACCOUNTS_FILE))
             .expect("creates the accounts database");
-        let router = router(&config, AppState::new(config.clone(), registry, accounts));
+        let state = AppState::new(config.clone(), registry, accounts);
+        let router = router(&config, Arc::clone(&state));
         Server {
             _root: root,
             router,
+            state,
         }
     }
 
@@ -1338,5 +1342,337 @@ mod tests {
                 other => format!("%{other:02X}"),
             })
             .collect()
+    }
+    use crate::events::SpaceEvent;
+
+    /// The next event, or a failure rather than a test that hangs.
+    async fn next_event(events: &mut tokio::sync::broadcast::Receiver<SpaceEvent>) -> SpaceEvent {
+        tokio::time::timeout(std::time::Duration::from_secs(2), events.recv())
+            .await
+            .expect("an event within two seconds")
+            .expect("a live channel")
+    }
+
+    #[test]
+    fn every_write_broadcasts_its_event_to_the_space() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&space).expect("an id"))
+                .expect("a loaded space");
+            let mut events = handle.events.subscribe();
+            let base = format!("/api/spaces/{space}");
+
+            let created_type = server
+                .call(
+                    "POST",
+                    &format!("{base}/types"),
+                    Some(json!({ "name": "Plant" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created_type.status, StatusCode::CREATED);
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "type.created");
+            assert_eq!(event.space.to_string(), space);
+            assert_eq!(event.payload["key"], "plant");
+
+            server
+                .call(
+                    "POST",
+                    &format!("{base}/properties"),
+                    Some(json!({
+                        "name": "Room",
+                        "format": "select",
+                        "options": [{ "name": "Kitchen" }]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "property.created");
+
+            server
+                .call(
+                    "PATCH",
+                    &format!("{base}/types/plant"),
+                    Some(json!({ "properties": [{ "key": "room" }] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "type.updated");
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Monstera",
+                        "properties": { "room": "kitchen" }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "object.created");
+            assert_eq!(event.payload["id"], id.as_str());
+            assert_eq!(event.payload["type"], "plant");
+            assert_eq!(event.payload["rev"], 1);
+
+            server
+                .call(
+                    "PATCH",
+                    &format!("{base}/objects/{id}"),
+                    Some(json!({ "rev": 1, "title": "Monstera in the study" })),
+                    Some(&cookie),
+                )
+                .await;
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "object.updated");
+            assert_eq!(event.payload["rev"], 2);
+
+            server
+                .call(
+                    "DELETE",
+                    &format!("{base}/objects/{id}"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "object.deleted");
+
+            server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/restore"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "object.restored");
+
+            server
+                .call(
+                    "DELETE",
+                    &format!("{base}/objects/{id}"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "object.deleted");
+            server
+                .call("DELETE", &format!("{base}/trash/{id}"), None, Some(&cookie))
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "object.purged");
+
+            server
+                .call(
+                    "PATCH",
+                    &base,
+                    Some(json!({ "name": "Our Garden" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "space.updated");
+        });
+    }
+
+    /// Reads an HTTP response head, through the blank line that ends it.
+    async fn read_head(stream: &mut tokio::net::TcpStream) -> String {
+        use tokio::io::AsyncReadExt;
+        let mut head = Vec::new();
+        let mut byte = [0u8; 1];
+        while !head.ends_with(b"\r\n\r\n") {
+            stream.read_exact(&mut byte).await.expect("a head byte");
+            head.push(byte[0]);
+        }
+        String::from_utf8(head).expect("an ASCII head")
+    }
+
+    /// Reads one unmasked WebSocket text frame, the only kind the server sends.
+    async fn read_text_frame(stream: &mut tokio::net::TcpStream) -> String {
+        use tokio::io::AsyncReadExt;
+        let mut header = [0u8; 2];
+        stream
+            .read_exact(&mut header)
+            .await
+            .expect("a frame header");
+        assert_eq!(header[0] & 0x0f, 1, "a text frame");
+        assert_eq!(header[1] & 0x80, 0, "a server frame is unmasked");
+        let mut len = usize::from(header[1] & 0x7f);
+        if len == 126 {
+            let mut extended = [0u8; 2];
+            stream
+                .read_exact(&mut extended)
+                .await
+                .expect("a frame length");
+            len = usize::from(u16::from_be_bytes(extended));
+        } else if len == 127 {
+            let mut extended = [0u8; 8];
+            stream
+                .read_exact(&mut extended)
+                .await
+                .expect("a frame length");
+            len = u64::from_be_bytes(extended) as usize;
+        }
+        let mut payload = vec![0u8; len];
+        stream
+            .read_exact(&mut payload)
+            .await
+            .expect("a frame payload");
+        String::from_utf8(payload).expect("UTF-8 text")
+    }
+
+    /// Writes a handshake request and returns the stream and the response head.
+    async fn handshake(addr: std::net::SocketAddr, path: &str) -> (tokio::net::TcpStream, String) {
+        use tokio::io::AsyncWriteExt;
+        let mut stream = tokio::net::TcpStream::connect(addr)
+            .await
+            .expect("a connection");
+        let request = format!(
+            "GET {path} HTTP/1.1\r\nHost: {addr}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n"
+        );
+        stream
+            .write_all(request.as_bytes())
+            .await
+            .expect("a handshake");
+        let head = read_head(&mut stream).await;
+        (stream, head)
+    }
+
+    #[test]
+    fn the_socket_greets_the_client_then_relays_writes() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let token = cookie
+                .strip_prefix("thing_session=")
+                .expect("the session cookie");
+            let addr = {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                    .await
+                    .expect("a listener");
+                let addr = listener.local_addr().expect("a local address");
+                let router = server.router.clone();
+                tokio::spawn(async move {
+                    axum::serve(listener, router)
+                        .await
+                        .expect("the test server runs");
+                });
+                addr
+            };
+
+            let path = format!("/api/spaces/{}/events?session={token}", garden.space);
+            let (mut socket, head) = handshake(addr, &path).await;
+            assert!(head.starts_with("HTTP/1.1 101"), "{head}");
+            let hello: serde_json::Value =
+                serde_json::from_str(&read_text_frame(&mut socket).await).expect("a hello frame");
+            assert_eq!(hello["event"], "hello");
+            assert_eq!(hello["space"], garden.space.as_str());
+
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({ "rev": 1, "properties": { "room": "study" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            let event: serde_json::Value =
+                serde_json::from_str(&read_text_frame(&mut socket).await).expect("an event");
+            assert_eq!(event["event"], "object.updated");
+            assert_eq!(event["payload"]["id"], garden.plant.as_str());
+            assert_eq!(event["payload"]["rev"], 2);
+
+            // The session query parameter is the only credential; without it
+            // the upgrade is refused before a socket exists.
+            let (anonymous, head) =
+                handshake(addr, &format!("/api/spaces/{}/events", garden.space)).await;
+            assert!(head.starts_with("HTTP/1.1 401"), "{head}");
+            drop(anonymous);
+        });
+    }
+    #[test]
+    fn member_changes_broadcast_the_membership_they_write() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let member = server.register("member@example.com", Some(&code)).await;
+            let user = member.body["user"]["id"]
+                .as_str()
+                .expect("an id")
+                .to_owned();
+
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&space).expect("an id"))
+                .expect("a loaded space");
+            let mut events = handle.events.subscribe();
+
+            let endpoint = format!("/api/spaces/{space}/members/{user}");
+            server
+                .call(
+                    "POST",
+                    &endpoint,
+                    Some(json!({ "role": "editor" })),
+                    Some(&cookie),
+                )
+                .await;
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "member.updated");
+            assert_eq!(event.payload["role"], "editor");
+
+            server
+                .call(
+                    "POST",
+                    &endpoint,
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "member.updated");
+
+            server.call("DELETE", &endpoint, None, Some(&cookie)).await;
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "member.removed");
+            assert_eq!(event.payload["user"], user.as_str());
+
+            // Adding someone who is not a member yet is `member.added`.
+            server
+                .call(
+                    "POST",
+                    &endpoint,
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(next_event(&mut events).await.event, "member.added");
+        });
     }
 }

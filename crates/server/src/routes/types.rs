@@ -154,6 +154,7 @@ async fn create(
     handle.store.save_type(&def, None)?;
     let path = type_path(&key);
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast("type.created", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "type created");
 
     let created = handle
@@ -260,6 +261,7 @@ async fn update(
     let expected = handle.with_index(|index| index.fingerprint(&path));
     handle.store.save_type(&next, expected)?;
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast("type.updated", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "type updated");
     Ok(Json(json!(type_of(&handle, &key)?)))
 }
@@ -303,10 +305,15 @@ async fn remove(
     let now = OffsetDateTime::now_utc();
     for (summary, path) in &live {
         trash_and_record(&handle, &caller, summary, path, now, RevisionAction::Delete)?;
+        handle.broadcast(
+            "object.deleted",
+            json!({ "id": summary.id, "type": summary.type_key, "rev": summary.rev }),
+        );
     }
     handle.store.remove_type(&key)?;
     let path = type_path(&key);
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast("type.deleted", json!({ "key": key }));
     tracing::info!(
         space = %space,
         user = %caller.user.id,

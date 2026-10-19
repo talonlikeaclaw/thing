@@ -238,6 +238,10 @@ async fn create(
         },
     )?;
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast(
+        "object.created",
+        json!({ "id": doc.id, "type": doc.type_key, "rev": doc.rev }),
+    );
     tracing::info!(space = %space, user = %caller.user.id, object = %doc.id, "object created");
 
     let created = handle
@@ -368,6 +372,10 @@ async fn update(
         }
         index.reload_file(&handle.store, &target)
     })?;
+    handle.broadcast(
+        "object.updated",
+        json!({ "id": next.id, "type": next.type_key, "rev": next.rev }),
+    );
     tracing::info!(
         space = %space,
         user = %caller.user.id,
@@ -449,6 +457,10 @@ async fn remove(
         OffsetDateTime::now_utc(),
         RevisionAction::Delete,
     )?;
+    handle.broadcast(
+        "object.deleted",
+        json!({ "id": summary.id, "type": summary.type_key, "rev": summary.rev }),
+    );
     tracing::info!(space = %space, user = %caller.user.id, object = %id, "object trashed");
 
     let trashed = handle
@@ -493,6 +505,10 @@ async fn restore(
         index.reload_file(&handle.store, &from)?;
         index.reload_file(&handle.store, &path)
     })?;
+    handle.broadcast(
+        "object.restored",
+        json!({ "id": doc.id, "type": doc.type_key, "rev": doc.rev }),
+    );
     tracing::info!(space = %space, user = %caller.user.id, object = %id, path = %path.display(), "object restored");
 
     let restored = handle
@@ -514,12 +530,24 @@ async fn purge(
     let id = uuid_param(&object, "object")?;
     let handle = space_for(&state, &caller, space, Role::Editor)?;
     let _guard = handle.write.lock().await;
-    let from = handle
-        .with_index(|index| index.trash_path(id).map(std::path::Path::to_owned))
-        .ok_or_else(|| ApiError::not_found(format!("trashed object {id}")))?;
+    let (from, trashed) = handle.with_index(|index| -> Result<_, ApiError> {
+        let from = index
+            .trash_path(id)
+            .map(std::path::Path::to_owned)
+            .ok_or_else(|| ApiError::not_found(format!("trashed object {id}")))?;
+        let doc = index
+            .trashed(id)
+            .cloned()
+            .ok_or_else(|| ApiError::not_found(format!("trashed object {id}")))?;
+        Ok((from, doc))
+    })?;
 
     handle.store.purge(id)?;
     handle.with_index_mut(|index| index.reload_file(&handle.store, &from))?;
+    handle.broadcast(
+        "object.purged",
+        json!({ "id": trashed.id, "type": trashed.type_key, "rev": trashed.rev }),
+    );
     tracing::info!(space = %space, user = %caller.user.id, object = %id, "object purged");
     Ok(StatusCode::NO_CONTENT)
 }

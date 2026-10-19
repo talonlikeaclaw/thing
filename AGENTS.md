@@ -14,7 +14,7 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 7 in the working tree.** `thing-core` exposes `model`, `error`, `slug`
+**Current state: checkpoint 8 in the working tree.** `thing-core` exposes `model`, `error`, `slug`
 (with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
 (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
 with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
@@ -35,8 +35,8 @@ yet. Do not assume documented paths exist.
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
 M1 is in progress: **checkpoints 1–6 (scaffold; core model and format; store; index, validation and
-query; server shell; auth and membership) are landed**; checkpoint 7, the schema and object APIs, is
-implemented and awaiting review.
+query; server shell; auth and membership) are landed**; checkpoints 7 (schema and object APIs) and 8
+(events and the WebSocket) are implemented and awaiting review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -67,7 +67,7 @@ Later milestones get their own `docs/plan/mN-*.md`.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
 - **Core modules:** `model`, `markdown`, `store`, `validate`, `filter`, `query`, `index` exist.
-  The server shell and everything after it is still to come.
+  The server shell, auth, the schema and object APIs, and the event bus exist; the SPA is next.
 
 ## Key Directories
 
@@ -124,8 +124,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   table first, then reference from the crate.
 - `Cargo.lock` is committed; keep in sync.
 - `argon2`, `rusqlite`, `notify`, `sha2`, `tower` and `http-body-util` are in use by `thing-server`
-  (accounts, auth, the watcher, the HTTP tests). `futures-util` is still declared-but-unused: the
-  WebSocket route is what needs it; do not delete without checking the roadmap.
+  (accounts, auth, the watcher, the HTTP tests). `futures-util` splits the WebSocket in `events.rs`.
 
 ### Domain invariants (non-negotiable)
 - Object identity is **UUIDv7** in frontmatter; renaming, moving or retyping never breaks links.
@@ -218,8 +217,9 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`) and the property rename/removal rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
-| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `watcher`, `routes/{mod,auth,spaces,types,properties,objects,values}` |
-| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload), the list endpoint and the trash, restore and history routes |
+| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,types,properties,objects,values}` |
+| `crates/server/src/events.rs` | The per-space broadcast channel, `SpaceEvent`, and the `/events` WebSocket (`hello`, then every event; a lagged listener is disconnected so reconnect means full invalidation) |
+| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint and the trash, restore and history routes |
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
@@ -253,7 +253,7 @@ only truth.
   router over a `tempfile::TempDir` with `tower::ServiceExt::oneshot` and
   `http_body_util::BodyExt::collect` (see `routes::tests`); that is how the auth and role rules are
   pinned.
-- **Current coverage:** 191 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 47 `thing-server`) —
+- **Current coverage:** 195 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 51 `thing-server`) —
   one `#[cfg(test)]` module per source file. New behavior needs a test exercising the changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the
