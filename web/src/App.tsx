@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { RouterProvider } from "react-router/dom";
 
+import { ToastProvider } from "@/components/ui/toast";
 import { router } from "@/router";
 
 const client = new QueryClient({
@@ -17,7 +18,9 @@ export function App() {
   return (
     <StrictMode>
       <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </QueryClientProvider>
     </StrictMode>
   );

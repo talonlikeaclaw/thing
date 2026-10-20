@@ -145,3 +145,54 @@ export interface TypeSummary {
   property_count: number;
   object_count: number;
 }
+
+/** One value as the server renders it: raw for comparison, label for display. */
+export interface ValueJson {
+  value: unknown;
+  label: string;
+  /** Relation values only: at least one target is not in the space. */
+  missing?: boolean;
+}
+
+/** One row of a type's table. `values` holds the view columns minus `title`. */
+export interface ObjectSummary {
+  id: Uuid;
+  type: string;
+  title: string;
+  rev: number;
+  updated_at: IsoDate;
+  values: Record<string, ValueJson>;
+  missing_relations: Uuid[];
+}
+
+export interface ObjectList {
+  total: number;
+  offset: number;
+  limit: number;
+  has_more: boolean;
+  objects: ObjectSummary[];
+}
+
+export interface ObjectDetail {
+  id: Uuid;
+  type: string;
+  title: string;
+  rev: number;
+  created_at: IsoDate;
+  updated_at: IsoDate;
+  created_by: Uuid;
+  updated_by: Uuid;
+  properties: Record<string, ValueJson>;
+  body: string;
+  missing_relations: Uuid[];
+}
+
+/** The query the table sends; `filter` and `sorts` are already effective. */
+export interface ObjectsQuery {
+  type: string;
+  filter?: Filter;
+  sorts?: Sort[];
+  q?: string;
+  limit?: number;
+  offset?: number;
+}

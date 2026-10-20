@@ -77,6 +77,7 @@ npm run build                    # tsc -b && vite build
 `npm run test` starts Vitest in watch mode. `npm run preview` serves the built bundle.
 
 M1 is in progress: the engine core, HTTP API and event stream are landed; the web app currently
-covers accounts, invites, the space list, space creation and the schema editor. See `PRODUCT.md`
+covers accounts, invites, the space list, space creation, the schema editor and the live type table
+with filters, sorts and inline edits. See `PRODUCT.md`
 for what the product is and why, `DESIGN.md` for the visual system, and `AGENTS.md` for the
 current checkpoint and conventions.

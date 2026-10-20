@@ -14,8 +14,8 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 10 in the working tree (checkpoints 1–9 landed, the web scaffold at
-`c5629f2`).** `thing-core` exposes `model`, `error`, `slug`
+**Current state: checkpoint 11 in the working tree (checkpoints 1–10 landed; the web scaffold at
+`c5629f2`, the schema editor at `8bc6bce`).** `thing-core` exposes `model`, `error`, `slug`
 (with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
 (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
 with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
@@ -26,9 +26,11 @@ its schema and object APIs: `routes/types` (types and their saved view), `routes
 filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
 `{value, label}` rendering every response uses). `scripts/seed.sh` builds the Garden demo space
 against a running server. `web/` is a Vite + React 19 SPA with the signed-out surfaces (sign in,
-register, invite join), the space list and the schema editor (`pages/schema.tsx`, `components/schema/`),
-talking to the API through a typed client and TanStack Query. The live table, object panel, history
-and trash are still to come. No CI or container yet.
+register, invite join), the space list, the schema editor (`pages/schema.tsx`, `components/schema/`)
+and the live per-type table (`pages/type-table.tsx`, `components/type-table.tsx`) with URL-backed
+filters and sorts, inline cell editing with optimistic writes and `409` recovery, and WebSocket
+invalidation through `lib/use-space-events.ts`. The object panel, history and trash are still to
+come. No CI or container yet.
 
 ## Where the plan lives
 
@@ -37,10 +39,10 @@ and trash are still to come. No CI or container yet.
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is in progress: **checkpoints 1–9 (scaffold; core model and format; store; index, validation and
+M1 is in progress: **checkpoints 1–10 (scaffold; core model and format; store; index, validation and
 query; server shell; auth and membership; schema and object APIs; events and the WebSocket; web
-scaffold and auth screens) are landed**; checkpoint 10, the schema editor, is implemented and
-awaiting review.
+scaffold and auth screens; schema editor) are landed**; checkpoint 11, the live table, is
+implemented and awaiting review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -72,7 +74,7 @@ Later milestones get their own `docs/plan/mN-*.md`.
   overwrite stale state. Writes are atomic.
 - **Core modules:** `model`, `markdown`, `store`, `validate`, `filter`, `query`, `index` exist.
   The server shell, auth, the schema and object APIs, and the event bus exist; the SPA has auth,
-  the space list and the schema editor, with the live table and object surfaces next.
+  the space list, the schema editor and the live table, with the object panel, history and trash next.
 
 ## Key Directories
 
