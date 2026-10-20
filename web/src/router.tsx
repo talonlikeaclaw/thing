@@ -5,6 +5,7 @@ import { JoinPage } from "@/pages/join";
 import { LoginPage } from "@/pages/login";
 import { MembersPage } from "@/pages/members";
 import { NotFoundPage } from "@/pages/not-found";
+import { ObjectPage } from "@/pages/object";
 import { RegisterPage } from "@/pages/register";
 import { SchemaPage } from "@/pages/schema";
 import { SpacePage } from "@/pages/space";
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
           { index: true, element: <SpaceListPage /> },
           { path: "s/:spaceId", element: <SpacePage /> },
           { path: "s/:spaceId/t/:typeKey", element: <TypeTablePage /> },
+          { path: "s/:spaceId/o/:objectId", element: <ObjectPage /> },
           { path: "s/:spaceId/schema", element: <SchemaPage /> },
           { path: "s/:spaceId/members", element: <MembersPage /> },
         ],

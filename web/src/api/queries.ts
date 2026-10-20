@@ -28,6 +28,7 @@ export const queryKeys = {
   properties: (id: string) => ["space", id, "properties"] as const,
   objects: (id: string, query: ObjectsQuery) => ["space", id, "objects", query] as const,
   objectsPrefix: (id: string) => ["space", id, "objects"] as const,
+  object: (id: string, objectId: string) => ["space", id, "object", objectId] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
 };
 
@@ -261,6 +262,14 @@ export function useObjects(spaceId: string | undefined, query: ObjectsQuery | un
   });
 }
 
+export function useObject(spaceId: string | undefined, objectId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.object(spaceId ?? "", objectId ?? ""),
+    queryFn: () => request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${objectId}`),
+    enabled: Boolean(spaceId && objectId),
+  });
+}
+
 export interface CreateObjectInput {
   type: string;
   title: string;
@@ -287,6 +296,8 @@ export interface UpdateObjectInput {
   title?: string;
   /** `null` removes the key. */
   properties?: Record<string, unknown | null>;
+  /** The markdown body, when this write carries one. */
+  body?: string;
   /** What the optimistic row shows for each changed cell; `null` clears it. */
   cells?: Record<string, ValueJson | null>;
 }
@@ -313,6 +324,7 @@ function applyObject(
   spaceId: string,
   object: ObjectDetail,
 ) {
+  client.setQueryData(queryKeys.object(spaceId, object.id), object);
   client.setQueriesData<ObjectList>({ queryKey: queryKeys.objectsPrefix(spaceId) }, (list) => {
     if (!list) {
       return list;
@@ -360,6 +372,7 @@ export function useUpdateObject(spaceId: string) {
           rev: input.rev,
           ...(input.title === undefined ? {} : { title: input.title }),
           ...(input.properties === undefined ? {} : { properties: input.properties }),
+          ...(input.body === undefined ? {} : { body: input.body }),
         },
       }),
     onMutate: async (input) => {
@@ -395,6 +408,7 @@ export function useUpdateObject(spaceId: string) {
       }
       if (error instanceof ApiError && error.status === 409) {
         void client.invalidateQueries({ queryKey: queryKeys.objectsPrefix(spaceId) });
+        void client.invalidateQueries({ queryKey: queryKeys.object(spaceId, _input.id) });
       }
     },
     onSuccess: (object) => applyObject(client, spaceId, object),

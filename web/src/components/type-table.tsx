@@ -1,6 +1,6 @@
-import { Search } from "lucide-react";
+import { ArrowUpRight, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { useCreateObject, useObjects, useUpdateObject } from "@/api/queries";
 import type {
@@ -189,6 +189,12 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
                     </th>
                   );
                 })}
+                <th
+                  scope="col"
+                  className="sticky right-0 z-20 w-8 border-l rule bg-ground py-2"
+                >
+                  <span className="sr-only">Open</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -224,6 +230,16 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
                       </td>
                     );
                   })}
+                  <td className="sticky right-0 w-8 border-l rule bg-ground py-1 text-right">
+                    <Link
+                      to={`/s/${spaceId}/o/${row.id}`}
+                      aria-label={`Open ${row.title}`}
+                      title="Open record"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+                    >
+                      <ArrowUpRight aria-hidden size={14} />
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
