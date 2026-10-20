@@ -26,20 +26,57 @@ web/             Vite + React 19 SPA
 
 ## Development
 
+### API and core
+
 ```sh
-# API and core
 cargo build --workspace
 cargo test --workspace
-THING_DATA_DIR=./data cargo run -p thing-server   # 127.0.0.1:8080
+cargo test -p thing-core
 
-# SPA (proxies /api to 127.0.0.1:8080)
-cd web
-npm install
-npm run dev
-npm run test:run && npm run lint && npm run typecheck && npm run build
+# Run the API on 127.0.0.1:8080, storing spaces under ./data
+THING_DATA_DIR=./data cargo run -p thing-server
+
+# The whole Rust gate: format, lints, tests
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+
+# Set a password for an existing account (reads the password from stdin)
+cargo run -p thing-server -- set-password --email you@example.com
+
+# Print the files a space could not parse or whose relations are dangling
+cargo run -p thing-server -- reindex --space <space-uuid>
 ```
 
-`scripts/seed.sh` builds the Garden demo space against a running server. M1 is in progress: the
-engine core, HTTP API and event stream are landed; the web app currently covers accounts, invites,
-the space list and space creation. See `PRODUCT.md` for what the product is and why, `DESIGN.md`
-for the visual system, and `AGENTS.md` for the current checkpoint and conventions.
+The first registered account needs no invite and becomes the owner. Every later account joins
+through a space invite link.
+
+With the server running, `scripts/seed.sh` builds the Garden demo space through the HTTP API:
+
+```sh
+THING_DATA_DIR=./data scripts/seed.sh
+```
+
+### SPA
+
+Start the server first; Vite proxies `/api` (including WebSockets) to `127.0.0.1:8080`, so cookies
+and same-origin requests work unchanged.
+
+```sh
+cd web
+npm install                      # or `npm ci` for the committed lockfile
+npm run dev                      # http://127.0.0.1:5173
+
+# The whole web gate
+npm run test:run                 # Vitest, one run
+npm run lint
+npm run typecheck
+npm run build                    # tsc -b && vite build
+```
+
+`npm run test` starts Vitest in watch mode. `npm run preview` serves the built bundle.
+
+M1 is in progress: the engine core, HTTP API and event stream are landed; the web app currently
+covers accounts, invites, the space list, space creation and the schema editor. See `PRODUCT.md`
+for what the product is and why, `DESIGN.md` for the visual system, and `AGENTS.md` for the
+current checkpoint and conventions.
