@@ -27,9 +27,19 @@ web/             Vite + React 19 SPA
 ## Development
 
 ```sh
+# API and core
 cargo build --workspace
 cargo test --workspace
+THING_DATA_DIR=./data cargo run -p thing-server   # 127.0.0.1:8080
+
+# SPA (proxies /api to 127.0.0.1:8080)
+cd web
+npm install
+npm run dev
+npm run test:run && npm run lint && npm run typecheck && npm run build
 ```
 
-The server is not wired up yet; milestone 1 builds it in order. See `PRODUCT.md` for what the
-product is and why, and `DESIGN.md` for the visual system once the interface exists.
+`scripts/seed.sh` builds the Garden demo space against a running server. M1 is in progress: the
+engine core, HTTP API and event stream are landed; the web app currently covers accounts, invites,
+the space list and space creation. See `PRODUCT.md` for what the product is and why, `DESIGN.md`
+for the visual system, and `AGENTS.md` for the current checkpoint and conventions.

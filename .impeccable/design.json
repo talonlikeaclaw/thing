@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T00:00:00Z",
+  "title": "Design System: thing",
+  "extensions": {
+    "colorMeta": {
+      "ground": { "role": "neutral", "displayName": "Night Ground", "canonical": "#121512", "tonalRamp": ["oklch(15% 0.008 130)", "oklch(26% 0.008 130)", "oklch(37% 0.008 130)", "oklch(48% 0.008 130)", "oklch(59% 0.008 130)", "oklch(70% 0.008 130)", "oklch(83% 0.008 130)", "oklch(95% 0.008 130)"] },
+      "surface": { "role": "neutral", "displayName": "Understory", "canonical": "#1a1e1a", "tonalRamp": ["oklch(19% 0.008 130)", "oklch(29% 0.008 130)", "oklch(39% 0.008 130)", "oklch(49% 0.008 130)", "oklch(59% 0.008 130)", "oklch(71% 0.008 130)", "oklch(83% 0.008 130)", "oklch(95% 0.008 130)"] },
+      "raised": { "role": "neutral", "displayName": "Canopy Shadow", "canonical": "#212621", "tonalRamp": ["oklch(21% 0.008 130)", "oklch(30% 0.008 130)", "oklch(40% 0.008 130)", "oklch(50% 0.008 130)", "oklch(60% 0.008 130)", "oklch(72% 0.008 130)", "oklch(84% 0.008 130)", "oklch(96% 0.008 130)"] },
+      "line": { "role": "neutral", "displayName": "Hairline", "canonical": "#2d332d", "tonalRamp": ["oklch(25% 0.010 130)", "oklch(33% 0.010 130)", "oklch(42% 0.010 130)", "oklch(52% 0.010 130)", "oklch(62% 0.010 130)", "oklch(73% 0.010 130)", "oklch(85% 0.010 130)", "oklch(96% 0.010 130)"] },
+      "line-strong": { "role": "neutral", "displayName": "Hairline Lit", "canonical": "#3a423a", "tonalRamp": ["oklch(28% 0.010 130)", "oklch(36% 0.010 130)", "oklch(45% 0.010 130)", "oklch(54% 0.010 130)", "oklch(64% 0.010 130)", "oklch(75% 0.010 130)", "oklch(86% 0.010 130)", "oklch(96% 0.010 130)"] },
+      "ink": { "role": "neutral", "displayName": "Moon Ink", "canonical": "#e8ece4", "tonalRamp": ["oklch(18% 0.006 120)", "oklch(30% 0.006 120)", "oklch(42% 0.006 120)", "oklch(54% 0.006 120)", "oklch(66% 0.006 120)", "oklch(78% 0.006 120)", "oklch(88% 0.006 120)", "oklch(96% 0.006 120)"] },
+      "muted": { "role": "neutral", "displayName": "Fog", "canonical": "#9aa398", "tonalRamp": ["oklch(20% 0.006 125)", "oklch(32% 0.006 125)", "oklch(44% 0.006 125)", "oklch(56% 0.006 125)", "oklch(68% 0.006 125)", "oklch(80% 0.006 125)", "oklch(89% 0.006 125)", "oklch(96% 0.006 125)"] },
+      "faint": { "role": "neutral", "displayName": "Distant Fog", "canonical": "#747d72", "tonalRamp": ["oklch(17% 0.006 125)", "oklch(28% 0.006 125)", "oklch(39% 0.006 125)", "oklch(50% 0.006 125)", "oklch(61% 0.006 125)", "oklch(73% 0.006 125)", "oklch(85% 0.006 125)", "oklch(95% 0.006 125)"] },
+      "accent": { "role": "primary", "displayName": "Lichen", "canonical": "#c8d96b", "tonalRamp": ["oklch(18% 0.09 115)", "oklch(30% 0.12 115)", "oklch(42% 0.14 115)", "oklch(54% 0.15 115)", "oklch(66% 0.16 115)", "oklch(78% 0.16 115)", "oklch(87% 0.12 115)", "oklch(95% 0.06 115)"] },
+      "accent-ink": { "role": "primary", "displayName": "Lichen Ink", "canonical": "#14180f", "tonalRamp": ["oklch(15% 0.02 120)", "oklch(27% 0.02 120)", "oklch(39% 0.02 120)", "oklch(51% 0.02 120)", "oklch(63% 0.02 120)", "oklch(74% 0.02 120)", "oklch(86% 0.02 120)", "oklch(96% 0.02 120)"] },
+      "danger": { "role": "secondary", "displayName": "Ember", "canonical": "#f08a72", "tonalRamp": ["oklch(20% 0.06 30)", "oklch(32% 0.09 30)", "oklch(44% 0.12 30)", "oklch(56% 0.13 30)", "oklch(68% 0.13 30)", "oklch(79% 0.11 30)", "oklch(88% 0.07 30)", "oklch(95% 0.03 30)"] },
+      "warning": { "role": "tertiary", "displayName": "Amber", "canonical": "#dcaa54", "tonalRamp": ["oklch(20% 0.05 80)", "oklch(32% 0.07 80)", "oklch(44% 0.09 80)", "oklch(56% 0.10 80)", "oklch(68% 0.10 80)", "oklch(79% 0.10 80)", "oklch(88% 0.06 80)", "oklch(95% 0.03 80)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Auth titles and page headings; one per screen." },
+      "title": { "displayName": "Title", "purpose": "Space list and space name." },
+      "body": { "displayName": "Body", "purpose": "Prose, form values and row names." },
+      "label": { "displayName": "Label", "purpose": "Column headers, field labels, roles and keys; uppercase mono." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "settle", "value": "260ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "One entrance on a page's main content; removed under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one stateful action on a view: sign in, create account, create space.",
+      "html": "<button class=\"ds-btn-primary\">Create space</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:10px 16px; border:0; border-radius:6px; background:var(--color-accent,#c8d96b); color:var(--color-accent-ink,#14180f); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:14px; font-weight:500; cursor:pointer; transition:filter 160ms ease; } .ds-btn-primary:hover { filter:brightness(1.05); } .ds-btn-primary:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-btn-primary:disabled { opacity:.5; cursor:not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action: sign out, retry, cancel.",
+      "html": "<button class=\"ds-btn-ghost\">Sign out</button>",
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:10px 16px; border:1px solid var(--color-line,#2d332d); border-radius:6px; background:transparent; color:var(--color-ink,#e8ece4); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:14px; font-weight:500; cursor:pointer; transition:background-color 160ms ease, border-color 160ms ease; } .ds-btn-ghost:hover { background:var(--color-raised,#212621); border-color:var(--color-line-strong,#3a423a); } .ds-btn-ghost:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labeled input with hint and error slots.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input class=\"ds-input\" value=\"Garden\" /></label>",
+      "css": ".ds-field { display:grid; gap:6px; font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-field-label { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:11px; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-input { height:40px; padding:8px 12px; border:1px solid var(--color-line,#2d332d); border-radius:6px; background:var(--color-ground,#121512); color:var(--color-ink,#e8ece4); font:400 15px/1.5 var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-input:hover { border-color:var(--color-line-strong,#3a423a); } .ds-input:focus { border-color:var(--color-accent,#c8d96b); outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-input::placeholder { color:var(--color-faint,#747d72); }"
+    },
+    {
+      "name": "App Header",
+      "kind": "nav",
+      "description": "The signed-in navigation: wordmark at left, account and sign-out at right.",
+      "html": "<header class=\"ds-header\"><a class=\"ds-wordmark\" href=\"/\"><span class=\"ds-mark\"></span>thing</a><span class=\"ds-email\">you@example.com</span><button class=\"ds-btn-ghost\">Sign out</button></header>",
+      "css": ".ds-header { display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-wordmark { display:inline-flex; align-items:baseline; gap:8px; font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:15px; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-mark { width:10px; height:10px; border-radius:2px; background:var(--color-accent,#c8d96b); } .ds-email { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:12px; color:var(--color-muted,#9aa398); }"
+    },
+    {
+      "name": "Space Index Entry",
+      "kind": "custom",
+      "description": "The signature row: mono key, name, counts, role, and an annotation that opens beneath it.",
+      "html": "<div class=\"ds-entry\"><button class=\"ds-entry-key\">92F49F</button><a class=\"ds-entry-name\" href=\"#\">Garden</a><span class=\"ds-entry-count\">1</span><span class=\"ds-entry-count\">0</span><span class=\"ds-entry-role\">OWNER</span></div>",
+      "css": ".ds-entry { display:grid; grid-template-columns:80px minmax(0,1fr) 64px 64px 96px; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-entry-key, .ds-entry-count, .ds-entry-role { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:11px; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-entry-key { background:none; border:0; padding:0; text-align:left; cursor:pointer; } .ds-entry-key:hover { color:var(--color-accent,#c8d96b); } .ds-entry-name { font-size:17px; font-weight:500; letter-spacing:-.01em; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-entry-name:hover { text-decoration:underline; text-underline-offset:3px; } .ds-entry-count { text-align:right; font-variant-numeric:tabular-nums; } .ds-entry-role { text-align:right; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Nocturnal Field Guide",
+    "overview": "The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono, annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet — the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a working tool first. The world contributes type, palette, density and one signature move (the keyed entry), never the navigation model or the controls.",
+    "keyCharacteristics": [
+      "Dark ground with near-neutral, slightly green-black surfaces.",
+      "Hairline 1px rules instead of shadows or cards.",
+      "Mono for keys, ids, timestamps and counts; sans for prose and controls.",
+      "One lichen accent, used only for state (selection, focus, primary action).",
+      "A keyed index as the recurring structure: a short mono key leads every entry."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Lichen marks state: focus, selection, the primary action, the wordmark. It never fills large areas and never appears twice in one row for two different meanings.", "section": "colors" },
+      { "name": "The Light Is Not a Theme Skin Rule", "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens lichen for contrast; it does not add shadows, cards or new ornament.", "section": "colors" },
+      { "name": "The Keys Are Mono Rule", "body": "Anything the system treats as an identifier or measurement is mono and tabular. Anything a person reads as a sentence is sans.", "section": "typography" },
+      { "name": "The Hairline Rule", "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the accent to state and the wordmark; if it is not saying selected, focused or primary action, it is the wrong color.",
+      "Do use mono for keys, ids, counts, timestamps and labels, and tabular numerals for every number.",
+      "Do separate rows and sections with 1px hairlines and spacing, not cards or shadows.",
+      "Do name the next action in empty states and errors, in the product's own language.",
+      "Do keep the signed-out margin notes factual: they describe what the files and schema are."
+    ],
+    "donts": [
+      "Don't introduce shadows, glass, gradients, glows or colored side stripes.",
+      "Don't fill large surfaces with lichen or introduce a second accent.",
+      "Don't use emoji as interface icons; they belong only to user-authored space icons.",
+      "Don't turn the index into a card grid, add a sidebar before the space exists, or hide the create action behind a modal.",
+      "Don't set prose in mono or identifiers in sans."
+    ]
+  }
+}

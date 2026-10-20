@@ -14,7 +14,7 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 8 committed at `30caa56`, review fixes in the working tree.** `thing-core` exposes `model`, `error`, `slug`
+**Current state: checkpoint 9 in the working tree (checkpoints 1–8 landed, review fixes committed at `6f2eb1a`).** `thing-core` exposes `model`, `error`, `slug`
 (with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
 (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
 with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
@@ -24,8 +24,9 @@ its schema and object APIs: `routes/types` (types and their saved view), `routes
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
 filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
 `{value, label}` rendering every response uses). `scripts/seed.sh` builds the Garden demo space
-against a running server. The WebSocket and the SPA are still to come. No frontend, CI or container
-yet. Do not assume documented paths exist.
+against a running server. `web/` is a Vite + React 19 SPA with the signed-out surfaces (sign in,
+register, invite join) and the space list, talking to the API through a typed client and TanStack
+Query. Schema editing and the live table are still to come. No CI or container yet.
 
 ## Where the plan lives
 
@@ -36,8 +37,7 @@ yet. Do not assume documented paths exist.
 
 M1 is in progress: **checkpoints 1–8 (scaffold; core model and format; store; index, validation and
 query; server shell; auth and membership; schema and object APIs; events and the WebSocket) are
-landed**; the checkpoint-8 review fixes are in the working tree awaiting review. Next is checkpoint 9,
-the web scaffold.
+landed**; checkpoint 9, the web scaffold and auth screens, is implemented and awaiting review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -51,7 +51,7 @@ Later milestones get their own `docs/plan/mN-*.md`.
   store (only FS toucher)  -------->  thing-server (axum HTTP + WS)
         |                                      |
         v                                      v
-  in-memory index / query engine      React 19 SPA (web/, later)
+  in-memory index / query engine      React 19 SPA (web/)
         ^
         +-- file watcher notices external edits (notify)
 ```
@@ -79,19 +79,25 @@ Later milestones get their own `docs/plan/mN-*.md`.
 | `crates/core/tests/` | `roundtrip.rs` walking `fixtures/`; store tests are inline in `store/fs.rs` over `tempfile::TempDir` |
 | `crates/server/` | `thing-server` binary, axum shell |
 | `scripts/` | `seed.sh`: the curl walkthrough that builds the Garden demo space |
-| `web/` | Planned Vite + React 19 SPA; **does not exist yet** |
+| `web/` | Vite + React 19 SPA: `api/` (client, types, query hooks), `components/`, `pages/`, `styles/globals.css` tokens, `test/` |
 | `data/` | Runtime space store; gitignored, never commit fixtures here |
 
 ## Development Commands
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all tests (currently 191)
+cargo test --workspace           # all Rust tests (currently 200)
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # serves ./data on 127.0.0.1:8080
 cargo run -p thing-server -- set-password --email you@example.com   # reads the password from stdin
 cargo run -p thing-server -- reindex --space <space-uuid>   # prints a space's file problems
 THING_DATA_DIR=./data scripts/seed.sh   # builds the Garden demo space against a running server
+
+cd web
+npm install
+npm run dev                      # SPA on 127.0.0.1:5173, /api proxied to 127.0.0.1:8080
+npm run test:run                 # Vitest
+npm run lint && npm run typecheck && npm run build
 ```
 
 Build and test verified in this environment.
@@ -223,6 +229,13 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/server/src/watcher.rs` | Debounced reload of changed paths. Forwards only Create/Modify/Remove (Access events would feed a read loop), sorts the batch so `objects/` precedes `trash/`, and announces created/updated/deleted/restored/purged plus membership diffs from `space.yml` |
 | `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint and the trash, restore and history routes |
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
+| `web/src/api/client.ts` | The one request path: same-origin cookies, JSON, error envelope → `ApiError` |
+| `web/src/api/types.ts` | TypeScript mirrors of the Rust DTOs the SPA speaks to |
+| `web/src/api/queries.ts` | Every TanStack Query hook and mutation; auth success seeds `me` and `spaces` |
+| `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override |
+| `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
+| `DESIGN.md` | **Normative** visual system: Nocturnal Field Guide; tokens are the frontmatter |
+| `.impeccable/design.json` | Design sidecar: tonal ramps, motion, breakpoints, component snippets, narrative |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |
 | `.gitignore` | Ignores `/target`, `web/dist`, `data/`, `.env` |
@@ -232,12 +245,14 @@ earlier attempt. Some module names coincide with today's (`error`, `markdown`, `
 `value`) but the contents differ. Gitignored build residue; not a reference. Tracked source is the
 only truth.
 
-`README.md` points at `DESIGN.md` and `web/`; neither exists. Do not invent them.
+`DESIGN.md` and `.impeccable/design.json` describe the visual system that `web/` actually implements.
+When the UI changes, update them; never let them describe a different world.
 
 ## Runtime/Tooling Preferences
 
-- **Runtime:** Rust only. Frontend (later): Vite + React 19 + Tailwind v4 + Base UI.
-- **Package manager:** Cargo workspace. No npm/pnpm/bun tooling yet.
+- **Runtime:** Rust for the server and core; the SPA is Vite + React 19 + Tailwind v4 + Base UI,
+  with TanStack Query for server state and React Router for routes.
+- **Package manager:** Cargo workspace for Rust; npm in `web/` (`package-lock.json` committed).
 - **Compiler:** Nix-provided Rust 1.98.1, x86_64-unknown-linux-gnu. No rustup.
 - **No CI or container.** PRODUCT.md lists CI and a container as milestone-1 deliverables; neither
   is implemented. `scripts/seed.sh` exists: the curl walkthrough that builds the Garden demo space
@@ -247,7 +262,8 @@ only truth.
 
 ## Testing & QA
 
-- **Framework:** built-in `cargo test`; no nextest or coverage tool configured.
+- **Framework:** built-in `cargo test` for Rust; Vitest + Testing Library + jsdom in `web/` for the
+  client. No nextest or coverage tool configured.
 - **Unit tests:** inline `#[cfg(test)] mod tests`, as in `crates/core/src/lib.rs`.
 - **Integration tests:** `crates/core/tests/*.rs`. Use `tempfile` for filesystem/store fixtures;
   never write repo-root `data/`.
@@ -255,11 +271,15 @@ only truth.
   router over a `tempfile::TempDir` with `tower::ServiceExt::oneshot` and
   `http_body_util::BodyExt::collect` (see `routes::tests`); that is how the auth and role rules are
   pinned.
-- **Current coverage:** 200 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 56 `thing-server`) —
-  one `#[cfg(test)]` module per source file. New behavior needs a test exercising the changed path.
+- **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
+  or a component, never a copy of it.
+- **Current coverage:** 204 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 56 `thing-server`, 4
+  `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
+  changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;
   `roundtrip.rs` asserts `serialize ∘ parse` reproduces each byte for byte. Add a fixture when the
   format changes, and check it still reads like `docs/plan/m1-engine-core.md` §3.
-- **QA:** run `cargo test --workspace` and smoke-run the changed binary. No formatter or linter
-  available unless installed (see caveat).
+- **QA:** run `cargo test --workspace` and smoke-run the changed binary; in `web/` run
+  `npm run test:run && npm run lint && npm run typecheck && npm run build`. Verify UI changes in a
+  real browser, not by tests alone.
 - **Regression tests:** keep when they pin behavior, not wording or incidental details.

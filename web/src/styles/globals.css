@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/*
+ * Nocturnal Field Guide: a dark index read under a headlamp.
+ * The world contributes type, palette, density and the keyed rail; the shell
+ * stays a standard web app. One lichen accent marks state, never decoration.
+ */
+@theme {
+  --color-ground: #121512;
+  --color-surface: #1a1e1a;
+  --color-raised: #212621;
+  --color-line: #2d332d;
+  --color-line-strong: #3a423a;
+  --color-ink: #e8ece4;
+  --color-muted: #9aa398;
+  --color-faint: #747d72;
+  --color-accent: #c8d96b;
+  --color-accent-ink: #14180f;
+  --color-danger: #f08a72;
+  --color-warning: #dcaa54;
+
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --radius-field: 6px;
+  --radius-sheet: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-ground: #f4f3ec;
+    --color-surface: #fbfaf6;
+    --color-raised: #efeee6;
+    --color-line: #d9d7ca;
+    --color-line-strong: #c2c0b0;
+    --color-ink: #1b1d19;
+    --color-muted: #5f665c;
+    --color-faint: #7c837a;
+    --color-accent: #5f6f1e;
+    --color-accent-ink: #f7f8f0;
+    --color-danger: #a33a28;
+    --color-warning: #7d5410;
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    caret-color: var(--color-accent);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+    }
+  }
+
+  html {
+    background: var(--color-ground);
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  * {
+    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-faint);
+  }
+
+  a {
+    color: inherit;
+    text-underline-offset: 3px;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .rule {
+    border-color: var(--color-line);
+  }
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.settle {
+  animation: settle 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settle {
+    animation: none;
+  }
+}
