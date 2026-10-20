@@ -14,7 +14,8 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 9 in the working tree (checkpoints 1–8 landed, review fixes committed at `6f2eb1a`).** `thing-core` exposes `model`, `error`, `slug`
+**Current state: checkpoint 10 in the working tree (checkpoints 1–9 landed, the web scaffold at
+`c5629f2`).** `thing-core` exposes `model`, `error`, `slug`
 (with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
 (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
 with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
@@ -25,8 +26,9 @@ its schema and object APIs: `routes/types` (types and their saved view), `routes
 filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
 `{value, label}` rendering every response uses). `scripts/seed.sh` builds the Garden demo space
 against a running server. `web/` is a Vite + React 19 SPA with the signed-out surfaces (sign in,
-register, invite join) and the space list, talking to the API through a typed client and TanStack
-Query. Schema editing and the live table are still to come. No CI or container yet.
+register, invite join), the space list and the schema editor (`pages/schema.tsx`, `components/schema/`),
+talking to the API through a typed client and TanStack Query. The live table, object panel, history
+and trash are still to come. No CI or container yet.
 
 ## Where the plan lives
 
@@ -35,9 +37,10 @@ Query. Schema editing and the live table are still to come. No CI or container y
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is in progress: **checkpoints 1–8 (scaffold; core model and format; store; index, validation and
-query; server shell; auth and membership; schema and object APIs; events and the WebSocket) are
-landed**; checkpoint 9, the web scaffold and auth screens, is implemented and awaiting review.
+M1 is in progress: **checkpoints 1–9 (scaffold; core model and format; store; index, validation and
+query; server shell; auth and membership; schema and object APIs; events and the WebSocket; web
+scaffold and auth screens) are landed**; checkpoint 10, the schema editor, is implemented and
+awaiting review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -68,7 +71,8 @@ Later milestones get their own `docs/plan/mN-*.md`.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
 - **Core modules:** `model`, `markdown`, `store`, `validate`, `filter`, `query`, `index` exist.
-  The server shell, auth, the schema and object APIs, and the event bus exist; the SPA is next.
+  The server shell, auth, the schema and object APIs, and the event bus exist; the SPA has auth,
+  the space list and the schema editor, with the live table and object surfaces next.
 
 ## Key Directories
 
@@ -231,7 +235,10 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `web/src/api/client.ts` | The one request path: same-origin cookies, JSON, error envelope → `ApiError` |
 | `web/src/api/types.ts` | TypeScript mirrors of the Rust DTOs the SPA speaks to |
-| `web/src/api/queries.ts` | Every TanStack Query hook and mutation; auth success seeds `me` and `spaces` |
+| `web/src/api/queries.ts` | Every TanStack Query hook and mutation; auth success seeds `me` and `spaces`; schema writes invalidate the space prefix |
+| `web/src/lib/schema.ts` | Pure schema-edit helpers: membership and column order, option drafts, order-insensitive change detection |
+| `web/src/components/schema/` | Type and property lists, editors, and the shared option editor |
+| `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
 | `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
 | `DESIGN.md` | **Normative** visual system: Nocturnal Field Guide; tokens are the frontmatter |
@@ -273,7 +280,7 @@ When the UI changes, update them; never let them describe a different world.
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 204 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 56 `thing-server`, 4
+- **Current coverage:** 215 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 56 `thing-server`, 15
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

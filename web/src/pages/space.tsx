@@ -39,6 +39,12 @@ export function SpacePage() {
         ) : null}
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">{detail.name}</h1>
         <span className="label">{detail.role}</span>
+        <Link
+          to={`/s/${detail.id}/schema`}
+          className="label ml-auto transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+        >
+          Schema →
+        </Link>
       </div>
 
       <dl className="mt-8 grid gap-x-6 gap-y-3 border-t rule pt-6 sm:grid-cols-[8rem_minmax(0,1fr)]">

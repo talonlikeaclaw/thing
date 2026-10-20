@@ -210,6 +210,21 @@ space icons, never as interface iconography.
 - **Annotation:** opens directly beneath the row as a 5rem/1fr definition list in mono 12px, with a
   single hairline left border. It carries the full id, member count and type count.
 
+### Schema Editor
+- **Shape:** two columns at `lg` — a keyed list of types or properties on the left, the selected
+  editor on the right; on narrow screens the editor follows its list. Hairlines only.
+- **List row:** 15px name, mono 11px key, format or count right-aligned. The selected row's text
+  turns lichen (`aria-current`); no background fill and no side stripe.
+- **Ordering:** membership and column order are explicit up/down 32px ghost icon buttons, 44px on
+  coarse pointers. `title` is listed first and marked `fixed first`, never draggable.
+- **Options:** each row is a colour swatch input, the name field, its mono key once saved, then the
+  order and remove controls. A new option is added inline below the list with the same two inputs.
+  Option colours are user data; the lichen accent is not implied.
+- **Create actions:** "New type" and "New property" reveal an inline form directly under their
+  list, never a modal.
+- **Save state:** Save stays disabled until something changed; a successful write shows `SAVED` in
+  lichen. A viewer sees the same definitions with the controls disabled and no Save.
+
 ## Do's and Don'ts
 
 ### Do:
