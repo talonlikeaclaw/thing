@@ -10,6 +10,7 @@ import { RegisterPage } from "@/pages/register";
 import { SchemaPage } from "@/pages/schema";
 import { SpacePage } from "@/pages/space";
 import { SpaceListPage } from "@/pages/spaces";
+import { TrashPage } from "@/pages/trash";
 import { TypeTablePage } from "@/pages/type-table";
 
 export const router = createBrowserRouter([
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
           { path: "s/:spaceId/o/:objectId", element: <ObjectPage /> },
           { path: "s/:spaceId/schema", element: <SchemaPage /> },
           { path: "s/:spaceId/members", element: <MembersPage /> },
+          { path: "s/:spaceId/trash", element: <TrashPage /> },
         ],
       },
     ],

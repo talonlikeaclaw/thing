@@ -196,3 +196,33 @@ export interface ObjectsQuery {
   limit?: number;
   offset?: number;
 }
+
+export type RevisionAction = "create" | "update" | "delete" | "restore";
+
+/** The title and every property a write left behind. */
+export interface RevisionSnapshot {
+  title: string;
+  properties: Record<string, unknown>;
+}
+
+/** One line of an object's history. `body` is present only when that write changed it. */
+export interface Revision {
+  rev: number;
+  at: IsoDate;
+  by: Uuid;
+  action: RevisionAction;
+  snapshot: RevisionSnapshot;
+  body?: string;
+  /** `title`, `body` and every property key this write added, altered or dropped. */
+  changed: string[];
+}
+
+/** One trashed record; the file and its history survive until purged. */
+export interface TrashItem {
+  id: Uuid;
+  type: string;
+  title: string;
+  rev: number;
+  trashed_at: IsoDate | null;
+  trashed_from?: string;
+}

@@ -8,9 +8,11 @@ import type {
   ObjectsQuery,
   PropertyDef,
   PropertyFormat,
+  Revision,
   SpaceDetail,
   SpaceSummary,
   Session,
+  TrashItem,
   TypeDef,
   TypeProperty,
   TypeSummary,
@@ -29,6 +31,9 @@ export const queryKeys = {
   objects: (id: string, query: ObjectsQuery) => ["space", id, "objects", query] as const,
   objectsPrefix: (id: string) => ["space", id, "objects"] as const,
   object: (id: string, objectId: string) => ["space", id, "object", objectId] as const,
+  history: (id: string, objectId: string) =>
+    ["space", id, "object", objectId, "history"] as const,
+  trash: (id: string) => ["space", id, "trash"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
 };
 
@@ -167,8 +172,8 @@ export interface UpdateType {
   view?: ViewDef;
 }
 
-/** Every schema write can change counts and definitions, so refresh the space. */
-function useSchemaMutation<TInput, TResult>(
+/** Every write can change counts and definitions, so refresh the whole space. */
+function useSpaceMutation<TInput, TResult>(
   spaceId: string,
   mutationFn: (input: TInput) => Promise<TResult>,
 ) {
@@ -180,13 +185,13 @@ function useSchemaMutation<TInput, TResult>(
 }
 
 export function useCreateType(spaceId: string) {
-  return useSchemaMutation<NewType, TypeDef>(spaceId, (input) =>
+  return useSpaceMutation<NewType, TypeDef>(spaceId, (input) =>
     request<TypeDef>(`/api/spaces/${spaceId}/types`, { method: "POST", body: input }),
   );
 }
 
 export function useUpdateType(spaceId: string, key: string) {
-  return useSchemaMutation<UpdateType, TypeDef>(spaceId, (input) =>
+  return useSpaceMutation<UpdateType, TypeDef>(spaceId, (input) =>
     request<TypeDef>(`/api/spaces/${spaceId}/types/${key}`, {
       method: "PATCH",
       body: input,
@@ -215,7 +220,7 @@ export interface UpdateProperty {
 }
 
 export function useCreateProperty(spaceId: string) {
-  return useSchemaMutation<NewProperty, PropertyDef>(spaceId, (input) =>
+  return useSpaceMutation<NewProperty, PropertyDef>(spaceId, (input) =>
     request<PropertyDef>(`/api/spaces/${spaceId}/properties`, {
       method: "POST",
       body: input,
@@ -224,7 +229,7 @@ export function useCreateProperty(spaceId: string) {
 }
 
 export function useUpdateProperty(spaceId: string, key: string) {
-  return useSchemaMutation<UpdateProperty, PropertyDef>(spaceId, (input) =>
+  return useSpaceMutation<UpdateProperty, PropertyDef>(spaceId, (input) =>
     request<PropertyDef>(`/api/spaces/${spaceId}/properties/${key}`, {
       method: "PATCH",
       body: input,
@@ -268,6 +273,41 @@ export function useObject(spaceId: string | undefined, objectId: string | undefi
     queryFn: () => request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${objectId}`),
     enabled: Boolean(spaceId && objectId),
   });
+}
+
+export function useHistory(spaceId: string | undefined, objectId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.history(spaceId ?? "", objectId ?? ""),
+    queryFn: () => request<Revision[]>(`/api/spaces/${spaceId}/objects/${objectId}/history`),
+    enabled: Boolean(spaceId && objectId),
+  });
+}
+
+export function useTrash(spaceId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.trash(spaceId ?? ""),
+    queryFn: () => request<TrashItem[]>(`/api/spaces/${spaceId}/trash`),
+    enabled: Boolean(spaceId),
+  });
+}
+
+/** Trashing, restoring and purging all change the space's lists and counts. */
+export function useTrashObject(spaceId: string) {
+  return useSpaceMutation<string, TrashItem>(spaceId, (id) =>
+    request<TrashItem>(`/api/spaces/${spaceId}/objects/${id}`, { method: "DELETE" }),
+  );
+}
+
+export function useRestoreObject(spaceId: string) {
+  return useSpaceMutation<string, ObjectDetail>(spaceId, (id) =>
+    request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${id}/restore`, { method: "POST" }),
+  );
+}
+
+export function usePurgeObject(spaceId: string) {
+  return useSpaceMutation<string, void>(spaceId, (id) =>
+    request<void>(`/api/spaces/${spaceId}/trash/${id}`, { method: "DELETE" }),
+  );
 }
 
 export interface CreateObjectInput {

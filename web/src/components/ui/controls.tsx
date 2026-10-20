@@ -6,12 +6,13 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
-type ButtonVariant = "primary" | "ghost";
+type ButtonVariant = "primary" | "ghost" | "danger";
 
 const buttonStyles: Record<ButtonVariant, string> = {
   primary:
     "bg-accent text-accent-ink hover:brightness-105 active:brightness-95 disabled:hover:brightness-100",
   ghost: "border border-line text-ink hover:border-line-strong hover:bg-raised",
+  danger: "border border-danger text-danger hover:bg-raised",
 };
 
 interface ButtonProps extends ComponentProps<typeof BaseButton> {

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
-import { useUpdateObject } from "@/api/queries";
+import { useTrashObject, useUpdateObject } from "@/api/queries";
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
 import { Button, FormError } from "@/components/ui/controls";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
 import { sameJson } from "@/lib/schema";
@@ -69,9 +71,13 @@ export function ObjectPanel({
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [mode, setMode] = useState<"write" | "preview">("write");
+  const [confirmingTrash, setConfirmingTrash] = useState(false);
   /** Bumped on reload so every field re-reads the draft it was given. */
   const [nonce, setNonce] = useState(0);
   const update = useUpdateObject(spaceId);
+  const trash = useTrashObject(spaceId);
+  const navigate = useNavigate();
+  const toast = useToast();
   const objectId = object.id;
 
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
@@ -169,6 +175,19 @@ export function ObjectPanel({
     } else {
       setSaveError("Could not reload the record. Retry in a moment.");
     }
+  }
+
+  function moveToTrash() {
+    trash.mutate(objectId, {
+      onSuccess: () => {
+        toast.showToast(`Moved “${draft.title.trim() || object.title}” to the trash.`);
+        navigate(`/s/${spaceId}/t/${object.type}`);
+      },
+      onError: (error) => {
+        setConfirmingTrash(false);
+        setSaveError(readError(error));
+      },
+    });
   }
 
   function field(key: string) {
@@ -377,6 +396,49 @@ export function ObjectPanel({
           </div>
         )}
       </section>
+
+      {canEdit ? (
+        <section aria-label="Trash" className="mt-10 border-t rule pt-4">
+          {confirmingTrash ? (
+            <div
+              role="group"
+              aria-label="Move to trash"
+              className="flex flex-wrap items-center gap-3 border-l border-danger pl-3"
+            >
+              <p className="max-w-[46ch] text-[13px] text-muted">
+                Move “{draft.title.trim() || object.title}” to the trash? The file and its history
+                are kept until purged.
+                {dirty ? " Unsaved changes are discarded." : ""}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="danger"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  disabled={trash.isPending}
+                  onClick={moveToTrash}
+                >
+                  {trash.isPending ? "Moving…" : "Move to trash"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  onClick={() => setConfirmingTrash(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"
+              onClick={() => setConfirmingTrash(true)}
+            >
+              Move record to trash
+            </button>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

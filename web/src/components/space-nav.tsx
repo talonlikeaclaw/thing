@@ -99,6 +99,12 @@ export function SpaceNav({ spaceId, types, selectedTypeKey, role }: SpaceNavProp
           Members
         </Link>
         <Link
+          to={`/s/${spaceId}/trash`}
+          className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+        >
+          Trash
+        </Link>
+        <Link
           to="/"
           className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
         >

@@ -1,10 +1,11 @@
 import { Link, useParams } from "react-router";
 
 import { useObject, useProperties, useSpace, useType, useTypes } from "@/api/queries";
+import { HistoryPanel } from "@/components/history-panel";
 import { ObjectPanel } from "@/components/object-panel";
 import { SpaceNav } from "@/components/space-nav";
 import { Button, FormError } from "@/components/ui/controls";
-import { readError } from "@/lib/display";
+import { readError, shortId } from "@/lib/display";
 import { useSpaceEvents } from "@/lib/use-space-events";
 
 /** `/s/:spaceId/o/:objectId` — one record, its properties and its markdown body. */
@@ -80,6 +81,14 @@ export function ObjectPage() {
           properties={propertiesData}
           canEdit={detail.role !== "viewer"}
           reloadObject={async () => (await object.refetch()).data}
+        />
+        <HistoryPanel
+          spaceId={detail.id}
+          objectId={record.id}
+          properties={propertiesData}
+          memberName={(userId) =>
+            detail.members.find((member) => member.user === userId)?.name ?? shortId(userId)
+          }
         />
       </div>
     </div>
