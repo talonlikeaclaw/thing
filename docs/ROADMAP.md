@@ -58,7 +58,8 @@ usability move ahead of search.
   roles, auth; user-defined types and properties; object CRUD with a markdown body; the live
   per-type table view with filters and sorts; read-only history; trash; external file edits noticed
   and reflected; a seed script; CI; container. The deployment bullets below are complete.
-- **M2 — Scheduling and recurrence.** Any type may declare `schedule: true`, which adds three
+- **M2 — Scheduling and recurrence.** Spec: [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md).
+  Any type may declare `schedule: true`, which adds three
   implicit properties (`due_date` (date), `recurrence` (recurrence), `last_completed_at` (datetime))
   plus a `complete` action that writes a completion and re-phases the cadence. Recurrence = `days` |
   `weekly` | `monthly` with the chore-proven clamping rules (weekday `0`=Sun…`6`=Sat, month day
