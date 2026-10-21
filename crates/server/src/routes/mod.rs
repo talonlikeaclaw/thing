@@ -285,6 +285,8 @@ pub fn problems_json(problems: &Problems) -> Value {
                 "objects": duplicate.objects,
             }))
             .collect::<Vec<_>>(),
+        "invalid_timezone": problems.invalid_timezone,
+        "schedule_key_conflicts": problems.schedule_key_conflicts,
     })
 }
 

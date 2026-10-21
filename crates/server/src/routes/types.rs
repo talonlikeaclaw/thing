@@ -16,10 +16,11 @@ use serde_json::{Value, json};
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
-    Direction, EmptyPlacement, Filter, FilterOp, ObjectSummary, RevisionAction, Role, Sort,
-    TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef, is_reserved_key,
+    Direction, EmptyPlacement, Filter, FilterOp, ObjectSummary, PropertyDef, RevisionAction, Role,
+    Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef, is_reserved_key,
 };
-use thing_core::slug::{is_valid_key, key_from_name};
+use thing_core::schedule::{DUE_DATE_KEY, SCHEDULE_KEYS, is_schedule_key, schedule_property_defs};
+use thing_core::slug::key_from_name;
 use thing_core::store::{SpaceStore, type_path};
 use thing_core::validate::{self, MAX_TITLE_LEN, Schema};
 use time::OffsetDateTime;
@@ -48,6 +49,7 @@ pub struct TypeSummary {
     pub name_plural: String,
     pub icon: Option<String>,
     pub description: String,
+    pub schedule: bool,
     pub property_count: usize,
     pub object_count: usize,
 }
@@ -60,8 +62,50 @@ impl TypeSummary {
             name_plural: def.name_plural.clone(),
             icon: def.icon.clone(),
             description: def.description.clone(),
-            property_count: def.properties.len(),
+            schedule: def.schedule,
+            property_count: def.properties.len() + if def.schedule { 3 } else { 0 },
             object_count: index.summaries(&def.key).len(),
+        }
+    }
+}
+
+/// A type as detail, create and patch return it: the definition its files hold
+/// plus the generated schedule properties the client never has to guess.
+#[derive(Debug, Serialize)]
+pub struct TypeDetail {
+    pub key: String,
+    pub name: String,
+    pub name_plural: String,
+    pub icon: Option<String>,
+    pub description: String,
+    pub schedule: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub implicit_properties: Vec<PropertyDef>,
+    pub properties: Vec<TypeProperty>,
+    pub view: ViewDef,
+}
+
+impl TypeDetail {
+    fn of(def: &TypeDef) -> Self {
+        let implicit_properties = if def.schedule {
+            let defs = schedule_property_defs();
+            SCHEDULE_KEYS
+                .iter()
+                .filter_map(|key| defs.get(*key).cloned())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Self {
+            key: def.key.clone(),
+            name: def.name.clone(),
+            name_plural: def.name_plural.clone(),
+            icon: def.icon.clone(),
+            description: def.description.clone(),
+            schedule: def.schedule,
+            implicit_properties,
+            properties: def.properties.clone(),
+            view: def.view.clone(),
         }
     }
 }
@@ -93,6 +137,8 @@ struct CreateTypeRequest {
     icon: Option<String>,
     #[serde(default)]
     description: Option<String>,
+    #[serde(default)]
+    schedule: bool,
 }
 
 /// The view a type starts with: newest first, no filter, the title alone.
@@ -133,7 +179,7 @@ async fn create(
         ));
     }
 
-    let def = TypeDef {
+    let mut def = TypeDef {
         key: key.clone(),
         name,
         name_plural,
@@ -152,16 +198,17 @@ async fn create(
             type_path(&key).display().to_string(),
         )));
     }
+    handle.with_index(|index| set_schedule(index, &mut def, body.schedule))?;
     handle.store.save_type(&def, None)?;
     let path = type_path(&key);
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
     handle.broadcast("type.created", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "type created");
 
-    let created = handle
-        .with_index(|index| index.type_def(&key).cloned())
-        .ok_or_else(|| ApiError::internal("the type did not survive its own write"))?;
-    Ok((StatusCode::CREATED, Json(json!(created))))
+    Ok((
+        StatusCode::CREATED,
+        Json(json!(type_detail(&handle, &key)?)),
+    ))
 }
 
 /// `GET /api/spaces/{space}/types/{key}` [viewer]
@@ -172,8 +219,7 @@ async fn detail(
 ) -> Result<Json<Value>, ApiError> {
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Viewer)?;
-    let def = type_of(&handle, &key)?;
-    Ok(Json(json!(def)))
+    Ok(Json(json!(type_detail(&handle, &key)?)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -188,6 +234,10 @@ struct PatchTypeRequest {
     icon: Option<Option<String>>,
     #[serde(default)]
     description: Option<String>,
+    /// Turning scheduling on or off; the guard and view rewrite live in
+    /// [`set_schedule`].
+    #[serde(default)]
+    schedule: Option<bool>,
     /// The type's properties, in display order; the whole list, not a patch of it.
     #[serde(default)]
     properties: Option<Vec<TypeProperty>>,
@@ -208,6 +258,7 @@ async fn update(
         && body.name_plural.is_none()
         && body.icon.is_none()
         && body.description.is_none()
+        && body.schedule.is_none()
         && body.properties.is_none()
         && body.view.is_none()
     {
@@ -248,8 +299,11 @@ async fn update(
         if let Some(view) = &body.view {
             next.view = view.clone();
         }
+        if let Some(schedule) = body.schedule {
+            set_schedule(index, &mut next, schedule)?;
+        }
         let schema = index.schema();
-        let mut errors = check_members(index, &next.properties);
+        let mut errors = check_members(&schema, &next.properties);
         errors.extend(check_view(&schema, &next));
         if errors.is_empty() {
             Ok(next)
@@ -264,7 +318,7 @@ async fn update(
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
     handle.broadcast("type.updated", json!({ "key": key }));
     tracing::info!(space = %space, user = %caller.user.id, key = %key, "type updated");
-    Ok(Json(json!(type_of(&handle, &key)?)))
+    Ok(Json(json!(type_detail(&handle, &key)?)))
 }
 
 /// `DELETE /api/spaces/{space}/types/{key}?delete_objects=true` [editor]
@@ -325,46 +379,84 @@ async fn remove(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// The whole definition, or a `404` naming the key.
-fn type_of(handle: &Arc<SpaceHandle>, key: &str) -> Result<TypeDef, ApiError> {
+/// The whole definition with its generated properties, or a `404` naming the key.
+fn type_detail(handle: &Arc<SpaceHandle>, key: &str) -> Result<TypeDetail, ApiError> {
     handle
-        .with_index(|index| index.type_def(key).cloned())
+        .with_index(|index| index.type_def(key).map(TypeDetail::of))
         .ok_or_else(|| ApiError::not_found(format!("type {key}")))
+}
+
+/// Turns scheduling on or off, with the two guards the file format needs.
+///
+/// Enabling appends `due_date` to the view once. Disabling refuses while any
+/// live or trashed record of the type still holds a schedule key, because the
+/// values would become unreadable; once it is clear, the keys are dropped from
+/// the view in this same write so the view never names a missing property.
+fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Result<(), ApiError> {
+    if schedule == next.schedule {
+        return Ok(());
+    }
+    if schedule {
+        let conflicts: Vec<&str> = index
+            .properties()
+            .filter(|def| is_schedule_key(&def.key))
+            .map(|def| def.key.as_str())
+            .collect();
+        if !conflicts.is_empty() {
+            return Err(ApiError::validation(
+                "schedule",
+                format!(
+                    "the space declares {} with a schedule key; rename or remove it first",
+                    conflicts.join(", ")
+                ),
+            ));
+        }
+        next.schedule = true;
+        if !next
+            .view
+            .columns
+            .iter()
+            .any(|column| column == DUE_DATE_KEY)
+        {
+            next.view.columns.push(DUE_DATE_KEY.to_owned());
+        }
+        return Ok(());
+    }
+
+    let holders = index
+        .objects()
+        .chain(index.trash())
+        .filter(|doc| {
+            doc.type_key == next.key
+                && SCHEDULE_KEYS
+                    .iter()
+                    .any(|key| doc.properties.contains_key(*key))
+        })
+        .count();
+    if holders > 0 {
+        return Err(ApiError::conflict(
+            "scheduled objects exist",
+            json!({ "reason": "scheduled objects exist", "objects": holders }),
+        ));
+    }
+    next.schedule = false;
+    next.view.columns.retain(|column| !is_schedule_key(column));
+    next.view
+        .sorts
+        .retain(|sort| !is_schedule_key(&sort.property));
+    next.view
+        .filter
+        .conditions
+        .retain(|condition| !is_schedule_key(&condition.property));
+    Ok(())
 }
 
 /// Checks a type's property list: every key is a legal, defined property, listed
 /// once. A member names a property of the space, never an invented one.
-fn check_members(index: &SpaceIndex, members: &[TypeProperty]) -> Vec<CoreError> {
-    let mut errors = Vec::new();
-    let mut seen: Vec<&str> = Vec::with_capacity(members.len());
-    for member in members {
-        let key = member.key.as_str();
-        if !is_valid_key(key) {
-            errors.push(CoreError::ValidationFailed {
-                field: key.to_owned(),
-                message: "is not a key: lowercase letters, digits and underscores, starting with a letter"
-                    .to_owned(),
-            });
-        } else if is_reserved_key(key) {
-            errors.push(CoreError::ValidationFailed {
-                field: key.to_owned(),
-                message: "is a reserved frontmatter key".to_owned(),
-            });
-        } else if index.property_def(key).is_none() {
-            errors.push(CoreError::ValidationFailed {
-                field: key.to_owned(),
-                message: "is not a property of this space".to_owned(),
-            });
-        }
-        if seen.contains(&key) {
-            errors.push(CoreError::ValidationFailed {
-                field: key.to_owned(),
-                message: "is listed twice".to_owned(),
-            });
-        }
-        seen.push(key);
-    }
-    errors
+fn check_members(schema: &Schema, members: &[TypeProperty]) -> Vec<CoreError> {
+    validate::validate_members(schema, members)
+        .err()
+        .unwrap_or_default()
 }
 
 /// Checks a type's view: `title` first, every other column a property of the
@@ -379,7 +471,7 @@ fn check_view(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
     }
     let mut seen: Vec<&str> = Vec::with_capacity(def.view.columns.len());
     for column in &def.view.columns {
-        if column != TITLE_KEY && !def.properties.iter().any(|member| &member.key == column) {
+        if column != TITLE_KEY && !def.has_property(column) {
             errors.push(CoreError::ValidationFailed {
                 field: column.clone(),
                 message: format!("is not a property of type {}", def.key),
@@ -404,7 +496,7 @@ fn check_view(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
 
 #[cfg(test)]
 mod tests {
-    use thing_core::model::{PropertyDef, PropertyFormat};
+    use thing_core::model::{ObjectDoc, PropertyDef, PropertyFormat, Value};
     use thing_core::store::fs::FsSpaceStore;
     use uuid::Uuid;
 
@@ -422,9 +514,10 @@ mod tests {
 
     #[test]
     fn a_member_that_is_not_a_defined_property_is_refused() {
-        let index = &index_of(&[]);
+        let index = index_of(&[]);
+        let schema = index.schema();
         let errors = check_members(
-            index,
+            &schema,
             &[TypeProperty {
                 key: "ghost".to_owned(),
                 required: false,
@@ -465,6 +558,202 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["invalid room: is not a property of type plant"]
         );
+    }
+
+    fn chore_type() -> TypeDef {
+        TypeDef {
+            key: "chore".to_owned(),
+            name: "Chore".to_owned(),
+            name_plural: "Chores".to_owned(),
+            icon: None,
+            description: String::new(),
+            schedule: false,
+            properties: Vec::new(),
+            view: default_view(),
+        }
+    }
+
+    fn chore(title: &str, due: bool) -> ObjectDoc {
+        let now = OffsetDateTime::now_utc();
+        let mut properties = std::collections::BTreeMap::new();
+        if due {
+            properties.insert("due_date".to_owned(), Value::Text("2026-10-20".to_owned()));
+        }
+        ObjectDoc {
+            id: Uuid::now_v7(),
+            type_key: "chore".to_owned(),
+            title: title.to_owned(),
+            rev: 1,
+            created_at: now,
+            updated_at: now,
+            created_by: Uuid::now_v7(),
+            updated_by: Uuid::now_v7(),
+            trashed_at: None,
+            trashed_from: None,
+            properties,
+            body: String::new(),
+        }
+    }
+
+    #[test]
+    fn a_member_may_not_list_a_schedule_key() {
+        let index = index_of(&[]);
+        let schema = index.schema();
+        let errors = check_members(
+            &schema,
+            &[TypeProperty {
+                key: "due_date".to_owned(),
+                required: false,
+                featured: false,
+            }],
+        );
+        assert_eq!(
+            errors.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            vec!["invalid due_date: is generated by scheduling and is not listed in properties"]
+        );
+    }
+
+    #[test]
+    fn the_summary_counts_and_the_detail_lists_the_generated_properties() {
+        let index = index_of(&[]);
+        let mut def = chore_type();
+        def.schedule = true;
+        let summary = TypeSummary::of(&index, &def);
+        assert!(summary.schedule);
+        assert_eq!(summary.property_count, 3);
+
+        let detail = TypeDetail::of(&def);
+        assert!(detail.schedule);
+        assert_eq!(
+            detail
+                .implicit_properties
+                .iter()
+                .map(|def| def.key.as_str())
+                .collect::<Vec<_>>(),
+            vec![DUE_DATE_KEY, "recurrence", "last_completed_at"]
+        );
+
+        def.schedule = false;
+        let plain = TypeDetail::of(&def);
+        assert!(!plain.schedule);
+        assert!(plain.implicit_properties.is_empty());
+        assert_eq!(TypeSummary::of(&index, &def).property_count, 0);
+    }
+
+    #[test]
+    fn a_schedule_column_needs_the_type_to_be_scheduled() {
+        let index = index_of(&[]);
+        let schema = index.schema();
+        let mut def = chore_type();
+        def.schedule = true;
+        def.view.columns.push(DUE_DATE_KEY.to_owned());
+        let found: Vec<String> = check_view(&schema, &def)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        assert!(found.is_empty(), "{found:?}");
+        def.schedule = false;
+        assert_eq!(
+            check_view(&schema, &def)
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec!["invalid due_date: is not a property of type chore"]
+        );
+    }
+
+    #[test]
+    fn turning_scheduling_on_appends_the_due_column_once() {
+        let index = index_of(&[]);
+        let mut def = chore_type();
+        set_schedule(&index, &mut def, true).expect("enables");
+        assert!(def.schedule);
+        assert_eq!(def.view.columns, vec![TITLE_KEY, DUE_DATE_KEY]);
+        set_schedule(&index, &mut def, true).expect("still enabled");
+        assert_eq!(def.view.columns, vec![TITLE_KEY, DUE_DATE_KEY]);
+    }
+
+    #[test]
+    fn a_declared_schedule_property_blocks_enabling() {
+        let index = index_of(&[property("due_date", PropertyFormat::Date)]);
+        let mut def = chore_type();
+        let err = set_schedule(&index, &mut def, true).expect_err("declared conflict");
+        assert!(err.message().contains("declares due_date"));
+        assert!(!def.schedule);
+    }
+
+    #[test]
+    fn disabling_strips_the_schedule_keys_from_the_view() {
+        let index = index_of(&[]);
+        let mut def = chore_type();
+        def.schedule = true;
+        def.view.columns = vec![
+            TITLE_KEY.to_owned(),
+            DUE_DATE_KEY.to_owned(),
+            "recurrence".to_owned(),
+        ];
+        def.view.sorts.push(Sort {
+            property: DUE_DATE_KEY.to_owned(),
+            direction: Direction::Asc,
+            empty: EmptyPlacement::End,
+        });
+        def.view
+            .filter
+            .conditions
+            .push(thing_core::model::Condition {
+                property: "last_completed_at".to_owned(),
+                condition: thing_core::model::CondOp::IsEmpty,
+                value: None,
+            });
+
+        set_schedule(&index, &mut def, false).expect("disables");
+        assert!(!def.schedule);
+        assert_eq!(def.view.columns, vec![TITLE_KEY]);
+        assert_eq!(
+            def.view
+                .sorts
+                .iter()
+                .map(|sort| sort.property.as_str())
+                .collect::<Vec<_>>(),
+            vec![UPDATED_AT_KEY]
+        );
+        assert!(def.view.filter.conditions.is_empty());
+    }
+
+    #[test]
+    fn disabling_is_refused_while_a_record_holds_a_schedule_key() {
+        let store_dir = tempfile::tempdir().expect("a temporary space");
+        let meta = thing_core::model::SpaceMeta {
+            id: Uuid::now_v7(),
+            name: "Chores".to_owned(),
+            icon: None,
+            timezone: "UTC".to_owned(),
+            created_at: OffsetDateTime::now_utc(),
+            members: Vec::new(),
+        };
+        let store = FsSpaceStore::create(store_dir.path(), &meta).expect("space");
+        let mut def = chore_type();
+        def.schedule = true;
+        store.save_type(&def, None).expect("type");
+        let path = store
+            .new_object_path("chore", "Water the monstera")
+            .expect("path");
+        store
+            .save_object(&path, &chore("Water the monstera", true), None)
+            .expect("object");
+        let index = SpaceIndex::rebuild_from_disk(&store).expect("index");
+
+        let err = set_schedule(&index, &mut def, false).expect_err("scheduled object");
+        assert_eq!(err.message(), "scheduled objects exist");
+        assert!(def.schedule);
+
+        let (_, at) = store.load_object(&path).expect("object");
+        store
+            .save_object(&path, &chore("Water the monstera", false), Some(at))
+            .expect("cleared");
+        let index = SpaceIndex::rebuild_from_disk(&store).expect("index");
+        set_schedule(&index, &mut def, false).expect("disables once cleared");
+        assert!(!def.schedule);
     }
 
     fn property(key: &str, format: PropertyFormat) -> PropertyDef {

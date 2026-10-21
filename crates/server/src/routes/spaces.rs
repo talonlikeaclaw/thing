@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use thing_core::error::CoreError;
 use thing_core::model::{Member, Role, SpaceMeta};
+use thing_core::schedule;
 use thing_core::store::SpaceStore;
 use thing_core::store::fs::FsSpaceStore;
 use time::OffsetDateTime;
@@ -26,6 +27,19 @@ use crate::state::SharedState;
 const MAX_SPACE_NAME_LEN: usize = 200;
 /// A space with no timezone is UTC until someone says otherwise.
 const DEFAULT_TIMEZONE: &str = "UTC";
+
+/// Trims a zone, maps an empty one to UTC, and refuses a name jiff cannot
+/// resolve. Due and overdue are calendar days in this zone.
+fn clean_timezone(zone: &str) -> Result<String, ApiError> {
+    let zone = zone.trim();
+    let zone = if zone.is_empty() {
+        DEFAULT_TIMEZONE
+    } else {
+        zone
+    };
+    schedule::resolve_timezone(zone).map_err(ApiError::from)?;
+    Ok(zone.to_owned())
+}
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -140,11 +154,7 @@ async fn create(
         id: Uuid::now_v7(),
         name: clean_name(&body.name)?,
         icon: clean_icon(body.icon),
-        timezone: body
-            .timezone
-            .map(|zone| zone.trim().to_owned())
-            .filter(|zone| !zone.is_empty())
-            .unwrap_or_else(|| DEFAULT_TIMEZONE.to_owned()),
+        timezone: clean_timezone(body.timezone.as_deref().unwrap_or(DEFAULT_TIMEZONE))?,
         created_at: OffsetDateTime::now_utc(),
         members: vec![Member {
             user: caller.user.id,
@@ -212,6 +222,7 @@ async fn update(
         return Err(ApiError::validation("body", "nothing to change"));
     }
     let name = body.name.as_deref().map(clean_name).transpose()?;
+    let timezone = body.timezone.as_deref().map(clean_timezone).transpose()?;
 
     let _guard = handle.write.lock().await;
     handle.update_meta_locked(|meta| {
@@ -221,8 +232,8 @@ async fn update(
         if let Some(icon) = body.icon {
             meta.icon = clean_icon(icon);
         }
-        if let Some(timezone) = body.timezone {
-            meta.timezone = timezone.trim().to_owned();
+        if let Some(timezone) = &timezone {
+            meta.timezone = timezone.clone();
         }
     })?;
     handle.broadcast("space.updated", json!({}));
@@ -462,4 +473,38 @@ fn invite_view(invite: Invite) -> InviteView {
 /// A space name is a display string like any other, one limit long.
 fn clean_name(name: &str) -> Result<String, ApiError> {
     clean_text("name", name, MAX_SPACE_NAME_LEN)
+}
+
+#[cfg(test)]
+mod tests {
+    use thing_core::index::Problems;
+
+    use super::*;
+
+    #[test]
+    fn a_zone_is_trimmed_and_an_empty_one_means_utc() {
+        assert_eq!(clean_timezone("  ").expect("empty is UTC"), "UTC");
+        assert_eq!(
+            clean_timezone(" Europe/Berlin ").expect("known zone"),
+            "Europe/Berlin"
+        );
+    }
+
+    #[test]
+    fn an_unknown_zone_is_a_validation_failure() {
+        let err = clean_timezone("Mars/Olympus_Mons").expect_err("unknown zone");
+        assert_eq!(err.message(), "unknown time zone Mars/Olympus_Mons");
+    }
+
+    #[test]
+    fn health_json_carries_the_schedule_problems() {
+        let problems = Problems {
+            invalid_timezone: Some("Mars/Olympus_Mons".to_owned()),
+            schedule_key_conflicts: vec!["due_date".to_owned()],
+            ..Problems::default()
+        };
+        let body = super::super::problems_json(&problems);
+        assert_eq!(body["invalid_timezone"], "Mars/Olympus_Mons");
+        assert_eq!(body["schedule_key_conflicts"], json!(["due_date"]));
+    }
 }

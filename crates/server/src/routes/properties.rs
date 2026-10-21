@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role, is_reserved_key};
+use thing_core::schedule::is_schedule_key;
 use thing_core::slug::{is_valid_key, key_from_name};
 use thing_core::store::{SpaceStore, property_path};
 use thing_core::validate::MAX_TITLE_LEN;
@@ -105,6 +106,7 @@ async fn create(
             format!("{name} derives the reserved key {key}; rename it"),
         ));
     }
+    reject_schedule_key("name", &key)?;
     let options = read_options(body.options.as_deref().unwrap_or_default(), None)?;
     let multi = body.multi.unwrap_or(false);
 
@@ -119,7 +121,7 @@ async fn create(
 
     let _guard = handle.write.lock().await;
     handle.with_index(|index| check_shape(index, &def))?;
-    if handle.with_index(|index| index.property_def(&key).is_some()) {
+    if handle.with_index(|index| declared_property(index, &key).is_some()) {
         return Err(ApiError::from(CoreError::AlreadyExists(
             property_path(&key).display().to_string(),
         )));
@@ -168,8 +170,7 @@ async fn update(
 
     let _guard = handle.write.lock().await;
     let next = handle.with_index(|index| -> Result<PropertyDef, ApiError> {
-        let def = index
-            .property_def(&key)
+        let def = declared_property(index, &key)
             .ok_or_else(|| ApiError::not_found(format!("property {key}")))?;
         let mut next = def.clone();
         if let Some(name) = name {
@@ -223,13 +224,14 @@ async fn rename(
             format!("{next} is a reserved frontmatter key"),
         ));
     }
+    reject_schedule_key("key", &next)?;
 
     let _guard = handle.write.lock().await;
     handle.with_index(|index| {
-        if index.property_def(&key).is_none() {
+        if declared_property(index, &key).is_none() {
             return Err(ApiError::not_found(format!("property {key}")));
         }
-        if index.property_def(&next).is_some() {
+        if declared_property(index, &next).is_some() {
             return Err(ApiError::from(CoreError::AlreadyExists(
                 property_path(&next).display().to_string(),
             )));
@@ -264,7 +266,7 @@ async fn remove(
 
     let _guard = handle.write.lock().await;
     let (types, objects) = handle.with_index(|index| {
-        if index.property_def(&key).is_none() {
+        if declared_property(index, &key).is_none() {
             return Err(ApiError::not_found(format!("property {key}")));
         }
         Ok(usage(index, &key))
@@ -285,11 +287,29 @@ async fn remove(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// The whole definition, or a `404` naming the key.
+/// The whole definition, or a `404` naming the key. Property routes address
+/// declared files only; the generated schedule keys are not properties the
+/// space owns.
 fn property_of(handle: &Arc<SpaceHandle>, key: &str) -> Result<PropertyDef, ApiError> {
     handle
-        .with_index(|index| index.property_def(key).cloned())
+        .with_index(|index| declared_property(index, key).cloned())
         .ok_or_else(|| ApiError::not_found(format!("property {key}")))
+}
+
+fn declared_property<'a>(index: &'a SpaceIndex, key: &str) -> Option<&'a PropertyDef> {
+    index.properties().find(|def| def.key == key)
+}
+
+/// Schedule keys are generated in every space, whether or not a type uses them,
+/// so a declared property may never take one.
+fn reject_schedule_key(field: &str, key: &str) -> Result<(), ApiError> {
+    if is_schedule_key(key) {
+        return Err(ApiError::validation(
+            field,
+            format!("{key} is a generated schedule key"),
+        ));
+    }
+    Ok(())
 }
 
 /// Rebuilds the index from disk, which a space-wide rewrite leaves true again.
@@ -456,6 +476,15 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
+
+    #[test]
+    fn a_schedule_key_cannot_be_declared_as_a_property() {
+        for key in thing_core::schedule::SCHEDULE_KEYS {
+            let err = reject_schedule_key("name", key).expect_err(key);
+            assert_eq!(err.message(), format!("{key} is a generated schedule key"));
+        }
+        reject_schedule_key("name", "room").expect("an ordinary key");
+    }
 
     #[test]
     fn an_option_key_is_derived_from_the_name_when_it_is_left_out() {
