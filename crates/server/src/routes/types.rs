@@ -139,6 +139,7 @@ async fn create(
         name_plural,
         icon: clean_icon(body.icon),
         description: body.description.unwrap_or_default().trim().to_owned(),
+        schedule: false,
         properties: Vec::new(),
         view: default_view(),
     };
@@ -446,6 +447,7 @@ mod tests {
             name_plural: "Plants".to_owned(),
             icon: None,
             description: String::new(),
+            schedule: false,
             properties: Vec::new(),
             view: ViewDef {
                 sorts: Vec::new(),

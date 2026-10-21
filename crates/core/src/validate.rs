@@ -224,6 +224,9 @@ fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Res
             check_options(property, options.iter().map(String::as_str))
         }
         (PropertyFormat::Relation, _) => validate_relation(schema, property, value),
+        (PropertyFormat::Recurrence, Value::Recurrence(recurrence)) => {
+            crate::schedule::validate_recurrence(recurrence)
+        }
         _ => Ok(()),
     }
 }
@@ -332,13 +335,14 @@ fn variant_matches(property: &PropertyDef, value: &Value) -> bool {
         PropertyFormat::MultiSelect => matches!(value, Value::List(_)),
         PropertyFormat::Relation if property.multi => matches!(value, Value::List(_)),
         PropertyFormat::Relation => matches!(value, Value::Text(_)),
+        PropertyFormat::Recurrence => matches!(value, Value::Recurrence(_)),
     }
 }
 
 fn value_is_scalar(value: &Value, list_allowed: bool) -> bool {
     match value {
         Value::List(_) => list_allowed,
-        Value::Text(_) | Value::Number(_) | Value::Bool(_) => true,
+        Value::Text(_) | Value::Number(_) | Value::Bool(_) | Value::Recurrence(_) => true,
     }
 }
 
@@ -386,7 +390,7 @@ fn relation_ids(value: &Value) -> impl Iterator<Item = &str> {
     let texts: &[String] = match value {
         Value::Text(text) => std::slice::from_ref(text),
         Value::List(items) => items,
-        Value::Number(_) | Value::Bool(_) => &[],
+        Value::Number(_) | Value::Bool(_) | Value::Recurrence(_) => &[],
     };
     texts.iter().map(String::as_str)
 }
@@ -423,6 +427,7 @@ fn value_kind(value: &Value) -> &'static str {
         Value::Number(_) => "a number",
         Value::Bool(_) => "a boolean",
         Value::List(_) => "a list",
+        Value::Recurrence(_) => "a recurrence",
     }
 }
 
@@ -441,7 +446,8 @@ mod tests {
 
     use super::*;
     use crate::model::{
-        Direction, EmptyPlacement, FilterOp, OptionDef, TypeProperty, Value, ViewDef,
+        Direction, EmptyPlacement, FilterOp, OptionDef, Recurrence, RecurrenceKind, TypeProperty,
+        Value, ViewDef,
     };
 
     fn at() -> OffsetDateTime {
@@ -505,6 +511,7 @@ mod tests {
                 tags,
                 related,
                 many,
+                property("repeat", PropertyFormat::Recurrence),
             ]
             .into_iter()
             .map(|def| (def.key.clone(), def))
@@ -512,7 +519,7 @@ mod tests {
 
             let listed = [
                 "room", "count", "done", "watered", "seen", "link", "mail", "status", "tags",
-                "related", "many",
+                "related", "many", "repeat",
             ];
             let def = TypeDef {
                 key: "plant".to_owned(),
@@ -520,6 +527,7 @@ mod tests {
                 name_plural: "Plants".to_owned(),
                 icon: None,
                 description: String::new(),
+                schedule: false,
                 properties: listed
                     .into_iter()
                     .map(|key| TypeProperty {
@@ -733,6 +741,35 @@ mod tests {
                 "invalid tags: expected a list of option keys, found text",
             ]
         );
+    }
+
+    #[test]
+    fn a_malformed_recurrence_is_refused() {
+        let fixture = Fixture::new();
+        let bad = Value::Recurrence(Recurrence {
+            kind: RecurrenceKind::Days,
+            every: 0,
+            weekday: None,
+            day: None,
+        });
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("Kitchen")), ("repeat", bad)])
+            )),
+            vec!["invalid recurrence: the interval must be between 1 and 1000"]
+        );
+
+        let good = Value::Recurrence(Recurrence {
+            kind: RecurrenceKind::Weekly,
+            every: 2,
+            weekday: Some(1),
+            day: None,
+        });
+        valid(validate_object(
+            &fixture.schema(),
+            &with(&[("room", text("Kitchen")), ("repeat", good)]),
+        ));
     }
 
     #[test]

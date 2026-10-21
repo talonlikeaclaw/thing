@@ -14,7 +14,7 @@ use time::format_description::well_known::Rfc3339;
 use time::macros::format_description;
 
 use crate::error::CoreError;
-use crate::model::{PropertyFormat, Value};
+use crate::model::{PropertyFormat, Recurrence, Value};
 
 /// Reads a YAML scalar or sequence as a value of the given format.
 ///
@@ -51,6 +51,9 @@ pub fn parse_value(format: PropertyFormat, key: &str, raw: &Yaml) -> Result<Valu
             .as_str()
             .map(|s| Value::Text(s.to_owned()))
             .ok_or_else(|| invalid(raw)),
+        PropertyFormat::Recurrence => serde_yaml_ng::from_value::<Recurrence>(raw.clone())
+            .map(Value::Recurrence)
+            .map_err(|_| invalid(raw)),
     }
 }
 
@@ -61,6 +64,9 @@ pub fn to_yaml(value: &Value) -> Yaml {
         Value::Number(n) => Yaml::Number((*n).into()),
         Value::Bool(b) => Yaml::Bool(*b),
         Value::List(items) => Yaml::Sequence(items.iter().cloned().map(Yaml::String).collect()),
+        Value::Recurrence(recurrence) => {
+            serde_yaml_ng::to_value(recurrence).expect("a recurrence serializes")
+        }
     }
 }
 
@@ -73,6 +79,9 @@ pub fn to_json(value: &Value) -> Json {
         }
         Value::Bool(b) => Json::Bool(*b),
         Value::List(items) => Json::Array(items.iter().cloned().map(Json::String).collect()),
+        Value::Recurrence(recurrence) => {
+            serde_json::to_value(recurrence).expect("a recurrence serializes")
+        }
     }
 }
 
@@ -97,7 +106,9 @@ pub fn from_json(key: &str, raw: &Json) -> Result<Value, CoreError> {
             .map(Value::List)
             .ok_or_else(|| invalid("an array that is not all strings")),
         Json::Null => Err(invalid("null")),
-        Json::Object(_) => Err(invalid("an object")),
+        Json::Object(_) => serde_json::from_value::<Recurrence>(raw.clone())
+            .map(Value::Recurrence)
+            .map_err(|_| invalid("an object that is not a recurrence")),
     }
 }
 
@@ -106,7 +117,7 @@ pub fn is_empty(value: &Value) -> bool {
     match value {
         Value::Text(s) => s.trim().is_empty(),
         Value::List(items) => items.is_empty(),
-        Value::Number(_) | Value::Bool(_) => false,
+        Value::Number(_) | Value::Bool(_) | Value::Recurrence(_) => false,
     }
 }
 
@@ -130,8 +141,23 @@ pub fn compare(format: PropertyFormat, a: &Value, b: &Value) -> Ordering {
             .map(|(xi, yi)| compare_text(xi, yi))
             .find(|ord| *ord != Ordering::Equal)
             .unwrap_or_else(|| x.len().cmp(&y.len())),
+        (Value::Recurrence(x), Value::Recurrence(y)) => recurrence_key(x).cmp(&recurrence_key(y)),
         _ => rank(a).cmp(&rank(b)),
     }
+}
+
+/// A recurrence's total order: kind, interval, weekday, then month day.
+fn recurrence_key(recurrence: &Recurrence) -> (u8, u32, Option<u8>, Option<u8>) {
+    (
+        match recurrence.kind {
+            crate::model::RecurrenceKind::Days => 0,
+            crate::model::RecurrenceKind::Weekly => 1,
+            crate::model::RecurrenceKind::Monthly => 2,
+        },
+        recurrence.every,
+        recurrence.weekday,
+        recurrence.day,
+    )
 }
 
 fn rank(value: &Value) -> u8 {
@@ -140,6 +166,7 @@ fn rank(value: &Value) -> u8 {
         Value::Number(_) => 1,
         Value::Text(_) => 2,
         Value::List(_) => 3,
+        Value::Recurrence(_) => 4,
     }
 }
 
@@ -160,6 +187,7 @@ pub(crate) fn equals(format: PropertyFormat, a: &Value, b: &Value) -> bool {
                     .zip(right)
                     .all(|(left, right)| text_equals(format, left, right))
         }
+        (Value::Recurrence(left), Value::Recurrence(right)) => left == right,
         _ => false,
     }
 }
@@ -230,6 +258,7 @@ pub(crate) fn expected(format: PropertyFormat) -> &'static str {
         PropertyFormat::Url => "a URL",
         PropertyFormat::Email => "an email address",
         PropertyFormat::Relation => "an object id or a list of them",
+        PropertyFormat::Recurrence => "a recurrence",
     }
 }
 
@@ -284,6 +313,32 @@ mod tests {
     }
 
     #[test]
+    fn parses_recurrences_as_mappings() {
+        assert_eq!(
+            parsed(PropertyFormat::Recurrence, "{kind: days, every: 3}"),
+            Value::Recurrence(Recurrence {
+                kind: crate::model::RecurrenceKind::Days,
+                every: 3,
+                weekday: None,
+                day: None,
+            })
+        );
+        assert_eq!(
+            parsed(
+                PropertyFormat::Recurrence,
+                "{kind: weekly, every: 2, weekday: 1}"
+            ),
+            Value::Recurrence(Recurrence {
+                kind: crate::model::RecurrenceKind::Weekly,
+                every: 2,
+                weekday: Some(1),
+                day: None,
+            })
+        );
+        assert!(parse_value(PropertyFormat::Recurrence, "field", &yaml("every: 3")).is_err());
+    }
+
+    #[test]
     fn parses_lists_and_relations() {
         assert_eq!(
             parsed(PropertyFormat::MultiSelect, "[easy, indoors]"),
@@ -306,6 +361,7 @@ mod tests {
     fn rejects_the_wrong_yaml_kind() {
         for (format, raw) in [
             (PropertyFormat::Text, "7"),
+            (PropertyFormat::Text, "{kind: days, every: 3}"),
             (PropertyFormat::Number, "seven"),
             (PropertyFormat::Number, ".nan"),
             (PropertyFormat::Checkbox, "\"yes\""),
@@ -330,6 +386,15 @@ mod tests {
                 PropertyFormat::MultiSelect,
                 Value::List(vec!["easy".into()]),
             ),
+            (
+                PropertyFormat::Recurrence,
+                Value::Recurrence(Recurrence {
+                    kind: crate::model::RecurrenceKind::Monthly,
+                    every: 1,
+                    weekday: None,
+                    day: Some(31),
+                }),
+            ),
         ];
         for (format, value) in cases {
             let node = to_yaml(&value);
@@ -347,12 +412,40 @@ mod tests {
             Value::Number(-2.5),
             Value::Bool(true),
             Value::List(vec!["a".into(), "b".into()]),
+            Value::Recurrence(Recurrence {
+                kind: crate::model::RecurrenceKind::Weekly,
+                every: 2,
+                weekday: Some(6),
+                day: None,
+            }),
         ] {
             assert_eq!(
                 from_json("field", &to_json(&value)).expect("round trip"),
                 value
             );
         }
+    }
+
+    #[test]
+    fn recurrences_compare_by_shape() {
+        let weekly = Value::Recurrence(Recurrence {
+            kind: crate::model::RecurrenceKind::Weekly,
+            every: 1,
+            weekday: Some(1),
+            day: None,
+        });
+        let monthly = Value::Recurrence(Recurrence {
+            kind: crate::model::RecurrenceKind::Monthly,
+            every: 1,
+            weekday: None,
+            day: Some(1),
+        });
+        assert_eq!(
+            compare(PropertyFormat::Recurrence, &weekly, &monthly),
+            Ordering::Less
+        );
+        assert!(equals(PropertyFormat::Recurrence, &weekly, &weekly));
+        assert!(!equals(PropertyFormat::Recurrence, &weekly, &monthly));
     }
 
     #[test]
@@ -371,6 +464,15 @@ mod tests {
             (
                 PropertyFormat::MultiSelect,
                 Value::List(vec!["easy".into(), "indoors".into()]),
+            ),
+            (
+                PropertyFormat::Recurrence,
+                Value::Recurrence(Recurrence {
+                    kind: crate::model::RecurrenceKind::Days,
+                    every: 3,
+                    weekday: None,
+                    day: None,
+                }),
             ),
         ];
         for (format, value) in cases {

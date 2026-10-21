@@ -1,0 +1,22 @@
+schema: 2
+key: chore
+name: Chore
+name_plural: Chores
+icon: 🧹
+description: ''
+schedule: true
+properties:
+- key: room
+  required: false
+  featured: true
+view:
+  sorts:
+  - property: updated_at
+    direction: desc
+  filter:
+    op: and
+    conditions: []
+  columns:
+  - title
+  - due_date
+  - room

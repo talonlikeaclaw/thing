@@ -301,6 +301,7 @@ mod tests {
             name_plural: "Plants".to_owned(),
             icon: None,
             description: String::new(),
+            schedule: false,
             properties: Vec::new(),
             view: ViewDef {
                 sorts: Vec::new(),

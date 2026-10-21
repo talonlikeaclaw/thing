@@ -26,6 +26,7 @@ pub enum PropertyFormat {
     Url,
     Email,
     Relation,
+    Recurrence,
 }
 
 /// A property definition (`properties/<key>.yml`).
@@ -66,9 +67,21 @@ pub struct TypeDef {
     pub icon: Option<String>,
     #[serde(default)]
     pub description: String,
+    /// Whether this type carries the three generated schedule properties.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub schedule: bool,
     #[serde(default)]
     pub properties: Vec<TypeProperty>,
     pub view: ViewDef,
+}
+
+impl TypeDef {
+    /// Whether `key` is usable on this type: a declared member, or one of the
+    /// generated schedule properties while scheduling is on.
+    pub fn has_property(&self, key: &str) -> bool {
+        self.properties.iter().any(|member| member.key == key)
+            || (self.schedule && crate::schedule::is_schedule_key(key))
+    }
 }
 
 /// A property's membership in a type.
@@ -170,8 +183,34 @@ impl EmptyPlacement {
     }
 }
 
+/// How a scheduled record repeats.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecurrenceKind {
+    Days,
+    Weekly,
+    Monthly,
+}
+
+/// A recurrence value: one mapping in frontmatter, one object in JSON.
+///
+/// `weekday` is `0`=Sunday through `6`=Saturday and belongs only to `Weekly`;
+/// `day` is `1..=31` and belongs only to `Monthly`. The structural rules are
+/// enforced by [`crate::schedule::validate_recurrence`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Recurrence {
+    pub kind: RecurrenceKind,
+    /// Days, weeks or months between occurrences, depending on `kind`.
+    pub every: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weekday: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub day: Option<u8>,
+}
+
 /// A property value; the property's format decides which variant is legal.
-/// `Select` is `Text`; `MultiSelect` is `List`.
+/// `Select` is `Text`; `MultiSelect` is `List`; `Recurrence` is a mapping.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
@@ -179,6 +218,7 @@ pub enum Value {
     Number(f64),
     Bool(bool),
     List(Vec<String>),
+    Recurrence(Recurrence),
 }
 
 /// One object's frontmatter and body (`objects/<type-key>/<slug>.md`).

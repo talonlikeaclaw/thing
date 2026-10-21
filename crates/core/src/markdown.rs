@@ -8,9 +8,9 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_yaml_ng::{Mapping, Value as Yaml};
 
-use crate::FORMAT_VERSION;
 use crate::error::CoreError;
 use crate::model::{ObjectDoc, PropertyDef, Revision, SpaceMeta, TypeDef};
+use crate::{FORMAT_VERSION, MIN_FORMAT_VERSION};
 
 /// Reads `objects/<type-key>/<slug>.md`.
 pub fn parse_object(text: &str) -> Result<ObjectDoc, CoreError> {
@@ -98,12 +98,21 @@ fn read_document<T: DeserializeOwned>(source: &str, what: &str) -> Result<T, Cor
         .map_err(|err| malformed(what, &err.to_string()))
 }
 
-/// Removes `schema` and refuses anything but the version this crate writes.
+/// Removes `schema` and refuses anything outside the range this crate reads.
+///
+/// The writer only emits the current version, but a reader keeps accepting the
+/// previous one: a file written by M1 must stay readable after the M2 bump.
 fn check_schema(mapping: &mut Mapping) -> Result<(), CoreError> {
     match mapping.remove("schema") {
         Some(Yaml::Number(version)) => match version.as_u64() {
-            Some(found) if found == u64::from(FORMAT_VERSION) => Ok(()),
-            Some(found) => Err(CoreError::UnsupportedFormat(found as u32)),
+            Some(found)
+                if (u64::from(MIN_FORMAT_VERSION)..=u64::from(FORMAT_VERSION)).contains(&found) =>
+            {
+                Ok(())
+            }
+            Some(found) => Err(CoreError::UnsupportedFormat(
+                u32::try_from(found).unwrap_or(u32::MAX),
+            )),
             None => Err(malformed("schema", "expected a whole number")),
         },
         Some(_) => Err(malformed("schema", "expected a number")),
@@ -190,7 +199,7 @@ mod tests {
     #[test]
     fn object_uses_the_frontmatter_keys_the_format_documents() {
         let text = serialize_object(&doc());
-        assert!(text.starts_with("---\nschema: 1\n"), "{text}");
+        assert!(text.starts_with("---\nschema: 2\n"), "{text}");
         assert!(text.contains("\ntype: plant\n"), "{text}");
         assert!(
             text.contains("\ncreated_at: 2025-10-09T08:53:20Z\n"),
@@ -264,14 +273,18 @@ mod tests {
         let missing = parse_object("---\ntitle: x\n---\n").expect_err("no schema");
         assert_eq!(missing.to_string(), "invalid schema: missing");
 
-        let future = parse_object("---\nschema: 2\ntitle: x\n---\n").expect_err("future");
-        assert_eq!(future.to_string(), "unsupported format version 2");
+        let future = parse_object("---\nschema: 3\ntitle: x\n---\n").expect_err("future");
+        assert_eq!(future.to_string(), "unsupported format version 3");
 
         let not_a_number = parse_object("---\nschema: \"1\"\ntitle: x\n---\n").expect_err("string");
         assert_eq!(
             not_a_number.to_string(),
             "invalid schema: expected a number"
         );
+
+        // The previous version stays readable; only a future one is refused.
+        let previous = serialize_object(&doc()).replace("schema: 2", "schema: 1");
+        assert_eq!(parse_object(&previous).expect("schema 1 parses"), doc());
     }
 
     #[test]
@@ -326,7 +339,7 @@ Watered today.
             ],
         };
         let text = serialize_space(&meta);
-        assert!(text.starts_with("schema: 1\nid: "), "{text}");
+        assert!(text.starts_with("schema: 2\nid: "), "{text}");
         assert!(text.contains("\ntimezone: Europe/Berlin\n"), "{text}");
         assert!(text.contains("\n  role: owner\n"), "{text}");
         assert_eq!(parse_space(&text).expect("parses back"), meta);
@@ -358,6 +371,7 @@ Watered today.
             name_plural: "Plants".to_owned(),
             icon: Some("🪴".to_owned()),
             description: String::new(),
+            schedule: false,
             properties: vec![
                 TypeProperty {
                     key: "room".to_owned(),
@@ -389,12 +403,13 @@ Watered today.
         };
         let text = serialize_type(&def);
         assert!(
-            text.starts_with("schema: 1\nkey: plant\nname: Plant\nname_plural: Plants\n"),
+            text.starts_with("schema: 2\nkey: plant\nname: Plant\nname_plural: Plants\n"),
             "{text}"
         );
         assert!(text.contains("\n    direction: desc\n"), "{text}");
         assert!(text.contains("\n      condition: is_not_empty\n"), "{text}");
         assert!(!text.contains("empty:"), "{text}");
+        assert!(!text.contains("schedule:"), "{text}");
         assert_eq!(parse_type(&text).expect("parses back"), def);
     }
 
@@ -411,6 +426,7 @@ Watered today.
             PropertyFormat::Url,
             PropertyFormat::Email,
             PropertyFormat::Relation,
+            PropertyFormat::Recurrence,
         ];
         for format in formats {
             let def = PropertyDef {
@@ -448,7 +464,7 @@ Watered today.
             target_type: None,
             multi: false,
         });
-        assert_eq!(text, "schema: 1\nkey: room\nname: Room\nformat: text\n");
+        assert_eq!(text, "schema: 2\nkey: room\nname: Room\nformat: text\n");
     }
 
     #[test]

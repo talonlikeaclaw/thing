@@ -193,7 +193,8 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 - **One spelling per concept.** No aliases, shims or parallel grammars.
 - **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
   does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
-  deserializing; a version other than `FORMAT_VERSION` is refused.
+  deserializing; versions below `MIN_FORMAT_VERSION` or above `FORMAT_VERSION` are refused. The
+  writer always emits `FORMAT_VERSION`, so a read-modify-write upgrades an older file in place.
 - Unknown `schema` version is **refused loudly**, not guessed at.
 - Space content never lives in SQLite; only accounts, sessions, invites do.
 

@@ -147,6 +147,7 @@ impl<'a> Row<'a> {
                 .parse::<f64>()
                 .is_ok_and(|expected| expected == *number),
             Row::Property(Value::Bool(value)) => expected == if *value { "true" } else { "false" },
+            Row::Property(Value::Recurrence(_)) => false,
         }
     }
 }
@@ -277,6 +278,7 @@ mod tests {
                 name_plural: "Plants".to_owned(),
                 icon: None,
                 description: String::new(),
+                schedule: false,
                 properties: properties
                     .keys()
                     .map(|key| TypeProperty {

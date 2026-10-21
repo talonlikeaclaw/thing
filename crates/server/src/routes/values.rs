@@ -11,6 +11,7 @@ use thing_core::index::SpaceIndex;
 use thing_core::model::{
     ObjectDoc, ObjectSummary, PropertyDef, PropertyFormat, TITLE_KEY, TypeDef, Value,
 };
+use thing_core::schedule;
 use thing_core::validate;
 use thing_core::value;
 use time::OffsetDateTime;
@@ -227,6 +228,7 @@ fn plain(value: &Value) -> String {
         Value::Number(number) => number_label(*number),
         Value::Bool(flag) => flag.to_string(),
         Value::List(items) => items.join(", "),
+        Value::Recurrence(recurrence) => schedule::recurrence_label(recurrence),
     }
 }
 
@@ -312,6 +314,7 @@ mod tests {
             name_plural: "Plants".to_owned(),
             icon: None,
             description: String::new(),
+            schedule: false,
             properties: columns
                 .iter()
                 .map(|key| TypeProperty {

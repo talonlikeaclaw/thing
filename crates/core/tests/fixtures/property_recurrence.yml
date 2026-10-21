@@ -1,0 +1,4 @@
+schema: 2
+key: repeat
+name: Repeat
+format: recurrence

@@ -141,6 +141,7 @@ mod tests {
                 name_plural: "Plants".to_owned(),
                 icon: None,
                 description: String::new(),
+                schedule: false,
                 properties: properties
                     .keys()
                     .map(|key| TypeProperty {

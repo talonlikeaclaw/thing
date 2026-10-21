@@ -40,10 +40,27 @@ fn with_prefix(prefix: &str) -> Vec<String> {
         .collect()
 }
 
+/// The fixtures written in the version this crate emits; these must round-trip
+/// byte for byte.
+fn current(names: Vec<String>) -> Vec<String> {
+    names
+        .into_iter()
+        .filter(|name| fixture(name).contains("schema: 2"))
+        .collect()
+}
+
+/// The fixtures written by M1; they must parse and upgrade on the next write.
+fn legacy(names: Vec<String>) -> Vec<String> {
+    names
+        .into_iter()
+        .filter(|name| fixture(name).contains("schema: 1"))
+        .collect()
+}
+
 #[test]
 fn object_fixtures_round_trip_byte_for_byte() {
-    let names = with_prefix("object_");
-    assert_eq!(names.len(), 4, "expected 4 object fixtures, got {names:?}");
+    let names = current(with_prefix("object_"));
+    assert_eq!(names, vec!["object_scheduled.md".to_owned()]);
     for name in names {
         let text = fixture(&name);
         let doc: ObjectDoc = parse_object(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
@@ -61,9 +78,29 @@ fn object_fixtures_round_trip_byte_for_byte() {
 }
 
 #[test]
+fn schema_one_object_fixtures_parse_and_upgrade_on_write() {
+    let names = legacy(with_prefix("object_"));
+    assert_eq!(names.len(), 4, "expected 4 legacy objects, got {names:?}");
+    for name in names {
+        let text = fixture(&name);
+        let doc: ObjectDoc = parse_object(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        let written = serialize_object(&doc);
+        assert!(
+            written.starts_with("---\nschema: 2\n"),
+            "{name} did not upgrade: {written}"
+        );
+        assert_eq!(
+            parse_object(&written).expect("upgraded file parses"),
+            doc,
+            "{name} changed meaning while upgrading"
+        );
+    }
+}
+
+#[test]
 fn type_and_property_fixtures_round_trip_byte_for_byte() {
-    let types = with_prefix("type_");
-    assert_eq!(types.len(), 1, "expected 1 type fixture, got {types:?}");
+    let types = current(with_prefix("type_"));
+    assert_eq!(types, vec!["type_chore.yml".to_owned()]);
     for name in types {
         let text = fixture(&name);
         let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
@@ -74,12 +111,8 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
         );
     }
 
-    let properties = with_prefix("property_");
-    assert_eq!(
-        properties.len(),
-        2,
-        "expected 2 property fixtures, got {properties:?}"
-    );
+    let properties = current(with_prefix("property_"));
+    assert_eq!(properties, vec!["property_recurrence.yml".to_owned()]);
     for name in properties {
         let text = fixture(&name);
         let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
@@ -92,9 +125,28 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
 }
 
 #[test]
+fn schema_one_type_and_property_fixtures_parse_and_upgrade() {
+    let types = legacy(with_prefix("type_"));
+    assert_eq!(types, vec!["type_plant.yml".to_owned()]);
+    for name in types {
+        let text = fixture(&name);
+        let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert!(serialize_type(&def).starts_with("schema: 2\n"));
+    }
+
+    let properties = legacy(with_prefix("property_"));
+    assert_eq!(properties.len(), 2, "{properties:?}");
+    for name in properties {
+        let text = fixture(&name);
+        let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert!(serialize_property(&def).starts_with("schema: 2\n"));
+    }
+}
+
+#[test]
 fn space_fixture_round_trips_byte_for_byte() {
-    let names = with_prefix("space_");
-    assert_eq!(names.len(), 1, "expected 1 space fixture, got {names:?}");
+    let names = current(with_prefix("space_"));
+    assert_eq!(names, vec!["space_balcony.yml".to_owned()]);
     for name in names {
         let text = fixture(&name);
         let meta = parse_space(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
@@ -104,6 +156,15 @@ fn space_fixture_round_trips_byte_for_byte() {
             "{name} is not reproduced byte for byte"
         );
     }
+}
+
+#[test]
+fn schema_one_space_fixture_parses_and_upgrades() {
+    let names = legacy(with_prefix("space_"));
+    assert_eq!(names, vec!["space_garden.yml".to_owned()]);
+    let text = fixture(&names[0]);
+    let meta = parse_space(&text).expect("legacy space parses");
+    assert!(serialize_space(&meta).starts_with("schema: 2\n"));
 }
 
 #[test]
@@ -145,7 +206,7 @@ fn invalid_fixtures_are_refused() {
         messages[0],
         "invalid frontmatter: file must begin with a --- line"
     );
-    assert_eq!(messages[1], "unsupported format version 2");
+    assert_eq!(messages[1], "unsupported format version 3");
     assert!(
         messages[2].contains("unknown field `watered`"),
         "{messages:?}"
@@ -188,6 +249,18 @@ fn values_keep_their_formats() {
             "0199f2c1-3333-7c2e-9b1d-2a4f6e8c0a1b".to_owned(),
             "0199f2c1-4444-7c2e-9b1d-2a4f6e8c0a1b".to_owned(),
         ])
+    );
+
+    let scheduled =
+        parse_object(&fixture("object_scheduled.md")).expect("scheduled fixture parses");
+    assert_eq!(
+        scheduled.properties["recurrence"],
+        Value::Recurrence(thing_core::model::Recurrence {
+            kind: thing_core::model::RecurrenceKind::Days,
+            every: 3,
+            weekday: None,
+            day: None,
+        })
     );
 
     let trashed = parse_object(&fixture("object_trashed.md")).expect("trashed fixture parses");

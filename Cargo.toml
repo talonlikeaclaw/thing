@@ -14,6 +14,7 @@ axum = { version = "0.8", features = ["ws", "macros"] }
 clap = { version = "4.6", features = ["derive"] }
 futures-util = "0.3"
 http-body-util = "0.1"
+jiff = { version = "0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"] }
 notify = "8.2"
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
