@@ -11,7 +11,7 @@ use thing_core::index::SpaceIndex;
 use thing_core::model::{
     ObjectDoc, ObjectSummary, PropertyDef, PropertyFormat, TITLE_KEY, TypeDef, Value,
 };
-use thing_core::schedule;
+use thing_core::schedule::{self, TimeZone};
 use thing_core::validate;
 use thing_core::value;
 use time::OffsetDateTime;
@@ -30,6 +30,9 @@ pub struct SummaryJson {
     /// The type's view columns, minus `title`: an unset value is an absent key.
     pub values: Map<String, Json>,
     pub missing_relations: Vec<Uuid>,
+    /// Timing for a scheduled type; absent on every other type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<ScheduleJson>,
 }
 
 /// One object, whole: every property it holds, its body, and its timestamps.
@@ -56,6 +59,35 @@ pub struct ObjectJson {
     pub properties: Map<String, Json>,
     pub body: String,
     pub missing_relations: Vec<Uuid>,
+    /// Timing for a scheduled type; absent on every other type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule: Option<ScheduleJson>,
+}
+
+/// A scheduled record's derived timing, as every surface reads it.
+#[derive(Debug, Serialize)]
+pub struct ScheduleJson {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_date: Option<String>,
+    pub status: schedule::DueStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub days_until_due: Option<i64>,
+    #[serde(
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub completed_at: Option<OffsetDateTime>,
+}
+
+impl ScheduleJson {
+    fn of(state: schedule::ScheduleState) -> Self {
+        Self {
+            due_date: state.due_date.map(|date| date.to_string()),
+            status: state.status,
+            days_until_due: state.days_until_due,
+            completed_at: state.last_completed_at,
+        }
+    }
 }
 
 /// The keys a row carries: the type's view columns, in display order, without
@@ -68,58 +100,94 @@ pub fn value_columns(def: &TypeDef) -> impl Iterator<Item = &str> {
         .filter(|key| *key != TITLE_KEY)
 }
 
-/// One table row, with the labels its cells show.
-pub fn summary_json(index: &SpaceIndex, def: &TypeDef, summary: &ObjectSummary) -> SummaryJson {
-    let values = value_columns(def)
-        .filter_map(|key| {
-            summary
-                .properties
-                .get(key)
-                .map(|value| (key.to_owned(), value_json(index, key, value)))
-        })
-        .collect();
-    SummaryJson {
-        id: summary.id,
-        type_key: summary.type_key.clone(),
-        title: summary.title.clone(),
-        rev: summary.rev,
-        updated_at: summary.updated_at,
-        values,
-        missing_relations: index
-            .object(summary.id)
-            .map(|doc| missing_relations(index, doc))
-            .unwrap_or_default(),
+/// One request's projection context: the space zone resolved once, and one
+/// clock reading shared by every row it renders.
+pub struct Projection<'a> {
+    index: &'a SpaceIndex,
+    timezone: TimeZone,
+    now: OffsetDateTime,
+}
+
+impl<'a> Projection<'a> {
+    pub fn new(index: &'a SpaceIndex) -> Self {
+        Self {
+            index,
+            timezone: space_timezone(index),
+            now: OffsetDateTime::now_utc(),
+        }
+    }
+
+    /// One table row, with the labels its cells show.
+    pub fn summary_json(&self, def: &TypeDef, summary: &ObjectSummary) -> SummaryJson {
+        let values = value_columns(def)
+            .filter_map(|key| {
+                summary
+                    .properties
+                    .get(key)
+                    .map(|value| (key.to_owned(), value_json(self.index, key, value)))
+            })
+            .collect();
+        SummaryJson {
+            id: summary.id,
+            type_key: summary.type_key.clone(),
+            title: summary.title.clone(),
+            rev: summary.rev,
+            updated_at: summary.updated_at,
+            values,
+            missing_relations: self
+                .index
+                .object(summary.id)
+                .map(|doc| missing_relations(self.index, doc))
+                .unwrap_or_default(),
+            schedule: self.index.object(summary.id).and_then(|doc| {
+                schedule::state(def, doc, &self.timezone, self.now).map(ScheduleJson::of)
+            }),
+        }
+    }
+
+    /// One object, whole. Every key it holds is rendered, including one a type
+    /// no longer lists: a value on disk is never dropped from a response.
+    pub fn object_json(&self, doc: &ObjectDoc) -> ObjectJson {
+        let def = self.index.type_def(&doc.type_key);
+        let ordered = ordered_keys(def, doc);
+        let properties = ordered
+            .iter()
+            .filter_map(|key| {
+                doc.properties
+                    .get(key)
+                    .map(|value| (key.clone(), value_json(self.index, key, value)))
+            })
+            .collect();
+        ObjectJson {
+            id: doc.id,
+            type_key: doc.type_key.clone(),
+            title: doc.title.clone(),
+            rev: doc.rev,
+            created_at: doc.created_at,
+            updated_at: doc.updated_at,
+            created_by: doc.created_by,
+            updated_by: doc.updated_by,
+            trashed_at: doc.trashed_at,
+            trashed_from: doc.trashed_from.clone(),
+            properties,
+            body: doc.body.clone(),
+            missing_relations: missing_relations(self.index, doc),
+            schedule: def
+                .and_then(|def| schedule::state(def, doc, &self.timezone, self.now))
+                .map(ScheduleJson::of),
+        }
     }
 }
 
-/// One object, whole. Every key it holds is rendered, including one a type no
-/// longer lists: a value on disk is never dropped from a response.
+/// The space zone, or UTC when `space.yml` names one that does not resolve.
+pub fn space_timezone(index: &SpaceIndex) -> TimeZone {
+    schedule::resolve_timezone(&index.meta().timezone)
+        .unwrap_or_else(|_| schedule::resolve_timezone("UTC").expect("UTC is a zone"))
+}
+
+/// One object, whole, through a fresh projection.
 pub fn object_json(index: &SpaceIndex, doc: &ObjectDoc) -> ObjectJson {
-    let def = index.type_def(&doc.type_key);
-    let ordered = ordered_keys(def, doc);
-    let properties = ordered
-        .iter()
-        .filter_map(|key| {
-            doc.properties
-                .get(key)
-                .map(|value| (key.clone(), value_json(index, key, value)))
-        })
-        .collect();
-    ObjectJson {
-        id: doc.id,
-        type_key: doc.type_key.clone(),
-        title: doc.title.clone(),
-        rev: doc.rev,
-        created_at: doc.created_at,
-        updated_at: doc.updated_at,
-        created_by: doc.created_by,
-        updated_by: doc.updated_by,
-        trashed_at: doc.trashed_at,
-        trashed_from: doc.trashed_from.clone(),
-        properties,
-        body: doc.body.clone(),
-        missing_relations: missing_relations(index, doc),
-    }
+    Projection::new(index).object_json(doc)
 }
 
 /// The object's keys: its type's properties in display order first, then any
@@ -130,6 +198,13 @@ fn ordered_keys(def: Option<&TypeDef>, doc: &ObjectDoc) -> Vec<String> {
         for member in &def.properties {
             if doc.properties.contains_key(&member.key) {
                 keys.push(member.key.clone());
+            }
+        }
+        if def.schedule {
+            for key in schedule::SCHEDULE_KEYS {
+                if doc.properties.contains_key(key) {
+                    keys.push(key.to_owned());
+                }
             }
         }
     }
@@ -359,7 +434,8 @@ mod tests {
             ]),
             &["room", "watering"],
         );
-        let json = serde_json::to_value(summary_json(&index, &def, &summary)).expect("json");
+        let json = serde_json::to_value(Projection::new(&index).summary_json(&def, &summary))
+            .expect("json");
         assert_eq!(json["title"], "Monstera");
         assert_eq!(
             json["values"]["room"],
@@ -375,6 +451,10 @@ mod tests {
             None,
             "a column the view does not show is not in the row"
         );
+        assert!(
+            json.get("schedule").is_none(),
+            "an unscheduled type carries no schedule"
+        );
     }
 
     #[test]
@@ -384,6 +464,31 @@ mod tests {
         assert_eq!(
             value_json(&index, "related", &Value::Text(target.clone())),
             json!({ "value": target, "label": target, "missing": true })
+        );
+    }
+
+    #[test]
+    fn a_schedule_projection_omits_what_it_does_not_know() {
+        let done = ScheduleJson::of(schedule::ScheduleState {
+            due_date: None,
+            status: schedule::DueStatus::Done,
+            days_until_due: None,
+            last_completed_at: Some(OffsetDateTime::UNIX_EPOCH),
+        });
+        assert_eq!(
+            serde_json::to_value(done).expect("json"),
+            json!({ "status": "done", "completed_at": "1970-01-01T00:00:00Z" })
+        );
+
+        let overdue = ScheduleJson::of(schedule::ScheduleState {
+            due_date: Some("2026-10-19".parse().expect("a date")),
+            status: schedule::DueStatus::Overdue,
+            days_until_due: Some(-2),
+            last_completed_at: None,
+        });
+        assert_eq!(
+            serde_json::to_value(overdue).expect("json"),
+            json!({ "due_date": "2026-10-19", "status": "overdue", "days_until_due": -2 })
         );
     }
 

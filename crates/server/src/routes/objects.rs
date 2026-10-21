@@ -23,13 +23,14 @@ use thing_core::model::{
     TITLE_KEY, Value as CoreValue, ViewDef,
 };
 use thing_core::query;
+use thing_core::schedule::{self, DUE_DATE_KEY, RECURRENCE_KEY};
 use thing_core::store::{SpaceStore, trash_path};
 use thing_core::validate::{self, MAX_TITLE_LEN};
 use thing_core::value as core_value;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::values::{object_json, summary_json};
+use super::values::{Projection, object_json, space_timezone};
 use super::{ApiJson, ApiQuery, clean_text, space_for, uuid_param};
 use crate::auth::Caller;
 use crate::error::ApiError;
@@ -54,12 +55,17 @@ pub fn routes() -> Router<SharedState> {
             "/api/spaces/{space}/objects/{object}/restore",
             post(restore),
         )
+        .route(
+            "/api/spaces/{space}/objects/{object}/complete",
+            post(complete),
+        )
         .route("/api/spaces/{space}/objects/{object}/raw", get(raw))
         .route("/api/spaces/{space}/objects/{object}/history", get(history))
         .route(
             "/api/spaces/{space}/objects/{object}/history/{rev}",
             get(history_at),
         )
+        .route("/api/spaces/{space}/agenda", get(agenda))
         .route("/api/spaces/{space}/trash", get(trash))
         .route("/api/spaces/{space}/trash/{object}", delete(purge))
 }
@@ -126,12 +132,14 @@ async fn list(
             .collect();
         let matched = query::apply(&view, &rows, &schema);
         let total = matched.len();
+        let projection = Projection::new(index);
         let page: Vec<Value> = matched
             .iter()
             .skip(offset)
             .take(limit)
             .map(|summary| {
-                serde_json::to_value(summary_json(index, def, summary)).expect("a row serializes")
+                serde_json::to_value(projection.summary_json(def, summary))
+                    .expect("a row serializes")
             })
             .collect();
         Ok(Json(json!({
@@ -284,8 +292,109 @@ async fn update(
         .map(|title| clean_text("title", title, MAX_TITLE_LEN))
         .transpose()?;
     let values = body.properties.as_ref().map(read_properties).transpose()?;
-    let _guard = handle.write.lock().await;
+    let body_text = body.body;
+    let rev = body.rev;
 
+    commit(&handle, &caller, id, rev, RevisionAction::Update, |next| {
+        if let Some(title) = title {
+            next.title = title;
+        }
+        if let Some(values) = &values {
+            for (key, value) in values {
+                match value {
+                    Some(value) => {
+                        next.properties.insert(key.clone(), value.clone());
+                    }
+                    None => {
+                        next.properties.remove(key);
+                    }
+                }
+            }
+        }
+        let body_changed = match &body_text {
+            Some(text) => {
+                let changed = *text != next.body;
+                next.body = text.clone();
+                changed
+            }
+            None => false,
+        };
+        Ok(body_changed)
+    })
+    .await?;
+
+    tracing::info!(
+        space = %space,
+        user = %caller.user.id,
+        object = %id,
+        rev = rev + 1,
+        "object updated"
+    );
+    Ok(Json(object_response(&handle, id)?))
+}
+
+/// `POST /api/spaces/{space}/objects/{object}/complete` [editor]
+///
+/// Records one completion: a one-off loses its due date, a recurring record
+/// advances it. Complete never changes the title or the body.
+async fn complete(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path((space, object)): Path<(String, String)>,
+    ApiJson(body): ApiJson<CompleteRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let id = uuid_param(&object, "object")?;
+    let handle = space_for(&state, &caller, space, Role::Editor)?;
+    let now = OffsetDateTime::now_utc();
+
+    commit(
+        &handle,
+        &caller,
+        id,
+        body.rev,
+        RevisionAction::Complete,
+        |next| {
+            let (def, timezone) = handle.with_index(|index| {
+                (
+                    index.type_def(&next.type_key).cloned(),
+                    space_timezone(index),
+                )
+            });
+            let Some(def) = def else {
+                return Err(ApiError::not_found(format!("type {}", next.type_key)));
+            };
+            let updated = schedule::complete(&def, next, &timezone, now)?;
+            *next = updated;
+            Ok(false)
+        },
+    )
+    .await?;
+
+    tracing::info!(space = %space, user = %caller.user.id, object = %id, "object completed");
+    Ok(Json(object_response(&handle, id)?))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CompleteRequest {
+    rev: u64,
+}
+
+/// One write path for every object mutation: lock, load, check the revision,
+/// apply the closure, increment, validate, save under the fingerprint guard,
+/// record the revision, reload the index and broadcast.
+///
+/// The closure returns whether it changed the body; only an update records one.
+async fn commit(
+    handle: &Arc<SpaceHandle>,
+    caller: &Caller,
+    id: Uuid,
+    rev: u64,
+    action: RevisionAction,
+    change: impl FnOnce(&mut ObjectDoc) -> Result<bool, ApiError>,
+) -> Result<ObjectDoc, ApiError> {
+    let _guard = handle.write.lock().await;
     let (path, previous, doc) = handle.with_index(|index| -> Result<_, ApiError> {
         let doc = index
             .object(id)
@@ -298,7 +407,7 @@ async fn update(
         let expected = index.fingerprint(&path);
         Ok((path, expected, doc))
     })?;
-    if body.rev != doc.rev {
+    if rev != doc.rev {
         return Err(ApiError::conflict(
             "the object has changed since you loaded it; reload and retry",
             json!({ "reason": "stale revision", "current_rev": doc.rev }),
@@ -306,29 +415,7 @@ async fn update(
     }
 
     let mut next = doc.clone();
-    if let Some(title) = title {
-        next.title = title;
-    }
-    if let Some(values) = &values {
-        for (key, value) in values {
-            match value {
-                Some(value) => {
-                    next.properties.insert(key.clone(), value.clone());
-                }
-                None => {
-                    next.properties.remove(key);
-                }
-            }
-        }
-    }
-    let body_changed = match &body.body {
-        Some(text) => {
-            let changed = *text != next.body;
-            next.body = text.clone();
-            changed
-        }
-        None => false,
-    };
+    let body_changed = change(&mut next)?;
     next.rev = doc.rev + 1;
     next.updated_at = OffsetDateTime::now_utc();
     next.updated_by = caller.user.id;
@@ -361,9 +448,9 @@ async fn update(
             rev: next.rev,
             at: next.updated_at,
             by: caller.user.id,
-            action: RevisionAction::Update,
+            action,
             snapshot: snapshot_of(&next),
-            body: body_changed.then(|| next.body.clone()),
+            body: (action == RevisionAction::Update && body_changed).then(|| next.body.clone()),
         },
     )?;
     handle.with_index_mut(|index| {
@@ -372,22 +459,32 @@ async fn update(
         }
         index.reload_file(&handle.store, &target)
     })?;
-    handle.broadcast(
-        "object.updated",
-        json!({ "id": next.id, "type": next.type_key, "rev": next.rev }),
-    );
-    tracing::info!(
-        space = %space,
-        user = %caller.user.id,
-        object = %id,
-        rev = next.rev,
-        "object updated"
-    );
+    broadcast_change(handle, action, &next);
+    Ok(next)
+}
 
-    let updated = handle
+/// The event one committed write announces. Complete carries the new due date
+/// so a listener can react without refetching; a one-off has none.
+fn broadcast_change(handle: &Arc<SpaceHandle>, action: RevisionAction, doc: &ObjectDoc) {
+    let identity = json!({ "id": doc.id, "type": doc.type_key, "rev": doc.rev });
+    match action {
+        RevisionAction::Update => handle.broadcast("object.updated", identity),
+        RevisionAction::Complete => {
+            let mut payload = identity;
+            if let Some(CoreValue::Text(due)) = doc.properties.get(DUE_DATE_KEY) {
+                payload["due_date"] = json!(due);
+            }
+            handle.broadcast("object.completed", payload);
+        }
+        _ => {}
+    }
+}
+
+/// One object as a write returns it.
+fn object_response(handle: &Arc<SpaceHandle>, id: Uuid) -> Result<Value, ApiError> {
+    handle
         .with_index(|index| index.object(id).map(|live| json!(object_json(index, live))))
-        .ok_or_else(|| ApiError::internal("the object did not survive its own write"))?;
-    Ok(Json(updated))
+        .ok_or_else(|| ApiError::internal("the object did not survive its own write"))
 }
 
 /// `GET /api/spaces/{space}/objects/{object}` [viewer]
@@ -607,6 +704,131 @@ async fn history_at(
         .rfind(|revision| revision.rev == rev)
         .ok_or_else(|| ApiError::not_found(format!("revision {rev} of object {id}")))?;
     Ok(Json(json!(found)))
+}
+
+/// `GET /api/spaces/{space}/agenda?days=14` [viewer]
+///
+/// One pass over live objects of scheduled types, bucketed by calendar day in
+/// the space's zone. The server owns the classification; the client renders it.
+///
+/// `today` is the space's civil date for the header; the bucket of records due
+/// today is `due_today`, because one JSON object cannot carry the same key
+/// twice. The plan's example showed both under `today`, which no parser can
+/// represent.
+async fn agenda(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path(space): Path<String>,
+    mut query: ApiQuery,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Viewer)?;
+    let days = query.parse::<i64>("days")?.unwrap_or(14);
+    query.finish()?;
+    if !(1..=90).contains(&days) {
+        return Err(ApiError::validation("days", "must be between 1 and 90"));
+    }
+
+    let body = handle.with_index(|index| {
+        let timezone = space_timezone(index);
+        let now = OffsetDateTime::now_utc();
+        let today = schedule::today_in(&timezone, now);
+        let mut rows: Vec<AgendaRow> = Vec::new();
+        let mut later_count = 0;
+
+        for doc in index.objects() {
+            let Some(def) = index.type_def(&doc.type_key) else {
+                continue;
+            };
+            let Some(schedule) = schedule::state(def, doc, &timezone, now) else {
+                continue;
+            };
+            let (Some(due), Some(distance)) = (schedule.due_date, schedule.days_until_due) else {
+                continue;
+            };
+            if matches!(
+                schedule.status,
+                schedule::DueStatus::Unscheduled | schedule::DueStatus::Done
+            ) {
+                continue;
+            }
+            if distance > days {
+                later_count += 1;
+                continue;
+            }
+            let recurrence = match doc.properties.get(RECURRENCE_KEY) {
+                Some(CoreValue::Recurrence(value)) => Some(schedule::recurrence_label(value)),
+                _ => None,
+            };
+            rows.push(AgendaRow {
+                id: doc.id,
+                type_key: doc.type_key.clone(),
+                type_name: def.name.clone(),
+                type_icon: def.icon.clone(),
+                title: doc.title.clone(),
+                rev: doc.rev,
+                due_date: due.to_string(),
+                status: schedule.status,
+                days_until_due: distance,
+                recurrence,
+                last_completed_at: schedule.last_completed_at,
+            });
+        }
+
+        rows.sort_by(|left, right| {
+            left.due_date
+                .cmp(&right.due_date)
+                .then_with(|| left.title.cmp(&right.title))
+        });
+        let overdue = rows
+            .iter()
+            .filter(|row| row.status == schedule::DueStatus::Overdue)
+            .cloned()
+            .collect::<Vec<_>>();
+        let due_today = rows
+            .iter()
+            .filter(|row| row.status == schedule::DueStatus::Today)
+            .cloned()
+            .collect::<Vec<_>>();
+        let upcoming = rows
+            .iter()
+            .filter(|row| row.status == schedule::DueStatus::Upcoming)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        json!({
+            "today": today.to_string(),
+            "timezone": index.meta().timezone,
+            "overdue": overdue,
+            "due_today": due_today,
+            "upcoming": upcoming,
+            "later_count": later_count,
+        })
+    });
+    Ok(Json(body))
+}
+
+/// One scheduled record as the agenda lists it.
+#[derive(Debug, Clone, Serialize)]
+struct AgendaRow {
+    id: Uuid,
+    #[serde(rename = "type")]
+    type_key: String,
+    type_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    type_icon: Option<String>,
+    title: String,
+    rev: u64,
+    due_date: String,
+    status: schedule::DueStatus,
+    days_until_due: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recurrence: Option<String>,
+    #[serde(
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    last_completed_at: Option<OffsetDateTime>,
 }
 
 /// `GET /api/spaces/{space}/trash` [viewer]

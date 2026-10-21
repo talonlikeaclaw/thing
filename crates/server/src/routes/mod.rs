@@ -1450,6 +1450,331 @@ mod tests {
             .expect("a live channel")
     }
 
+    /// A calendar day relative to now, in the `YYYY-MM-DD` the API takes.
+    fn day(offset: i64) -> String {
+        (time::OffsetDateTime::now_utc() + time::Duration::days(offset))
+            .date()
+            .to_string()
+    }
+
+    /// A space whose `Chore` type is scheduled, in UTC.
+    async fn chore_space(server: &Server, cookie: &str) -> String {
+        let space = server
+            .call(
+                "POST",
+                "/api/spaces",
+                Some(json!({ "name": "Chores", "timezone": "UTC" })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(space.status, StatusCode::CREATED, "{:?}", space.body);
+        let space = space.body["id"].as_str().expect("an id").to_owned();
+        let created = server
+            .call(
+                "POST",
+                &format!("/api/spaces/{space}/types"),
+                Some(json!({ "name": "Chore", "schedule": true })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+        space
+    }
+
+    #[test]
+    fn completing_a_scheduled_record_advances_and_records_it() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("complete@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&space).expect("an id"))
+                .expect("a loaded space");
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Water the monstera",
+                        "properties": {
+                            "due_date": day(-1),
+                            "recurrence": { "kind": "days", "every": 3 }
+                        }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+
+            let mut events = handle.events.subscribe();
+            let completed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/complete"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(completed.status, StatusCode::OK, "{:?}", completed.body);
+            assert_eq!(completed.body["rev"], 2);
+            assert_eq!(completed.body["title"], "Water the monstera");
+            assert_eq!(
+                completed.body["properties"]["due_date"]["value"],
+                day(3),
+                "a late completion re-phases from today"
+            );
+            assert_eq!(completed.body["schedule"]["status"], "upcoming");
+            assert_eq!(completed.body["schedule"]["days_until_due"], 3);
+            assert!(completed.body["schedule"]["completed_at"].is_string());
+
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "object.completed");
+            assert_eq!(event.payload["id"], id.as_str());
+            assert_eq!(event.payload["type"], "chore");
+            assert_eq!(event.payload["rev"], 2);
+            assert_eq!(event.payload["due_date"], day(3));
+
+            let stale = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/complete"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(stale.status, StatusCode::CONFLICT);
+            assert_eq!(stale.code(), "conflict");
+            assert_eq!(stale.body["error"]["details"]["current_rev"], 2);
+
+            let history = server
+                .call(
+                    "GET",
+                    &format!("{base}/objects/{id}/history"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let last = history
+                .body
+                .as_array()
+                .expect("a list")
+                .last()
+                .expect("a line");
+            assert_eq!(last["action"], "complete");
+            assert!(
+                last["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .contains(&json!("due_date"))
+            );
+            assert!(
+                last["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .contains(&json!("last_completed_at"))
+            );
+            assert!(last.get("body").is_none(), "complete never records a body");
+        });
+    }
+
+    #[test]
+    fn a_one_off_completion_clears_the_due_date() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("oneoff@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Clear the desk",
+                        "properties": { "due_date": day(0) }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+            let completed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/complete"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(completed.status, StatusCode::OK, "{:?}", completed.body);
+            assert!(completed.body["properties"].get("due_date").is_none());
+            assert_eq!(completed.body["schedule"]["status"], "done");
+            assert!(completed.body["schedule"].get("days_until_due").is_none());
+
+            let agenda = server
+                .call("GET", &format!("{base}/agenda"), None, Some(&cookie))
+                .await;
+            assert_eq!(agenda.status, StatusCode::OK);
+            assert_eq!(agenda.body["overdue"], json!([]));
+            assert_eq!(agenda.body["due_today"], json!([]));
+            assert_eq!(agenda.body["upcoming"], json!([]));
+            assert_eq!(agenda.body["later_count"], 0);
+        });
+    }
+
+    #[test]
+    fn completing_an_unscheduled_or_trashed_record_is_refused() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("refuse@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let base = format!("/api/spaces/{space}");
+            server
+                .call(
+                    "POST",
+                    &format!("{base}/types"),
+                    Some(json!({ "name": "Plant" })),
+                    Some(&cookie),
+                )
+                .await;
+            let plant = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({ "type": "plant", "title": "Monstera" })),
+                    Some(&cookie),
+                )
+                .await;
+            let plant_id = plant.body["id"].as_str().expect("an id").to_owned();
+            let unscheduled = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{plant_id}/complete"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unscheduled.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unscheduled.field(), "schedule");
+
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({ "type": "chore", "title": "Sweep" })),
+                    Some(&cookie),
+                )
+                .await;
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+            server
+                .call(
+                    "DELETE",
+                    &format!("{base}/objects/{id}"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let trashed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/complete"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(trashed.status, StatusCode::NOT_FOUND);
+            assert_eq!(trashed.code(), "not_found");
+        });
+    }
+
+    #[test]
+    fn the_agenda_buckets_by_calendar_day_and_horizon() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("agenda@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+            for (title, properties) in [
+                (
+                    "Overdue",
+                    json!({ "due_date": day(-1), "recurrence": { "kind": "days", "every": 3 } }),
+                ),
+                ("Today", json!({ "due_date": day(0) })),
+                ("Tomorrow", json!({ "due_date": day(1) })),
+                ("Later", json!({ "due_date": day(20) })),
+                (
+                    "Done",
+                    json!({ "last_completed_at": "2026-10-21T07:12:00Z" }),
+                ),
+            ] {
+                let created = server
+                    .call(
+                        "POST",
+                        &format!("{base}/objects"),
+                        Some(json!({
+                            "type": "chore",
+                            "title": title,
+                            "properties": properties,
+                        })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            }
+
+            let agenda = server
+                .call(
+                    "GET",
+                    &format!("{base}/agenda?days=14"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(agenda.status, StatusCode::OK, "{:?}", agenda.body);
+            assert_eq!(agenda.body["today"], day(0));
+            assert_eq!(agenda.body["timezone"], "UTC");
+            assert_eq!(agenda.body["overdue"][0]["title"], "Overdue");
+            assert_eq!(agenda.body["overdue"][0]["status"], "overdue");
+            assert_eq!(agenda.body["overdue"][0]["days_until_due"], -1);
+            assert_eq!(agenda.body["overdue"][0]["recurrence"], "Every 3 days");
+            assert_eq!(agenda.body["overdue"][0]["type_name"], "Chore");
+            assert_eq!(agenda.body["due_today"][0]["title"], "Today");
+            assert_eq!(agenda.body["upcoming"][0]["title"], "Tomorrow");
+            assert_eq!(agenda.body["later_count"], 1);
+            let titles: Vec<&str> = agenda.body["overdue"]
+                .as_array()
+                .expect("overdue")
+                .iter()
+                .chain(agenda.body["due_today"].as_array().expect("today"))
+                .chain(agenda.body["upcoming"].as_array().expect("upcoming"))
+                .map(|row| row["title"].as_str().expect("a title"))
+                .collect();
+            assert_eq!(titles, vec!["Overdue", "Today", "Tomorrow"]);
+
+            let invalid = server
+                .call("GET", &format!("{base}/agenda?days=0"), None, Some(&cookie))
+                .await;
+            assert_eq!(invalid.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(invalid.field(), "days");
+        });
+    }
+
     #[test]
     fn every_write_broadcasts_its_event_to_the_space() {
         let server = server();

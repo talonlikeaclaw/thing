@@ -397,6 +397,7 @@ pub struct Snapshot {
 pub enum RevisionAction {
     Create,
     Update,
+    Complete,
     Delete,
     Restore,
 }

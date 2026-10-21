@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use jiff::civil::Date;
-use jiff::tz::TimeZone;
+pub use jiff::tz::TimeZone;
 use jiff::{Span, Timestamp};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
