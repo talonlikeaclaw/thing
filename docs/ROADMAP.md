@@ -44,8 +44,8 @@ Binding for every milestone. Do not re-open any of these during implementation.
 
 ## Roadmap
 
-M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md). It is landed;
-the deployment steps below are the remaining M1 work. Later milestones get their own
+M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md). It is landed
+and deployed; the bullets below record how. Later milestones get their own
 `docs/plan/mN-*.md` when they start, so each one is written the way this one was. M2–M10 are recorded
 here so the M1 schema does not need reshaping later; each carries its decisions already made.
 
@@ -53,11 +53,11 @@ here so the M1 schema does not need reshaping later; each carries its decisions 
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday
 usability move ahead of search.
 
-- **M1 — Engine core.** **Landed** — checkpoints 1–14 are implemented: spaces, members, invites,
+- **M1 — Engine core.** **Landed and deployed** as `v0.1.0` on VMID 216 at
+  <https://thing.talonlikeaclaw.com> — checkpoints 1–14 are implemented: spaces, members, invites,
   roles, auth; user-defined types and properties; object CRUD with a markdown body; the live
   per-type table view with filters and sorts; read-only history; trash; external file edits noticed
-  and reflected; a seed script; CI; container. Deployment (the bullets below) is the remaining
-  work.
+  and reflected; a seed script; CI; container. The deployment bullets below are complete.
 - **M2 — Scheduling and recurrence.** Any type may declare `schedule: true`, which adds three
   implicit properties (`due_date` (date), `recurrence` (recurrence), `last_completed_at` (datetime))
   plus a `complete` action that writes a completion and re-phases the cadence. Recurrence = `days` |
@@ -147,20 +147,26 @@ narrowing scope, changing the file format, or skipping a verification.
 ## Deployment
 
 
-The homelab repo already has the recipe; this milestone only fills it in. Postgres is **not** involved,
+**Deployed 2026-10-21** as `v0.1.0` (VMID 216, `192.168.0.216`). The homelab repo holds the
+recipe; this milestone filled it in. Postgres is **not** involved,
 which makes this the first app in the fleet with no database dependency — a nightly `tar` of
 `/opt/thing/data` is a complete logical backup, and vzdump already covers the LXC. Each bullet below
 is its own checkpoint and its own commit, in the order listed, under the same delivery protocol as
 M1; the app repo is not touched.
 
 - `homelab/tofu/thing.tf` — VMID 216 (next free in the stable 200–249 range), hostname `thing`,
-  `192.168.0.216`, 2 cores, 2048 MB RAM, 16 GB rootfs, `unprivileged = true`, keeping the
-  `lifecycle { ignore_changes = [initialization[0].user_account[0]] }` guard.
+  `192.168.0.216`, 2 cores, 2048 MB RAM, 16 GB rootfs, `unprivileged = true`, with
+  `features { nesting = true, keyctl = true }` so Docker runs inside the LXC without making it
+  privileged, keeping the `lifecycle { ignore_changes = [initialization[0].user_account[0]] }`
+  guard.
 - `homelab/ansible/inventory.ini` — add host `192.168.0.216` to a new `[thing]` group.
 - `homelab/ansible/playbooks/thing.yml` — `app_dir=/opt/thing`, `thing_version: "v0.1.0"` pinned by
   tag, Docker install, `/opt/thing/.env` rendered at mode 0600 from `ansible/vars/thing.yml`
   (`THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`, `THING_BIND=0.0.0.0:8080`, `THING_LISTEN_IP=0.0.0.0`),
-  `docker compose pull && up -d`, and a `pg_dump`-free data volume at `/opt/thing/data`.
+  `docker compose pull && up -d`, and a `pg_dump`-free data volume at `/opt/thing/data` owned by
+  UID/GID `1000` mode `0700` (the image runs unprivileged).
+- Register the first account over the LAN before the DNS route exists: the first account becomes the
+  owner without an invite, so the instance must not be publicly reachable unclaimed.
 - `homelab/ansible/playbooks/cloudflared.yml` — add `thing → http://192.168.0.216:8080` to the ingress
   list, then rerun the playbook.
 - `ssh root@192.168.0.200 cloudflared tunnel route dns homelab thing.talonlikeaclaw.com`.

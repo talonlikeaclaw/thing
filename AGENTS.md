@@ -14,14 +14,14 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is code-complete and checkpoint 14 has landed; CI is green.** `thing-core`
-exposes `model`, `error`, `slug` (with the type/property key grammar next to the filename slugs),
-`value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
-and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
+**Current state: M1 is deployed as v0.1.0 at <https://thing.talonlikeaclaw.com> (VMID 216); CI is
+green.** `thing-core` exposes `model`, `error`, `slug` (with the type/property key grammar next to
+the filename slugs), `value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`,
+`filter`, `query` and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
 `tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` has its shell
 (`config`, `error`, `spaces`, `watcher`, `state`), its auth and membership surface (`accounts`,
-`auth`, `routes/auth`, `routes/spaces`), and
-its schema and object APIs: `routes/types` (types and their saved view), `routes/properties`
+`auth`, `routes/auth`, `routes/spaces`), and its schema and object APIs: `routes/types` (types and
+their saved view), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
 filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
 `{value, label}` rendering every response uses). `scripts/seed.sh` builds the Garden demo space
@@ -46,8 +46,8 @@ same app with live reload. Nothing is tagged or deployed yet.
 M1 is implemented: **checkpoints 1–14 (scaffold; core model and format; store; index, validation and
 query; server shell; auth and membership; schema and object APIs; events and the WebSocket; web
 scaffold and auth screens; schema editor; live table; object panel and markdown body; history and
-trash; docs, CI, containers and the security pass) are landed and CI-green.** The only M1 work left
-is the deployment plan in `docs/ROADMAP.md`, which happens in the homelab repo.
+trash; docs, CI, containers and the security pass) are landed and CI-green.** M1 is deployed on
+VMID 216 behind Cloudflare at `https://thing.talonlikeaclaw.com`; the next work is M2.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -291,12 +291,11 @@ When the UI changes, update them; never let them describe a different world.
   `.devcontainer/` run both dev servers against the source. `scripts/seed.sh` requires
   `THING_SEED_PASSWORD`, signs in as `THING_SEED_EMAIL` (default `a@b.c`) or registers it, and
   builds the Garden demo space against a running server.
-- **Deploy.** Production is a pinned image on VMID 216 with `/opt/thing/data` as the volume and
+- **Deploy.** Production is live as `v0.1.0` on VMID 216 with `/opt/thing/data` as the volume and
   `THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`,
   `THING_BIND=0.0.0.0:8080` and `THING_LISTEN_IP=0.0.0.0` (the compose port binds loopback by
-  default); the deployment steps are in `docs/ROADMAP.md` and are separate checkpoints in the
-  homelab repo. `tar` of the data directory is a complete backup: the space content is only
-  markdown.
+  default); the deployment record is in `docs/ROADMAP.md` and the homelab repo. `tar` of the data
+  directory is a complete backup: the space content is only markdown.
 - Keep `tokio`, `axum`, `rusqlite` and `notify` out of `thing-core`; they belong in the shell or
   the store boundary.
 
