@@ -101,9 +101,10 @@ impl SpaceRegistry {
         self.data_dir.join(SPACES_DIR)
     }
 
-    /// Creates the data directory and its `spaces/` subdirectory.
+    /// Creates the data directory and its `spaces/` subdirectory, both
+    /// owner-only.
     pub fn prepare(&self) -> Result<(), CoreError> {
-        fs::create_dir_all(self.spaces_dir())?;
+        thing_core::store::fs::create_private_dir_all(&self.spaces_dir())?;
         Ok(())
     }
 

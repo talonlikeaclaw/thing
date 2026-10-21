@@ -10,6 +10,42 @@ use std::path::{Component, Path, PathBuf};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+/// Creates `path` and missing parents with owner-only permissions, and tightens
+/// an existing directory too. `/data` holds password hashes and every record.
+pub fn create_private_dir_all(path: &Path) -> std::io::Result<()> {
+    // `THING_DATA_DIR=.` is a supported choice; never chmod the working tree.
+    if path.as_os_str().is_empty() || path == Path::new(".") {
+        return Ok(());
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(path)?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    }
+    #[cfg(not(unix))]
+    fs::create_dir_all(path)?;
+    Ok(())
+}
+
+/// Restricts an existing file to owner read/write. A no-op off Unix and for a
+/// path that does not exist (SQLite's `-wal`/`-shm` before they are created).
+pub fn restrict_file(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if path.exists() {
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+    Ok(())
+}
+
 use super::{
     FileFingerprint, HISTORY_DIR, OBJECTS_DIR, PROPERTIES_DIR, SPACE_FILE, SpaceFile,
     SpaceFileKind, SpaceStore, TMP_SUFFIX, TRASH_DIR, TYPES_DIR, history_path, key_from_path,
@@ -43,7 +79,7 @@ impl FsSpaceStore {
             TRASH_DIR,
             HISTORY_DIR,
         ] {
-            fs::create_dir_all(store.full(Path::new(dir)))?;
+            create_private_dir_all(&store.full(Path::new(dir)))?;
         }
         store.save_space(meta, None)?;
         Ok(store)
@@ -72,12 +108,24 @@ impl FsSpaceStore {
 
     /// Writes `contents`, then returns the fingerprint of the renamed file.
     fn write_atomic(&self, relative: &Path, contents: &str) -> Result<FileFingerprint, CoreError> {
+        check_relative(relative)?;
         let full = self.full(relative);
         let dir = full.parent().ok_or_else(|| malformed(relative))?;
-        fs::create_dir_all(dir)?;
+        create_private_dir_all(dir)?;
         let temp = dir.join(format!("{}{TMP_SUFFIX}", file_name(relative)?));
 
-        let mut file = fs::File::create(&temp)?;
+        // `create_new` refuses a symlink or an existing file at the temp path;
+        // remove a leftover from an interrupted write first.
+        match fs::remove_file(&temp) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.into()),
+        }
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
+        restrict_file(&temp)?;
         file.write_all(contents.as_bytes())?;
         file.sync_all()?;
         drop(file);
@@ -334,7 +382,7 @@ impl SpaceStore for FsSpaceStore {
     fn append_revision(&self, id: Uuid, revision: &Revision) -> Result<(), CoreError> {
         let path = history_path(id);
         let full = self.full(&path);
-        fs::create_dir_all(full.parent().ok_or_else(|| malformed(&path))?)?;
+        create_private_dir_all(full.parent().ok_or_else(|| malformed(&path))?)?;
 
         let mut line = markdown::serialize_revision(revision);
         line.push('\n');
@@ -342,6 +390,7 @@ impl SpaceStore for FsSpaceStore {
             .create(true)
             .append(true)
             .open(&full)?;
+        restrict_file(&full)?;
         file.write_all(line.as_bytes())?;
         file.sync_all()?;
         Ok(())
@@ -670,6 +719,40 @@ mod tests {
             FsSpaceStore::open(dir.path()).expect("reopen").space_dir(),
             dir.path()
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn created_files_are_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        fn mode(path: &Path) -> u32 {
+            fs::metadata(path).expect("metadata").permissions().mode() & 0o777
+        }
+
+        let (dir, store) = store();
+        for sub in [
+            TYPES_DIR,
+            PROPERTIES_DIR,
+            OBJECTS_DIR,
+            TRASH_DIR,
+            HISTORY_DIR,
+        ] {
+            assert_eq!(mode(&dir.path().join(sub)), 0o700, "{sub}");
+        }
+        assert_eq!(mode(&dir.path().join(SPACE_FILE)), 0o600);
+
+        let doc = object("plant", "Monstera in the study");
+        let path = store
+            .new_object_path("plant", &doc.title)
+            .expect("a new object path");
+        store.save_object(&path, &doc, None).expect("save");
+        assert_eq!(mode(&dir.path().join(&path)), 0o600);
+
+        store
+            .append_revision(doc.id, &revision(1))
+            .expect("a revision");
+        assert_eq!(mode(&dir.path().join(history_path(doc.id))), 0o600);
     }
 
     #[test]

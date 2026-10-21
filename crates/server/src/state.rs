@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use tokio::sync::{Mutex, Semaphore};
+
 use crate::accounts::Accounts;
 use crate::config::Config;
 use crate::spaces::SpaceRegistry;
@@ -16,6 +18,11 @@ pub struct AppState {
     pub config: Config,
     pub registry: Arc<SpaceRegistry>,
     pub accounts: Accounts,
+    /// Serializes registration, so the first-account gate and a single-use
+    /// invite cannot be read by two requests at once.
+    pub registration: Mutex<()>,
+    /// Bounds concurrent Argon2 work; each attempt needs ~19 MiB.
+    pub hashing: Semaphore,
 }
 
 /// The state as the router and its extractors hold it.
@@ -27,6 +34,8 @@ impl AppState {
             config,
             registry,
             accounts,
+            registration: Mutex::new(()),
+            hashing: Semaphore::new(2),
         })
     }
 }

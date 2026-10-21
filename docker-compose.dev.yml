@@ -1,0 +1,24 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: dev.dockerfile
+      args:
+        UID: ${THING_UID:-1000}
+        GID: ${THING_GID:-1000}
+    init: true
+    working_dir: /workspaces/thing
+    command: ["bash", "scripts/dev-serve.sh"]
+    ports:
+      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:8080:8080"
+    environment:
+      THING_BIND: 0.0.0.0:8080
+      THING_DATA_DIR: /workspaces/thing/data
+      THING_PUBLIC_URL: http://localhost:5173
+      THING_COOKIE_SECURE: "false"
+      THING_LOG: info
+    volumes:
+      - .:/workspaces/thing
+    security_opt:
+      - no-new-privileges:true

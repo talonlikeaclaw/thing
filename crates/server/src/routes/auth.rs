@@ -78,6 +78,10 @@ async fn register(
         ));
     }
 
+    // The first-account gate and an invite's single use are read-then-write;
+    // one registration at a time keeps two requests from both passing it.
+    let _registration = state.registration.lock().await;
+
     let now = OffsetDateTime::now_utc();
     let invite = if state.accounts.user_count()? == 0 {
         None
@@ -86,9 +90,20 @@ async fn register(
     };
 
     // Hash before writing: this is the slow step, and a bad invite is refused
-    // above without paying for it.
-    let hash = hash_password(&body.password)
-        .map_err(|err| ApiError::internal(format!("hashing the password failed: {err}")))?;
+    // above without paying for it. Argon2 is CPU- and memory-heavy, so it runs
+    // off the async workers and behind a small concurrency bound.
+    let password = body.password;
+    let hash = {
+        let _hashing = state
+            .hashing
+            .acquire()
+            .await
+            .expect("the hashing semaphore is never closed");
+        tokio::task::spawn_blocking(move || hash_password(&password))
+            .await
+            .map_err(|err| ApiError::internal(format!("hashing the password failed: {err}")))?
+            .map_err(|err| ApiError::internal(format!("hashing the password failed: {err}")))?
+    };
     let user = state.accounts.create_user(&email, &name, &hash, now)?;
 
     if let Some(invite) = invite {
@@ -135,7 +150,18 @@ async fn login(
     let Some((user, stored)) = state.accounts.credentials(&email)? else {
         return Err(refusal());
     };
-    if !verify_password(&body.password, &stored) {
+    let password = body.password;
+    let valid = {
+        let _hashing = state
+            .hashing
+            .acquire()
+            .await
+            .expect("the hashing semaphore is never closed");
+        tokio::task::spawn_blocking(move || verify_password(&password, &stored))
+            .await
+            .map_err(|err| ApiError::internal(format!("verifying the password failed: {err}")))?
+    };
+    if !valid {
         return Err(refusal());
     }
 

@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use axum::extract::{FromRequest, FromRequestParts, Query, Request};
 use axum::http::request::Parts;
-use axum::http::{Method, StatusCode, Uri};
+use axum::http::{HeaderName, HeaderValue, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{any, get};
 use axum::{Json, Router};
@@ -28,6 +28,7 @@ use thing_core::error::CoreError;
 use thing_core::index::Problems;
 use thing_core::model::Role;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
@@ -36,6 +37,14 @@ use crate::config::Config;
 use crate::error::ApiError;
 use crate::spaces::SpaceHandle;
 use crate::state::SharedState;
+
+/// The app is a same-origin SPA with external script/style files; no inline
+/// script, no framed use, no third-party image loads. `style-src` keeps
+/// `'unsafe-inline'` because React writes `style` attributes for option colours.
+const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; \
+     style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; \
+     connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; \
+     form-action 'self'";
 
 pub fn router(config: &Config, state: SharedState) -> Router {
     // The API's catch-all is a route, not a fallback, so a mistyped `/api/...`
@@ -66,11 +75,31 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         app.fallback(spa_missing)
     };
     app.layer(TraceLayer::new_for_http().make_span_with(trace_span))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("content-security-policy"),
+            HeaderValue::from_static(CONTENT_SECURITY_POLICY),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("x-content-type-options"),
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("x-frame-options"),
+            HeaderValue::from_static("DENY"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("referrer-policy"),
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("permissions-policy"),
+            HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
+        ))
         .with_state(state)
 }
 
 /// What one request's trace span records: never the query string, which can
-/// carry a session token when a non-browser client uses `?session=`.
+/// carry a session token on the events upgrade.
 fn trace_span(request: &Request) -> tracing::Span {
     tracing::debug_span!(
         "request",
@@ -84,9 +113,10 @@ async fn health() -> Json<Value> {
     Json(json!({ "status": "ok", "version": thing_core::VERSION }))
 }
 
-/// Any other `/api` path is JSON, never the SPA's `index.html`.
+/// Any other `/api` path is JSON, never the SPA's `index.html`. The path alone
+/// is echoed: the query can carry the events session token.
 async fn no_such_route(method: Method, uri: Uri) -> ApiError {
-    ApiError::from(CoreError::NotFound(format!("{method} {uri}")))
+    ApiError::from(CoreError::NotFound(format!("{method} {}", uri.path())))
 }
 
 /// A request for the SPA when nothing was built.
@@ -282,7 +312,7 @@ fn attach_cookie(cookie: &str, mut response: Response) -> Response {
 mod tests {
     use axum::Router;
     use axum::body::Body;
-    use axum::http::{Request, StatusCode};
+    use axum::http::{HeaderMap, Request, StatusCode};
     use http_body_util::BodyExt;
     use serde_json::{Value, json};
     use tempfile::TempDir;
@@ -330,6 +360,7 @@ mod tests {
         status: StatusCode,
         body: Value,
         cookie: Option<String>,
+        headers: HeaderMap,
     }
 
     impl Reply {
@@ -375,6 +406,7 @@ mod tests {
                 .get("set-cookie")
                 .and_then(|value| value.to_str().ok())
                 .map(|value| value.split(';').next().expect("a cookie pair").to_owned());
+            let headers = response.headers().clone();
             let bytes = response
                 .into_body()
                 .collect()
@@ -386,6 +418,7 @@ mod tests {
                 status,
                 body,
                 cookie,
+                headers,
             }
         }
 
@@ -419,6 +452,33 @@ mod tests {
     }
 
     #[test]
+    fn every_response_carries_the_security_headers() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let reply = server.call("GET", "/api/health", None, None).await;
+            assert_eq!(reply.status, StatusCode::OK);
+            assert_eq!(
+                reply.headers.get("content-security-policy").unwrap(),
+                CONTENT_SECURITY_POLICY
+            );
+            assert_eq!(
+                reply.headers.get("x-content-type-options").unwrap(),
+                "nosniff"
+            );
+            assert_eq!(reply.headers.get("x-frame-options").unwrap(), "DENY");
+            assert_eq!(
+                reply.headers.get("referrer-policy").unwrap(),
+                "strict-origin-when-cross-origin"
+            );
+            assert_eq!(
+                reply.headers.get("permissions-policy").unwrap(),
+                "camera=(), microphone=(), geolocation=()"
+            );
+        });
+    }
+
+    #[test]
     fn cookie_less_and_unknown_sessions_are_unauthenticated() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");
@@ -431,6 +491,16 @@ mod tests {
                 .call("GET", "/api/auth/me", None, Some("thing_session=nope"))
                 .await;
             assert_eq!(bogus.status, StatusCode::UNAUTHORIZED);
+
+            // A query token is for the events upgrade only.
+            let registered = server.register("query@example.com", None).await;
+            let token = cookie_of(&registered)
+                .strip_prefix("thing_session=")
+                .expect("the session pair");
+            let in_query = server
+                .call("GET", &format!("/api/auth/me?session={token}"), None, None)
+                .await;
+            assert_eq!(in_query.status, StatusCode::UNAUTHORIZED);
         });
     }
 

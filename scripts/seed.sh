@@ -12,7 +12,7 @@ set -euo pipefail
 
 BASE="${THING_BASE:-http://127.0.0.1:8080}"
 EMAIL="${THING_SEED_EMAIL:-a@b.c}"
-PASSWORD="${THING_SEED_PASSWORD:-correct-horse-battery}"
+PASSWORD="${THING_SEED_PASSWORD:-}"
 NAME="${THING_SEED_NAME:-Talon}"
 
 JAR="$(mktemp)"
@@ -24,14 +24,18 @@ die() {
     exit 1
 }
 
+[ -n "$PASSWORD" ] || die "set THING_SEED_PASSWORD; this script does not ship a default"
+
 # request METHOD PATH [JSON] — prints the response body, fails on a non-2xx.
 request() {
     local method="$1" path="$2" body="${3-}" status
     local args=(-sS -o "$BODY_FILE" -w '%{http_code}' -b "$JAR" -c "$JAR" -X "$method")
     if [ -n "$body" ]; then
-        args+=(-H 'content-type: application/json' -d "$body")
+        # The body can carry the seed password; stdin keeps it out of `ps`.
+        status="$(printf '%s' "$body" | curl "${args[@]}" -H 'content-type: application/json' --data-binary @- "$BASE$path")"
+    else
+        status="$(curl "${args[@]}" "$BASE$path")"
     fi
-    status="$(curl "${args[@]}" "$BASE$path")"
     if [ "${status:0:1}" != "2" ]; then
         echo "seed: $method $path returned $status:" >&2
         cat "$BODY_FILE" >&2
@@ -44,13 +48,13 @@ request() {
 # Unchecked, for the sign-in probe: prints the status code.
 status_of() {
     local method="$1" path="$2" body="$3"
-    curl -sS -o "$BODY_FILE" -w '%{http_code}' -b "$JAR" -c "$JAR" -X "$method" \
-        -H 'content-type: application/json' -d "$body" "$BASE$path"
+    printf '%s' "$body" | curl -sS -o "$BODY_FILE" -w '%{http_code}' -b "$JAR" -c "$JAR" -X "$method" \
+        -H 'content-type: application/json' --data-binary @- "$BASE$path"
 }
 
 # json KEY — reads one field out of a JSON object on stdin.
 json() {
-    python3 -c 'import json,sys; print(json.load(sys.stdin)["'"$1"'"])'
+    python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$1"
 }
 
 # object TYPE TITLE PROPERTIES_JSON [BODY] — prints the new object's id.
@@ -68,11 +72,12 @@ print(json.dumps({
     )" | json id
 }
 
+login_body="$(THING_SEED_EMAIL="$EMAIL" THING_SEED_PASSWORD="$PASSWORD" python3 -c 'import json, os; print(json.dumps({"email": os.environ["THING_SEED_EMAIL"], "password": os.environ["THING_SEED_PASSWORD"]}))')"
+register_body="$(THING_SEED_EMAIL="$EMAIL" THING_SEED_PASSWORD="$PASSWORD" THING_SEED_NAME="$NAME" python3 -c 'import json, os; print(json.dumps({"email": os.environ["THING_SEED_EMAIL"], "password": os.environ["THING_SEED_PASSWORD"], "name": os.environ["THING_SEED_NAME"]}))')"
+
 # Sign in; the first account of an empty install needs no invite.
-if [ "$(status_of POST /api/auth/login \
-    "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}")" != "200" ]; then
-    status="$(status_of POST /api/auth/register \
-        "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\",\"name\":\"$NAME\"}")"
+if [ "$(status_of POST /api/auth/login "$login_body")" != "200" ]; then
+    status="$(status_of POST /api/auth/register "$register_body")"
     case "$status" in
         201) ;;
         422) die "$EMAIL is not registered here and cannot register without an invite" ;;

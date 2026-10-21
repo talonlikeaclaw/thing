@@ -14,8 +14,8 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: checkpoint 11 in the working tree (checkpoints 1–10 landed; the web scaffold at
-`c5629f2`, the schema editor at `8bc6bce`).** `thing-core` exposes `model`, `error`, `slug`
+**Current state: M1 is implemented end to end; checkpoint 14 (docs, CI, container) is in the
+working tree, with checkpoints 1–13 landed.** `thing-core` exposes `model`, `error`, `slug`
 (with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
 (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
 with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
@@ -28,9 +28,13 @@ filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/
 against a running server. `web/` is a Vite + React 19 SPA with the signed-out surfaces (sign in,
 register, invite join), the space list, the schema editor (`pages/schema.tsx`, `components/schema/`)
 and the live per-type table (`pages/type-table.tsx`, `components/type-table.tsx`) with URL-backed
-filters and sorts, inline cell editing with optimistic writes and `409` recovery, and WebSocket
-invalidation through `lib/use-space-events.ts`. The object panel, history and trash are still to
-come. No CI or container yet.
+filters and sorts, inline cell editing with optimistic writes and `409` recovery, WebSocket
+invalidation through `lib/use-space-events.ts`, the object panel with per-format inputs and a
+markdown body (`pages/object.tsx`, `components/object-panel.tsx`), and history and trash
+(`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
+`.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
+Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
+same app with live reload. Nothing is tagged or deployed yet.
 
 ## Where the plan lives
 
@@ -39,10 +43,11 @@ come. No CI or container yet.
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is in progress: **checkpoints 1–10 (scaffold; core model and format; store; index, validation and
+M1 is implemented: **checkpoints 1–13 (scaffold; core model and format; store; index, validation and
 query; server shell; auth and membership; schema and object APIs; events and the WebSocket; web
-scaffold and auth screens; schema editor) are landed**; checkpoint 11, the live table, is
-implemented and awaiting review.
+scaffold and auth screens; schema editor; live table; object panel and markdown body; history and
+trash) are landed**, and checkpoint 14, docs, CI and the container, is implemented and awaiting
+review.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -73,8 +78,8 @@ Later milestones get their own `docs/plan/mN-*.md`.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
 - **Core modules:** `model`, `markdown`, `store`, `validate`, `filter`, `query`, `index` exist.
-  The server shell, auth, the schema and object APIs, and the event bus exist; the SPA has auth,
-  the space list, the schema editor and the live table, with the object panel, history and trash next.
+  The server shell, auth, the schema and object APIs, and the event bus exist; the SPA covers
+  auth, the space list, the schema editor, the live table, the object panel, history and trash.
 
 ## Key Directories
 
@@ -85,6 +90,13 @@ Later milestones get their own `docs/plan/mN-*.md`.
 | `crates/core/tests/` | `roundtrip.rs` walking `fixtures/`; store tests are inline in `store/fs.rs` over `tempfile::TempDir` |
 | `crates/server/` | `thing-server` binary, axum shell |
 | `scripts/` | `seed.sh`: the curl walkthrough that builds the Garden demo space |
+| `Dockerfile` | Three stages: `node:24` builds `web/dist`, `rust:1.98.1` builds the release binary over a dependency-cache layer, `debian:13-slim` runs both as the non-root `thing` user with `/data` as the volume |
+| `dev.dockerfile` | The dev image: Rust, Node and `cargo-watch` in one container, with `USER dev` |
+| `docker-compose.yml` | The production service: builds the image, binds `THING_LISTEN_IP` (loopback by default), mounts `./data`, read-only rootfs, dropped capabilities, `no-new-privileges` |
+| `docker-compose.dev.yml` | The dev service: source bind mount, `:8080` and `:5173`, `cargo-watch` plus Vite |
+| `.devcontainer/devcontainer.json` | Reuses the dev compose service so VS Code opens the workspace with live server restarts and HMR |
+| `scripts/semgrep.sh` | The pinned Semgrep gate CI runs over Rust, Docker, compose, secrets and OWASP |
+| `.github/workflows/ci.yml` | Rust and web gates on every push and pull request; a `v*` tag also pushes `ghcr.io/talonlikeaclaw/thing:<tag>` and `:latest` |
 | `web/` | Vite + React 19 SPA: `api/` (client, types, query hooks), `components/`, `pages/`, `styles/globals.css` tokens, `test/` |
 | `data/` | Runtime space store; gitignored, never commit fixtures here |
 
@@ -92,15 +104,18 @@ Later milestones get their own `docs/plan/mN-*.md`.
 
 ```sh
 cargo build --workspace          # both crates
-cargo test --workspace           # all Rust tests (currently 200)
+cargo test --workspace           # all Rust tests
 cargo test -p thing-core         # core crate only
 cargo run -p thing-server        # serves ./data on 127.0.0.1:8080
 cargo run -p thing-server -- set-password --email you@example.com   # reads the password from stdin
 cargo run -p thing-server -- reindex --space <space-uuid>   # prints a space's file problems
-THING_DATA_DIR=./data scripts/seed.sh   # builds the Garden demo space against a running server
+THING_SEED_PASSWORD=... scripts/seed.sh   # signs in as THING_SEED_EMAIL (a@b.c) and seeds Garden
+
+docker compose up --build        # image + SPA on 127.0.0.1:8080, data in ./data
+docker compose down
 
 cd web
-npm install
+npm ci
 npm run dev                      # SPA on 127.0.0.1:5173, /api proxied to 127.0.0.1:8080
 npm run test:run                 # Vitest
 npm run lint && npm run typecheck && npm run build
@@ -215,7 +230,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | File | Role |
 |---|---|
 | `Cargo.toml` | Workspace root: members, package metadata, all dependency pins |
-| `rust-toolchain.toml` | Pins Rust 1.98; requests rustfmt/clippy |
+| `rust-toolchain.toml` | Pins Rust 1.98.1; requests rustfmt/clippy |
 | `Cargo.lock` | Committed exact resolutions |
 | `crates/core/src/lib.rs` | Core crate root: module list, 2 consts, 1 unit test |
 | `crates/core/src/model.rs` | Domain model: every type the crate is typed against, plus the `ObjectSummary` projection, `TITLE_KEY`, `UPDATED_AT_KEY` and `RESERVED_KEYS` |
@@ -263,9 +278,21 @@ When the UI changes, update them; never let them describe a different world.
   with TanStack Query for server state and React Router for routes.
 - **Package manager:** Cargo workspace for Rust; npm in `web/` (`package-lock.json` committed).
 - **Compiler:** Nix-provided Rust 1.98.1, x86_64-unknown-linux-gnu. No rustup.
-- **No CI or container.** PRODUCT.md lists CI and a container as milestone-1 deliverables; neither
-  is implemented. `scripts/seed.sh` exists: the curl walkthrough that builds the Garden demo space
-  against a running server.
+- **CI, container and security.** `.github/workflows/ci.yml` runs the Rust gate, the web gate and
+  `scripts/semgrep.sh`; on a `v*` tag it builds and pushes
+  `ghcr.io/talonlikeaclaw/thing:<tag>` and `:latest`. Actions are pinned by commit SHA and
+  checkouts do not persist the job token. The `Dockerfile` has three stages (`node:24` →
+  `rust:1.98.1` → `debian:13-slim`), pins every base image by digest and runs non-root with a
+  read-only rootfs. `docker-compose.yml` is the production service; `docker-compose.dev.yml` and
+  `.devcontainer/` run both dev servers against the source. `scripts/seed.sh` requires
+  `THING_SEED_PASSWORD`, signs in as `THING_SEED_EMAIL` (default `a@b.c`) or registers it, and
+  builds the Garden demo space against a running server.
+- **Deploy.** Production is a pinned image on VMID 216 with `/opt/thing/data` as the volume and
+  `THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`,
+  `THING_BIND=0.0.0.0:8080` and `THING_LISTEN_IP=0.0.0.0` (the compose port binds loopback by
+  default); the deployment steps are in `docs/ROADMAP.md` and are separate checkpoints in the
+  homelab repo. `tar` of the data directory is a complete backup: the space content is only
+  markdown.
 - Keep `tokio`, `axum`, `rusqlite` and `notify` out of `thing-core`; they belong in the shell or
   the store boundary.
 
@@ -282,7 +309,7 @@ When the UI changes, update them; never let them describe a different world.
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 215 tests (137 `thing-core`, 7 `tests/roundtrip.rs`, 56 `thing-server`, 15
+- **Current coverage:** 237 tests (138 `thing-core`, 7 `tests/roundtrip.rs`, 57 `thing-server`, 35
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

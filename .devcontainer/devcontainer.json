@@ -1,0 +1,29 @@
+{
+  "name": "thing dev",
+  "dockerComposeFile": "../docker-compose.dev.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspaces/thing",
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [5173, 8080],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite — open this one",
+      "onAutoForward": "openPreview"
+    },
+    "8080": {
+      "label": "thing API",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

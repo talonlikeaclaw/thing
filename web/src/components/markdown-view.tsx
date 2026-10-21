@@ -70,7 +70,12 @@ export function MarkdownView({ text }: { text: string }) {
           ),
           td: ({ children }) => <td className="border-b rule py-1.5 pr-3 align-top">{children}</td>,
           img: ({ src, alt }) => (
-            <img src={src} alt={alt ?? ""} className="my-3 max-w-full rounded-field border border-line" />
+            <img
+              src={src}
+              alt={alt ?? ""}
+              referrerPolicy="no-referrer"
+              className="my-3 max-w-full rounded-field border border-line"
+            />
           ),
         }}
       >

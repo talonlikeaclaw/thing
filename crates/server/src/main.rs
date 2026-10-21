@@ -70,6 +70,12 @@ async fn serve(config: Config) -> anyhow::Result<()> {
     let accounts = Accounts::open(&config.data_dir.join(ACCOUNTS_FILE))
         .context("opening the accounts database")?;
     let state = AppState::new(config.clone(), Arc::clone(&registry), accounts);
+    if config.public_url.starts_with("https://") && !config.cookie_secure {
+        tracing::warn!(
+            public_url = %config.public_url,
+            "THING_PUBLIC_URL is https but THING_COOKIE_SECURE is off; session cookies lack Secure"
+        );
+    }
 
     let listener = tokio::net::TcpListener::bind(config.bind).await?;
     tracing::info!(

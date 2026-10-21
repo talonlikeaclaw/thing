@@ -1,0 +1,26 @@
+services:
+  thing:
+    build:
+      context: .
+      args:
+        UID: ${THING_UID:-1000}
+        GID: ${THING_GID:-1000}
+    image: ghcr.io/talonlikeaclaw/thing:latest
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${THING_LISTEN_IP:-127.0.0.1}:8080:8080"
+    environment:
+      THING_BIND: 0.0.0.0:8080
+      THING_DATA_DIR: /data
+      THING_PUBLIC_URL: ${THING_PUBLIC_URL:-http://127.0.0.1:8080}
+      THING_COOKIE_SECURE: ${THING_COOKIE_SECURE:-true}
+    volumes:
+      - ./data:/data

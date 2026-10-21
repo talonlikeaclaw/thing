@@ -8,6 +8,7 @@ use std::time::Duration;
 use argon2::password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash};
 use argon2::{Argon2, password_hash};
 use axum::extract::FromRequestParts;
+use axum::http::Method;
 use axum::http::request::Parts;
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
@@ -69,10 +70,25 @@ fn cookie(token: &str, max_age: i64, secure: bool) -> String {
     format!("{SESSION_COOKIE}={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={max_age}{secure}")
 }
 
-/// The session token on a request: the cookie, or `?session=` for non-browser
-/// clients (the WebSocket and, later, API tokens).
+/// The session token on a request: the cookie, or `?session=` on the events
+/// upgrade only. Keeping the token out of ordinary URLs keeps it out of proxy
+/// logs, browser history and `Referer`.
 pub fn session_token(parts: &Parts) -> Option<String> {
-    cookie_value(parts, SESSION_COOKIE).or_else(|| query_value(parts, "session"))
+    cookie_value(parts, SESSION_COOKIE).or_else(|| {
+        if is_events_upgrade(parts) {
+            query_value(parts, "session")
+        } else {
+            None
+        }
+    })
+}
+
+/// `GET /api/spaces/{space}/events` is the one route where a browser cannot
+/// attach the cookie's headers to the upgrade request it constructs.
+fn is_events_upgrade(parts: &Parts) -> bool {
+    parts.method == Method::GET
+        && parts.uri.path().starts_with("/api/spaces/")
+        && parts.uri.path().ends_with("/events")
 }
 
 fn cookie_value(parts: &Parts, name: &str) -> Option<String> {

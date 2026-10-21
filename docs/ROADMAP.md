@@ -44,14 +44,16 @@ Binding for every milestone. Do not re-open any of these during implementation.
 
 ## Roadmap
 
-M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md), and is the only
-milestone to implement now. Later milestones get their own `docs/plan/mN-*.md` when they start, so
-each one is written the way this one was. M2–M10 are recorded here so the M1 schema does not need
-reshaping later; each carries its decisions already made.
+M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md). It is landed;
+the deployment steps below are the remaining M1 work. Later milestones get their own
+`docs/plan/mN-*.md` when they start, so each one is written the way this one was. M2–M10 are recorded
+here so the M1 schema does not need reshaping later; each carries its decisions already made.
 
-- **M1 — Engine core.** Spaces, members, invites, roles, auth; user-defined types and properties;
-  object CRUD with a markdown body; the live per-type table view with filters and sorts; read-only
-  history; trash; external file edits noticed and reflected; a seed script; CI; container; deploy.
+- **M1 — Engine core.** **Landed** — checkpoints 1–14 are implemented: spaces, members, invites,
+  roles, auth; user-defined types and properties; object CRUD with a markdown body; the live
+  per-type table view with filters and sorts; read-only history; trash; external file edits noticed
+  and reflected; a seed script; CI; container. Deployment (the bullets below) is the remaining
+  work.
 - **M2 — Scheduling and reminders.** Any type may declare `schedule: true`, which adds three implicit
   properties (`due_date` (date), `recurrence` (recurrence), `last_completed_at` (datetime)) plus a
   `complete` action that writes a completion and re-phases the cadence. Recurrence = `days` |
@@ -147,7 +149,7 @@ M1; the app repo is not touched.
 - `homelab/ansible/inventory.ini` — add host `192.168.0.216` to a new `[thing]` group.
 - `homelab/ansible/playbooks/thing.yml` — `app_dir=/opt/thing`, `thing_version: "v0.1.0"` pinned by
   tag, Docker install, `/opt/thing/.env` rendered at mode 0600 from `ansible/vars/thing.yml`
-  (`THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`, `THING_BIND=0.0.0.0:8080`),
+  (`THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`, `THING_BIND=0.0.0.0:8080`, `THING_LISTEN_IP=0.0.0.0`),
   `docker compose pull && up -d`, and a `pg_dump`-free data volume at `/opt/thing/data`.
 - `homelab/ansible/playbooks/cloudflared.yml` — add `thing → http://192.168.0.216:8080` to the ingress
   list, then rerun the playbook.

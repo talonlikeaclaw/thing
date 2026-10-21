@@ -84,11 +84,18 @@ impl Accounts {
     /// Opens the database, creating and migrating it as needed.
     pub fn open(path: &Path) -> Result<Self, AccountError> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            thing_core::store::fs::create_private_dir_all(parent)?;
         }
         let connection = Connection::open(path)?;
         // The pragmas return a row, so they go through `execute_batch`.
         connection.execute_batch("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;")?;
+        // "0600 accounts.sqlite-wal" is not a path; append the suffix.
+        thing_core::store::fs::restrict_file(path)?;
+        for suffix in ["-wal", "-shm"] {
+            let mut companion = path.as_os_str().to_os_string();
+            companion.push(suffix);
+            thing_core::store::fs::restrict_file(Path::new(&companion))?;
+        }
         migrate(&connection)?;
         Ok(Self {
             connection: Mutex::new(connection),
@@ -159,13 +166,28 @@ impl Accounts {
             .map_err(AccountError::from)
     }
 
-    /// Replaces one account's password hash; reports whether the email exists.
+    /// Replaces the password and ends every session for that account: a reset
+    /// is a recovery action, so it revokes whatever token may have leaked.
     pub fn set_password(&self, email: &str, password_hash: &str) -> Result<bool, AccountError> {
-        let updated = self.connection().execute(
-            "UPDATE user SET password_hash = ?2 WHERE email = ?1",
-            params![email, password_hash],
+        let mut connection = self.connection();
+        let transaction = connection.transaction()?;
+        let user_id: Option<String> = transaction
+            .query_row(
+                "SELECT id FROM user WHERE email = ?1",
+                params![email],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let Some(user_id) = user_id else {
+            return Ok(false);
+        };
+        transaction.execute("DELETE FROM session WHERE user_id = ?1", params![user_id])?;
+        transaction.execute(
+            "UPDATE user SET password_hash = ?2 WHERE id = ?1",
+            params![user_id, password_hash],
         )?;
-        Ok(updated > 0)
+        transaction.commit()?;
+        Ok(true)
     }
 
     pub fn create_session(
@@ -486,11 +508,21 @@ mod tests {
     #[test]
     fn setting_a_password_reports_whether_the_email_exists() {
         let accounts = Accounts::in_memory().expect("opens");
-        accounts
+        let user = accounts
             .create_user("a@b.c", "Talon", "old", at())
             .expect("registers");
+        accounts
+            .create_session("token", user.id, at(), at() + time::Duration::hours(1))
+            .expect("a session");
         assert!(accounts.set_password("a@b.c", "new").expect("updates"));
         assert!(!accounts.set_password("nobody@b.c", "new").expect("updates"));
+        assert!(
+            accounts
+                .user_for_session("token", at())
+                .expect("reads")
+                .is_none(),
+            "a password reset ends the session"
+        );
         let (_, hash) = accounts
             .credentials("a@b.c")
             .expect("reads")

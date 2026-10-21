@@ -51,11 +51,73 @@ cargo run -p thing-server -- reindex --space <space-uuid>
 The first registered account needs no invite and becomes the owner. Every later account joins
 through a space invite link.
 
-With the server running, `scripts/seed.sh` builds the Garden demo space through the HTTP API:
+With the server running, `scripts/seed.sh` builds the Garden demo space through the HTTP API. It
+signs in as `THING_SEED_EMAIL` (default `a@b.c`), registers that account if the install has no such
+user, and names it with `THING_SEED_NAME` (default `Talon`). On an empty install that first account
+becomes the owner. There is no default password: set `THING_SEED_PASSWORD` and use the same value on
+later runs.
 
 ```sh
-THING_DATA_DIR=./data scripts/seed.sh
+THING_DATA_DIR=./data THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
+
+# Optional: choose the demo account instead of a@b.c / Talon.
+THING_SEED_EMAIL=you@example.com THING_SEED_NAME=Talon \
+  THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
 ```
+
+### Security scan
+
+CI runs Semgrep over the Rust, Docker, compose, YAML and web sources with the registry's `rust`,
+`dockerfile`, `docker-compose`, `secrets` and `owasp-top-ten` packs. The same pinned scan runs
+locally:
+
+```sh
+scripts/semgrep.sh
+```
+
+### Dev container
+
+The repository ships a Dev Containers definition. Open the folder in VS Code and choose **Reopen
+in Container**, or run the same compose file by hand:
+
+```sh
+docker compose -f docker-compose.dev.yml up --build
+```
+
+The container runs both sides of the app: `cargo watch` rebuilds and restarts the API on Rust
+changes, and Vite serves the SPA with hot module replacement. Open `http://localhost:5173`; Vite
+proxies `/api` (including WebSockets) to the container's `:8080`, so cookies stay same-origin.
+`./data` is bind-mounted, so accounts and spaces survive container restarts. The dev ports bind to
+`127.0.0.1` only; VS Code forwards them.
+
+The image runs as UID/GID `1000` by default. Set `THING_UID`/`THING_GID` as build args when the host
+user differs.
+
+### Production container
+
+`docker compose up --build` builds the SPA and the release binary into one image and serves it on
+`http://127.0.0.1:8080`, with the space store bind-mounted at `./data`. The image is a three-stage
+build (`node:24` → `rust:1.98` → `debian:13-slim`); the build output is also what a tagged CI run
+pushes to `ghcr.io/talonlikeaclaw/thing:<tag>` and `:latest`.
+
+```sh
+docker compose up --build
+docker compose down
+```
+
+The runtime is hardened: a non-root `thing` user (UID/GID `1000`, overridable with
+`THING_UID`/`THING_GID` build args), a read-only root filesystem with a writable `/tmp` tmpfs, all
+capabilities dropped, `no-new-privileges`, and a healthcheck against `/api/health`. Base images are
+pinned by digest and the build runs `cargo build --locked`. The published port defaults to
+`127.0.0.1`; set `THING_LISTEN_IP=0.0.0.0` (or the host's LAN address) when a reverse proxy on
+another host must reach it.
+
+`THING_COOKIE_SECURE` defaults to `true`; set it to `false` (or use the dev compose file) when
+testing over plain HTTP on localhost. Set `THING_PUBLIC_URL` in the environment (or a `.env` file
+beside `docker-compose.yml`) to the URL people actually open. `./data` is the entire application
+state: the markdown files, revision history and the accounts database. Back it up; there is no other
+copy. Its files must be writable by the container's UID/GID, and the server creates them
+owner-only.
 
 ### SPA
 
@@ -65,7 +127,7 @@ and same-origin requests work unchanged.
 ```sh
 cd web
 npm install                      # or `npm ci` for the committed lockfile
-npm run dev                      # http://127.0.0.1:5173
+npm run dev                      # http://localhost:5173
 
 # The whole web gate
 npm run test:run                 # Vitest, one run
@@ -75,9 +137,3 @@ npm run build                    # tsc -b && vite build
 ```
 
 `npm run test` starts Vitest in watch mode. `npm run preview` serves the built bundle.
-
-M1 is in progress: the engine core, HTTP API and event stream are landed; the web app currently
-covers accounts, invites, the space list, space creation, the schema editor and the live type table
-with filters, sorts and inline edits. See `PRODUCT.md`
-for what the product is and why, `DESIGN.md` for the visual system, and `AGENTS.md` for the
-current checkpoint and conventions.

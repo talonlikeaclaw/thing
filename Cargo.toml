@@ -25,7 +25,7 @@ thiserror = "2"
 time = { version = "0.3", features = ["std", "serde", "formatting", "parsing", "macros"] }
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.7", features = ["fs", "trace", "compression-gzip"] }
+tower-http = { version = "0.7", features = ["fs", "trace", "compression-gzip", "set-header"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4", "v7", "rng-getrandom", "serde"] }
