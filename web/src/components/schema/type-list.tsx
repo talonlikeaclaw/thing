@@ -84,6 +84,9 @@ export function TypeList({
                   ) : null}
                   <span className="truncate text-[15px]">{type.name}</span>
                   <span className="font-mono text-[11px] text-faint">{type.key}</span>
+                  {type.schedule ? (
+                    <span className="label shrink-0 text-accent">scheduled</span>
+                  ) : null}
                 </span>
                 <span className="label tnum shrink-0">{type.object_count}</span>
               </button>

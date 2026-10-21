@@ -1,14 +1,24 @@
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
 import { useUpdateType } from "@/api/queries";
-import type { PropertyDef, TypeDef, TypeProperty, ViewDef } from "@/api/types";
+import type {
+  Filter,
+  PropertyDef,
+  ScheduleLabels,
+  TypeDef,
+  TypeProperty,
+  ViewDef,
+} from "@/api/types";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, FormError, SelectField, TextAreaField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
+import { filterParam } from "@/lib/filter";
 import {
   isScheduleKey,
+  labeledScheduleProperties,
   SCHEDULE_PROPERTY_DEFS,
 } from "@/lib/schedule";
 import {
@@ -22,6 +32,51 @@ import {
   setColumn,
   TITLE_COLUMN,
 } from "@/lib/schema";
+
+interface ConflictRecord {
+  id: string;
+  title: string;
+  trashed: boolean;
+}
+
+interface DisableConflict {
+  count: number;
+  records: ConflictRecord[];
+}
+
+/** The records the server named when scheduling could not be turned off. */
+function disableConflict(error: unknown): DisableConflict | null {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return null;
+  }
+  const count = error.details.objects;
+  if (typeof count !== "number" || count === 0) {
+    return null;
+  }
+  const raw = error.details.records;
+  const records: ConflictRecord[] = Array.isArray(raw)
+    ? raw.flatMap((item) => {
+        if (
+          typeof item !== "object" ||
+          item === null ||
+          !("id" in item) ||
+          typeof item.id !== "string" ||
+          !("title" in item) ||
+          typeof item.title !== "string"
+        ) {
+          return [];
+        }
+        return [
+          {
+            id: item.id,
+            title: item.title,
+            trashed: "trashed" in item && item.trashed === true,
+          },
+        ];
+      })
+    : [];
+  return { count, records };
+}
 
 interface TypeEditorProps {
   spaceId: string;
@@ -37,6 +92,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
   const [icon, setIcon] = useState(type.icon ?? "");
   const [description, setDescription] = useState(type.description);
   const [schedule, setSchedule] = useState(type.schedule);
+  const [labels, setLabels] = useState<ScheduleLabels>(type.schedule_labels ?? {});
   const [members, setMembers] = useState<TypeProperty[]>(type.properties);
   const [columns, setColumns] = useState<string[]>(type.view.columns);
   const [pendingKey, setPendingKey] = useState("");
@@ -49,13 +105,17 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
       setIcon(update.data.icon ?? "");
       setDescription(update.data.description);
       setSchedule(update.data.schedule);
+      setLabels(update.data.schedule_labels ?? {});
       setMembers(update.data.properties);
       setColumns(update.data.view.columns);
     }
   }, [update.data]);
 
   const implicit = schedule
-    ? (type.implicit_properties ?? SCHEDULE_PROPERTY_DEFS)
+    ? labeledScheduleProperties(
+        type.implicit_properties ?? SCHEDULE_PROPERTY_DEFS,
+        labels,
+      )
     : [];
   const library = effectiveProperties(
     { ...type, schedule, implicit_properties: implicit },
@@ -76,6 +136,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     icon: icon.trim() ? icon.trim() : null,
     description,
     schedule,
+    schedule_labels: schedule ? labels : {},
     properties: members,
     view,
   };
@@ -85,6 +146,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     icon: type.icon ?? null,
     description: type.description,
     schedule: type.schedule,
+    schedule_labels: type.schedule_labels ?? {},
     properties: type.properties,
     view: type.view,
   };
@@ -118,16 +180,16 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     }
   }
 
-  function saveError(error: unknown): string | null {
-    if (error instanceof ApiError && error.status === 409) {
-      const objects = error.details.objects;
-      if (typeof objects === "number" && objects > 0) {
-        return `${objects} record${objects === 1 ? " still holds" : "s still hold"} schedule values. Clear Due, Repeats and Last completed on them before turning scheduling off.`;
-      }
-    }
-    return error ? readError(error) : null;
-  }
-
+  const conflict = disableConflict(update.error);
+  const scheduleKeyFilter: Filter = {
+    op: "or",
+    conditions: [
+      { property: "due_date", condition: "is_not_empty" },
+      { property: "recurrence", condition: "is_not_empty" },
+      { property: "last_completed_at", condition: "is_not_empty" },
+    ],
+  };
+  const liveConflictRecords = conflict?.records.filter((record) => !record.trashed) ?? [];
   const titleProperty = (key: string) =>
     library.find((property) => property.key === key)?.name ?? key;
   const formatOf = (key: string) => {
@@ -207,7 +269,59 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             <h3 className="text-[15px] font-medium">From scheduling</h3>
             <span className="label">generated</span>
           </div>
-          <ul>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <TextField
+              label="Complete button"
+              name={`type-${type.key}-complete-label`}
+              maxLength={80}
+              placeholder="Complete"
+              value={labels.complete ?? ""}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setLabels((current) => ({ ...current, complete: event.target.value }))
+              }
+            />
+            <TextField
+              label="Due label"
+              name={`type-${type.key}-due-label`}
+              maxLength={80}
+              placeholder="Due"
+              value={labels.due ?? ""}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setLabels((current) => ({ ...current, due: event.target.value }))
+              }
+            />
+            <TextField
+              label="Repeats label"
+              name={`type-${type.key}-recurrence-label`}
+              maxLength={80}
+              placeholder="Repeats"
+              value={labels.recurrence ?? ""}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setLabels((current) => ({ ...current, recurrence: event.target.value }))
+              }
+            />
+            <TextField
+              label="Last completed label"
+              name={`type-${type.key}-last-completed-label`}
+              maxLength={80}
+              placeholder="Last completed"
+              value={labels.last_completed ?? ""}
+              disabled={!canEdit}
+              onChange={(event) =>
+                setLabels((current) => ({ ...current, last_completed: event.target.value }))
+              }
+            />
+          </div>
+          <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
+            Display names only. The file keys stay <span className="font-mono">due_date</span>,{" "}
+            <span className="font-mono">recurrence</span> and{" "}
+            <span className="font-mono">last_completed_at</span>. Add Repeats as a column to edit
+            the cadence inline.
+          </p>
+          <ul className="mt-1">
             {implicit.map((property) => (
               <li
                 key={property.key}
@@ -235,6 +349,61 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {conflict ? (
+        <div
+          role="alert"
+          className="mt-4 max-w-[62ch] border-l border-warning pl-3 text-[13px] text-warning"
+        >
+          <p>
+            {conflict.count} record{conflict.count === 1 ? " still holds" : "s still hold"}{" "}
+            schedule values. Clear them before turning scheduling off.
+          </p>
+          {conflict.records.length > 0 ? (
+            <ul className="mt-1 grid gap-0.5">
+              {conflict.records.slice(0, 5).map((record) => (
+                <li key={record.id}>
+                  {record.trashed ? (
+                    <span className="text-muted">
+                      {record.title} <span className="text-faint">(in trash)</span>
+                    </span>
+                  ) : (
+                    <Link
+                      to={`/s/${spaceId}/o/${record.id}`}
+                      className="text-ink underline decoration-line-strong hover:decoration-accent"
+                    >
+                      {record.title}
+                    </Link>
+                  )}
+                </li>
+              ))}
+              {conflict.records.length > 5 ? (
+                <li className="text-faint">
+                  and {conflict.records.length - 5} more
+                </li>
+              ) : null}
+            </ul>
+          ) : null}
+          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            {liveConflictRecords.length > 0 ? (
+              <Link
+                to={`/s/${spaceId}/t/${type.key}?filter=${encodeURIComponent(
+                  filterParam(scheduleKeyFilter),
+                )}`}
+                className="text-ink underline decoration-line-strong hover:decoration-accent"
+              >
+                Show live records with schedule values
+              </Link>
+            ) : null}
+            <Link
+              to={`/s/${spaceId}/trash`}
+              className="text-ink underline decoration-line-strong hover:decoration-accent"
+            >
+              Open trash
+            </Link>
+          </div>
         </div>
       ) : null}
 
@@ -403,7 +572,9 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             <span className="label text-accent">Saved</span>
           ) : null}
           <div className="min-w-[12rem] flex-1">
-            <FormError message={saveError(update.error)} />
+            <FormError
+              message={update.error && !conflict ? readError(update.error) : null}
+            />
           </div>
         </div>
       ) : (

@@ -13,14 +13,20 @@ import { cn } from "@/lib/cn";
 
 type ToastTone = "plain" | "danger";
 
+export interface ToastAction {
+  label: string;
+  onAction: () => void;
+}
+
 interface Toast {
   id: number;
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
 }
 
 interface ToastApi {
-  showToast: (message: string, tone?: ToastTone) => void;
+  showToast: (message: string, tone?: ToastTone, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -36,10 +42,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
-  const showToast = useCallback((message: string, tone: ToastTone = "plain") => {
-    const id = nextId.current++;
-    setToasts((current) => [...current.slice(-2), { id, message, tone }]);
-  }, []);
+  const showToast = useCallback(
+    (message: string, tone: ToastTone = "plain", action?: ToastAction) => {
+      const id = nextId.current++;
+      setToasts((current) => [...current.slice(-2), { id, message, tone, action }]);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (toasts.length === 0) {
@@ -70,6 +79,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             )}
           >
             <p className="min-w-0 flex-1">{toast.message}</p>
+            {toast.action ? (
+              <button
+                type="button"
+                className="shrink-0 text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
+                onClick={() => {
+                  toast.action?.onAction();
+                  dismiss(toast.id);
+                }}
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
             <button
               type="button"
               aria-label="Dismiss"

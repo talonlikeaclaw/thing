@@ -17,7 +17,8 @@ use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
     Direction, EmptyPlacement, Filter, FilterOp, ObjectSummary, PropertyDef, RevisionAction, Role,
-    Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef, is_reserved_key,
+    ScheduleLabels, Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef,
+    is_reserved_key,
 };
 use thing_core::schedule::{DUE_DATE_KEY, SCHEDULE_KEYS, is_schedule_key, schedule_property_defs};
 use thing_core::slug::key_from_name;
@@ -79,6 +80,8 @@ pub struct TypeDetail {
     pub icon: Option<String>,
     pub description: String,
     pub schedule: bool,
+    #[serde(skip_serializing_if = "ScheduleLabels::is_empty")]
+    pub schedule_labels: ScheduleLabels,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub implicit_properties: Vec<PropertyDef>,
     pub properties: Vec<TypeProperty>,
@@ -92,6 +95,12 @@ impl TypeDetail {
             SCHEDULE_KEYS
                 .iter()
                 .filter_map(|key| defs.get(*key).cloned())
+                .map(|mut property| {
+                    if let Some(name) = def.schedule_labels.for_key(&property.key) {
+                        property.name = name.to_owned();
+                    }
+                    property
+                })
                 .collect()
         } else {
             Vec::new()
@@ -103,6 +112,7 @@ impl TypeDetail {
             icon: def.icon.clone(),
             description: def.description.clone(),
             schedule: def.schedule,
+            schedule_labels: def.schedule_labels.clone(),
             implicit_properties,
             properties: def.properties.clone(),
             view: def.view.clone(),
@@ -139,6 +149,39 @@ struct CreateTypeRequest {
     description: Option<String>,
     #[serde(default)]
     schedule: bool,
+    #[serde(default)]
+    schedule_labels: Option<ScheduleLabels>,
+}
+
+/// Labels are short interface names, not prose; the key itself stays fixed.
+const MAX_SCHEDULE_LABEL_LEN: usize = 80;
+
+fn clean_schedule_labels(labels: Option<ScheduleLabels>) -> Result<ScheduleLabels, ApiError> {
+    let Some(labels) = labels else {
+        return Ok(ScheduleLabels::default());
+    };
+    let clean = |field: &str, value: Option<String>| -> Result<Option<String>, ApiError> {
+        let Some(value) = value else {
+            return Ok(None);
+        };
+        let value = value.trim();
+        if value.is_empty() {
+            return Ok(None);
+        }
+        if value.chars().count() > MAX_SCHEDULE_LABEL_LEN {
+            return Err(ApiError::validation(
+                field,
+                format!("keep {field} under {MAX_SCHEDULE_LABEL_LEN} characters"),
+            ));
+        }
+        Ok(Some(value.to_owned()))
+    };
+    Ok(ScheduleLabels {
+        due: clean("schedule_labels.due", labels.due)?,
+        recurrence: clean("schedule_labels.recurrence", labels.recurrence)?,
+        last_completed: clean("schedule_labels.last_completed", labels.last_completed)?,
+        complete: clean("schedule_labels.complete", labels.complete)?,
+    })
 }
 
 /// The view a type starts with: newest first, no filter, the title alone.
@@ -186,6 +229,7 @@ async fn create(
         icon: clean_icon(body.icon),
         description: body.description.unwrap_or_default().trim().to_owned(),
         schedule: false,
+        schedule_labels: clean_schedule_labels(body.schedule_labels)?,
         properties: Vec::new(),
         view: default_view(),
     };
@@ -199,6 +243,9 @@ async fn create(
         )));
     }
     handle.with_index(|index| set_schedule(index, &mut def, body.schedule))?;
+    if !def.schedule {
+        def.schedule_labels = ScheduleLabels::default();
+    }
     handle.store.save_type(&def, None)?;
     let path = type_path(&key);
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
@@ -238,6 +285,9 @@ struct PatchTypeRequest {
     /// [`set_schedule`].
     #[serde(default)]
     schedule: Option<bool>,
+    /// Display names for the generated schedule properties; omitted leaves them.
+    #[serde(default)]
+    schedule_labels: Option<ScheduleLabels>,
     /// The type's properties, in display order; the whole list, not a patch of it.
     #[serde(default)]
     properties: Option<Vec<TypeProperty>>,
@@ -259,6 +309,7 @@ async fn update(
         && body.icon.is_none()
         && body.description.is_none()
         && body.schedule.is_none()
+        && body.schedule_labels.is_none()
         && body.properties.is_none()
         && body.view.is_none()
     {
@@ -299,8 +350,14 @@ async fn update(
         if let Some(view) = &body.view {
             next.view = view.clone();
         }
+        if let Some(labels) = &body.schedule_labels {
+            next.schedule_labels = clean_schedule_labels(Some(labels.clone()))?;
+        }
         if let Some(schedule) = body.schedule {
             set_schedule(index, &mut next, schedule)?;
+        }
+        if !next.schedule {
+            next.schedule_labels = ScheduleLabels::default();
         }
         let schema = index.schema();
         let mut errors = check_members(&schema, &next.properties);
@@ -423,7 +480,7 @@ fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Resul
         return Ok(());
     }
 
-    let holders = index
+    let mut holders: Vec<&thing_core::model::ObjectDoc> = index
         .objects()
         .chain(index.trash())
         .filter(|doc| {
@@ -432,14 +489,30 @@ fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Resul
                     .iter()
                     .any(|key| doc.properties.contains_key(*key))
         })
-        .count();
-    if holders > 0 {
+        .collect();
+    holders.sort_by(|left, right| left.title.cmp(&right.title).then(left.id.cmp(&right.id)));
+    if !holders.is_empty() {
+        let records: Vec<Value> = holders
+            .iter()
+            .map(|doc| {
+                json!({
+                    "id": doc.id,
+                    "title": doc.title,
+                    "trashed": doc.trashed_at.is_some(),
+                })
+            })
+            .collect();
         return Err(ApiError::conflict(
             "scheduled objects exist",
-            json!({ "reason": "scheduled objects exist", "objects": holders }),
+            json!({
+                "reason": "scheduled objects exist",
+                "objects": holders.len(),
+                "records": records,
+            }),
         ));
     }
     next.schedule = false;
+    next.schedule_labels = ScheduleLabels::default();
     next.view.columns.retain(|column| !is_schedule_key(column));
     next.view
         .sorts
@@ -541,6 +614,7 @@ mod tests {
             icon: None,
             description: String::new(),
             schedule: false,
+            schedule_labels: Default::default(),
             properties: Vec::new(),
             view: ViewDef {
                 sorts: Vec::new(),
@@ -568,6 +642,7 @@ mod tests {
             icon: None,
             description: String::new(),
             schedule: false,
+            schedule_labels: Default::default(),
             properties: Vec::new(),
             view: default_view(),
         }
@@ -641,6 +716,48 @@ mod tests {
     }
 
     #[test]
+    fn labels_are_trimmed_and_blank_ones_become_defaults() {
+        let labels = clean_schedule_labels(Some(ScheduleLabels {
+            due: Some("  Next watering  ".to_owned()),
+            recurrence: Some("   ".to_owned()),
+            last_completed: None,
+            complete: Some(" Water ".to_owned()),
+        }))
+        .expect("clean labels");
+        assert_eq!(labels.due.as_deref(), Some("Next watering"));
+        assert_eq!(labels.recurrence, None);
+        assert_eq!(labels.complete.as_deref(), Some("Water"));
+    }
+
+    #[test]
+    fn labels_rename_generated_properties_without_moving_their_keys() {
+        let mut def = chore_type();
+        def.schedule = true;
+        def.schedule_labels = ScheduleLabels {
+            due: Some("Next watering".to_owned()),
+            recurrence: Some("Repeat".to_owned()),
+            last_completed: Some("Last watered".to_owned()),
+            complete: Some("Water".to_owned()),
+        };
+
+        let detail = TypeDetail::of(&def);
+        let named: Vec<(&str, &str)> = detail
+            .implicit_properties
+            .iter()
+            .map(|property| (property.key.as_str(), property.name.as_str()))
+            .collect();
+        assert_eq!(
+            named,
+            vec![
+                (DUE_DATE_KEY, "Next watering"),
+                ("recurrence", "Repeat"),
+                ("last_completed_at", "Last watered"),
+            ]
+        );
+        assert_eq!(detail.schedule_labels.complete.as_deref(), Some("Water"));
+    }
+
+    #[test]
     fn a_schedule_column_needs_the_type_to_be_scheduled() {
         let index = index_of(&[]);
         let schema = index.schema();
@@ -706,8 +823,10 @@ mod tests {
                 value: None,
             });
 
+        def.schedule_labels.complete = Some("Water".to_owned());
         set_schedule(&index, &mut def, false).expect("disables");
         assert!(!def.schedule);
+        assert!(def.schedule_labels.is_empty());
         assert_eq!(def.view.columns, vec![TITLE_KEY]);
         assert_eq!(
             def.view
@@ -745,6 +864,9 @@ mod tests {
 
         let err = set_schedule(&index, &mut def, false).expect_err("scheduled object");
         assert_eq!(err.message(), "scheduled objects exist");
+        assert_eq!(err.details()["objects"], 1);
+        assert_eq!(err.details()["records"][0]["title"], "Water the monstera");
+        assert_eq!(err.details()["records"][0]["trashed"], false);
         assert!(def.schedule);
 
         let (_, at) = store.load_object(&path).expect("object");

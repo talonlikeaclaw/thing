@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { ApiError, isUnauthenticated, request } from "@/api/client";
 import type {
@@ -493,22 +494,58 @@ export function useUpdateObject(spaceId: string) {
 export interface CompleteObjectInput {
   id: string;
   rev: number;
+  /** The full row when the caller already holds it, so Undo needs no extra read. */
+  previous?: ObjectDetail;
+}
+
+/** The two values Complete may change, kept so the toast can restore them. */
+export interface PreviousSchedule {
+  due_date: unknown | null;
+  last_completed_at: unknown | null;
+}
+
+export interface CompleteResult {
+  object: ObjectDetail;
+  previous: PreviousSchedule;
+}
+
+function previousSchedule(object: ObjectDetail): PreviousSchedule {
+  return {
+    due_date: object.properties.due_date?.value ?? null,
+    last_completed_at: object.properties.last_completed_at?.value ?? null,
+  };
 }
 
 /**
  * Records one completion. The server advances a recurring due date and writes
  * the revision; the space prefix is invalidated so every surface re-reads it.
+ *
+ * The returned `undo` writes the two prior schedule values back at the new
+ * revision, which is why the mutation captures them before completing.
  */
 export function useCompleteObject(spaceId: string) {
   const client = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CompleteObjectInput) =>
-      request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${input.id}/complete`, {
-        method: "POST",
-        body: { rev: input.rev },
-      }),
-    onSuccess: (object) => {
-      applyObject(client, spaceId, object);
+  const mutation = useMutation({
+    mutationFn: async (input: CompleteObjectInput): Promise<CompleteResult> => {
+      const before =
+        input.previous ??
+        (await request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${input.id}`));
+      if (before.rev !== input.rev) {
+        throw new ApiError(
+          409,
+          "conflict",
+          "This record changed since it was loaded. Reload it to see the current version.",
+          { current_rev: before.rev },
+        );
+      }
+      const object = await request<ObjectDetail>(
+        `/api/spaces/${spaceId}/objects/${input.id}/complete`,
+        { method: "POST", body: { rev: input.rev } },
+      );
+      return { object, previous: previousSchedule(before) };
+    },
+    onSuccess: (result) => {
+      applyObject(client, spaceId, result.object);
       void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
     },
     onError: (error, input) => {
@@ -518,6 +555,30 @@ export function useCompleteObject(spaceId: string) {
       }
     },
   });
+
+  const undo = useCallback(
+    async (completed: ObjectDetail, previous: PreviousSchedule) => {
+      const object = await request<ObjectDetail>(
+        `/api/spaces/${spaceId}/objects/${completed.id}`,
+        {
+          method: "PATCH",
+          body: {
+            rev: completed.rev,
+            properties: {
+              due_date: previous.due_date,
+              last_completed_at: previous.last_completed_at,
+            },
+          },
+        },
+      );
+      applyObject(client, spaceId, object);
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+      return object;
+    },
+    [client, spaceId],
+  );
+
+  return { ...mutation, undo };
 }
 
 export interface RelationChoice {

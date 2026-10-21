@@ -5,7 +5,7 @@ import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
-import { readError } from "@/lib/display";
+import { formatDateTime, readError } from "@/lib/display";
 import { datetimeLocal, fromDatetimeLocal, inputText, isBlank, isChecked, optionName } from "@/lib/format";
 import { optionDrafts, optionInputs } from "@/lib/schema";
 
@@ -113,7 +113,9 @@ function ReadOnlyValue({
         property.format === "relation" && "font-mono text-[12.5px]",
       )}
     >
-      {label}
+      {property.format === "datetime" && typeof value === "string"
+        ? formatDateTime(value)
+        : label}
     </span>
   );
 }

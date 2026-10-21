@@ -56,6 +56,44 @@ pub struct OptionDef {
     pub color: String,
 }
 
+/// Display names for a scheduled type's generated vocabulary.
+///
+/// The keys on disk never move: this only changes what the interface calls
+/// them, so a plant type can say "Last watered" while the record still stores
+/// `last_completed_at`. Empty fields mean the default name.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScheduleLabels {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recurrence: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_completed: Option<String>,
+    /// The button that records a completion, for example "Water".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub complete: Option<String>,
+}
+
+impl ScheduleLabels {
+    /// The label for one generated key; `None` means the built-in name.
+    pub fn for_key(&self, key: &str) -> Option<&str> {
+        match key {
+            crate::schedule::DUE_DATE_KEY => self.due.as_deref(),
+            crate::schedule::RECURRENCE_KEY => self.recurrence.as_deref(),
+            crate::schedule::LAST_COMPLETED_KEY => self.last_completed.as_deref(),
+            _ => None,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.due.is_none()
+            && self.recurrence.is_none()
+            && self.last_completed.is_none()
+            && self.complete.is_none()
+    }
+}
+
 /// A type definition (`types/<key>.yml`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -70,6 +108,9 @@ pub struct TypeDef {
     /// Whether this type carries the three generated schedule properties.
     #[serde(default, skip_serializing_if = "is_false")]
     pub schedule: bool,
+    /// Display names for the generated schedule properties; empty means default.
+    #[serde(default, skip_serializing_if = "ScheduleLabels::is_empty")]
+    pub schedule_labels: ScheduleLabels,
     #[serde(default)]
     pub properties: Vec<TypeProperty>,
     pub view: ViewDef,
@@ -548,6 +589,37 @@ mod tests {
         assert!(meta.remove_member(user));
         assert!(!meta.remove_member(user));
         assert!(meta.members.is_empty());
+    }
+
+    #[test]
+    fn schedule_labels_round_trip_without_moving_the_generated_keys() {
+        let yaml = r#"
+key: plant
+name: Plant
+name_plural: Plants
+description: ''
+schedule: true
+schedule_labels:
+  last_completed: Last watered
+  complete: Water
+properties: []
+view:
+  sorts: []
+  filter: {op: and, conditions: []}
+  columns: [title]
+"#;
+        let def: TypeDef = serde_yaml_ng::from_str(yaml).expect("a type");
+        assert_eq!(
+            def.schedule_labels.for_key("last_completed_at"),
+            Some("Last watered")
+        );
+        assert_eq!(def.schedule_labels.complete.as_deref(), Some("Water"));
+        assert_eq!(def.schedule_labels.for_key("due_date"), None);
+
+        let written = serde_yaml_ng::to_string(&def).expect("yaml");
+        assert!(written.contains("last_completed: Last watered"));
+        assert!(written.contains("complete: Water"));
+        assert!(!written.contains("due:"), "an unset label is omitted");
     }
 
     #[test]

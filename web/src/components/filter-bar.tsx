@@ -183,6 +183,7 @@ function ConditionValue({
     return (
       <RecurrenceInput
         value={condition.value}
+        showHint={false}
         onApply={(next) => onChange(next)}
       />
     );

@@ -1,8 +1,13 @@
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight, Check, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
-import { useCreateObject, useObjects, useUpdateObject } from "@/api/queries";
+import {
+  useCompleteObject,
+  useCreateObject,
+  useObjects,
+  useUpdateObject,
+} from "@/api/queries";
 import type {
   ObjectSummary,
   PropertyDef,
@@ -22,6 +27,7 @@ import {
   sortsParam,
   withParam,
 } from "@/lib/filter";
+import { completeLabel } from "@/lib/schedule";
 import { useSpaceEvents } from "@/lib/use-space-events";
 
 interface TypeTableProps {
@@ -39,8 +45,10 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const choices = columnChoices(type, properties);
   const update = useUpdateObject(spaceId);
+  const complete = useCompleteObject(spaceId);
   const create = useCreateObject(spaceId);
   const toast = useToast();
+  const verb = completeLabel(type.schedule_labels);
   const [autoEditId, setAutoEditId] = useState<string | null>(null);
 
   useSpaceEvents(spaceId);
@@ -90,6 +98,32 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
   function commitTitle(row: ObjectSummary, title: string) {
     setAutoEditId(null);
     update.mutate({ id: row.id, rev: row.rev, title }, { onError: report });
+  }
+
+  function completeRecord(row: ObjectSummary) {
+    if (complete.isPending) {
+      return;
+    }
+    complete.mutate(
+      { id: row.id, rev: row.rev },
+      {
+        onSuccess: ({ object: saved, previous }) => {
+          const nextDue = saved.schedule?.due_date;
+          toast.showToast(nextDue ? `Next due ${nextDue}.` : "Marked done.", "plain", {
+            label: "Undo",
+            onAction: () => {
+              void complete
+                .undo(saved, previous)
+                .then(() => toast.showToast("Completion undone."))
+                .catch((error) =>
+                  toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+                );
+            },
+          });
+        },
+        onError: report,
+      },
+    );
   }
 
   function createRecord() {
@@ -231,15 +265,29 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
                       </td>
                     );
                   })}
-                  <td className="sticky right-0 w-8 border-l rule bg-ground py-1 text-right">
-                    <Link
-                      to={`/s/${spaceId}/o/${row.id}`}
-                      aria-label={`Open ${row.title}`}
-                      title="Open record"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
-                    >
-                      <ArrowUpRight aria-hidden size={14} />
-                    </Link>
+                  <td className="sticky right-0 w-[4.5rem] border-l rule bg-ground py-1 text-right">
+                    <div className="flex items-center justify-end gap-0.5">
+                      {canEdit && type.schedule && row.schedule?.status !== "done" ? (
+                        <button
+                          type="button"
+                          aria-label={`${verb} ${row.title}`}
+                          title={verb}
+                          disabled={complete.isPending}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
+                          onClick={() => completeRecord(row)}
+                        >
+                          <Check aria-hidden size={14} />
+                        </button>
+                      ) : null}
+                      <Link
+                        to={`/s/${spaceId}/o/${row.id}`}
+                        aria-label={`Open ${row.title}`}
+                        title="Open record"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+                      >
+                        <ArrowUpRight aria-hidden size={14} />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}

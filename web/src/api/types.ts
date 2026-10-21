@@ -149,6 +149,15 @@ export interface ScheduleState {
   completed_at?: IsoDate;
 }
 
+/** Per-type display names for generated schedule properties; keys never move. */
+export interface ScheduleLabels {
+  due?: string;
+  recurrence?: string;
+  last_completed?: string;
+  /** The button that records a completion, for example "Water". */
+  complete?: string;
+}
+
 export interface TypeDef {
   key: string;
   name: string;
@@ -156,6 +165,8 @@ export interface TypeDef {
   icon?: string | null;
   description: string;
   schedule: boolean;
+  /** Omitted when every generated property keeps its default name. */
+  schedule_labels?: ScheduleLabels;
   /** The generated schedule definitions; omitted when the type is not scheduled. */
   implicit_properties?: PropertyDef[];
   properties: TypeProperty[];

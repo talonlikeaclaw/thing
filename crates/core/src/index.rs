@@ -510,6 +510,7 @@ mod tests {
             icon: None,
             description: String::new(),
             schedule: false,
+            schedule_labels: Default::default(),
             properties: vec![TypeProperty {
                 key: "room".to_owned(),
                 required: false,
@@ -534,6 +535,7 @@ mod tests {
             icon: None,
             description: String::new(),
             schedule: true,
+            schedule_labels: Default::default(),
             properties: Vec::new(),
             view: ViewDef {
                 sorts: Vec::new(),

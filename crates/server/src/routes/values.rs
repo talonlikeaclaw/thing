@@ -390,6 +390,7 @@ mod tests {
             icon: None,
             description: String::new(),
             schedule: false,
+            schedule_labels: Default::default(),
             properties: columns
                 .iter()
                 .map(|key| TypeProperty {

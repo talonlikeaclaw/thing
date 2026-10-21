@@ -10,7 +10,7 @@ import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
-import { dueTone } from "@/lib/schedule";
+import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { effectiveMembers, sameJson } from "@/lib/schema";
 
 interface ObjectPanelProps {
@@ -97,6 +97,13 @@ export function ObjectPanel({
     ...effective.map((member) => member.key),
     ...Object.keys(draft.values).filter((key) => !members.has(key)),
   ];
+  const dueLabel = scheduleLabel(type?.schedule_labels, "due_date", "Due");
+  const completedLabel = scheduleLabel(
+    type?.schedule_labels,
+    "last_completed_at",
+    "Last completed",
+  );
+  const verb = completeLabel(type?.schedule_labels);
 
   const changes: Record<string, unknown | null> = {};
   for (const key of keys) {
@@ -159,13 +166,31 @@ export function ObjectPanel({
       return;
     }
     complete.mutate(
-      { id: objectId, rev: object.rev },
+      { id: objectId, rev: object.rev, previous: object },
       {
-        onSuccess: (saved) => {
+        onSuccess: ({ object: saved, previous }) => {
           resetFrom(saved);
           setConflict(null);
           setSaveError(null);
-          toast.showToast("Completed this record.");
+          const nextDue = saved.schedule?.due_date;
+          toast.showToast(
+            nextDue ? `Next due ${nextDue}.` : "Marked done.",
+            "plain",
+            {
+              label: "Undo",
+              onAction: () => {
+                void complete
+                  .undo(saved, previous)
+                  .then((undone) => {
+                    resetFrom(undone);
+                    toast.showToast("Completion undone.");
+                  })
+                  .catch((error) => {
+                    toast.showToast(`Could not undo — ${readError(error)}`, "danger");
+                  });
+              },
+            },
+          );
         },
         onError: (error) => {
           if (error instanceof ApiError && error.status === 409) {
@@ -348,7 +373,7 @@ export function ObjectPanel({
           </span>
           {object.schedule.due_date ? (
             <span className="text-[13px] text-muted">
-              Due{" "}
+              {dueLabel}{" "}
               <span className={cn("tnum", dueTone(object.schedule.status))}>
                 {object.schedule.due_date}
               </span>
@@ -373,7 +398,8 @@ export function ObjectPanel({
           ) : null}
           {object.schedule.completed_at ? (
             <span className="text-[13px] text-faint">
-              Completed <span className="tnum">{formatDate(object.schedule.completed_at)}</span>
+              {completedLabel}{" "}
+              <span className="tnum">{formatDate(object.schedule.completed_at)}</span>
             </span>
           ) : null}
           {canEdit && object.schedule.status !== "done" ? (
@@ -383,7 +409,7 @@ export function ObjectPanel({
               disabled={complete.isPending}
               onClick={onComplete}
             >
-              {complete.isPending ? "Completing…" : "Complete"}
+              {complete.isPending ? "Saving…" : verb}
             </Button>
           ) : null}
         </section>

@@ -15,6 +15,8 @@ interface RecurrenceInputProps {
   onApply: (value: RecurrenceValue | null) => void;
   onCancel?: () => void;
   autoFocus?: boolean;
+  /** Explain the early/late rule where the cadence is chosen, not in a filter. */
+  showHint?: boolean;
 }
 
 const control =
@@ -32,6 +34,7 @@ export function RecurrenceInput({
   onApply,
   onCancel,
   autoFocus = false,
+  showHint = true,
 }: RecurrenceInputProps) {
   const [draft, setDraft] = useState(() => recurrenceDraft(value));
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +146,13 @@ export function RecurrenceInput({
       {error ? (
         <p role="alert" className="text-[12px] text-danger">
           {error}
+        </p>
+      ) : null}
+
+      {showHint ? (
+        <p className="max-w-[26rem] text-[11px] leading-snug text-faint">
+          Completed late? The next date counts from today. Early completion keeps the planned
+          date.
         </p>
       ) : null}
 

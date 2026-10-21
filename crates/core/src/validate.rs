@@ -574,6 +574,7 @@ mod tests {
                 icon: None,
                 description: String::new(),
                 schedule: false,
+                schedule_labels: Default::default(),
                 properties: listed
                     .into_iter()
                     .map(|key| TypeProperty {

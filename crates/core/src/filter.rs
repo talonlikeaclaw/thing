@@ -281,6 +281,7 @@ mod tests {
                 icon: None,
                 description: String::new(),
                 schedule: false,
+                schedule_labels: Default::default(),
                 properties: properties
                     .keys()
                     .map(|key| TypeProperty {

@@ -81,6 +81,12 @@ impl ApiError {
         &self.message
     }
 
+    /// The details the response carries, for tests.
+    #[cfg(test)]
+    pub fn details(&self) -> &Value {
+        &self.details
+    }
+
     /// `409` — the request cannot be applied to the current state; `details`
     /// says which state and what about it.
     pub fn conflict(message: impl Into<String>, details: Value) -> Self {

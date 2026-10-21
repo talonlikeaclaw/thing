@@ -2,6 +2,7 @@ import type {
   PropertyDef,
   RecurrenceKind,
   RecurrenceValue,
+  ScheduleLabels,
   ScheduleState,
   ScheduleStatus,
 } from "@/api/types";
@@ -18,6 +19,45 @@ export const SCHEDULE_PROPERTY_DEFS: PropertyDef[] = [
 
 export function isScheduleKey(key: string): boolean {
   return (SCHEDULE_KEYS as readonly string[]).includes(key);
+}
+
+function labelField(key: string): keyof ScheduleLabels | undefined {
+  switch (key) {
+    case "due_date":
+      return "due";
+    case "recurrence":
+      return "recurrence";
+    case "last_completed_at":
+      return "last_completed";
+    default:
+      return undefined;
+  }
+}
+
+/** A generated property's display name, preferring the type's own label. */
+export function scheduleLabel(
+  labels: ScheduleLabels | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const field = labelField(key);
+  const label = field === undefined ? undefined : labels?.[field];
+  return label && label.trim() !== "" ? label : fallback;
+}
+
+/** Applies a type's labels to generated definitions, leaving keys untouched. */
+export function labeledScheduleProperties(
+  defs: PropertyDef[],
+  labels: ScheduleLabels | undefined,
+): PropertyDef[] {
+  return defs.map((property) => ({
+    ...property,
+    name: scheduleLabel(labels, property.key, property.name),
+  }));
+}
+
+export function completeLabel(labels: ScheduleLabels | undefined): string {
+  return labels?.complete?.trim() || "Complete";
 }
 
 const WEEKDAYS = [
@@ -147,6 +187,7 @@ export function dueTone(status: ScheduleStatus | undefined): string {
     case "upcoming":
       return "text-muted";
     case "done":
+      return "text-muted";
     case "unscheduled":
       return "text-faint";
     default:

@@ -302,6 +302,7 @@ mod tests {
             icon: None,
             description: String::new(),
             schedule: false,
+            schedule_labels: Default::default(),
             properties: Vec::new(),
             view: ViewDef {
                 sorts: Vec::new(),

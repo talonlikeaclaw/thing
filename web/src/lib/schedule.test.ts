@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import type { RecurrenceValue } from "@/api/types";
 import {
+  completeLabel,
   dueCellLabel,
   dueTone,
   isScheduleKey,
+  labeledScheduleProperties,
   normalizeRecurrence,
   recurrenceDraft,
   recurrenceEquals,
   recurrenceSummary,
+  scheduleLabel,
+  SCHEDULE_PROPERTY_DEFS,
   weekdayName,
 } from "@/lib/schedule";
 
@@ -92,7 +96,32 @@ describe("due presentation", () => {
     expect(dueTone("overdue")).toBe("text-danger");
     expect(dueTone("today")).toBe("text-warning");
     expect(dueTone("upcoming")).toBe("text-muted");
-    expect(dueTone("done")).toBe("text-faint");
+    expect(dueTone("done")).toBe("text-muted");
+  });
+
+  it("resolves per-type labels without changing generated keys", () => {
+    const labels = {
+      due: "Next watering",
+      last_completed: "Last watered",
+      complete: "Water",
+    };
+    expect(scheduleLabel(labels, "due_date", "Due")).toBe("Next watering");
+    expect(scheduleLabel(labels, "last_completed_at", "Last completed")).toBe(
+      "Last watered",
+    );
+    expect(scheduleLabel(labels, "recurrence", "Repeats")).toBe("Repeats");
+    expect(completeLabel(labels)).toBe("Water");
+    expect(completeLabel(undefined)).toBe("Complete");
+    expect(
+      labeledScheduleProperties(SCHEDULE_PROPERTY_DEFS, labels).map((property) => [
+        property.key,
+        property.name,
+      ]),
+    ).toEqual([
+      ["due_date", "Next watering"],
+      ["recurrence", "Repeats"],
+      ["last_completed_at", "Last watered"],
+    ]);
   });
 
   it("renders relative overdue and today labels and the date otherwise", () => {

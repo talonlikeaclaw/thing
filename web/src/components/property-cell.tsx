@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import type { PropertyDef, ScheduleState, ValueJson } from "@/api/types";
 import { PropertyInput, TitleInput } from "@/components/property-input";
+import { formatDateTime } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
 import { cn } from "@/lib/cn";
@@ -134,6 +135,17 @@ function CellValue({
   schedule?: ScheduleState;
   missing?: boolean;
 }) {
+  const due = property.key === "due_date" ? schedule : undefined;
+
+  if (due?.status === "done") {
+    return (
+      <span className={cn("inline-flex items-center gap-1", dueTone(due.status))}>
+        <Check aria-hidden size={12} />
+        Done
+      </span>
+    );
+  }
+
   if (property.format === "checkbox") {
     return isChecked(value) ? (
       <span className="inline-flex items-center gap-1 text-accent">
@@ -169,7 +181,10 @@ function CellValue({
     );
   }
 
-  const due = property.key === "due_date" ? schedule : undefined;
+  const text =
+    property.format === "datetime" && typeof value === "string"
+      ? formatDateTime(value)
+      : label;
   return (
     <span
       className={cn(
@@ -184,7 +199,7 @@ function CellValue({
       )}
       title={label}
     >
-      {due ? dueCellLabel(due, value) : label}
+      {due ? dueCellLabel(due, value) : text}
       {missing ? (
         <TriangleAlert aria-label="Target missing" className="ml-1 inline text-warning" size={12} />
       ) : null}
