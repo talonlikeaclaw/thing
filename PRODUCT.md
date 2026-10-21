@@ -26,9 +26,9 @@ a migration step, or a file format to use the product.
 Let a person define their own types and properties, create records of those types, and track them
 over time, then share that structure with other people who see changes live. It exists because
 purpose-built tracking apps force someone else's schema; here the schema is the user's, and it can
-change without losing data. Success means the two existing solo projects it replaces — a plant
-tracker and a household chore tracker — can be rebuilt inside it as ordinary spaces, and that a
-non-coding collaborator can create a type and a record without being taught.
+change without losing data. Success means a non-coding collaborator can create a type and a
+record without being taught, and the owner's existing plant and chore trackers can be rebuilt as
+ordinary spaces through the generic CSV path rather than a bespoke importer.
 
 ## Positioning
 
@@ -75,9 +75,9 @@ in the family of the owner's other products: dense, legible, and calm rather tha
 ## Evidence on Hand
 
 No screenshots, testimonials or marketing assets exist, and none should be fabricated. The real
-evidence is the two source projects the app will replace (`plant-tracker` and `chore`, both
-Postgres-backed), which become the first imported spaces in a later milestone; their schemas are
-the proof that the type/property model fits real tracking data.
+evidence is the two source projects the owner already runs (`plant-tracker` and `chore`, both
+Postgres-backed): their schemas prove the type/property model fits real tracking data. They are
+rebuilt with CSV import or by hand; there are no source-specific importer milestones.
 
 ## Product Principles
 

@@ -14,13 +14,13 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is implemented end to end; checkpoint 14 (docs, CI, container) is in the
-working tree, with checkpoints 1–13 landed.** `thing-core` exposes `model`, `error`, `slug`
-(with the type/property key grammar next to the filename slugs), `value`, `markdown`, `store`
-(`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query` and `index` (`SpaceIndex`),
-with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, and table-view tests over
-a space built on disk. `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`,
-`state`), its auth and membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and
+**Current state: M1 is code-complete and checkpoint 14 has landed; CI is green.** `thing-core`
+exposes `model`, `error`, `slug` (with the type/property key grammar next to the filename slugs),
+`value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
+and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
+`tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` has its shell
+(`config`, `error`, `spaces`, `watcher`, `state`), its auth and membership surface (`accounts`,
+`auth`, `routes/auth`, `routes/spaces`), and
 its schema and object APIs: `routes/types` (types and their saved view), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
 filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
@@ -43,14 +43,18 @@ same app with live reload. Nothing is tagged or deployed yet.
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 
-M1 is implemented: **checkpoints 1–13 (scaffold; core model and format; store; index, validation and
+M1 is implemented: **checkpoints 1–14 (scaffold; core model and format; store; index, validation and
 query; server shell; auth and membership; schema and object APIs; events and the WebSocket; web
 scaffold and auth screens; schema editor; live table; object panel and markdown body; history and
-trash) are landed**, and checkpoint 14, docs, CI and the container, is implemented and awaiting
-review.
+trash; docs, CI, containers and the security pass) are landed and CI-green.** The only M1 work left
+is the deployment plan in `docs/ROADMAP.md`, which happens in the homelab repo.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
+
+The post-M1 roadmap was revised on 2026-10-21: **M2** is scheduling and recurrence with in-app
+reminders only; **M3** is saved views; **M4** is everyday usability plus generic CSV import/export.
+Email digests and source-specific `plant-tracker`/`chore` importers are deliberately out of scope.
 
 ## Architecture & Data Flow
 

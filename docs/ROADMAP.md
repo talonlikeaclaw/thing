@@ -49,30 +49,39 @@ the deployment steps below are the remaining M1 work. Later milestones get their
 `docs/plan/mN-*.md` when they start, so each one is written the way this one was. M2–M10 are recorded
 here so the M1 schema does not need reshaping later; each carries its decisions already made.
 
+**Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
+`plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday
+usability move ahead of search.
+
 - **M1 — Engine core.** **Landed** — checkpoints 1–14 are implemented: spaces, members, invites,
   roles, auth; user-defined types and properties; object CRUD with a markdown body; the live
   per-type table view with filters and sorts; read-only history; trash; external file edits noticed
   and reflected; a seed script; CI; container. Deployment (the bullets below) is the remaining
   work.
-- **M2 — Scheduling and reminders.** Any type may declare `schedule: true`, which adds three implicit
-  properties (`due_date` (date), `recurrence` (recurrence), `last_completed_at` (datetime)) plus a
-  `complete` action that writes a completion and re-phases the cadence. Recurrence = `days` |
+- **M2 — Scheduling and recurrence.** Any type may declare `schedule: true`, which adds three
+  implicit properties (`due_date` (date), `recurrence` (recurrence), `last_completed_at` (datetime))
+  plus a `complete` action that writes a completion and re-phases the cadence. Recurrence = `days` |
   `weekly` | `monthly` with the chore-proven clamping rules (weekday `0`=Sun…`6`=Sat, month day
   `1–31` clamped to the month's last day); due/overdue are **calendar days in the space's IANA
-  timezone**, never elapsed hours; a late completion re-phases from the day it happened. Reminders go
-  out as an email digest reusing the slot-not-timer design (a `due_last_notified_on` civil date is the
-  source of truth, so a restart can never double-send) plus an in-app overdue badge.
-- **M3 — Importers.** `plant-tracker` (Postgres: `species`, `plants`, `care_types`, `care_plans`,
-  `plant_care`, `photos`) and `chore` (Postgres: `room`, `chore`, `completion`, `household`) become
-  markdown spaces. One importer binary per source, each reading via `psql`-free direct SQL and writing
-  through `thing-core`'s store so every imported record gets a real revision. CSV import/export of a
-  type lands here too.
-- **M4 — Views.** Multiple named views per type, stored in the type file: `table`, `board` (group by a
-  select property), `gallery` (cover property), `calendar` (a date property). Per-view visible
-  columns, widths, sorts, filters. Views are the type's own saved query, not a separate object kind.
-- **M5 — Search and linking.** Full-text search over titles and bodies with an on-disk inverted index
-  rebuilt on change; in-body `[[Type/Title]]` wiki links that create a relation; a backlinks panel on
-  every object; a graph view. Relation properties already exist in M1, so this is UI plus an index.
+  timezone**, never elapsed hours; a late completion re-phases from the day it happened. Reminders
+  are **in-app only**: an overdue badge and a due-today/upcoming surface. No email digest, push
+  notification or background notifier in this milestone; if those return, they get their own
+  milestone and the slot-not-timer design.
+- **M3 — Views.** Multiple named views per type, stored in the type file: `table`, `board` (group by
+  a select property), `gallery` (cover property) and `calendar` (a date property). Per-view visible
+  columns, widths, sorts, filters, and a chosen default. The calendar consumes M2's due dates.
+  Views are the type's own saved query, not a separate object kind; cross-type views are not in this
+  milestone.
+- **M4 — Everyday usability.** Quick capture from anywhere (type picker, required properties,
+  create-and-open), a command palette (Cmd/Ctrl+K) over spaces, types, records and actions, keyboard
+  navigation and shortcuts, duplicate and move-to-trash actions with an undo window, multi-select
+  and bulk edits in the table, recent items, in-place onboarding empty states, and responsive/touch
+  polish. CSV import and export for any type lands here: it is the migration path that does not
+  depend on a particular source application.
+- **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
+  from the command palette, with an on-disk inverted index rebuilt on change; in-body
+  `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph
+  view. Relation properties already exist in M1, so this is UI plus an index.
 - **M6 — Files and images.** Attachments stored beside the object under `files/`, referenced from
   frontmatter; thumbnails; a `file`/`image` property format; cover images. Bytes stay on disk and in
   the backup chain.
@@ -81,16 +90,17 @@ here so the M1 schema does not need reshaping later; each carries its decisions 
   verbatim, `PUT` sends the file back with `If-Match: <rev>`; a conflicting write is not merged but
   both versions are kept (the loser lands in history and in `conflicts/`), because the format cannot
   lose data it was given.
-- **M8 — Agent surface.** Long-lived API tokens (a bearer alternative to the session cookie, already
-  accepted by the WebSocket endpoint in M1), a generated OpenAPI document, and an MCP server exposing
-  list/create/update/search over spaces. This is what lets the user's omp agents drive their own app
-  the way they drive the self-hosted Anytype today.
+- **M8 — Agent surface.** Long-lived API tokens (a bearer alternative to the session cookie), a
+  generated OpenAPI document, and an MCP server exposing list/create/update/search over spaces.
+  This is what lets the user's omp agents drive their own app the way they drive the self-hosted
+  Anytype today.
 - **M9 — Computed properties.** `formula` (per-object expression over its own properties) and
   `rollup` (aggregate a relation's target property: count, sum, min, max, list). Read-only values,
   never stored in frontmatter.
 - **M10 — History depth.** Restore a past revision, undo the last write, and a space-wide activity
   feed. M1's format already stores full property snapshots per revision, so this is addition, not
   migration.
+
 
 
 ## Delivery protocol
