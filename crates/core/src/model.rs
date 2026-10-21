@@ -457,9 +457,15 @@ pub const RESERVED_KEYS: &[&str] = &[
     "trashed_from",
 ];
 
-/// Whether a property may be keyed `key`.
+/// Whether a fixed frontmatter key is spelled `key`.
 pub fn is_reserved_key(key: &str) -> bool {
     RESERVED_KEYS.contains(&key)
+}
+
+/// Whether a property may be keyed `key`: not a frontmatter key, and not one
+/// of the generated schedule keys, which every space reserves.
+pub fn is_reserved_property_key(key: &str) -> bool {
+    is_reserved_key(key) || crate::schedule::is_schedule_key(key)
 }
 
 fn is_false(value: &bool) -> bool {
@@ -479,6 +485,16 @@ mod tests {
             created_at: OffsetDateTime::UNIX_EPOCH,
             members: Vec::new(),
         }
+    }
+
+    #[test]
+    fn schedule_keys_are_reserved_property_keys_in_every_space() {
+        for key in crate::schedule::SCHEDULE_KEYS {
+            assert!(is_reserved_property_key(key));
+            assert!(!is_reserved_key(key));
+        }
+        assert!(is_reserved_property_key("title"));
+        assert!(!is_reserved_property_key("due"));
     }
 
     #[test]

@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::error::CoreError;
 use crate::model::{ObjectDetail, ObjectDoc, ObjectSummary, PropertyDef, SpaceMeta, TypeDef};
+use crate::schedule;
 use crate::slug::slugify;
 use crate::store::{self, FileFingerprint, SPACE_FILE, SpaceFileKind, SpaceStore};
 use crate::validate::{self, Schema};
@@ -48,6 +49,10 @@ pub struct Problems {
     pub unparseable: Vec<UnparseableFile>,
     pub dangling_relations: Vec<DanglingRelation>,
     pub duplicate_slugs: Vec<DuplicateSlug>,
+    /// The space timezone when it does not resolve; the space then reads as UTC.
+    pub invalid_timezone: Option<String>,
+    /// Declared property keys that collide with a generated schedule key.
+    pub schedule_key_conflicts: Vec<String>,
 }
 
 /// One space: its schema, its objects, and what could not be loaded.
@@ -56,6 +61,9 @@ pub struct SpaceIndex {
     meta: SpaceMeta,
     types: BTreeMap<String, TypeDef>,
     properties: BTreeMap<String, PropertyDef>,
+    /// `due_date`, `recurrence`, `last_completed_at`: generated, never written
+    /// to `properties/`, and resolved after the declared properties.
+    schedule_properties: BTreeMap<String, PropertyDef>,
     objects: BTreeMap<Uuid, ObjectDoc>,
     trash: BTreeMap<Uuid, ObjectDoc>,
     /// Where each object lives, live and trashed, so a write can name its file
@@ -78,6 +86,7 @@ impl SpaceIndex {
             meta,
             types: BTreeMap::new(),
             properties: BTreeMap::new(),
+            schedule_properties: schedule::schedule_property_defs(),
             objects: BTreeMap::new(),
             trash: BTreeMap::new(),
             paths: BTreeMap::new(),
@@ -115,6 +124,7 @@ impl SpaceIndex {
         Schema {
             types: &self.types,
             properties: &self.properties,
+            schedule_properties: &self.schedule_properties,
             objects: &self.objects,
             trash: &self.trash,
         }
@@ -126,6 +136,15 @@ impl SpaceIndex {
             unparseable: self.unparseable.clone(),
             dangling_relations: self.dangling_relations(),
             duplicate_slugs: self.duplicate_slugs(),
+            invalid_timezone: schedule::resolve_timezone(&self.meta.timezone)
+                .err()
+                .map(|_| self.meta.timezone.clone()),
+            schedule_key_conflicts: self
+                .properties
+                .keys()
+                .filter(|key| schedule::is_schedule_key(key))
+                .cloned()
+                .collect(),
         }
     }
 
@@ -149,9 +168,12 @@ impl SpaceIndex {
         self.properties.values()
     }
 
-    /// The property with this key, if the space defines it.
+    /// The property with this key: a declared property first, then one of the
+    /// generated schedule properties. `properties()` stays declared-only.
     pub fn property_def(&self, key: &str) -> Option<&PropertyDef> {
-        self.properties.get(key)
+        self.properties
+            .get(key)
+            .or_else(|| self.schedule_properties.get(key))
     }
 
     /// The live object with this id; a trashed one is [`SpaceIndex::trash`].
@@ -441,10 +463,11 @@ mod tests {
     use crate::markdown;
     use crate::model::{
         CondOp, Condition, Direction, EmptyPlacement, Filter, FilterOp, Member, PropertyFormat,
-        Role, Sort, TypeProperty, Value, ViewDef,
+        Recurrence, RecurrenceKind, Role, Sort, TypeProperty, Value, ViewDef,
     };
     use crate::query;
     use crate::store::fs::FsSpaceStore;
+    use crate::validate;
 
     fn at(offset: i64) -> OffsetDateTime {
         OffsetDateTime::from_unix_timestamp(1_760_000_000 + offset).expect("valid timestamp")
@@ -501,6 +524,46 @@ mod tests {
                 columns: vec!["title".to_owned(), "room".to_owned()],
             },
         }
+    }
+
+    fn chore_type() -> TypeDef {
+        TypeDef {
+            key: "chore".to_owned(),
+            name: "Chore".to_owned(),
+            name_plural: "Chores".to_owned(),
+            icon: None,
+            description: String::new(),
+            schedule: true,
+            properties: Vec::new(),
+            view: ViewDef {
+                sorts: Vec::new(),
+                filter: Filter {
+                    op: FilterOp::And,
+                    conditions: Vec::new(),
+                },
+                columns: vec!["title".to_owned(), "due_date".to_owned()],
+            },
+        }
+    }
+
+    fn chore(id: u128, due: &str) -> ObjectDoc {
+        let mut doc = object(id, "Water the monstera", "", 5);
+        doc.type_key = "chore".to_owned();
+        doc.properties = [
+            ("due_date".to_owned(), Value::Text(due.to_owned())),
+            (
+                "recurrence".to_owned(),
+                Value::Recurrence(Recurrence {
+                    kind: RecurrenceKind::Days,
+                    every: 3,
+                    weekday: None,
+                    day: None,
+                }),
+            ),
+        ]
+        .into_iter()
+        .collect();
+        doc
     }
 
     fn object(id: u128, title: &str, room: &str, updated: i64) -> ObjectDoc {
@@ -932,6 +995,134 @@ mod tests {
         assert_eq!(
             rows.iter().map(|row| row.title.clone()).collect::<Vec<_>>(),
             vec!["Fern".to_owned(), "Monstera".to_owned()]
+        );
+    }
+
+    #[test]
+    fn a_scheduled_type_validates_the_generated_properties() {
+        let space = Space::new().seed();
+        space
+            .store
+            .save_type(&chore_type(), None)
+            .expect("save chore type");
+        let index = space.index();
+        let schema = index.schema();
+        assert_eq!(
+            schema.property("due_date").map(|def| def.format),
+            Some(PropertyFormat::Date)
+        );
+        assert_eq!(
+            schema.property("recurrence").map(|def| def.format),
+            Some(PropertyFormat::Recurrence)
+        );
+        assert_eq!(
+            schema.property("last_completed_at").map(|def| def.format),
+            Some(PropertyFormat::Datetime)
+        );
+        // `properties()` stays declared-only.
+        assert_eq!(index.properties().count(), 1);
+
+        validate::validate_object(&schema, &chore(9, "2026-10-20"))
+            .expect("a scheduled record is valid");
+
+        let mut plant = object(10, "Monstera", "Kitchen", 5);
+        plant
+            .properties
+            .insert("due_date".to_owned(), Value::Text("2026-10-20".to_owned()));
+        let errors = validate::validate_object(&schema, &plant).expect_err("unscheduled type");
+        assert_eq!(
+            errors.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            vec!["invalid due_date: is not a property of type plant"]
+        );
+    }
+
+    #[test]
+    fn filters_and_sorts_accept_a_schedule_key_only_while_scheduled() {
+        let space = Space::new().seed();
+        space
+            .store
+            .save_type(&chore_type(), None)
+            .expect("save chore type");
+        let index = space.index();
+        let schema = index.schema();
+        let chore = index.type_def("chore").expect("chore");
+        let plant = index.type_def("plant").expect("plant");
+
+        let filter = Filter {
+            op: FilterOp::And,
+            conditions: vec![Condition {
+                property: "due_date".to_owned(),
+                condition: CondOp::Equal,
+                value: Some(Value::Text("2026-10-20".to_owned())),
+            }],
+        };
+        validate::validate_filter(&schema, chore, &filter).expect("scheduled filter");
+        let errors = validate::validate_filter(&schema, plant, &filter).expect_err("plant");
+        assert_eq!(
+            errors.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            vec!["invalid due_date: is not a property of type plant"]
+        );
+
+        let sorts = [Sort {
+            property: "due_date".to_owned(),
+            direction: Direction::Asc,
+            empty: EmptyPlacement::End,
+        }];
+        validate::validate_sorts(&schema, chore, &sorts).expect("scheduled sort");
+        let errors = validate::validate_sorts(&schema, plant, &sorts).expect_err("plant");
+        assert_eq!(
+            errors.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            vec!["invalid due_date: is not a property of type plant"]
+        );
+    }
+
+    #[test]
+    fn a_type_may_not_list_a_generated_schedule_property() {
+        let space = Space::new().seed();
+        let index = space.index();
+        let schema = index.schema();
+        let members = [TypeProperty {
+            key: "due_date".to_owned(),
+            required: false,
+            featured: true,
+        }];
+        let errors = validate::validate_members(&schema, &members).expect_err("listed implicitly");
+        assert_eq!(
+            errors.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            vec!["invalid due_date: is generated by scheduling and is not listed in properties"]
+        );
+    }
+
+    #[test]
+    fn a_declared_schedule_key_and_an_invalid_timezone_are_reported() {
+        let space = Space::new().seed();
+        space
+            .store
+            .save_property(
+                &PropertyDef {
+                    key: "due_date".to_owned(),
+                    name: "Due".to_owned(),
+                    format: PropertyFormat::Date,
+                    options: Vec::new(),
+                    target_type: None,
+                    multi: false,
+                },
+                None,
+            )
+            .expect("hand-edited property");
+        let (mut meta, fingerprint) = space.store.load_space().expect("space");
+        meta.timezone = "Mars/Olympus_Mons".to_owned();
+        space
+            .store
+            .save_space(&meta, Some(fingerprint))
+            .expect("rewrite space");
+
+        let index = space.index();
+        let problems = index.problems();
+        assert_eq!(problems.schedule_key_conflicts, vec!["due_date"]);
+        assert_eq!(
+            problems.invalid_timezone.as_deref(),
+            Some("Mars/Olympus_Mons")
         );
     }
 }

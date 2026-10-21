@@ -223,6 +223,8 @@ fn contains_text(haystack: &str, needle: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    static SCHEDULE_PROPERTIES: std::sync::LazyLock<BTreeMap<String, PropertyDef>> =
+        std::sync::LazyLock::new(crate::schedule::schedule_property_defs);
 
     use time::OffsetDateTime;
     use uuid::Uuid;
@@ -307,6 +309,7 @@ mod tests {
             Schema {
                 types: &self.types,
                 properties: &self.properties,
+                schedule_properties: &SCHEDULE_PROPERTIES,
                 objects: &self.objects,
                 trash: &self.objects,
             }
