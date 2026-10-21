@@ -6,6 +6,7 @@ import { ObjectPanel } from "@/components/object-panel";
 import { SpaceNav } from "@/components/space-nav";
 import { Button, FormError } from "@/components/ui/controls";
 import { readError, shortId } from "@/lib/display";
+import { effectiveProperties } from "@/lib/schema";
 import { useSpaceEvents } from "@/lib/use-space-events";
 
 /** `/s/:spaceId/o/:objectId` — one record, its properties and its markdown body. */
@@ -78,14 +79,14 @@ export function ObjectPage() {
           spaceId={detail.id}
           type={type.data}
           object={record}
-          properties={propertiesData}
+          properties={effectiveProperties(type.data, propertiesData)}
           canEdit={detail.role !== "viewer"}
           reloadObject={async () => (await object.refetch()).data}
         />
         <HistoryPanel
           spaceId={detail.id}
           objectId={record.id}
-          properties={propertiesData}
+          properties={effectiveProperties(type.data, propertiesData)}
           memberName={(userId) =>
             detail.members.find((member) => member.user === userId)?.name ?? shortId(userId)
           }

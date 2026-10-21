@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TypeDef } from "@/api/types";
 import {
   addSort,
+  columnChoices,
   effectiveView,
   filterFromParams,
   filterParam,
@@ -22,6 +23,7 @@ const type: TypeDef = {
   name: "Chore",
   name_plural: "Chores",
   description: "",
+  schedule: false,
   properties: [{ key: "status", required: false, featured: true }],
   view: {
     sorts: [{ property: "title", direction: "asc", empty: "end" }],
@@ -129,5 +131,35 @@ describe("condition values", () => {
     ]);
     expect(operatorsFor("select")).toContain("equal");
     expect(operatorsFor("select")).not.toContain("in");
+    expect(operatorsFor("recurrence")).toEqual([
+      "equal",
+      "not_equal",
+      "is_empty",
+      "is_not_empty",
+    ]);
+  });
+
+  it("offers generated schedule members as filter columns", () => {
+    const scheduled: TypeDef = {
+      ...type,
+      schedule: true,
+      implicit_properties: [
+        { key: "due_date", name: "Due", format: "date" },
+        { key: "recurrence", name: "Repeats", format: "recurrence" },
+        { key: "last_completed_at", name: "Last completed", format: "datetime" },
+      ],
+    };
+    const choices = columnChoices(scheduled, [
+      { key: "status", name: "Status", format: "text" },
+      ...(scheduled.implicit_properties ?? []),
+    ]);
+    expect(choices.map((choice) => choice.key)).toEqual([
+      "title",
+      "status",
+      "due_date",
+      "recurrence",
+      "last_completed_at",
+      "updated_at",
+    ]);
   });
 });

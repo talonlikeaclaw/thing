@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
-import { useTrashObject, useUpdateObject } from "@/api/queries";
+import { useCompleteObject, useTrashObject, useUpdateObject } from "@/api/queries";
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
@@ -10,7 +10,8 @@ import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
-import { sameJson } from "@/lib/schema";
+import { dueTone } from "@/lib/schedule";
+import { effectiveMembers, sameJson } from "@/lib/schema";
 
 interface ObjectPanelProps {
   spaceId: string;
@@ -21,6 +22,14 @@ interface ObjectPanelProps {
   /** Refetches the record from the server; the panel replaces its draft on success. */
   reloadObject: () => Promise<ObjectDetail | undefined>;
 }
+
+const STATUS_LABELS = {
+  unscheduled: "Not scheduled",
+  done: "Done",
+  overdue: "Overdue",
+  today: "Due today",
+  upcoming: "Upcoming",
+} as const;
 
 interface Draft {
   title: string;
@@ -75,15 +84,17 @@ export function ObjectPanel({
   /** Bumped on reload so every field re-reads the draft it was given. */
   const [nonce, setNonce] = useState(0);
   const update = useUpdateObject(spaceId);
+  const complete = useCompleteObject(spaceId);
   const trash = useTrashObject(spaceId);
   const navigate = useNavigate();
   const toast = useToast();
   const objectId = object.id;
 
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
-  const members = new Map(type?.properties.map((member) => [member.key, member]) ?? []);
+  const effective = type ? effectiveMembers(type) : [];
+  const members = new Map(effective.map((member) => [member.key, member]));
   const keys = [
-    ...(type?.properties.map((member) => member.key) ?? []),
+    ...effective.map((member) => member.key),
     ...Object.keys(draft.values).filter((key) => !members.has(key)),
   ];
 
@@ -142,6 +153,31 @@ export function ObjectPanel({
 
   const saveRef = useRef(save);
   saveRef.current = save;
+
+  function onComplete() {
+    if (!canEdit || complete.isPending) {
+      return;
+    }
+    complete.mutate(
+      { id: objectId, rev: object.rev },
+      {
+        onSuccess: (saved) => {
+          resetFrom(saved);
+          setConflict(null);
+          setSaveError(null);
+          toast.showToast("Completed this record.");
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.status === 409) {
+            toast.showToast(`Conflict — ${readError(error)}`, "danger");
+            void reload();
+            return;
+          }
+          setSaveError(readError(error));
+        },
+      },
+    );
+  }
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -223,6 +259,7 @@ export function ObjectPanel({
             value={draft.values[key] ?? null}
             label={object.properties[key]?.label ?? ""}
             canEdit={canEdit}
+            locked={key === "last_completed_at" ? "Set by Complete" : undefined}
             onChange={(value) =>
               setDraft((current) => ({
                 ...current,
@@ -300,6 +337,57 @@ export function ObjectPanel({
         updated {formatDate(object.updated_at)} · created {formatDate(object.created_at)}
         {type ? ` · ${type.key}` : ""}
       </p>
+
+      {type?.schedule && object.schedule ? (
+        <section
+          aria-label="Schedule"
+          className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-y rule py-2.5"
+        >
+          <span className={cn("label", dueTone(object.schedule.status))}>
+            {STATUS_LABELS[object.schedule.status]}
+          </span>
+          {object.schedule.due_date ? (
+            <span className="text-[13px] text-muted">
+              Due{" "}
+              <span className={cn("tnum", dueTone(object.schedule.status))}>
+                {object.schedule.due_date}
+              </span>
+            </span>
+          ) : null}
+          {object.schedule.status === "overdue" &&
+          object.schedule.days_until_due !== undefined ? (
+            <span className="text-[13px] text-danger tnum">
+              {Math.abs(object.schedule.days_until_due)}d overdue
+            </span>
+          ) : null}
+          {object.schedule.status === "upcoming" &&
+          object.schedule.days_until_due !== undefined ? (
+            <span className="text-[13px] text-muted tnum">
+              in {object.schedule.days_until_due}d
+            </span>
+          ) : null}
+          {type.schedule && object.properties.recurrence?.label ? (
+            <span className="text-[13px] text-muted">
+              {object.properties.recurrence.label}
+            </span>
+          ) : null}
+          {object.schedule.completed_at ? (
+            <span className="text-[13px] text-faint">
+              Completed <span className="tnum">{formatDate(object.schedule.completed_at)}</span>
+            </span>
+          ) : null}
+          {canEdit && object.schedule.status !== "done" ? (
+            <Button
+              type="button"
+              className="ml-auto min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={complete.isPending}
+              onClick={onComplete}
+            >
+              {complete.isPending ? "Completing…" : "Complete"}
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
 
       {conflict ? (
         <div

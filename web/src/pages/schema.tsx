@@ -7,6 +7,7 @@ import { TypeEditor } from "@/components/schema/type-editor";
 import { TypeList } from "@/components/schema/type-list";
 import { Button, FormError } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
+import { effectiveProperties } from "@/lib/schema";
 
 export function SchemaPage() {
   const { spaceId } = useParams();
@@ -116,7 +117,7 @@ export function SchemaPage() {
               key={type.data.key}
               spaceId={detail.id}
               type={type.data}
-              properties={properties.data}
+              properties={effectiveProperties(type.data, properties.data)}
               canEdit={canEdit}
             />
           ) : (

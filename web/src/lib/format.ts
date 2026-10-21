@@ -1,4 +1,5 @@
 import type { PropertyDef, PropertyFormat } from "@/api/types";
+import { recurrenceSummary } from "@/lib/schedule";
 
 /** Whether a value counts as unset, matching the server's empty-key rule. */
 export function isBlank(value: unknown): boolean {
@@ -61,6 +62,8 @@ export function valueLabel(
         .map((id) => (typeof id === "string" ? relationTitles?.get(id) ?? id : String(id)))
         .join(", ");
     }
+    case "recurrence":
+      return recurrenceSummary(value);
     default:
       return plain(value);
   }
@@ -129,6 +132,9 @@ export function parseCellText(format: PropertyFormat, text: string): unknown {
     case "url":
     case "email":
       return trimmed;
+    case "recurrence":
+      // A recurrence is a mapping with its own control; text cannot express it.
+      return undefined;
     default:
       return text;
   }

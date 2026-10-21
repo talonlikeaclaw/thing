@@ -5,6 +5,7 @@ import { SpaceNav } from "@/components/space-nav";
 import { TypeTable } from "@/components/type-table";
 import { Button, FormError } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
+import { effectiveProperties } from "@/lib/schema";
 
 /** `/s/:spaceId/t/:typeKey` — one type's live table. */
 export function TypeTablePage() {
@@ -60,7 +61,7 @@ export function TypeTablePage() {
           key={`${typeData.key}:${spaceId}`}
           spaceId={detail.id}
           type={typeData}
-          properties={propertiesData}
+          properties={effectiveProperties(typeData, propertiesData)}
           canEdit={detail.role !== "viewer"}
         />
       </div>

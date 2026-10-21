@@ -54,7 +54,8 @@ export type PropertyFormat =
   | "multi_select"
   | "url"
   | "email"
-  | "relation";
+  | "relation"
+  | "recurrence";
 
 export interface OptionDef {
   /** Stable identity: renaming the display name never moves a stored value. */
@@ -126,12 +127,37 @@ export interface ViewDef {
   columns: string[];
 }
 
+export type RecurrenceKind = "days" | "weekly" | "monthly";
+
+/** A recurrence mapping as frontmatter and JSON carry it. */
+export interface RecurrenceValue {
+  kind: RecurrenceKind;
+  every: number;
+  /** `0`=Sunday through `6`=Saturday; `weekly` only. */
+  weekday?: number;
+  /** `1..=31`; `monthly` only. */
+  day?: number;
+}
+
+export type ScheduleStatus = "unscheduled" | "done" | "overdue" | "today" | "upcoming";
+
+/** The server-derived timing of one scheduled record. */
+export interface ScheduleState {
+  due_date?: string;
+  status: ScheduleStatus;
+  days_until_due?: number;
+  completed_at?: IsoDate;
+}
+
 export interface TypeDef {
   key: string;
   name: string;
   name_plural: string;
   icon?: string | null;
   description: string;
+  schedule: boolean;
+  /** The generated schedule definitions; omitted when the type is not scheduled. */
+  implicit_properties?: PropertyDef[];
   properties: TypeProperty[];
   view: ViewDef;
 }
@@ -142,6 +168,7 @@ export interface TypeSummary {
   name_plural: string;
   icon?: string | null;
   description: string;
+  schedule: boolean;
   property_count: number;
   object_count: number;
 }
@@ -163,6 +190,8 @@ export interface ObjectSummary {
   updated_at: IsoDate;
   values: Record<string, ValueJson>;
   missing_relations: Uuid[];
+  /** Timing for a scheduled type; absent on every other type. */
+  schedule?: ScheduleState;
 }
 
 export interface ObjectList {
@@ -185,6 +214,32 @@ export interface ObjectDetail {
   properties: Record<string, ValueJson>;
   body: string;
   missing_relations: Uuid[];
+  /** Timing for a scheduled type; absent on every other type. */
+  schedule?: ScheduleState;
+}
+
+/** One row of the Schedule page; the server owns its bucket. */
+export interface AgendaRow {
+  id: Uuid;
+  type: string;
+  type_name: string;
+  type_icon?: string | null;
+  title: string;
+  rev: number;
+  due_date: string;
+  status: ScheduleStatus;
+  days_until_due: number;
+  recurrence?: string;
+  last_completed_at?: IsoDate;
+}
+
+export interface Agenda {
+  today: string;
+  timezone: string;
+  overdue: AgendaRow[];
+  due_today: AgendaRow[];
+  upcoming: AgendaRow[];
+  later_count: number;
 }
 
 /** The query the table sends; `filter` and `sorts` are already effective. */
@@ -197,7 +252,7 @@ export interface ObjectsQuery {
   offset?: number;
 }
 
-export type RevisionAction = "create" | "update" | "delete" | "restore";
+export type RevisionAction = "create" | "update" | "delete" | "restore" | "complete";
 
 /** The title and every property a write left behind. */
 export interface RevisionSnapshot {

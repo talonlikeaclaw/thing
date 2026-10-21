@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
+import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { datetimeLocal, fromDatetimeLocal, inputText, isBlank, isChecked, optionName } from "@/lib/format";
@@ -16,6 +17,8 @@ interface PropertyFieldProps {
   /** The server's label for the current value, used when the field is read-only. */
   label: string;
   canEdit: boolean;
+  /** A reason the field is read-only even for an editor; shown under the value. */
+  locked?: string;
   onChange: (value: unknown | null) => void;
   /** A field whose text cannot be saved (a half-typed number) disables Save. */
   onInvalid: (invalid: boolean) => void;
@@ -34,6 +37,15 @@ export function PropertyField(props: PropertyFieldProps) {
     return <ReadOnlyValue property={props.property} value={props.value} label={props.label} />;
   }
 
+  if (props.locked) {
+    return (
+      <div className="grid gap-1">
+        <ReadOnlyValue property={props.property} value={props.value} label={props.label} />
+        <span className="text-[12px] text-faint">{props.locked}</span>
+      </div>
+    );
+  }
+
   switch (props.property.format) {
     case "checkbox":
       return <CheckboxField {...props} />;
@@ -43,6 +55,13 @@ export function PropertyField(props: PropertyFieldProps) {
       return <MultiSelectField {...props} />;
     case "relation":
       return <RelationField {...props} />;
+    case "recurrence":
+      return (
+        <RecurrenceInput
+          value={props.value}
+          onApply={(next) => props.onChange(next)}
+        />
+      );
     default:
       return <TextField {...props} />;
   }

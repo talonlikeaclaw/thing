@@ -24,6 +24,7 @@ export function TypeList({
 }: TypeListProps) {
   const create = useCreateType(spaceId);
   const [showCreate, setShowCreate] = useState(false);
+  const [schedule, setSchedule] = useState(false);
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,10 +40,12 @@ export function TypeList({
         ...(plural ? { name_plural: plural } : {}),
         ...(icon ? { icon } : {}),
         ...(description ? { description } : {}),
+        ...(schedule ? { schedule: true } : {}),
       },
       {
         onSuccess: (created) => {
           form.reset();
+          setSchedule(false);
           setShowCreate(false);
           onCreated(created.key);
         },
@@ -104,6 +107,14 @@ export function TypeList({
                 hint="Defaults to the name plus s."
               />
               <TextField label="Description" name="description" maxLength={500} />
+              <label className="flex min-h-10 items-center gap-2 text-[14px] pointer-coarse:min-h-11">
+                <input
+                  type="checkbox"
+                  checked={schedule}
+                  onChange={(event) => setSchedule(event.target.checked)}
+                />
+                Schedule — due dates, repeats and Complete
+              </label>
               <FormError message={create.error ? readError(create.error) : null} />
               <div className="flex gap-2">
                 <Button type="submit" disabled={create.isPending} className="min-h-9 px-3 text-[13px]">

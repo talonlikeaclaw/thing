@@ -31,6 +31,13 @@ describe("cell labels", () => {
     expect(valueLabel("relation", "c", undefined, titles)).toBe("c");
   });
 
+  it("labels a recurrence mapping and refuses it as text", () => {
+    expect(valueLabel("recurrence", { kind: "weekly", every: 2, weekday: 1 }, undefined)).toBe(
+      "Every 2 weeks on Monday",
+    );
+    expect(parseCellText("recurrence", "every 2 weeks")).toBeUndefined();
+  });
+
   it("treats empty values as blank and others as their plain text", () => {
     expect(isBlank("")).toBe(true);
     expect(isBlank([])).toBe(true);

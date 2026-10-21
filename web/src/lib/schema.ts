@@ -1,4 +1,10 @@
-import type { OptionDef, PropertyFormat, TypeProperty } from "@/api/types";
+import type {
+  OptionDef,
+  PropertyDef,
+  PropertyFormat,
+  TypeDef,
+  TypeProperty,
+} from "@/api/types";
 
 export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "text", label: "Text" },
@@ -11,6 +17,7 @@ export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "url", label: "URL" },
   { value: "email", label: "Email" },
   { value: "relation", label: "Relation" },
+  { value: "recurrence", label: "Recurrence" },
 ];
 
 const FORMAT_LABELS = Object.fromEntries(
@@ -34,6 +41,32 @@ export function colorValue(color: string): string {
 }
 
 export const TITLE_COLUMN = "title";
+
+/** Every property a type exposes: its declared library plus generated schedule keys. */
+export function effectiveProperties(
+  type: TypeDef | undefined,
+  declared: PropertyDef[],
+): PropertyDef[] {
+  const implicit = (type?.implicit_properties ?? []).filter(
+    (property) => !declared.some((known) => known.key === property.key),
+  );
+  return implicit.length === 0 ? declared : [...declared, ...implicit];
+}
+
+/** The type's members, declared first: what a table, filter and panel may name. */
+export function effectiveMembers(type: TypeDef): TypeProperty[] {
+  const declared = type.properties;
+  if (!type.schedule) {
+    return declared;
+  }
+  const generated = (type.implicit_properties ?? []).map((property) => property.key);
+  return [
+    ...declared,
+    ...generated
+      .filter((key) => !declared.some((member) => member.key === key))
+      .map((key) => ({ key, required: false, featured: true })),
+  ];
+}
 
 /** Compares JSON-shaped values without caring about object key order. */
 export function sameJson(left: unknown, right: unknown): boolean {

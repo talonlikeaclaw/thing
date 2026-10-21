@@ -224,6 +224,7 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
                           spaceId={spaceId}
                           property={property}
                           cell={row.values[key]}
+                          schedule={row.schedule}
                           canEdit={canEdit}
                           onCommit={(cell) => commitCell(row, property, cell)}
                         />

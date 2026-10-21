@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { OptionDef, TypeProperty } from "@/api/types";
+import type { OptionDef, PropertyDef, TypeDef, TypeProperty } from "@/api/types";
 import {
   addProperty,
+  effectiveMembers,
+  effectiveProperties,
   moveColumn,
   moveItem,
   moveProperty,
@@ -61,6 +63,43 @@ describe("view columns", () => {
     const items = [1, 2, 3];
     expect(moveItem(items, 0, 3)).toBe(items);
     expect(moveItem(items, -1, 0)).toBe(items);
+  });
+});
+
+describe("effective scheduling members", () => {
+  const implicit: PropertyDef[] = [
+    { key: "due_date", name: "Due", format: "date" },
+    { key: "recurrence", name: "Repeats", format: "recurrence" },
+  ];
+  const scheduled: TypeDef = {
+    key: "chore",
+    name: "Chore",
+    name_plural: "Chores",
+    description: "",
+    schedule: true,
+    implicit_properties: implicit,
+    properties: [room],
+    view: { sorts: [], filter: { op: "and", conditions: [] }, columns: ["title"] },
+  };
+
+  it("appends generated properties after declared ones", () => {
+    expect(effectiveProperties(scheduled, []).map((property) => property.key)).toEqual([
+      "due_date",
+      "recurrence",
+    ]);
+    expect(
+      effectiveMembers(scheduled).map((member) => [member.key, member.featured]),
+    ).toEqual([
+      ["room", false],
+      ["due_date", true],
+      ["recurrence", true],
+    ]);
+  });
+
+  it("leaves an unscheduled type exactly as declared", () => {
+    const plain = { ...scheduled, schedule: false, implicit_properties: undefined };
+    expect(effectiveMembers(plain)).toBe(plain.properties);
+    expect(effectiveProperties(plain, [])).toEqual([]);
   });
 });
 

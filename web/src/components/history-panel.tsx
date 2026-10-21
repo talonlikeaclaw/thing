@@ -27,6 +27,7 @@ const ACTION_LABELS: Record<RevisionAction, string> = {
   update: "saved",
   delete: "trashed",
   restore: "restored",
+  complete: "completed",
 };
 
 /**

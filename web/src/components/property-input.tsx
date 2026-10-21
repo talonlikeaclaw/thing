@@ -3,6 +3,7 @@ import { type KeyboardEvent, useRef, useState } from "react";
 
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
+import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 import {
@@ -12,6 +13,7 @@ import {
   parseCalendarDate,
   valueLabel,
 } from "@/lib/format";
+import { recurrenceSummary } from "@/lib/schedule";
 import { optionDrafts, optionInputs } from "@/lib/schema";
 import { cn } from "@/lib/cn";
 
@@ -38,6 +40,17 @@ export function PropertyInput(props: PropertyInputProps) {
       return <MultiSelectInput {...props} />;
     case "relation":
       return <RelationInput {...props} />;
+    case "recurrence":
+      return (
+        <RecurrenceInput
+          value={props.value}
+          autoFocus
+          onApply={(next) =>
+            props.onCommit(next, next === null ? "" : recurrenceSummary(next))
+          }
+          onCancel={props.onCancel}
+        />
+      );
     default:
       return <TextInput {...props} />;
   }

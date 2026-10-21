@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useRelationChoices } from "@/api/queries";
 import type { CondOp, Condition, Filter, PropertyDef, PropertyFormat, TypeDef } from "@/api/types";
+import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button } from "@/components/ui/controls";
 import {
   columnChoice,
@@ -177,6 +178,14 @@ function ConditionValue({
 }: ConditionValueProps) {
   if (!conditionTakesValue(conditionOp)) {
     return null;
+  }
+  if (format === "recurrence") {
+    return (
+      <RecurrenceInput
+        value={condition.value}
+        onApply={(next) => onChange(next)}
+      />
+    );
   }
   if (format === "select" && property) {
     return (

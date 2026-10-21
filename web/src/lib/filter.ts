@@ -9,6 +9,7 @@ import type {
   TypeDef,
 } from "@/api/types";
 import { parseCellText } from "@/lib/format";
+import { effectiveMembers } from "@/lib/schema";
 
 /** Stable labels for every condition the engine understands. */
 export const CONDITION_LABELS: Record<CondOp, string> = {
@@ -56,6 +57,7 @@ export function operatorsFor(format: PropertyFormat): CondOp[] {
     case "multi_select":
       return ["contains", "not_contains", ...empty];
     case "relation":
+    case "recurrence":
       return ["equal", "not_equal", ...empty];
   }
 }
@@ -80,7 +82,7 @@ export interface ColumnChoice {
 export function columnChoices(type: TypeDef, properties: PropertyDef[]): ColumnChoice[] {
   const byKey = new Map(properties.map((property) => [property.key, property]));
   const columns: ColumnChoice[] = [{ key: "title", label: "Title", format: "text" }];
-  for (const member of type.properties) {
+  for (const member of effectiveMembers(type)) {
     const property = byKey.get(member.key);
     if (property) {
       columns.push({ key: property.key, label: property.name, format: property.format });

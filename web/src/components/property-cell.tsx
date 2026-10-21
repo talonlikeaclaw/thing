@@ -1,9 +1,10 @@
 import { Check, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
-import type { PropertyDef, ValueJson } from "@/api/types";
+import type { PropertyDef, ScheduleState, ValueJson } from "@/api/types";
 import { PropertyInput, TitleInput } from "@/components/property-input";
 import { isBlank, isChecked, optionName } from "@/lib/format";
+import { dueCellLabel, dueTone } from "@/lib/schedule";
 import { cn } from "@/lib/cn";
 
 interface CellCommit {
@@ -15,12 +16,20 @@ interface PropertyCellProps {
   spaceId: string;
   property: PropertyDef;
   cell: ValueJson | undefined;
+  schedule: ScheduleState | undefined;
   canEdit: boolean;
   onCommit: (commit: CellCommit) => void;
 }
 
 /** A table cell: the label until clicked, then the format's own input. */
-export function PropertyCell({ spaceId, property, cell, canEdit, onCommit }: PropertyCellProps) {
+export function PropertyCell({
+  spaceId,
+  property,
+  cell,
+  schedule,
+  canEdit,
+  onCommit,
+}: PropertyCellProps) {
   const [editing, setEditing] = useState(false);
   const value = cell?.value;
   const label = cell?.label ?? "";
@@ -52,7 +61,13 @@ export function PropertyCell({ spaceId, property, cell, canEdit, onCommit }: Pro
       )}
       onClick={() => setEditing(true)}
     >
-      <CellValue property={property} value={value} label={label} missing={cell?.missing} />
+      <CellValue
+        property={property}
+        value={value}
+        label={label}
+        schedule={schedule}
+        missing={cell?.missing}
+      />
     </button>
   );
 }
@@ -110,11 +125,13 @@ function CellValue({
   property,
   value,
   label,
+  schedule,
   missing,
 }: {
   property: PropertyDef;
   value: unknown;
   label: string;
+  schedule?: ScheduleState;
   missing?: boolean;
 }) {
   if (property.format === "checkbox") {
@@ -152,6 +169,7 @@ function CellValue({
     );
   }
 
+  const due = property.key === "due_date" ? schedule : undefined;
   return (
     <span
       className={cn(
@@ -162,10 +180,11 @@ function CellValue({
           "tnum",
         property.format === "relation" && "font-mono text-[12px]",
         property.format === "url" || property.format === "email" ? "text-muted" : "",
+        due ? dueTone(due.status) : "",
       )}
       title={label}
     >
-      {label}
+      {due ? dueCellLabel(due, value) : label}
       {missing ? (
         <TriangleAlert aria-label="Target missing" className="ml-1 inline text-warning" size={12} />
       ) : null}

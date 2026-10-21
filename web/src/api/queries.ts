@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { ApiError, isUnauthenticated, request } from "@/api/client";
 import type {
+  Agenda,
   ObjectDetail,
   ObjectList,
   ObjectsQuery,
@@ -30,6 +31,7 @@ export const queryKeys = {
   properties: (id: string) => ["space", id, "properties"] as const,
   objects: (id: string, query: ObjectsQuery) => ["space", id, "objects", query] as const,
   objectsPrefix: (id: string) => ["space", id, "objects"] as const,
+  agenda: (id: string, days = 14) => ["space", id, "agenda", days] as const,
   object: (id: string, objectId: string) => ["space", id, "object", objectId] as const,
   history: (id: string, objectId: string) =>
     ["space", id, "object", objectId, "history"] as const,
@@ -117,6 +119,7 @@ export function useLogout() {
 interface NewSpace {
   name: string;
   icon?: string;
+  timezone?: string;
 }
 
 export function useCreateSpace() {
@@ -127,6 +130,26 @@ export function useCreateSpace() {
     onSuccess: (space) => {
       client.setQueryData(queryKeys.space(space.id), space);
       void client.invalidateQueries({ queryKey: queryKeys.spaces });
+    },
+  });
+}
+
+export interface UpdateSpace {
+  name?: string;
+  icon?: string | null;
+  timezone?: string;
+}
+
+/** Space settings: name, icon and the zone that makes a due day a calendar day. */
+export function useUpdateSpace(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateSpace) =>
+      request<SpaceDetail>(`/api/spaces/${spaceId}`, { method: "PATCH", body: input }),
+    onSuccess: (space) => {
+      client.setQueryData(queryKeys.space(spaceId), space);
+      void client.invalidateQueries({ queryKey: queryKeys.spaces });
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
     },
   });
 }
@@ -160,6 +183,7 @@ export interface NewType {
   name_plural?: string;
   icon?: string;
   description?: string;
+  schedule?: boolean;
 }
 
 export interface UpdateType {
@@ -168,6 +192,7 @@ export interface UpdateType {
   /** `null` clears the icon; omitting the field leaves it alone. */
   icon?: string | null;
   description?: string;
+  schedule?: boolean;
   properties?: TypeProperty[];
   view?: ViewDef;
 }
@@ -272,6 +297,15 @@ export function useObject(spaceId: string | undefined, objectId: string | undefi
     queryKey: queryKeys.object(spaceId ?? "", objectId ?? ""),
     queryFn: () => request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${objectId}`),
     enabled: Boolean(spaceId && objectId),
+  });
+}
+
+/** The space's due buckets, computed by the server in the space's timezone. */
+export function useAgenda(spaceId: string | undefined, days = 14) {
+  return useQuery({
+    queryKey: queryKeys.agenda(spaceId ?? "", days),
+    queryFn: () => request<Agenda>(`/api/spaces/${spaceId}/agenda?days=${days}`),
+    enabled: Boolean(spaceId),
   });
 }
 
@@ -390,6 +424,7 @@ function applyObject(
         rev: object.rev,
         updated_at: object.updated_at,
         values,
+        ...(object.schedule === undefined ? {} : { schedule: object.schedule }),
       };
     });
     return changed ? { ...list, objects } : list;
@@ -452,6 +487,36 @@ export function useUpdateObject(spaceId: string) {
       }
     },
     onSuccess: (object) => applyObject(client, spaceId, object),
+  });
+}
+
+export interface CompleteObjectInput {
+  id: string;
+  rev: number;
+}
+
+/**
+ * Records one completion. The server advances a recurring due date and writes
+ * the revision; the space prefix is invalidated so every surface re-reads it.
+ */
+export function useCompleteObject(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CompleteObjectInput) =>
+      request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${input.id}/complete`, {
+        method: "POST",
+        body: { rev: input.rev },
+      }),
+    onSuccess: (object) => {
+      applyObject(client, spaceId, object);
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+    },
+    onError: (error, input) => {
+      if (error instanceof ApiError && error.status === 409) {
+        void client.invalidateQueries({ queryKey: queryKeys.objectsPrefix(spaceId) });
+        void client.invalidateQueries({ queryKey: queryKeys.object(spaceId, input.id) });
+      }
+    },
   });
 }
 

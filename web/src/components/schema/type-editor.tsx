@@ -1,13 +1,19 @@
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { ApiError } from "@/api/client";
 import { useUpdateType } from "@/api/queries";
 import type { PropertyDef, TypeDef, TypeProperty, ViewDef } from "@/api/types";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, FormError, SelectField, TextAreaField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 import {
+  isScheduleKey,
+  SCHEDULE_PROPERTY_DEFS,
+} from "@/lib/schedule";
+import {
   addProperty,
+  effectiveProperties,
   formatLabel,
   moveColumn,
   moveProperty,
@@ -30,6 +36,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
   const [plural, setPlural] = useState(type.name_plural);
   const [icon, setIcon] = useState(type.icon ?? "");
   const [description, setDescription] = useState(type.description);
+  const [schedule, setSchedule] = useState(type.schedule);
   const [members, setMembers] = useState<TypeProperty[]>(type.properties);
   const [columns, setColumns] = useState<string[]>(type.view.columns);
   const [pendingKey, setPendingKey] = useState("");
@@ -41,13 +48,23 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
       setPlural(update.data.name_plural);
       setIcon(update.data.icon ?? "");
       setDescription(update.data.description);
+      setSchedule(update.data.schedule);
       setMembers(update.data.properties);
       setColumns(update.data.view.columns);
     }
   }, [update.data]);
 
-  const available = properties.filter(
-    (property) => !members.some((member) => member.key === property.key),
+  const implicit = schedule
+    ? (type.implicit_properties ?? SCHEDULE_PROPERTY_DEFS)
+    : [];
+  const library = effectiveProperties(
+    { ...type, schedule, implicit_properties: implicit },
+    properties,
+  );
+  const available = library.filter(
+    (property) =>
+      !isScheduleKey(property.key) &&
+      !members.some((member) => member.key === property.key),
   );
   const addKey = available.some((property) => property.key === pendingKey)
     ? pendingKey
@@ -58,6 +75,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     name_plural: plural.trim(),
     icon: icon.trim() ? icon.trim() : null,
     description,
+    schedule,
     properties: members,
     view,
   };
@@ -66,6 +84,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     name_plural: type.name_plural,
     icon: type.icon ?? null,
     description: type.description,
+    schedule: type.schedule,
     properties: type.properties,
     view: type.view,
   };
@@ -90,10 +109,29 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     update.mutate(payload);
   }
 
+  function onScheduleToggle(next: boolean) {
+    setSchedule(next);
+    if (next) {
+      setColumns(setColumn(columns, "due_date", true));
+    } else {
+      setColumns(columns.filter((column) => !isScheduleKey(column)));
+    }
+  }
+
+  function saveError(error: unknown): string | null {
+    if (error instanceof ApiError && error.status === 409) {
+      const objects = error.details.objects;
+      if (typeof objects === "number" && objects > 0) {
+        return `${objects} record${objects === 1 ? " still holds" : "s still hold"} schedule values. Clear Due, Repeats and Last completed on them before turning scheduling off.`;
+      }
+    }
+    return error ? readError(error) : null;
+  }
+
   const titleProperty = (key: string) =>
-    properties.find((property) => property.key === key)?.name ?? key;
+    library.find((property) => property.key === key)?.name ?? key;
   const formatOf = (key: string) => {
-    const format = properties.find((property) => property.key === key)?.format;
+    const format = library.find((property) => property.key === key)?.format;
     return format ? formatLabel(format) : "unknown";
   };
 
@@ -145,7 +183,60 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
           disabled={!canEdit}
           onChange={(event) => setDescription(event.target.value)}
         />
+
+        <div>
+          <label className="flex min-h-10 items-center gap-2 text-[14px] pointer-coarse:min-h-11">
+            <input
+              type="checkbox"
+              checked={schedule}
+              disabled={!canEdit}
+              onChange={(event) => onScheduleToggle(event.target.checked)}
+            />
+            Schedule
+          </label>
+          <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
+            Records of this type carry a due date and repeat. Values live on each record;
+            Complete writes the last completion and advances a recurring due date.
+          </p>
+        </div>
       </div>
+
+      {schedule ? (
+        <div className="mt-6">
+          <div className="flex items-baseline justify-between border-b rule pb-2">
+            <h3 className="text-[15px] font-medium">From scheduling</h3>
+            <span className="label">generated</span>
+          </div>
+          <ul>
+            {implicit.map((property) => (
+              <li
+                key={property.key}
+                className="flex flex-wrap items-baseline justify-between gap-2 border-b rule py-2"
+              >
+                <span className="flex min-w-0 items-baseline gap-2">
+                  <span className="font-mono text-[11px] text-faint">{property.key}</span>
+                  <span className="truncate text-[15px]">{property.name}</span>
+                  <span className="label">{formatLabel(property.format)}</span>
+                </span>
+                <div className="flex items-center gap-3">
+                  <label className="label flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={columns.includes(property.key)}
+                      disabled={!canEdit}
+                      onChange={(event) =>
+                        setColumns(setColumn(columns, property.key, event.target.checked))
+                      }
+                    />
+                    Column
+                  </label>
+                  <span className="label">read only</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-8">
         <div className="flex items-baseline justify-between border-b rule pb-2">
@@ -231,7 +322,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             </Button>
           </div>
         ) : null}
-        {properties.length === 0 ? (
+        {library.length === 0 ? (
           <p className="mt-2 text-[13px] text-muted">
             No properties exist in this space yet. Create one below, then add it here.
           </p>
@@ -312,7 +403,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             <span className="label text-accent">Saved</span>
           ) : null}
           <div className="min-w-[12rem] flex-1">
-            <FormError message={update.error ? readError(update.error) : null} />
+            <FormError message={saveError(update.error)} />
           </div>
         </div>
       ) : (
