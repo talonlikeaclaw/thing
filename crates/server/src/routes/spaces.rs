@@ -477,7 +477,7 @@ fn clean_name(name: &str) -> Result<String, ApiError> {
 
 #[cfg(test)]
 mod tests {
-    use thing_core::index::Problems;
+    use thing_core::index::{Problems, ViewProblem};
 
     use super::*;
 
@@ -501,10 +501,25 @@ mod tests {
         let problems = Problems {
             invalid_timezone: Some("Mars/Olympus_Mons".to_owned()),
             schedule_key_conflicts: vec!["due_date".to_owned()],
+            view_problems: vec![ViewProblem {
+                type_key: "chore".to_owned(),
+                view_key: "by_room".to_owned(),
+                field: "views.by_room.group_by".to_owned(),
+                message: "names no member: room".to_owned(),
+            }],
             ..Problems::default()
         };
         let body = super::super::problems_json(&problems);
         assert_eq!(body["invalid_timezone"], "Mars/Olympus_Mons");
         assert_eq!(body["schedule_key_conflicts"], json!(["due_date"]));
+        assert_eq!(
+            body["view_problems"],
+            json!([{
+                "type": "chore",
+                "view": "by_room",
+                "field": "views.by_room.group_by",
+                "message": "names no member: room",
+            }])
+        );
     }
 }

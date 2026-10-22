@@ -43,6 +43,21 @@ pub struct DuplicateSlug {
     pub objects: Vec<Uuid>,
 }
 
+/// One view that names something the space does not offer.
+///
+/// A semantic view problem never takes the type or its other views offline: it
+/// is reported here, and the view that asks for the missing member fails when
+/// it is selected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewProblem {
+    pub type_key: String,
+    /// Empty for a type-level problem (`views`, `default_view`).
+    pub view_key: String,
+    /// The validator's path, such as `views.by_room.group_by`.
+    pub field: String,
+    pub message: String,
+}
+
 /// Every kind of file problem a space can have: unparseable, dangling, colliding.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Problems {
@@ -53,6 +68,8 @@ pub struct Problems {
     pub invalid_timezone: Option<String>,
     /// Declared property keys that collide with a generated schedule key.
     pub schedule_key_conflicts: Vec<String>,
+    /// Views naming missing members or carrying fields their kind does not own.
+    pub view_problems: Vec<ViewProblem>,
 }
 
 /// One space: its schema, its objects, and what could not be loaded.
@@ -145,7 +162,33 @@ impl SpaceIndex {
                 .filter(|key| schedule::is_schedule_key(key))
                 .cloned()
                 .collect(),
+            view_problems: self.view_problems(),
         }
+    }
+
+    /// Runs [`validate::validate_views`] over every loaded type.
+    fn view_problems(&self) -> Vec<ViewProblem> {
+        let schema = self.schema();
+        let mut found = Vec::new();
+        for def in self.types.values() {
+            for error in validate::validate_views(&schema, def) {
+                let CoreError::ValidationFailed { field, message } = error else {
+                    continue;
+                };
+                let view_key = field
+                    .strip_prefix("views.")
+                    .and_then(|rest| rest.split_once('.'))
+                    .map(|(key, _)| key.to_owned())
+                    .unwrap_or_default();
+                found.push(ViewProblem {
+                    type_key: def.key.clone(),
+                    view_key,
+                    field,
+                    message,
+                });
+            }
+        }
+        found
     }
 
     /// The space's own metadata.
@@ -1136,6 +1179,26 @@ mod tests {
         assert_eq!(
             problems.invalid_timezone.as_deref(),
             Some("Mars/Olympus_Mons")
+        );
+    }
+
+    #[test]
+    fn a_semantically_invalid_view_is_reported_while_the_type_loads() {
+        let space = Space::new().seed();
+        let mut def = plant_type();
+        def.views[0].columns.push("ghost".to_owned());
+        space.rewrite_type(&def);
+
+        let index = space.index();
+        assert!(index.type_def("plant").is_some());
+        assert_eq!(
+            index.problems().view_problems,
+            vec![ViewProblem {
+                type_key: "plant".to_owned(),
+                view_key: "all".to_owned(),
+                field: "views.all.columns".to_owned(),
+                message: "names no member: ghost".to_owned(),
+            }]
         );
     }
 }

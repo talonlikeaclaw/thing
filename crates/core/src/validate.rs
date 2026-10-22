@@ -7,14 +7,15 @@
 //! unrelated edit impossible — so it is reported through [`dangling_relations`]
 //! and the index's `problems()` instead.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use uuid::Uuid;
 
 use crate::error::CoreError;
 use crate::model::{
-    CondOp, Condition, Filter, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
-    TypeProperty, UPDATED_AT_KEY, Value, is_reserved_key,
+    CondOp, Condition, Filter, MAX_COLUMN_WIDTH, MAX_VIEW_NAME_LEN, MAX_VIEWS, MIN_COLUMN_WIDTH,
+    ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY,
+    Value, ViewDef, ViewKind, is_reserved_key,
 };
 use crate::value;
 
@@ -205,6 +206,221 @@ pub fn validate_sorts(
         Ok(())
     } else {
         Err(errors)
+    }
+}
+
+/// Every problem with every view of a type: keys, names, the default, the
+/// per-kind fields, and the filter/sorts/columns those views name.
+///
+/// Field paths are `views.<key>.<field>` (or `default_view` for the one
+/// type-level key), so a client can point at the part to fix and the index can
+/// name the view a problem belongs to.
+pub fn validate_views(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
+    let mut errors = Vec::new();
+    if def.views.is_empty() || def.views.len() > MAX_VIEWS {
+        errors.push(invalid(
+            "views",
+            format!("must hold between 1 and {MAX_VIEWS} views"),
+        ));
+    }
+    let mut keys: BTreeSet<&str> = BTreeSet::new();
+    let mut names: BTreeSet<String> = BTreeSet::new();
+    for view in &def.views {
+        if !crate::slug::is_valid_key(&view.key) {
+            errors.push(invalid(
+                &view_field(view, "key"),
+                "must be a lowercase slug starting with a letter",
+            ));
+        } else if !keys.insert(&view.key) {
+            errors.push(invalid(
+                &view_field(view, "key"),
+                "is used by more than one view",
+            ));
+        }
+        let name = view.name.trim();
+        if name.is_empty() || name.chars().count() > MAX_VIEW_NAME_LEN {
+            errors.push(invalid(
+                &view_field(view, "name"),
+                format!("must be 1 to {MAX_VIEW_NAME_LEN} characters"),
+            ));
+        } else if !names.insert(name.to_lowercase()) {
+            errors.push(invalid(
+                &view_field(view, "name"),
+                "is used by more than one view",
+            ));
+        }
+        validate_view(schema, def, view, &mut errors);
+    }
+    if !keys.contains(def.default_view.as_str()) {
+        errors.push(invalid(
+            "default_view",
+            format!("names no view: {}", def.default_view),
+        ));
+    }
+    errors
+}
+
+/// Views that structurally depend on `property`: a board's `group_by` or a
+/// calendar's `date_property`.
+///
+/// A gallery `cover` is optional, so it is cleared by a removal rather than
+/// treated as a reason to refuse one.
+pub fn dependent_views<'a>(def: &'a TypeDef, property: &str) -> Vec<&'a ViewDef> {
+    def.views
+        .iter()
+        .filter(|view| {
+            view.group_by.as_deref() == Some(property)
+                || view.date_property.as_deref() == Some(property)
+        })
+        .collect()
+}
+
+fn validate_view(schema: &Schema, def: &TypeDef, view: &ViewDef, errors: &mut Vec<CoreError>) {
+    match view.kind {
+        ViewKind::Calendar => {
+            if !view.columns.is_empty() {
+                errors.push(invalid(
+                    &view_field(view, "columns"),
+                    "must be empty for a calendar",
+                ));
+            }
+        }
+        ViewKind::Table | ViewKind::Board | ViewKind::Gallery => {
+            if view.columns.first().map(String::as_str) != Some(TITLE_KEY) {
+                errors.push(invalid(
+                    &view_field(view, "columns"),
+                    "must start with title",
+                ));
+            }
+        }
+    }
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    for key in &view.columns {
+        if !seen.insert(key) {
+            errors.push(invalid(
+                &view_field(view, "columns"),
+                format!("lists {key} more than once"),
+            ));
+        }
+        if column(schema, def, key).is_none() {
+            errors.push(invalid(
+                &view_field(view, "columns"),
+                format!("names no member: {key}"),
+            ));
+        }
+    }
+
+    if view.kind != ViewKind::Table && !view.widths.is_empty() {
+        errors.push(invalid(
+            &view_field(view, "widths"),
+            "belongs to table views only",
+        ));
+    }
+    for (key, width) in &view.widths {
+        if !view.columns.iter().any(|column| column == key) {
+            errors.push(invalid(
+                &view_field(view, &format!("widths.{key}")),
+                "is not a column of this view",
+            ));
+        }
+        if !(MIN_COLUMN_WIDTH..=MAX_COLUMN_WIDTH).contains(width) {
+            errors.push(invalid(
+                &view_field(view, &format!("widths.{key}")),
+                format!("must be {MIN_COLUMN_WIDTH} to {MAX_COLUMN_WIDTH} pixels"),
+            ));
+        }
+    }
+
+    match (&view.group_by, view.kind) {
+        (Some(key), ViewKind::Board) => match column(schema, def, key) {
+            Some(found) if found.format == PropertyFormat::Select => {}
+            Some(_) => errors.push(invalid(
+                &view_field(view, "group_by"),
+                "must name a select property",
+            )),
+            None => errors.push(invalid(
+                &view_field(view, "group_by"),
+                format!("names no member: {key}"),
+            )),
+        },
+        (Some(_), _) => errors.push(invalid(
+            &view_field(view, "group_by"),
+            "belongs to board views only",
+        )),
+        (None, ViewKind::Board) => errors.push(invalid(
+            &view_field(view, "group_by"),
+            "is required for a board",
+        )),
+        (None, _) => {}
+    }
+
+    match (&view.cover, view.kind) {
+        (Some(key), ViewKind::Gallery) => match column(schema, def, key) {
+            Some(found) if found.property.is_some() => {}
+            Some(_) => errors.push(invalid(
+                &view_field(view, "cover"),
+                "must name a property, not title",
+            )),
+            None => errors.push(invalid(
+                &view_field(view, "cover"),
+                format!("names no member: {key}"),
+            )),
+        },
+        (Some(_), _) => errors.push(invalid(
+            &view_field(view, "cover"),
+            "belongs to gallery views only",
+        )),
+        (None, _) => {}
+    }
+
+    match (&view.date_property, view.kind) {
+        (Some(key), ViewKind::Calendar) => match column(schema, def, key) {
+            Some(found) if found.format == PropertyFormat::Date => {}
+            Some(found) if found.format == PropertyFormat::Datetime => errors.push(invalid(
+                &view_field(view, "date_property"),
+                "must name a date property, not a datetime",
+            )),
+            Some(_) => errors.push(invalid(
+                &view_field(view, "date_property"),
+                "must name a date property",
+            )),
+            None => errors.push(invalid(
+                &view_field(view, "date_property"),
+                format!("names no member: {key}"),
+            )),
+        },
+        (Some(_), _) => errors.push(invalid(
+            &view_field(view, "date_property"),
+            "belongs to calendar views only",
+        )),
+        (None, ViewKind::Calendar) => errors.push(invalid(
+            &view_field(view, "date_property"),
+            "is required for a calendar",
+        )),
+        (None, _) => {}
+    }
+
+    if let Err(found) = validate_filter(schema, def, &view.filter) {
+        let at = view_field(view, "filter");
+        errors.extend(found.into_iter().map(|error| rebase(error, &at)));
+    }
+    if let Err(found) = validate_sorts(schema, def, &view.sorts) {
+        let at = view_field(view, "sorts");
+        errors.extend(found.into_iter().map(|error| rebase(error, &at)));
+    }
+}
+
+fn view_field(view: &ViewDef, field: &str) -> String {
+    format!("views.{}.{field}", view.key)
+}
+
+/// Rewrites a filter or sort error's field under the path that carries it.
+fn rebase(error: CoreError, at: &str) -> CoreError {
+    match error {
+        CoreError::ValidationFailed { field, message } => {
+            invalid(&format!("{at}.{field}"), message)
+        }
+        other => other,
     }
 }
 
@@ -999,6 +1215,292 @@ mod tests {
 
     fn plant(fixture: &Fixture) -> &TypeDef {
         fixture.types.get("plant").expect("plant type")
+    }
+
+    fn view(key: &str, name: &str, kind: ViewKind) -> ViewDef {
+        ViewDef {
+            key: key.to_owned(),
+            name: name.to_owned(),
+            kind,
+            filter: filter(Vec::new()),
+            sorts: Vec::new(),
+            columns: vec![TITLE_KEY.to_owned()],
+            widths: BTreeMap::new(),
+            group_by: None,
+            cover: None,
+            date_property: None,
+        }
+    }
+
+    /// The fixture's type with a different view list.
+    fn type_with(fixture: &Fixture, views: Vec<ViewDef>) -> TypeDef {
+        TypeDef {
+            default_view: views.first().expect("at least one view").key.clone(),
+            views,
+            ..plant(fixture).clone()
+        }
+    }
+
+    fn view_errors(fixture: &Fixture, def: &TypeDef) -> Vec<String> {
+        validate_views(&fixture.schema(), def)
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    #[track_caller]
+    fn views_valid(fixture: &Fixture, def: &TypeDef) {
+        let errors = view_errors(fixture, def);
+        assert!(errors.is_empty(), "expected valid views, got {errors:?}");
+    }
+
+    #[test]
+    fn a_valid_view_of_each_kind_passes() {
+        let fixture = Fixture::new();
+        let mut table = view("table", "Table", ViewKind::Table);
+        table.columns = vec![TITLE_KEY.to_owned(), "room".to_owned()];
+        table.widths.insert(TITLE_KEY.to_owned(), 280);
+        let mut board = view("board", "Board", ViewKind::Board);
+        board.group_by = Some("status".to_owned());
+        let mut gallery = view("gallery", "Gallery", ViewKind::Gallery);
+        gallery.cover = Some("room".to_owned());
+        let mut calendar = view("calendar", "Calendar", ViewKind::Calendar);
+        calendar.columns.clear();
+        calendar.date_property = Some("watered".to_owned());
+
+        views_valid(
+            &fixture,
+            &type_with(&fixture, vec![table, board, gallery, calendar]),
+        );
+    }
+
+    #[test]
+    fn view_keys_and_names_are_unique() {
+        let fixture = Fixture::new();
+        let duplicate_keys = type_with(
+            &fixture,
+            vec![
+                view("all", "All", ViewKind::Table),
+                view("all", "Everything", ViewKind::Table),
+            ],
+        );
+        assert!(
+            view_errors(&fixture, &duplicate_keys)
+                .contains(&"invalid views.all.key: is used by more than one view".to_owned())
+        );
+
+        let duplicate_names = type_with(
+            &fixture,
+            vec![
+                view("all", "All", ViewKind::Table),
+                view("everything", "ALL", ViewKind::Table),
+            ],
+        );
+        assert!(
+            view_errors(&fixture, &duplicate_names).contains(
+                &"invalid views.everything.name: is used by more than one view".to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn a_type_has_a_default_a_count_and_nonempty_names() {
+        let fixture = Fixture::new();
+        let mut missing_default = type_with(&fixture, vec![view("all", "All", ViewKind::Table)]);
+        missing_default.default_view = "todo".to_owned();
+        assert!(
+            view_errors(&fixture, &missing_default)
+                .contains(&"invalid default_view: names no view: todo".to_owned())
+        );
+
+        let many: Vec<ViewDef> = (0..=MAX_VIEWS)
+            .map(|n| view(&format!("view_{n}"), &format!("View {n}"), ViewKind::Table))
+            .collect();
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, many)).contains(&format!(
+                "invalid views: must hold between 1 and {MAX_VIEWS} views"
+            ))
+        );
+
+        let blank_name = type_with(&fixture, vec![view("all", "   ", ViewKind::Table)]);
+        assert!(
+            view_errors(&fixture, &blank_name)
+                .contains(&"invalid views.all.name: must be 1 to 80 characters".to_owned())
+        );
+    }
+
+    #[test]
+    fn columns_start_with_title_and_list_members_once() {
+        let fixture = Fixture::new();
+        let mut empty = view("all", "All", ViewKind::Table);
+        empty.columns.clear();
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![empty]))
+                .contains(&"invalid views.all.columns: must start with title".to_owned())
+        );
+
+        let mut duplicate = view("all", "All", ViewKind::Table);
+        duplicate.columns = vec![TITLE_KEY.to_owned(), "room".to_owned(), "room".to_owned()];
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![duplicate]))
+                .contains(&"invalid views.all.columns: lists room more than once".to_owned())
+        );
+
+        let mut ghost = view("all", "All", ViewKind::Table);
+        ghost.columns = vec![TITLE_KEY.to_owned(), "ghost".to_owned()];
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![ghost]))
+                .contains(&"invalid views.all.columns: names no member: ghost".to_owned())
+        );
+    }
+
+    #[test]
+    fn widths_belong_to_visible_columns_and_stay_in_range() {
+        let fixture = Fixture::new();
+        let mut hidden = view("all", "All", ViewKind::Table);
+        hidden.widths.insert("room".to_owned(), 200);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![hidden])).contains(
+                &"invalid views.all.widths.room: is not a column of this view".to_owned()
+            )
+        );
+
+        for width in [MIN_COLUMN_WIDTH - 1, MAX_COLUMN_WIDTH + 1] {
+            let mut out_of_range = view("all", "All", ViewKind::Table);
+            out_of_range.widths.insert(TITLE_KEY.to_owned(), width);
+            assert!(view_errors(&fixture, &type_with(&fixture, vec![out_of_range])).contains(&format!(
+                "invalid views.all.widths.title: must be {MIN_COLUMN_WIDTH} to {MAX_COLUMN_WIDTH} pixels"
+            )));
+        }
+
+        let mut board = view("board", "Board", ViewKind::Board);
+        board.group_by = Some("status".to_owned());
+        board.widths.insert(TITLE_KEY.to_owned(), 200);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![board]))
+                .contains(&"invalid views.board.widths: belongs to table views only".to_owned())
+        );
+    }
+
+    #[test]
+    fn each_kind_requires_its_own_field_and_ignores_no_other() {
+        let fixture = Fixture::new();
+
+        let board = view("board", "Board", ViewKind::Board);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![board]))
+                .contains(&"invalid views.board.group_by: is required for a board".to_owned())
+        );
+
+        let mut text_group = view("board", "Board", ViewKind::Board);
+        text_group.group_by = Some("room".to_owned());
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![text_group]))
+                .contains(&"invalid views.board.group_by: must name a select property".to_owned())
+        );
+
+        let mut gallery_title = view("gallery", "Gallery", ViewKind::Gallery);
+        gallery_title.cover = Some(TITLE_KEY.to_owned());
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![gallery_title])).contains(
+                &"invalid views.gallery.cover: must name a property, not title".to_owned()
+            )
+        );
+
+        let mut table_group = view("table", "Table", ViewKind::Table);
+        table_group.group_by = Some("status".to_owned());
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![table_group]))
+                .contains(&"invalid views.table.group_by: belongs to board views only".to_owned())
+        );
+
+        let calendar = view("calendar", "Calendar", ViewKind::Calendar);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![calendar])).contains(
+                &"invalid views.calendar.date_property: is required for a calendar".to_owned()
+            )
+        );
+
+        let mut datetime = view("calendar", "Calendar", ViewKind::Calendar);
+        datetime.columns.clear();
+        datetime.date_property = Some("seen".to_owned());
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![datetime])).contains(
+                &"invalid views.calendar.date_property: must name a date property, not a datetime"
+                    .to_owned()
+            )
+        );
+
+        let mut with_columns = view("calendar", "Calendar", ViewKind::Calendar);
+        with_columns.date_property = Some("watered".to_owned());
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![with_columns])).contains(
+                &"invalid views.calendar.columns: must be empty for a calendar".to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn filters_and_sorts_are_checked_under_their_view() {
+        let fixture = Fixture::new();
+        let mut def = type_with(&fixture, vec![view("all", "All", ViewKind::Table)]);
+        def.views[0]
+            .filter
+            .conditions
+            .push(condition("ghost", CondOp::Equal, Some(text("x"))));
+        def.views[0].sorts.push(Sort {
+            property: "ghost".to_owned(),
+            direction: Direction::Asc,
+            empty: EmptyPlacement::End,
+        });
+        let errors = view_errors(&fixture, &def);
+        assert!(
+            errors.contains(
+                &"invalid views.all.filter.ghost: is not a property of type plant".to_owned()
+            ),
+            "{errors:?}"
+        );
+        assert!(
+            errors.contains(
+                &"invalid views.all.sorts.ghost: is not a property of type plant".to_owned()
+            ),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn dependent_views_name_the_structural_fields() {
+        let fixture = Fixture::new();
+        let mut board = view("board", "Board", ViewKind::Board);
+        board.group_by = Some("room".to_owned());
+        let mut calendar = view("calendar", "Calendar", ViewKind::Calendar);
+        calendar.columns.clear();
+        calendar.date_property = Some("watered".to_owned());
+        let def = type_with(
+            &fixture,
+            vec![view("all", "All", ViewKind::Table), board, calendar],
+        );
+
+        assert_eq!(
+            dependent_views(&def, "room")
+                .iter()
+                .map(|view| view.key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["board"]
+        );
+        assert_eq!(
+            dependent_views(&def, "watered")
+                .iter()
+                .map(|view| view.key.as_str())
+                .collect::<Vec<_>>(),
+            vec!["calendar"]
+        );
+        assert!(dependent_views(&def, "status").is_empty());
+        // A cover is optional, so it never blocks a removal.
+        let mut gallery = view("gallery", "Gallery", ViewKind::Gallery);
+        gallery.cover = Some("room".to_owned());
+        let with_cover = type_with(&fixture, vec![gallery]);
+        assert!(dependent_views(&with_cover, "room").is_empty());
     }
 
     fn filter(conditions: Vec<Condition>) -> Filter {

@@ -287,6 +287,16 @@ pub fn problems_json(problems: &Problems) -> Value {
             .collect::<Vec<_>>(),
         "invalid_timezone": problems.invalid_timezone,
         "schedule_key_conflicts": problems.schedule_key_conflicts,
+        "view_problems": problems
+            .view_problems
+            .iter()
+            .map(|problem| json!({
+                "type": problem.type_key,
+                "view": problem.view_key,
+                "field": problem.field,
+                "message": problem.message,
+            }))
+            .collect::<Vec<_>>(),
     })
 }
 
