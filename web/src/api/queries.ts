@@ -155,6 +155,19 @@ export function useUpdateSpace(spaceId: string) {
   });
 }
 
+/** Deletes the space and its files; `confirm` must repeat the space's name. */
+export function useDeleteSpace(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { confirm: string }) =>
+      request<void>(`/api/spaces/${spaceId}`, { method: "DELETE", body: input }),
+    onSuccess: () => {
+      client.removeQueries({ queryKey: queryKeys.space(spaceId) });
+      void client.invalidateQueries({ queryKey: queryKeys.spaces });
+    },
+  });
+}
+
 export function useTypes(spaceId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.types(spaceId ?? ""),

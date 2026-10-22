@@ -12,6 +12,7 @@ import type {
   TypeProperty,
   ViewDef,
 } from "@/api/types";
+import { IconPicker } from "@/components/icon-picker";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, FormError, SelectField, TextAreaField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
@@ -207,15 +208,13 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
       </div>
 
       <div className="mt-4 grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)]">
-          <TextField
+        <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)]">
+          <IconPicker
             label="Icon"
-            name={`type-${type.key}-icon`}
-            maxLength={8}
-            placeholder="Optional"
+            id={`type-${type.key}-icon`}
             value={icon}
+            onChange={setIcon}
             disabled={!canEdit}
-            onChange={(event) => setIcon(event.target.value)}
           />
           <TextField
             label="Name"

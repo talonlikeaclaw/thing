@@ -52,6 +52,12 @@ export function SpacePage() {
         ) : null}
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">{detail.name}</h1>
         <span className="label">{detail.role}</span>
+        <Link
+          to={`/s/${detail.id}/settings`}
+          className="label ml-auto transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+        >
+          Settings →
+        </Link>
       </div>
       <p className="mt-3 text-muted">
         This space has no types yet. A type is a table: its properties become columns and

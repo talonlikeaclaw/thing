@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import { useCreateSpace, useSpaces } from "@/api/queries";
 import type { SpaceSummary } from "@/api/types";
+import { IconPicker } from "@/components/icon-picker";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { readError, shortId } from "@/lib/display";
 import { defaultSpaceTimezone, timezoneNames } from "@/lib/timezone";
@@ -53,6 +54,15 @@ function SpaceRow({ space }: { space: SpaceSummary }) {
           <dd className="tnum">{space.member_count}</dd>
           <dt className="text-faint">types</dt>
           <dd className="tnum">{space.type_count}</dd>
+          <dt className="text-faint">settings</dt>
+          <dd>
+            <Link
+              to={`/s/${space.id}/settings`}
+              className="hover:text-accent"
+            >
+              edit or delete →
+            </Link>
+          </dd>
         </dl>
       ) : null}
     </li>
@@ -64,6 +74,7 @@ export function SpaceListPage() {
   const create = useCreateSpace();
   const navigate = useNavigate();
   const [timezone, setTimezone] = useState(defaultSpaceTimezone);
+  const [icon, setIcon] = useState("");
   const zoneOptions = timezoneNames(timezone).map((zone) => ({ value: zone, label: zone }));
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
@@ -71,12 +82,12 @@ export function SpaceListPage() {
     const form = event.currentTarget;
     const data = new FormData(form);
     const name = String(data.get("name") ?? "").trim();
-    const icon = String(data.get("icon") ?? "").trim();
     create.mutate(
-      { name, timezone, ...(icon ? { icon } : {}) },
+      { name, timezone, ...(icon.trim() ? { icon: icon.trim() } : {}) },
       {
         onSuccess: (space) => {
           form.reset();
+          setIcon("");
           navigate(`/s/${space.id}`);
         },
       },
@@ -147,7 +158,7 @@ export function SpaceListPage() {
             maxLength={200}
             placeholder="Garden"
           />
-          <TextField label="Icon" name="icon" maxLength={8} placeholder="Optional" />
+          <IconPicker label="Icon" value={icon} onChange={setIcon} />
           <SelectField
             label="Timezone"
             value={timezone}

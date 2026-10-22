@@ -13,6 +13,8 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   today are calendar days in the space's own IANA timezone, never elapsed hours.
 - **In-app reminders.** An overdue badge in the space rail and a Schedule page with Overdue, Today
   and upcoming sections. No email, push notification or background job.
+- **Editable spaces.** Rename a space, change its timezone, or delete it by typing its name. Icons
+  are picked from a searchable emoji grid rather than pasted in; the same picker serves types.
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.

@@ -1,17 +1,12 @@
-import { useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { useSpace, useUpdateSpace } from "@/api/queries";
-import { Button, FormError, SelectField } from "@/components/ui/controls";
+import { useSpace } from "@/api/queries";
+import { Button, FormError } from "@/components/ui/controls";
 import { formatDate, readError } from "@/lib/display";
-import { timezoneNames } from "@/lib/timezone";
 
 export function MembersPage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
-  const update = useUpdateSpace(spaceId ?? "");
-  const [pendingZone, setPendingZone] = useState<string | null>(null);
-  const [zoneError, setZoneError] = useState<string | null>(null);
 
   if (space.isPending) {
     return <p className="text-[13px] text-muted">Reading the space…</p>;
@@ -29,29 +24,6 @@ export function MembersPage() {
   }
 
   const detail = space.data;
-  const zone = pendingZone ?? detail.timezone;
-  const zoneOptions = timezoneNames(detail.timezone).map((name) => ({
-    value: name,
-    label: name,
-  }));
-
-  function changeZone(next: string) {
-    if (next === detail.timezone || update.isPending) {
-      return;
-    }
-    setPendingZone(next);
-    setZoneError(null);
-    update.mutate(
-      { timezone: next },
-      {
-        onSuccess: () => setPendingZone(null),
-        onError: (error) => {
-          setPendingZone(null);
-          setZoneError(readError(error));
-        },
-      },
-    );
-  }
 
   return (
     <div className="settle">
@@ -68,8 +40,14 @@ export function MembersPage() {
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">{detail.name}</h1>
         <span className="label">{detail.role}</span>
         <Link
-          to={`/s/${detail.id}/schema`}
+          to={`/s/${detail.id}/settings`}
           className="label ml-auto transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+        >
+          Settings →
+        </Link>
+        <Link
+          to={`/s/${detail.id}/schema`}
+          className="label transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
         >
           Schema →
         </Link>
@@ -83,39 +61,6 @@ export function MembersPage() {
         <dt className="label">Types</dt>
         <dd className="font-mono text-[12px] tnum text-muted">{detail.type_count}</dd>
       </dl>
-
-      <section aria-labelledby="space-timezone" className="mt-10">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h2 id="space-timezone" className="text-[17px] font-medium">
-            Space timezone
-          </h2>
-          {update.isPending ? <span className="label">saving</span> : null}
-        </div>
-        <div className="mt-4 max-w-[28rem]">
-          {detail.role === "owner" ? (
-            <SelectField
-              label="Zone"
-              value={zone}
-              options={zoneOptions}
-              onValueChange={changeZone}
-              disabled={update.isPending}
-              hint="Due and overdue are calendar days in this zone."
-            />
-          ) : (
-            <>
-              <p className="font-mono text-[12px] text-muted">{detail.timezone}</p>
-              <p className="mt-1 text-[13px] text-muted">
-                Due and overdue are calendar days in this zone.
-              </p>
-            </>
-          )}
-          {zoneError ? (
-            <div className="mt-3">
-              <FormError message={zoneError} />
-            </div>
-          ) : null}
-        </div>
-      </section>
 
       <section aria-labelledby="members" className="mt-10">
         <div className="flex items-baseline justify-between border-b rule pb-2">

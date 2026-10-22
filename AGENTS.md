@@ -34,8 +34,10 @@ the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-ty
 editing with optimistic writes and `409` recovery, the recurrence editor, WebSocket invalidation
 through `lib/use-space-events.ts`, the object panel with per-format inputs, a markdown body and
 Complete (`pages/object.tsx`, `components/object-panel.tsx`), the Schedule page with overdue/today/
-upcoming buckets and the nav badge (`pages/agenda.tsx`, `components/space-nav.tsx`), and history and
-trash (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
+upcoming buckets and the nav badge (`pages/agenda.tsx`, `components/space-nav.tsx`), space settings
+with name, searchable emoji icon, timezone and confirmed deletion (`pages/settings.tsx`,
+`components/icon-picker.tsx`, `lib/emoji.ts`), and history and trash
+(`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
 `.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
 Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
 same app with live reload. M2 is not tagged or deployed yet.

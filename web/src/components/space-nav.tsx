@@ -121,6 +121,12 @@ export function SpaceNav({ spaceId, types, selectedTypeKey, selected, role }: Sp
           Members
         </Link>
         <Link
+          to={`/s/${spaceId}/settings`}
+          className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+        >
+          Settings
+        </Link>
+        <Link
           to={`/s/${spaceId}/trash`}
           className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
         >

@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 
 import { useCreateType } from "@/api/queries";
 import type { TypeSummary } from "@/api/types";
+import { IconPicker } from "@/components/icon-picker";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 
@@ -25,6 +26,7 @@ export function TypeList({
   const create = useCreateType(spaceId);
   const [showCreate, setShowCreate] = useState(false);
   const [schedule, setSchedule] = useState(false);
+  const [icon, setIcon] = useState("");
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,19 +34,19 @@ export function TypeList({
     const data = new FormData(form);
     const name = String(data.get("name") ?? "").trim();
     const plural = String(data.get("name_plural") ?? "").trim();
-    const icon = String(data.get("icon") ?? "").trim();
     const description = String(data.get("description") ?? "").trim();
     create.mutate(
       {
         name,
         ...(plural ? { name_plural: plural } : {}),
-        ...(icon ? { icon } : {}),
+        ...(icon.trim() ? { icon: icon.trim() } : {}),
         ...(description ? { description } : {}),
         ...(schedule ? { schedule: true } : {}),
       },
       {
         onSuccess: (created) => {
           form.reset();
+          setIcon("");
           setSchedule(false);
           setShowCreate(false);
           onCreated(created.key);
@@ -99,8 +101,8 @@ export function TypeList({
         <div className="mt-3">
           {showCreate ? (
             <form className="grid gap-3" onSubmit={onCreate}>
-              <div className="grid grid-cols-[4rem_minmax(0,1fr)] gap-3">
-                <TextField label="Icon" name="icon" maxLength={8} placeholder="Optional" />
+              <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3">
+                <IconPicker label="Icon" value={icon} onChange={setIcon} />
                 <TextField label="Name" name="name" required maxLength={200} autoFocus />
               </div>
               <TextField

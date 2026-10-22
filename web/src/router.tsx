@@ -9,6 +9,7 @@ import { NotFoundPage } from "@/pages/not-found";
 import { ObjectPage } from "@/pages/object";
 import { RegisterPage } from "@/pages/register";
 import { SchemaPage } from "@/pages/schema";
+import { SettingsPage } from "@/pages/settings";
 import { SpacePage } from "@/pages/space";
 import { SpaceListPage } from "@/pages/spaces";
 import { TrashPage } from "@/pages/trash";
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
           { path: "s/:spaceId/o/:objectId", element: <ObjectPage /> },
           { path: "s/:spaceId/schema", element: <SchemaPage /> },
           { path: "s/:spaceId/members", element: <MembersPage /> },
+          { path: "s/:spaceId/settings", element: <SettingsPage /> },
           { path: "s/:spaceId/trash", element: <TrashPage /> },
         ],
       },
