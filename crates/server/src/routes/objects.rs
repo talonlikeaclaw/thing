@@ -87,6 +87,7 @@ async fn list(
         .ok_or_else(|| ApiError::validation("type", "a type is required"))?;
     let filter = json_param(&mut query, "filter")?;
     let sorts: Option<Vec<Sort>> = json_param(&mut query, "sorts")?;
+    let requested_view = query.raw("view");
     let text = query.raw("q");
     let limit = query
         .parse::<usize>("limit")?
@@ -116,9 +117,14 @@ async fn list(
             return Err(ApiError::validation_all(errors));
         }
 
-        let view = def
-            .default_view()
-            .ok_or_else(|| ApiError::not_found(format!("default view of {type_key}")))?;
+        let view = match requested_view {
+            Some(key) => def.view(&key).ok_or_else(|| {
+                ApiError::validation("view", format!("names no view of {type_key}: {key}"))
+            })?,
+            None => def
+                .default_view()
+                .ok_or_else(|| ApiError::not_found(format!("default view of {type_key}")))?,
+        };
         let filter = filter.unwrap_or_else(|| view.filter.clone());
         let sorts = sorts.unwrap_or_else(|| view.sorts.clone());
         let rows: Vec<ObjectSummary> = index
@@ -138,11 +144,12 @@ async fn list(
             .skip(offset)
             .take(limit)
             .map(|summary| {
-                serde_json::to_value(projection.summary_json(def, summary))
+                serde_json::to_value(projection.summary_json(def, view, summary))
                     .expect("a row serializes")
             })
             .collect();
         Ok(Json(json!({
+            "view": view.key,
             "total": total,
             "offset": offset,
             "limit": limit,

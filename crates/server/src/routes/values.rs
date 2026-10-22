@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::{Map, Value as Json, json};
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
-    ObjectDoc, ObjectSummary, PropertyDef, PropertyFormat, TITLE_KEY, TypeDef, Value,
+    ObjectDoc, ObjectSummary, PropertyDef, PropertyFormat, TITLE_KEY, TypeDef, Value, ViewDef,
 };
 use thing_core::schedule::{self, TimeZone};
 use thing_core::validate;
@@ -90,13 +90,24 @@ impl ScheduleJson {
     }
 }
 
-/// The keys a row carries: the type's view columns, in display order, without
-/// the title column, which is a field of its own.
-pub fn value_columns(def: &TypeDef) -> impl Iterator<Item = &str> {
-    def.default_view()
-        .into_iter()
-        .flat_map(|view| view.columns.iter().map(String::as_str))
-        .filter(|key| *key != TITLE_KEY)
+/// The keys a row carries: the view's columns, in display order, then the
+/// structural fields its renderer needs (`group_by`, `cover`, `date_property`),
+/// without the title column, which is a field of its own. Duplicates collapse,
+/// so a field that is both a column and the board lane is carried once.
+pub fn value_columns(view: &ViewDef) -> Vec<&str> {
+    let mut keys: Vec<&str> = Vec::new();
+    for key in view
+        .columns
+        .iter()
+        .chain(view.group_by.iter())
+        .chain(view.cover.iter())
+        .chain(view.date_property.iter())
+    {
+        if key != TITLE_KEY && !keys.contains(&key.as_str()) {
+            keys.push(key.as_str());
+        }
+    }
+    keys
 }
 
 /// One request's projection context: the space zone resolved once, and one
@@ -117,8 +128,14 @@ impl<'a> Projection<'a> {
     }
 
     /// One table row, with the labels its cells show.
-    pub fn summary_json(&self, def: &TypeDef, summary: &ObjectSummary) -> SummaryJson {
-        let values = value_columns(def)
+    pub fn summary_json(
+        &self,
+        def: &TypeDef,
+        view: &ViewDef,
+        summary: &ObjectSummary,
+    ) -> SummaryJson {
+        let values = value_columns(view)
+            .into_iter()
             .filter_map(|key| {
                 summary
                     .properties
@@ -443,7 +460,8 @@ mod tests {
             ]),
             &["room", "watering"],
         );
-        let json = serde_json::to_value(Projection::new(&index).summary_json(&def, &summary))
+        let view = def.default_view().expect("the default view");
+        let json = serde_json::to_value(Projection::new(&index).summary_json(&def, view, &summary))
             .expect("json");
         assert_eq!(json["title"], "Monstera");
         assert_eq!(

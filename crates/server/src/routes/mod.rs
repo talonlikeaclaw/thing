@@ -2524,4 +2524,233 @@ mod tests {
             assert_eq!(disabled.body["views"][0]["columns"], json!(["title"]));
         });
     }
+
+    #[test]
+    fn an_object_list_resolves_a_view_and_projects_its_fields() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("lists@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let base = format!("/api/spaces/{space}");
+            let types = format!("{base}/types");
+            let views = format!("{types}/plant/views");
+            let objects = format!("{base}/objects");
+
+            server
+                .call(
+                    "POST",
+                    &format!("{base}/properties"),
+                    Some(json!({
+                        "name": "Room",
+                        "format": "select",
+                        "options": [{ "name": "Kitchen" }, { "name": "Study" }]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            server
+                .call(
+                    "POST",
+                    &format!("{base}/properties"),
+                    Some(json!({ "name": "Planted on", "format": "date" })),
+                    Some(&cookie),
+                )
+                .await;
+            server
+                .call(
+                    "POST",
+                    &types,
+                    Some(json!({ "name": "Plant" })),
+                    Some(&cookie),
+                )
+                .await;
+            server
+                .call(
+                    "PATCH",
+                    &format!("{types}/plant"),
+                    Some(json!({
+                        "properties": [{ "key": "room" }, { "key": "planted_on" }]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            for (title, properties) in [
+                (
+                    "Monstera",
+                    json!({ "room": "kitchen", "planted_on": "2026-10-20" }),
+                ),
+                ("Fern", json!({ "room": "study" })),
+            ] {
+                let created = server
+                    .call(
+                        "POST",
+                        &objects,
+                        Some(json!({
+                            "type": "plant",
+                            "title": title,
+                            "properties": properties
+                        })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            }
+            for body in [
+                json!({
+                    "name": "By room",
+                    "kind": "board",
+                    "group_by": "room",
+                    "columns": ["title", "planted_on"]
+                }),
+                json!({
+                    "name": "Gallery",
+                    "kind": "gallery",
+                    "cover": "room",
+                    "columns": ["title"]
+                }),
+                json!({
+                    "name": "Calendar",
+                    "kind": "calendar",
+                    "date_property": "planted_on"
+                }),
+            ] {
+                let created = server.call("POST", &views, Some(body), Some(&cookie)).await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            }
+            server
+                .call(
+                    "POST",
+                    &format!("{views}/calendar/default"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+
+            let board = server
+                .call(
+                    "GET",
+                    &format!("{objects}?type=plant&view=by_room"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(board.status, StatusCode::OK, "{:?}", board.body);
+            assert_eq!(board.body["view"], "by_room");
+            assert_eq!(board.body["total"], 2);
+            let monstera = board.body["objects"]
+                .as_array()
+                .expect("rows")
+                .iter()
+                .find(|row| row["title"] == "Monstera")
+                .expect("Monstera");
+            assert!(monstera["values"].get("room").is_some());
+            assert!(monstera["values"].get("planted_on").is_some());
+
+            let gallery = server
+                .call(
+                    "GET",
+                    &format!("{objects}?type=plant&view=gallery"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(gallery.body["view"], "gallery");
+            let monstera = gallery.body["objects"]
+                .as_array()
+                .expect("rows")
+                .iter()
+                .find(|row| row["title"] == "Monstera")
+                .expect("Monstera");
+            assert!(
+                monstera["values"].get("room").is_some(),
+                "the cover property travels even when it is not a column"
+            );
+            assert!(monstera["values"].get("planted_on").is_none());
+
+            let calendar = server
+                .call(
+                    "GET",
+                    &format!("{objects}?type=plant&view=calendar"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(calendar.body["view"], "calendar");
+            let monstera = calendar.body["objects"]
+                .as_array()
+                .expect("rows")
+                .iter()
+                .find(|row| row["title"] == "Monstera")
+                .expect("Monstera");
+            assert!(
+                monstera["values"].get("planted_on").is_some(),
+                "a calendar's date property travels though its columns are empty"
+            );
+
+            let unknown = server
+                .call(
+                    "GET",
+                    &format!("{objects}?type=plant&view=nope"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unknown.field(), "view");
+
+            // No `view`: the default is the calendar, and a relation picker
+            // still gets the id, title and type it reads.
+            let default = server
+                .call("GET", &format!("{objects}?type=plant"), None, Some(&cookie))
+                .await;
+            assert_eq!(default.status, StatusCode::OK, "{:?}", default.body);
+            assert_eq!(default.body["view"], "calendar");
+            let first = &default.body["objects"][0];
+            assert!(first.get("id").is_some());
+            assert!(first.get("title").is_some());
+            assert_eq!(first["type"], "plant");
+
+            let filtered = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{objects}?type=plant&view=gallery&filter={}",
+                        url_encoded(
+                            &json!({
+                                "op": "and",
+                                "conditions": [{
+                                    "property": "room",
+                                    "condition": "equal",
+                                    "value": "kitchen"
+                                }]
+                            })
+                            .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(filtered.status, StatusCode::OK, "{:?}", filtered.body);
+            assert_eq!(filtered.body["total"], 1);
+
+            let sorted = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{objects}?type=plant&view=gallery&sorts={}",
+                        url_encoded(
+                            &json!([{ "property": "title", "direction": "asc" }]).to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(sorted.status, StatusCode::OK, "{:?}", sorted.body);
+            assert_eq!(sorted.body["objects"][0]["title"], "Fern");
+        });
+    }
 }
