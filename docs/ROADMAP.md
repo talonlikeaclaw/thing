@@ -46,9 +46,10 @@ Binding for every milestone. Do not re-open any of these during implementation.
 
 M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md) and M2 in
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md). Both are landed; M1 is
-deployed. Later milestones get their own
-`docs/plan/mN-*.md` when they start, so each one is written the way this one was. M3–M10 are recorded
-here so the M1 schema does not need reshaping later; each carries its decisions already made.
+deployed. M3 is specified in [`docs/plan/m3-views.md`](plan/m3-views.md) and is not started.
+Remaining milestones get their own `docs/plan/mN-*.md` when they start, so each one is written the
+way these were. M3–M10 are recorded here so the M1 schema does not need reshaping later; each
+carries its decisions already made.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday

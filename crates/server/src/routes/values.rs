@@ -93,10 +93,9 @@ impl ScheduleJson {
 /// The keys a row carries: the type's view columns, in display order, without
 /// the title column, which is a field of its own.
 pub fn value_columns(def: &TypeDef) -> impl Iterator<Item = &str> {
-    def.view
-        .columns
-        .iter()
-        .map(String::as_str)
+    def.default_view()
+        .into_iter()
+        .flat_map(|view| view.columns.iter().map(String::as_str))
         .filter(|key| *key != TITLE_KEY)
 }
 
@@ -322,6 +321,7 @@ mod tests {
 
     use thing_core::model::{
         Direction, EmptyPlacement, Filter, FilterOp, OptionDef, Sort, TypeProperty, ViewDef,
+        ViewKind,
     };
 
     use super::*;
@@ -399,7 +399,10 @@ mod tests {
                     featured: false,
                 })
                 .collect(),
-            view: ViewDef {
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
                 sorts: vec![Sort {
                     property: "updated_at".to_owned(),
                     direction: Direction::Desc,
@@ -412,7 +415,12 @@ mod tests {
                 columns: std::iter::once(TITLE_KEY.to_owned())
                     .chain(columns.iter().map(|key| (*key).to_owned()))
                     .collect(),
-            },
+                widths: BTreeMap::new(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+            }],
+            default_view: "all".to_owned(),
         };
         let summary = ObjectSummary {
             id: Uuid::now_v7(),

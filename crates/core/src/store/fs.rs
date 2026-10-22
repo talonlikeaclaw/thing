@@ -637,6 +637,7 @@ mod tests {
     use super::*;
     use crate::model::{
         Filter, FilterOp, Member, PropertyFormat, Role, Snapshot, TypeProperty, Value, ViewDef,
+        ViewKind,
     };
 
     fn id(n: u128) -> Uuid {
@@ -868,22 +869,47 @@ mod tests {
                     featured: false,
                 },
             ],
-            view: ViewDef {
-                sorts: vec![crate::model::Sort {
-                    property: "room".to_owned(),
-                    direction: crate::model::Direction::Asc,
-                    empty: crate::model::EmptyPlacement::End,
-                }],
-                filter: Filter {
-                    op: FilterOp::And,
-                    conditions: vec![crate::model::Condition {
+            views: vec![
+                ViewDef {
+                    key: "all".to_owned(),
+                    name: "All".to_owned(),
+                    kind: ViewKind::Table,
+                    sorts: vec![crate::model::Sort {
                         property: "room".to_owned(),
-                        condition: crate::model::CondOp::NotEqual,
-                        value: Some(Value::Text("attic".to_owned())),
+                        direction: crate::model::Direction::Asc,
+                        empty: crate::model::EmptyPlacement::End,
                     }],
+                    filter: Filter {
+                        op: FilterOp::And,
+                        conditions: vec![crate::model::Condition {
+                            property: "room".to_owned(),
+                            condition: crate::model::CondOp::NotEqual,
+                            value: Some(Value::Text("attic".to_owned())),
+                        }],
+                    },
+                    columns: vec!["title".to_owned(), "room".to_owned()],
+                    widths: BTreeMap::from([("title".to_owned(), 240), ("room".to_owned(), 140)]),
+                    group_by: None,
+                    cover: None,
+                    date_property: None,
                 },
-                columns: vec!["title".to_owned(), "room".to_owned()],
-            },
+                ViewDef {
+                    key: "by_room".to_owned(),
+                    name: "By room".to_owned(),
+                    kind: ViewKind::Board,
+                    sorts: Vec::new(),
+                    filter: Filter {
+                        op: FilterOp::And,
+                        conditions: Vec::new(),
+                    },
+                    columns: vec!["title".to_owned(), "room".to_owned()],
+                    widths: BTreeMap::new(),
+                    group_by: Some("room".to_owned()),
+                    cover: None,
+                    date_property: None,
+                },
+            ],
+            default_view: "all".to_owned(),
         }
     }
 
@@ -933,9 +959,19 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["space", "notes"]
         );
-        assert_eq!(plant.view.columns, vec!["title", "space"]);
-        assert_eq!(plant.view.sorts[0].property, "space");
-        assert_eq!(plant.view.filter.conditions[0].property, "space");
+        assert_eq!(
+            plant.views[0].columns,
+            vec!["title".to_owned(), "space".to_owned()]
+        );
+        assert_eq!(plant.views[0].sorts[0].property, "space");
+        assert_eq!(plant.views[0].filter.conditions[0].property, "space");
+        assert_eq!(
+            plant.views[0].widths.get("space").copied(),
+            Some(140),
+            "a renamed width follows the key"
+        );
+        assert_eq!(plant.views[1].columns, vec!["title", "space"]);
+        assert_eq!(plant.views[1].group_by.as_deref(), Some("space"));
 
         for (path, expected) in [
             (path.clone(), "objects/plant/monstera.md"),
@@ -1004,9 +1040,13 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["notes"]
         );
-        assert_eq!(plant.view.columns, vec!["title"]);
-        assert!(plant.view.sorts.is_empty());
-        assert!(plant.view.filter.conditions.is_empty());
+        assert_eq!(plant.views[0].columns, vec!["title"]);
+        assert!(plant.views[0].sorts.is_empty());
+        assert!(plant.views[0].filter.conditions.is_empty());
+        assert_eq!(plant.views[0].widths.get("room"), None);
+        assert_eq!(plant.views[0].widths.get("title").copied(), Some(240));
+        assert_eq!(plant.views[1].columns, vec!["title"]);
+        assert_eq!(plant.views[1].group_by, None);
 
         let (doc, _) = store.load_object(&path).expect("object");
         assert_eq!(doc.properties.get("room"), None);
@@ -1233,14 +1273,22 @@ mod tests {
                 required: false,
                 featured: true,
             }],
-            view: ViewDef {
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
                 sorts: Vec::new(),
                 filter: Filter {
                     op: FilterOp::And,
                     conditions: Vec::new(),
                 },
                 columns: vec!["title".to_owned()],
-            },
+                widths: BTreeMap::new(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+            }],
+            default_view: "all".to_owned(),
         };
         store.save_type(&def, None).expect("save type");
         assert_eq!(

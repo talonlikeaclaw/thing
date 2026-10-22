@@ -1,0 +1,62 @@
+schema: 3
+key: chore
+name: Chore
+name_plural: Chores
+icon: 🧹
+description: ''
+schedule: true
+properties:
+- key: room
+  required: false
+  featured: true
+views:
+- key: all
+  name: All
+  kind: table
+  filter:
+    op: and
+    conditions: []
+  sorts:
+  - property: updated_at
+    direction: desc
+  columns:
+  - title
+  - due_date
+  - room
+  widths:
+    due_date: 160
+    title: 280
+- key: by_room
+  name: By room
+  kind: board
+  filter:
+    op: and
+    conditions: []
+  sorts: []
+  columns:
+  - title
+  - due_date
+  group_by: room
+- key: gallery
+  name: Gallery
+  kind: gallery
+  filter:
+    op: and
+    conditions: []
+  sorts:
+  - property: updated_at
+    direction: desc
+  columns:
+  - title
+  - room
+  cover: room
+- key: watering
+  name: Watering
+  kind: calendar
+  filter:
+    op: and
+    conditions: []
+  sorts: []
+  columns: []
+  date_property: due_date
+default_view: all

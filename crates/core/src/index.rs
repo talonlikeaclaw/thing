@@ -463,7 +463,7 @@ mod tests {
     use crate::markdown;
     use crate::model::{
         CondOp, Condition, Direction, EmptyPlacement, Filter, FilterOp, Member, PropertyFormat,
-        Recurrence, RecurrenceKind, Role, Sort, TypeProperty, Value, ViewDef,
+        Recurrence, RecurrenceKind, Role, Sort, TypeProperty, Value, ViewDef, ViewKind,
     };
     use crate::query;
     use crate::store::fs::FsSpaceStore;
@@ -502,6 +502,24 @@ mod tests {
         }
     }
 
+    fn table_view(key: &str, columns: Vec<&str>) -> ViewDef {
+        ViewDef {
+            key: key.to_owned(),
+            name: "All".to_owned(),
+            kind: ViewKind::Table,
+            sorts: Vec::new(),
+            filter: Filter {
+                op: FilterOp::And,
+                conditions: Vec::new(),
+            },
+            columns: columns.into_iter().map(str::to_owned).collect(),
+            widths: BTreeMap::new(),
+            group_by: None,
+            cover: None,
+            date_property: None,
+        }
+    }
+
     fn plant_type() -> TypeDef {
         TypeDef {
             key: "plant".to_owned(),
@@ -516,14 +534,8 @@ mod tests {
                 required: false,
                 featured: true,
             }],
-            view: ViewDef {
-                sorts: Vec::new(),
-                filter: Filter {
-                    op: FilterOp::And,
-                    conditions: Vec::new(),
-                },
-                columns: vec!["title".to_owned(), "room".to_owned()],
-            },
+            views: vec![table_view("all", vec!["title", "room"])],
+            default_view: "all".to_owned(),
         }
     }
 
@@ -537,14 +549,8 @@ mod tests {
             schedule: true,
             schedule_labels: Default::default(),
             properties: Vec::new(),
-            view: ViewDef {
-                sorts: Vec::new(),
-                filter: Filter {
-                    op: FilterOp::And,
-                    conditions: Vec::new(),
-                },
-                columns: vec!["title".to_owned(), "due_date".to_owned()],
-            },
+            views: vec![table_view("all", vec!["title", "due_date"])],
+            default_view: "all".to_owned(),
         }
     }
 
@@ -981,7 +987,7 @@ mod tests {
         }
 
         let index = space.index();
-        let mut view = plant_type().view;
+        let mut view = plant_type().views.remove(0);
         view.filter.conditions.push(Condition {
             property: "room".to_owned(),
             condition: CondOp::Equal,
@@ -993,7 +999,12 @@ mod tests {
             empty: EmptyPlacement::End,
         });
 
-        let rows = query::apply(&view, index.summaries("plant"), &index.schema());
+        let rows = query::apply(
+            &view.filter,
+            &view.sorts,
+            index.summaries("plant"),
+            &index.schema(),
+        );
         assert_eq!(
             rows.iter().map(|row| row.title.clone()).collect::<Vec<_>>(),
             vec!["Fern".to_owned(), "Monstera".to_owned()]

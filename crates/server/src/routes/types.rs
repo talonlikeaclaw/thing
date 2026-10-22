@@ -17,7 +17,7 @@ use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
     Direction, EmptyPlacement, Filter, FilterOp, ObjectSummary, PropertyDef, RevisionAction, Role,
-    ScheduleLabels, Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef,
+    ScheduleLabels, Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef, ViewKind,
     is_reserved_key,
 };
 use thing_core::schedule::{DUE_DATE_KEY, SCHEDULE_KEYS, is_schedule_key, schedule_property_defs};
@@ -85,7 +85,8 @@ pub struct TypeDetail {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub implicit_properties: Vec<PropertyDef>,
     pub properties: Vec<TypeProperty>,
-    pub view: ViewDef,
+    pub views: Vec<ViewDef>,
+    pub default_view: String,
 }
 
 impl TypeDetail {
@@ -115,7 +116,8 @@ impl TypeDetail {
             schedule_labels: def.schedule_labels.clone(),
             implicit_properties,
             properties: def.properties.clone(),
-            view: def.view.clone(),
+            views: def.views.clone(),
+            default_view: def.default_view.clone(),
         }
     }
 }
@@ -185,8 +187,11 @@ fn clean_schedule_labels(labels: Option<ScheduleLabels>) -> Result<ScheduleLabel
 }
 
 /// The view a type starts with: newest first, no filter, the title alone.
-fn default_view() -> ViewDef {
+fn initial_view() -> ViewDef {
     ViewDef {
+        key: "all".to_owned(),
+        name: "All".to_owned(),
+        kind: ViewKind::Table,
         sorts: vec![Sort {
             property: UPDATED_AT_KEY.to_owned(),
             direction: Direction::Desc,
@@ -197,6 +202,10 @@ fn default_view() -> ViewDef {
             conditions: Vec::new(),
         },
         columns: vec![TITLE_KEY.to_owned()],
+        widths: std::collections::BTreeMap::new(),
+        group_by: None,
+        cover: None,
+        date_property: None,
     }
 }
 
@@ -231,7 +240,8 @@ async fn create(
         schedule: false,
         schedule_labels: clean_schedule_labels(body.schedule_labels)?,
         properties: Vec::new(),
-        view: default_view(),
+        views: vec![initial_view()],
+        default_view: "all".to_owned(),
     };
 
     let _guard = handle.write.lock().await;
@@ -291,8 +301,6 @@ struct PatchTypeRequest {
     /// The type's properties, in display order; the whole list, not a patch of it.
     #[serde(default)]
     properties: Option<Vec<TypeProperty>>,
-    #[serde(default)]
-    view: Option<ViewDef>,
 }
 
 /// `PATCH /api/spaces/{space}/types/{key}` [editor]
@@ -311,7 +319,6 @@ async fn update(
         && body.schedule.is_none()
         && body.schedule_labels.is_none()
         && body.properties.is_none()
-        && body.view.is_none()
     {
         return Err(ApiError::validation("body", "nothing to change"));
     }
@@ -346,9 +353,6 @@ async fn update(
         }
         if let Some(properties) = &body.properties {
             next.properties = properties.clone();
-        }
-        if let Some(view) = &body.view {
-            next.view = view.clone();
         }
         if let Some(labels) = &body.schedule_labels {
             next.schedule_labels = clean_schedule_labels(Some(labels.clone()))?;
@@ -443,12 +447,13 @@ fn type_detail(handle: &Arc<SpaceHandle>, key: &str) -> Result<TypeDetail, ApiEr
         .ok_or_else(|| ApiError::not_found(format!("type {key}")))
 }
 
-/// Turns scheduling on or off, with the two guards the file format needs.
+/// Turns scheduling on or off, with the guards the file format needs.
 ///
-/// Enabling appends `due_date` to the view once. Disabling refuses while any
-/// live or trashed record of the type still holds a schedule key, because the
-/// values would become unreadable; once it is clear, the keys are dropped from
-/// the view in this same write so the view never names a missing property.
+/// Enabling appends `due_date` to the default view once. Disabling refuses
+/// while any live or trashed record of the type still holds a schedule key, and
+/// while a view structurally depends on one; once it is clear, the keys are
+/// dropped from every view in this same write so no view names a missing
+/// property.
 fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Result<(), ApiError> {
     if schedule == next.schedule {
         return Ok(());
@@ -469,13 +474,12 @@ fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Resul
             ));
         }
         next.schedule = true;
-        if !next
-            .view
-            .columns
-            .iter()
-            .any(|column| column == DUE_DATE_KEY)
+        let default_key = next.default_view.clone();
+        if let Some(view) = next.views.iter_mut().find(|view| view.key == default_key)
+            && view.kind != ViewKind::Calendar
+            && !view.columns.iter().any(|column| column == DUE_DATE_KEY)
         {
-            next.view.columns.push(DUE_DATE_KEY.to_owned());
+            view.columns.push(DUE_DATE_KEY.to_owned());
         }
         return Ok(());
     }
@@ -511,16 +515,37 @@ fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Resul
             }),
         ));
     }
+    let dependent: Vec<&str> = next
+        .views
+        .iter()
+        .filter(|view| {
+            view.group_by.as_deref().is_some_and(is_schedule_key)
+                || view.date_property.as_deref().is_some_and(is_schedule_key)
+        })
+        .map(|view| view.key.as_str())
+        .collect();
+    if !dependent.is_empty() {
+        return Err(ApiError::conflict(
+            "views use schedule properties",
+            json!({
+                "reason": "views use schedule properties",
+                "views": dependent,
+            }),
+        ));
+    }
     next.schedule = false;
     next.schedule_labels = ScheduleLabels::default();
-    next.view.columns.retain(|column| !is_schedule_key(column));
-    next.view
-        .sorts
-        .retain(|sort| !is_schedule_key(&sort.property));
-    next.view
-        .filter
-        .conditions
-        .retain(|condition| !is_schedule_key(&condition.property));
+    for view in &mut next.views {
+        view.columns.retain(|column| !is_schedule_key(column));
+        view.widths.retain(|key, _| !is_schedule_key(key));
+        view.sorts.retain(|sort| !is_schedule_key(&sort.property));
+        view.filter
+            .conditions
+            .retain(|condition| !is_schedule_key(&condition.property));
+        if view.cover.as_deref().is_some_and(is_schedule_key) {
+            view.cover = None;
+        }
+    }
     Ok(())
 }
 
@@ -532,37 +557,47 @@ fn check_members(schema: &Schema, members: &[TypeProperty]) -> Vec<CoreError> {
         .unwrap_or_default()
 }
 
-/// Checks a type's view: `title` first, every other column a property of the
-/// type, and the filter and sorts valid for it.
+/// Checks every saved view's columns, filter and sorts. The per-kind field
+/// matrix is enforced by the view validation added in the next checkpoint.
 fn check_view(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
     let mut errors = Vec::new();
-    if def.view.columns.first().map(String::as_str) != Some(TITLE_KEY) {
-        errors.push(CoreError::ValidationFailed {
-            field: "view.columns".to_owned(),
-            message: format!("must start with {TITLE_KEY}"),
-        });
-    }
-    let mut seen: Vec<&str> = Vec::with_capacity(def.view.columns.len());
-    for column in &def.view.columns {
-        if column != TITLE_KEY && !def.has_property(column) {
+    for view in &def.views {
+        let field = |suffix: &str| format!("views.{}.{suffix}", view.key);
+        if view.columns.is_empty() {
+            if view.kind != ViewKind::Calendar {
+                errors.push(CoreError::ValidationFailed {
+                    field: field("columns"),
+                    message: format!("must start with {TITLE_KEY}"),
+                });
+            }
+        } else if view.columns.first().map(String::as_str) != Some(TITLE_KEY) {
             errors.push(CoreError::ValidationFailed {
-                field: column.clone(),
-                message: format!("is not a property of type {}", def.key),
+                field: field("columns"),
+                message: format!("must start with {TITLE_KEY}"),
             });
         }
-        if seen.contains(&column.as_str()) {
-            errors.push(CoreError::ValidationFailed {
-                field: column.clone(),
-                message: "is listed twice".to_owned(),
-            });
+        let mut seen: Vec<&str> = Vec::with_capacity(view.columns.len());
+        for column in &view.columns {
+            if column != TITLE_KEY && !def.has_property(column) {
+                errors.push(CoreError::ValidationFailed {
+                    field: column.clone(),
+                    message: format!("is not a property of type {}", def.key),
+                });
+            }
+            if seen.contains(&column.as_str()) {
+                errors.push(CoreError::ValidationFailed {
+                    field: column.clone(),
+                    message: "is listed twice".to_owned(),
+                });
+            }
+            seen.push(column);
         }
-        seen.push(column);
-    }
-    if let Err(mut found) = validate::validate_filter(schema, def, &def.view.filter) {
-        errors.append(&mut found);
-    }
-    if let Err(mut found) = validate::validate_sorts(schema, def, &def.view.sorts) {
-        errors.append(&mut found);
+        if let Err(mut found) = validate::validate_filter(schema, def, &view.filter) {
+            errors.append(&mut found);
+        }
+        if let Err(mut found) = validate::validate_sorts(schema, def, &view.sorts) {
+            errors.append(&mut found);
+        }
     }
     errors
 }
@@ -577,7 +612,7 @@ mod tests {
 
     #[test]
     fn the_default_view_lists_the_title_and_shows_the_newest_first() {
-        let view = default_view();
+        let view = initial_view();
         assert_eq!(view.columns, vec![TITLE_KEY]);
         assert!(view.filter.conditions.is_empty());
         assert_eq!(view.sorts.len(), 1);
@@ -616,14 +651,22 @@ mod tests {
             schedule: false,
             schedule_labels: Default::default(),
             properties: Vec::new(),
-            view: ViewDef {
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
                 sorts: Vec::new(),
                 filter: Filter {
                     op: FilterOp::And,
                     conditions: Vec::new(),
                 },
                 columns: vec![TITLE_KEY.to_owned(), "room".to_owned()],
-            },
+                widths: std::collections::BTreeMap::new(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+            }],
+            default_view: "all".to_owned(),
         };
         assert_eq!(
             check_view(&schema, &def)
@@ -644,7 +687,8 @@ mod tests {
             schedule: false,
             schedule_labels: Default::default(),
             properties: Vec::new(),
-            view: default_view(),
+            views: vec![initial_view()],
+            default_view: "all".to_owned(),
         }
     }
 
@@ -763,7 +807,7 @@ mod tests {
         let schema = index.schema();
         let mut def = chore_type();
         def.schedule = true;
-        def.view.columns.push(DUE_DATE_KEY.to_owned());
+        def.views[0].columns.push(DUE_DATE_KEY.to_owned());
         let found: Vec<String> = check_view(&schema, &def)
             .iter()
             .map(ToString::to_string)
@@ -785,9 +829,9 @@ mod tests {
         let mut def = chore_type();
         set_schedule(&index, &mut def, true).expect("enables");
         assert!(def.schedule);
-        assert_eq!(def.view.columns, vec![TITLE_KEY, DUE_DATE_KEY]);
+        assert_eq!(def.views[0].columns, vec![TITLE_KEY, DUE_DATE_KEY]);
         set_schedule(&index, &mut def, true).expect("still enabled");
-        assert_eq!(def.view.columns, vec![TITLE_KEY, DUE_DATE_KEY]);
+        assert_eq!(def.views[0].columns, vec![TITLE_KEY, DUE_DATE_KEY]);
     }
 
     #[test]
@@ -804,17 +848,17 @@ mod tests {
         let index = index_of(&[]);
         let mut def = chore_type();
         def.schedule = true;
-        def.view.columns = vec![
+        def.views[0].columns = vec![
             TITLE_KEY.to_owned(),
             DUE_DATE_KEY.to_owned(),
             "recurrence".to_owned(),
         ];
-        def.view.sorts.push(Sort {
+        def.views[0].sorts.push(Sort {
             property: DUE_DATE_KEY.to_owned(),
             direction: Direction::Asc,
             empty: EmptyPlacement::End,
         });
-        def.view
+        def.views[0]
             .filter
             .conditions
             .push(thing_core::model::Condition {
@@ -827,16 +871,16 @@ mod tests {
         set_schedule(&index, &mut def, false).expect("disables");
         assert!(!def.schedule);
         assert!(def.schedule_labels.is_empty());
-        assert_eq!(def.view.columns, vec![TITLE_KEY]);
+        assert_eq!(def.views[0].columns, vec![TITLE_KEY]);
         assert_eq!(
-            def.view
+            def.views[0]
                 .sorts
                 .iter()
                 .map(|sort| sort.property.as_str())
                 .collect::<Vec<_>>(),
             vec![UPDATED_AT_KEY]
         );
-        assert!(def.view.filter.conditions.is_empty());
+        assert!(def.views[0].filter.conditions.is_empty());
     }
 
     #[test]

@@ -45,7 +45,7 @@ fn with_prefix(prefix: &str) -> Vec<String> {
 fn current(names: Vec<String>) -> Vec<String> {
     names
         .into_iter()
-        .filter(|name| fixture(name).contains("schema: 2"))
+        .filter(|name| fixture(name).contains("schema: 3"))
         .collect()
 }
 
@@ -54,6 +54,14 @@ fn legacy(names: Vec<String>) -> Vec<String> {
     names
         .into_iter()
         .filter(|name| fixture(name).contains("schema: 1"))
+        .collect()
+}
+
+/// The fixtures written by M2; they must parse and upgrade on the next write.
+fn previous(names: Vec<String>) -> Vec<String> {
+    names
+        .into_iter()
+        .filter(|name| fixture(name).contains("schema: 2"))
         .collect()
 }
 
@@ -86,7 +94,27 @@ fn schema_one_object_fixtures_parse_and_upgrade_on_write() {
         let doc: ObjectDoc = parse_object(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
         let written = serialize_object(&doc);
         assert!(
-            written.starts_with("---\nschema: 2\n"),
+            written.starts_with("---\nschema: 3\n"),
+            "{name} did not upgrade: {written}"
+        );
+        assert_eq!(
+            parse_object(&written).expect("upgraded file parses"),
+            doc,
+            "{name} changed meaning while upgrading"
+        );
+    }
+}
+
+#[test]
+fn schema_two_object_fixtures_parse_and_upgrade_on_write() {
+    let names = previous(with_prefix("object_"));
+    assert_eq!(names, vec!["object_scheduled_v2.md".to_owned()]);
+    for name in names {
+        let text = fixture(&name);
+        let doc: ObjectDoc = parse_object(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        let written = serialize_object(&doc);
+        assert!(
+            written.starts_with("---\nschema: 3\n"),
             "{name} did not upgrade: {written}"
         );
         assert_eq!(
@@ -100,7 +128,7 @@ fn schema_one_object_fixtures_parse_and_upgrade_on_write() {
 #[test]
 fn type_and_property_fixtures_round_trip_byte_for_byte() {
     let types = current(with_prefix("type_"));
-    assert_eq!(types, vec!["type_chore.yml".to_owned()]);
+    assert_eq!(types, vec!["type_views.yml".to_owned()]);
     for name in types {
         let text = fixture(&name);
         let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
@@ -131,7 +159,7 @@ fn schema_one_type_and_property_fixtures_parse_and_upgrade() {
     for name in types {
         let text = fixture(&name);
         let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
-        assert!(serialize_type(&def).starts_with("schema: 2\n"));
+        assert!(serialize_type(&def).starts_with("schema: 3\n"));
     }
 
     let properties = legacy(with_prefix("property_"));
@@ -139,7 +167,34 @@ fn schema_one_type_and_property_fixtures_parse_and_upgrade() {
     for name in properties {
         let text = fixture(&name);
         let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
-        assert!(serialize_property(&def).starts_with("schema: 2\n"));
+        assert!(serialize_property(&def).starts_with("schema: 3\n"));
+    }
+}
+
+#[test]
+fn schema_two_type_and_property_fixtures_parse_and_upgrade() {
+    let types = previous(with_prefix("type_"));
+    assert_eq!(types, vec!["type_chore_v2.yml".to_owned()]);
+    for name in types {
+        let text = fixture(&name);
+        let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert_eq!(def.default_view, "all");
+        assert_eq!(def.views.len(), 1);
+        assert_eq!(def.views[0].key, "all");
+        assert_eq!(def.views[0].name, "All");
+        assert_eq!(
+            def.views[0].columns,
+            vec!["title".to_owned(), "due_date".to_owned(), "room".to_owned()]
+        );
+        assert!(serialize_type(&def).starts_with("schema: 3\n"));
+    }
+
+    let properties = previous(with_prefix("property_"));
+    assert_eq!(properties, vec!["property_recurrence_v2.yml".to_owned()]);
+    for name in properties {
+        let text = fixture(&name);
+        let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
+        assert!(serialize_property(&def).starts_with("schema: 3\n"));
     }
 }
 
@@ -164,7 +219,16 @@ fn schema_one_space_fixture_parses_and_upgrades() {
     assert_eq!(names, vec!["space_garden.yml".to_owned()]);
     let text = fixture(&names[0]);
     let meta = parse_space(&text).expect("legacy space parses");
-    assert!(serialize_space(&meta).starts_with("schema: 2\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 3\n"));
+}
+
+#[test]
+fn schema_two_space_fixture_parses_and_upgrades() {
+    let names = previous(with_prefix("space_"));
+    assert_eq!(names, vec!["space_balcony_v2.yml".to_owned()]);
+    let text = fixture(&names[0]);
+    let meta = parse_space(&text).expect("schema 2 space parses");
+    assert!(serialize_space(&meta).starts_with("schema: 3\n"));
 }
 
 #[test]
@@ -206,7 +270,7 @@ fn invalid_fixtures_are_refused() {
         messages[0],
         "invalid frontmatter: file must begin with a --- line"
     );
-    assert_eq!(messages[1], "unsupported format version 3");
+    assert_eq!(messages[1], "unsupported format version 4");
     assert!(
         messages[2].contains("unknown field `watered`"),
         "{messages:?}"

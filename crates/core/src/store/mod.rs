@@ -204,8 +204,8 @@ pub trait SpaceStore {
     -> Result<(), CoreError>;
 }
 
-/// Rewrites `old` to `new` in a type's property list, view columns, filter and
-/// sorts; returns whether anything changed.
+/// Rewrites `old` to `new` in a type's property list and every saved view;
+/// returns whether anything changed.
 pub(crate) fn rename_property_in_type(def: &mut TypeDef, old: &str, new: &str) -> bool {
     let mut changed = false;
     for member in &mut def.properties {
@@ -214,22 +214,34 @@ pub(crate) fn rename_property_in_type(def: &mut TypeDef, old: &str, new: &str) -
             changed = true;
         }
     }
-    for column in &mut def.view.columns {
-        if column == old {
-            *column = new.to_owned();
+    for view in &mut def.views {
+        for column in &mut view.columns {
+            if column == old {
+                *column = new.to_owned();
+                changed = true;
+            }
+        }
+        if let Some(width) = view.widths.remove(old) {
+            view.widths.insert(new.to_owned(), width);
             changed = true;
         }
-    }
-    for sort in &mut def.view.sorts {
-        if sort.property == old {
-            sort.property = new.to_owned();
-            changed = true;
+        for sort in &mut view.sorts {
+            if sort.property == old {
+                sort.property = new.to_owned();
+                changed = true;
+            }
         }
-    }
-    for condition in &mut def.view.filter.conditions {
-        if condition.property == old {
-            condition.property = new.to_owned();
-            changed = true;
+        for condition in &mut view.filter.conditions {
+            if condition.property == old {
+                condition.property = new.to_owned();
+                changed = true;
+            }
+        }
+        for field in [&mut view.group_by, &mut view.cover, &mut view.date_property] {
+            if field.as_deref() == Some(old) {
+                *field = Some(new.to_owned());
+                changed = true;
+            }
         }
     }
     changed
@@ -253,29 +265,39 @@ pub(crate) fn rename_property_in_object(doc: &mut ObjectDoc, old: &str, new: &st
     }
 }
 
-/// Drops a key from a type's property list, view columns, filter and sorts;
-/// returns whether anything changed.
+/// Drops a key from a type's property list and every saved view; returns
+/// whether anything changed.
 pub(crate) fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
-    let before = (
-        def.properties.len(),
-        def.view.columns.len(),
-        def.view.sorts.len(),
-        def.view.filter.conditions.len(),
-    );
-    def.properties.retain(|member| member.key != key);
-    def.view.columns.retain(|column| column != key);
-    def.view.sorts.retain(|sort| sort.property != key);
-    def.view
-        .filter
-        .conditions
-        .retain(|condition| condition.property != key);
-    before
-        != (
-            def.properties.len(),
-            def.view.columns.len(),
-            def.view.sorts.len(),
-            def.view.filter.conditions.len(),
-        )
+    let mut changed = false;
+    if def.properties.iter().any(|member| member.key == key) {
+        def.properties.retain(|member| member.key != key);
+        changed = true;
+    }
+    for view in &mut def.views {
+        let columns = view.columns.len();
+        view.columns.retain(|column| column != key);
+        changed |= view.columns.len() != columns;
+
+        changed |= view.widths.remove(key).is_some();
+
+        let sorts = view.sorts.len();
+        view.sorts.retain(|sort| sort.property != key);
+        changed |= view.sorts.len() != sorts;
+
+        let conditions = view.filter.conditions.len();
+        view.filter
+            .conditions
+            .retain(|condition| condition.property != key);
+        changed |= view.filter.conditions.len() != conditions;
+
+        for field in [&mut view.group_by, &mut view.cover, &mut view.date_property] {
+            if field.as_deref() == Some(key) {
+                *field = None;
+                changed = true;
+            }
+        }
+    }
+    changed
 }
 
 #[cfg(test)]
@@ -287,7 +309,7 @@ mod tests {
     use super::*;
     use crate::model::{
         CondOp, Condition, Direction, EmptyPlacement, Filter, FilterOp, Sort, TypeProperty, Value,
-        ViewDef,
+        ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -366,22 +388,47 @@ mod tests {
                     featured: false,
                 },
             ],
-            view: ViewDef {
-                sorts: vec![Sort {
-                    property: "room".to_owned(),
-                    direction: Direction::Asc,
-                    empty: EmptyPlacement::End,
-                }],
-                filter: Filter {
-                    op: FilterOp::And,
-                    conditions: vec![Condition {
+            views: vec![
+                ViewDef {
+                    key: "all".to_owned(),
+                    name: "All".to_owned(),
+                    kind: ViewKind::Table,
+                    sorts: vec![Sort {
                         property: "room".to_owned(),
-                        condition: CondOp::Equal,
-                        value: Some(Value::Text("kitchen".to_owned())),
+                        direction: Direction::Asc,
+                        empty: EmptyPlacement::End,
                     }],
+                    filter: Filter {
+                        op: FilterOp::And,
+                        conditions: vec![Condition {
+                            property: "room".to_owned(),
+                            condition: CondOp::Equal,
+                            value: Some(Value::Text("kitchen".to_owned())),
+                        }],
+                    },
+                    columns: vec!["title".to_owned(), "room".to_owned()],
+                    widths: BTreeMap::from([("title".to_owned(), 240), ("room".to_owned(), 140)]),
+                    group_by: None,
+                    cover: None,
+                    date_property: None,
                 },
-                columns: vec!["title".to_owned(), "room".to_owned()],
-            },
+                ViewDef {
+                    key: "by_room".to_owned(),
+                    name: "By room".to_owned(),
+                    kind: ViewKind::Board,
+                    sorts: Vec::new(),
+                    filter: Filter {
+                        op: FilterOp::And,
+                        conditions: Vec::new(),
+                    },
+                    columns: vec!["title".to_owned(), "room".to_owned()],
+                    widths: BTreeMap::new(),
+                    group_by: Some("room".to_owned()),
+                    cover: None,
+                    date_property: None,
+                },
+            ],
+            default_view: "all".to_owned(),
         }
     }
 
@@ -413,9 +460,12 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["space", "notes"]
         );
-        assert_eq!(def.view.columns, vec!["title", "space"]);
-        assert_eq!(def.view.sorts[0].property, "space");
-        assert_eq!(def.view.filter.conditions[0].property, "space");
+        assert_eq!(def.views[0].columns, vec!["title", "space"]);
+        assert_eq!(def.views[0].sorts[0].property, "space");
+        assert_eq!(def.views[0].filter.conditions[0].property, "space");
+        assert_eq!(def.views[0].widths.get("space").copied(), Some(140));
+        assert_eq!(def.views[1].columns, vec!["title", "space"]);
+        assert_eq!(def.views[1].group_by.as_deref(), Some("space"));
         assert!(!rename_property_in_type(&mut def, "room", "space"));
     }
 
@@ -442,9 +492,13 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["notes"]
         );
-        assert_eq!(def.view.columns, vec!["title"]);
-        assert!(def.view.sorts.is_empty());
-        assert!(def.view.filter.conditions.is_empty());
+        assert_eq!(def.views[0].columns, vec!["title"]);
+        assert!(def.views[0].sorts.is_empty());
+        assert!(def.views[0].filter.conditions.is_empty());
+        assert_eq!(def.views[0].widths.get("room"), None);
+        assert_eq!(def.views[0].widths.get("title").copied(), Some(240));
+        assert_eq!(def.views[1].columns, vec!["title"]);
+        assert_eq!(def.views[1].group_by, None);
         assert!(!remove_property_from_type(&mut def, "room"));
     }
 

@@ -113,7 +113,9 @@ pub struct TypeDef {
     pub schedule_labels: ScheduleLabels,
     #[serde(default)]
     pub properties: Vec<TypeProperty>,
-    pub view: ViewDef,
+    pub views: Vec<ViewDef>,
+    /// The `key` of the view the type opens with; always one of `views`.
+    pub default_view: String,
 }
 
 impl TypeDef {
@@ -122,6 +124,17 @@ impl TypeDef {
     pub fn has_property(&self, key: &str) -> bool {
         self.properties.iter().any(|member| member.key == key)
             || (self.schedule && crate::schedule::is_schedule_key(key))
+    }
+
+    /// The view with this key, if the type defines one.
+    pub fn view(&self, key: &str) -> Option<&ViewDef> {
+        self.views.iter().find(|view| view.key == key)
+    }
+
+    /// The view `default_view` names; `None` only for an in-memory definition
+    /// that has not been through parsing or validation.
+    pub fn default_view(&self) -> Option<&ViewDef> {
+        self.view(&self.default_view)
     }
 }
 
@@ -136,14 +149,55 @@ pub struct TypeProperty {
     pub featured: bool,
 }
 
-/// The type's single saved table view.
+/// The most views one type may carry.
+pub const MAX_VIEWS: usize = 50;
+
+/// The longest view name, in characters.
+pub const MAX_VIEW_NAME_LEN: usize = 80;
+
+/// The narrowest table column, in CSS pixels.
+pub const MIN_COLUMN_WIDTH: u16 = 80;
+
+/// The widest table column, in CSS pixels.
+pub const MAX_COLUMN_WIDTH: u16 = 800;
+
+/// How a saved view lays its records out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ViewKind {
+    Table,
+    Board,
+    Gallery,
+    Calendar,
+}
+
+/// One named saved view of a type.
+///
+/// A flat shape rather than four nested configs: `columns` means visible
+/// columns for a table and card fields for a board or gallery; the validator
+/// enforces which optional fields belong to which kind.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ViewDef {
-    pub sorts: Vec<Sort>,
+    pub key: String,
+    pub name: String,
+    pub kind: ViewKind,
     pub filter: Filter,
-    /// `title` plus any property key, in display order.
+    pub sorts: Vec<Sort>,
+    /// `title` plus any property key, in display order; empty for a calendar.
     pub columns: Vec<String>,
+    /// Table column widths in CSS pixels; absent means the renderer's default.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub widths: BTreeMap<String, u16>,
+    /// A `select` property; board views only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_by: Option<String>,
+    /// The property whose label becomes a gallery cover; gallery views only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
+    /// A `date` property; calendar views only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_property: Option<String>,
 }
 
 /// A boolean combination of conditions.
@@ -603,10 +657,14 @@ schedule_labels:
   last_completed: Last watered
   complete: Water
 properties: []
-view:
+views:
+- key: all
+  name: All
+  kind: table
   sorts: []
   filter: {op: and, conditions: []}
   columns: [title]
+default_view: all
 "#;
         let def: TypeDef = serde_yaml_ng::from_str(yaml).expect("a type");
         assert_eq!(

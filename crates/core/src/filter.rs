@@ -230,7 +230,9 @@ mod tests {
     use uuid::Uuid;
 
     use super::*;
-    use crate::model::{Filter, FilterOp, OptionDef, PropertyDef, TypeDef, TypeProperty, ViewDef};
+    use crate::model::{
+        Filter, FilterOp, OptionDef, PropertyDef, TypeDef, TypeProperty, ViewDef, ViewKind,
+    };
 
     fn at() -> OffsetDateTime {
         OffsetDateTime::from_unix_timestamp(1_760_000_000).expect("valid timestamp")
@@ -290,14 +292,22 @@ mod tests {
                         featured: false,
                     })
                     .collect(),
-                view: ViewDef {
+                views: vec![ViewDef {
+                    key: "all".to_owned(),
+                    name: "All".to_owned(),
+                    kind: ViewKind::Table,
                     sorts: Vec::new(),
                     filter: Filter {
                         op: FilterOp::And,
                         conditions: Vec::new(),
                     },
                     columns: vec![TITLE_KEY.to_owned()],
-                },
+                    widths: BTreeMap::new(),
+                    group_by: None,
+                    cover: None,
+                    date_property: None,
+                }],
+                default_view: "all".to_owned(),
             };
             Self {
                 types: BTreeMap::from([("plant".to_owned(), def)]),

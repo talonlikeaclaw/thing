@@ -397,14 +397,19 @@ fn usage(index: &SpaceIndex, key: &str) -> (usize, usize) {
         .types()
         .filter(|def| {
             def.properties.iter().any(|member| member.key == key)
-                || def.view.columns.iter().any(|column| column == key)
-                || def.view.sorts.iter().any(|sort| sort.property == key)
-                || def
-                    .view
-                    .filter
-                    .conditions
-                    .iter()
-                    .any(|condition| condition.property == key)
+                || def.views.iter().any(|view| {
+                    view.columns.iter().any(|column| column == key)
+                        || view.widths.contains_key(key)
+                        || view.sorts.iter().any(|sort| sort.property == key)
+                        || view
+                            .filter
+                            .conditions
+                            .iter()
+                            .any(|condition| condition.property == key)
+                        || view.group_by.as_deref() == Some(key)
+                        || view.cover.as_deref() == Some(key)
+                        || view.date_property.as_deref() == Some(key)
+                })
         })
         .count();
     let objects = index

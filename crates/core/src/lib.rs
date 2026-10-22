@@ -19,8 +19,8 @@ pub mod value;
 /// Oldest on-disk format this crate still reads.
 pub const MIN_FORMAT_VERSION: u32 = 1;
 
-/// On-disk format version written as `schema: 2` in every file.
-pub const FORMAT_VERSION: u32 = 2;
+/// On-disk format version written as `schema: 3` in every file.
+pub const FORMAT_VERSION: u32 = 3;
 
 /// The crate version, re-exported so binaries can print it uniformly.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -30,8 +30,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn format_version_is_two_and_still_reads_one() {
-        assert_eq!(FORMAT_VERSION, 2);
+    fn format_version_is_three_and_still_reads_one() {
+        assert_eq!(FORMAT_VERSION, 3);
         assert_eq!(MIN_FORMAT_VERSION, 1);
     }
 }

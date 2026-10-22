@@ -8,18 +8,23 @@ use std::cmp::Ordering;
 
 use crate::filter::{self, Row};
 use crate::model::{
-    Direction, EmptyPlacement, ObjectSummary, PropertyFormat, Sort, UPDATED_AT_KEY, ViewDef,
+    Direction, EmptyPlacement, Filter, ObjectSummary, PropertyFormat, Sort, UPDATED_AT_KEY,
 };
 use crate::validate::Schema;
 
 /// The rows the view keeps, in the order it shows them.
-pub fn apply(view: &ViewDef, summaries: &[ObjectSummary], schema: &Schema) -> Vec<ObjectSummary> {
+pub fn apply(
+    filter: &Filter,
+    sorts: &[Sort],
+    summaries: &[ObjectSummary],
+    schema: &Schema,
+) -> Vec<ObjectSummary> {
     let mut rows: Vec<ObjectSummary> = summaries
         .iter()
-        .filter(|row| filter::row_matches(&view.filter, row, schema))
+        .filter(|row| filter::row_matches(filter, row, schema))
         .cloned()
         .collect();
-    rows.sort_by(|left, right| compare_rows(&view.sorts, left, right, schema));
+    rows.sort_by(|left, right| compare_rows(sorts, left, right, schema));
     rows
 }
 
@@ -102,7 +107,7 @@ mod tests {
     use super::*;
     use crate::model::{
         CondOp, Condition, Filter, FilterOp, ObjectDoc, PropertyDef, TITLE_KEY, TypeDef,
-        TypeProperty, Value,
+        TypeProperty, Value, ViewDef, ViewKind,
     };
 
     fn at(offset: i64) -> OffsetDateTime {
@@ -153,14 +158,8 @@ mod tests {
                         featured: false,
                     })
                     .collect(),
-                view: ViewDef {
-                    sorts: Vec::new(),
-                    filter: Filter {
-                        op: FilterOp::And,
-                        conditions: Vec::new(),
-                    },
-                    columns: vec![TITLE_KEY.to_owned()],
-                },
+                views: vec![view(Vec::new())],
+                default_view: "all".to_owned(),
             };
             Self {
                 types: BTreeMap::from([("plant".to_owned(), def)]),
@@ -212,13 +211,25 @@ mod tests {
 
     fn view(sorts: Vec<Sort>) -> ViewDef {
         ViewDef {
+            key: "all".to_owned(),
+            name: "All".to_owned(),
+            kind: ViewKind::Table,
             sorts,
             filter: Filter {
                 op: FilterOp::And,
                 conditions: Vec::new(),
             },
             columns: vec![TITLE_KEY.to_owned()],
+            widths: BTreeMap::new(),
+            group_by: None,
+            cover: None,
+            date_property: None,
         }
+    }
+
+    /// The tests exercise the query engine, not the named-view envelope.
+    fn apply(view: &ViewDef, summaries: &[ObjectSummary], schema: &Schema) -> Vec<ObjectSummary> {
+        super::apply(&view.filter, &view.sorts, summaries, schema)
     }
 
     fn ids(rows: &[ObjectSummary]) -> Vec<u128> {

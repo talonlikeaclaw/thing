@@ -20,7 +20,7 @@ use thing_core::index::SpaceIndex;
 use thing_core::markdown;
 use thing_core::model::{
     ObjectDoc, ObjectSummary, PropertyFormat, Revision, RevisionAction, Role, Snapshot, Sort,
-    TITLE_KEY, Value as CoreValue, ViewDef,
+    TITLE_KEY, Value as CoreValue,
 };
 use thing_core::query;
 use thing_core::schedule::{self, DUE_DATE_KEY, RECURRENCE_KEY};
@@ -116,11 +116,11 @@ async fn list(
             return Err(ApiError::validation_all(errors));
         }
 
-        let view = ViewDef {
-            sorts: sorts.unwrap_or_else(|| def.view.sorts.clone()),
-            filter: filter.unwrap_or_else(|| def.view.filter.clone()),
-            columns: def.view.columns.clone(),
-        };
+        let view = def
+            .default_view()
+            .ok_or_else(|| ApiError::not_found(format!("default view of {type_key}")))?;
+        let filter = filter.unwrap_or_else(|| view.filter.clone());
+        let sorts = sorts.unwrap_or_else(|| view.sorts.clone());
         let rows: Vec<ObjectSummary> = index
             .summaries(&type_key)
             .iter()
@@ -130,7 +130,7 @@ async fn list(
             })
             .cloned()
             .collect();
-        let matched = query::apply(&view, &rows, &schema);
+        let matched = query::apply(&filter, &sorts, &rows, &schema);
         let total = matched.len();
         let projection = Projection::new(index);
         let page: Vec<Value> = matched

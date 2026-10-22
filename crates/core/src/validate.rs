@@ -493,7 +493,7 @@ mod tests {
     use super::*;
     use crate::model::{
         Direction, EmptyPlacement, FilterOp, OptionDef, Recurrence, RecurrenceKind, TypeProperty,
-        Value, ViewDef,
+        Value, ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -583,14 +583,22 @@ mod tests {
                         featured: false,
                     })
                     .collect(),
-                view: ViewDef {
+                views: vec![ViewDef {
+                    key: "all".to_owned(),
+                    name: "All".to_owned(),
+                    kind: ViewKind::Table,
                     sorts: Vec::new(),
                     filter: Filter {
                         op: FilterOp::And,
                         conditions: Vec::new(),
                     },
                     columns: vec![TITLE_KEY.to_owned()],
-                },
+                    widths: BTreeMap::new(),
+                    group_by: None,
+                    cover: None,
+                    date_property: None,
+                }],
+                default_view: "all".to_owned(),
             };
             let mut tree = def.clone();
             tree.key = "tree".to_owned();

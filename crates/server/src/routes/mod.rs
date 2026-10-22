@@ -831,12 +831,7 @@ mod tests {
                 "PATCH",
                 format!("/api/spaces/{space}/types/plant"),
                 json!({
-                    "properties": [{ "key": "room", "featured": true }],
-                    "view": {
-                        "columns": ["title", "room"],
-                        "sorts": [{ "property": "updated_at", "direction": "desc" }],
-                        "filter": { "op": "and", "conditions": [] }
-                    }
+                    "properties": [{ "key": "room", "featured": true }]
                 }),
                 StatusCode::OK,
             ),
@@ -896,7 +891,9 @@ mod tests {
                 )
                 .await;
             assert_eq!(detail.body["properties"][0]["key"], "room");
-            assert_eq!(detail.body["view"]["columns"], json!(["title", "room"]));
+            assert_eq!(detail.body["default_view"], "all");
+            assert_eq!(detail.body["views"][0]["key"], "all");
+            assert_eq!(detail.body["views"][0]["columns"], json!(["title"]));
 
             let list = server
                 .call(
@@ -912,7 +909,21 @@ mod tests {
             let row = &list.body["objects"][0];
             assert_eq!(row["title"], "Monstera in the study");
             assert_eq!(
-                row["values"]["room"],
+                row["values"],
+                json!({}),
+                "the default view shows the title alone"
+            );
+
+            let object = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                object.body["properties"]["room"],
                 json!({ "value": "kitchen", "label": "Kitchen" }),
                 "the option key travels with the name a cell shows"
             );

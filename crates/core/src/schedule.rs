@@ -365,7 +365,7 @@ fn timestamp(now: OffsetDateTime) -> Timestamp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Filter, FilterOp, ViewDef};
+    use crate::model::{Filter, FilterOp, ViewDef, ViewKind};
     use uuid::Uuid;
 
     fn recurrence(kind: RecurrenceKind, every: u32) -> Recurrence {
@@ -399,14 +399,22 @@ mod tests {
             schedule,
             schedule_labels: Default::default(),
             properties: Vec::new(),
-            view: ViewDef {
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
                 sorts: Vec::new(),
                 filter: Filter {
                     op: FilterOp::And,
                     conditions: Vec::new(),
                 },
                 columns: vec!["title".to_owned()],
-            },
+                widths: BTreeMap::new(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+            }],
+            default_view: "all".to_owned(),
         }
     }
 

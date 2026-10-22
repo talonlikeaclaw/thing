@@ -275,7 +275,9 @@ mod tests {
     use std::collections::HashSet;
     use std::fs;
 
-    use thing_core::model::{Filter, FilterOp, ObjectDoc, SpaceMeta, TITLE_KEY, TypeDef, ViewDef};
+    use thing_core::model::{
+        Filter, FilterOp, ObjectDoc, SpaceMeta, TITLE_KEY, TypeDef, ViewDef, ViewKind,
+    };
     use thing_core::store::fs::FsSpaceStore;
     use thing_core::store::{SpaceStore, type_path};
     use time::macros::datetime;
@@ -304,14 +306,22 @@ mod tests {
             schedule: false,
             schedule_labels: Default::default(),
             properties: Vec::new(),
-            view: ViewDef {
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
                 sorts: Vec::new(),
                 filter: Filter {
                     op: FilterOp::And,
                     conditions: Vec::new(),
                 },
                 columns: vec![TITLE_KEY.to_owned()],
-            },
+                widths: std::collections::BTreeMap::new(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+            }],
+            default_view: "all".to_owned(),
         }
     }
 
