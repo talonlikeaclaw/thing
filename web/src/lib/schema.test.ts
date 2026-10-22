@@ -79,7 +79,17 @@ describe("effective scheduling members", () => {
     schedule: true,
     implicit_properties: implicit,
     properties: [room],
-    view: { sorts: [], filter: { op: "and", conditions: [] }, columns: ["title"] },
+    views: [
+      {
+        key: "all",
+        name: "All",
+        kind: "table",
+        sorts: [],
+        filter: { op: "and", conditions: [] },
+        columns: ["title"],
+      },
+    ],
+    default_view: "all",
   };
 
   it("appends generated properties after declared ones", () => {

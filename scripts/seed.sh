@@ -161,21 +161,21 @@ request PATCH "/api/spaces/$space/types/plant" '{
         {"key":"room","featured":true},
         {"key":"tags"},
         {"key":"related_plant"}
-    ],
-    "view": {
-        "columns": ["title","room","due_date","recurrence","last_completed_at","tags","related_plant"],
-        "sorts": [{"property":"updated_at","direction":"desc"}],
-        "filter": {"op":"and","conditions":[]}
-    }}' >/dev/null
+    ]}' >/dev/null
+request PATCH "/api/spaces/$space/types/plant/views/all" '{
+    "columns": ["title","room","due_date","recurrence","last_completed_at","tags","related_plant"],
+    "sorts": [{"property":"updated_at","direction":"desc"}],
+    "filter": {"op":"and","conditions":[]}
+}' >/dev/null
 request PATCH "/api/spaces/$space/types/chore" '{
     "properties": [
         {"key":"room","featured":true}
-    ],
-    "view": {
-        "columns": ["title","room","due_date","recurrence","last_completed_at"],
-        "sorts": [{"property":"updated_at","direction":"desc"}],
-        "filter": {"op":"and","conditions":[]}
-    }}' >/dev/null
+    ]}' >/dev/null
+request PATCH "/api/spaces/$space/types/chore/views/all" '{
+    "columns": ["title","room","due_date","recurrence","last_completed_at"],
+    "sorts": [{"property":"updated_at","direction":"desc"}],
+    "filter": {"op":"and","conditions":[]}
+}' >/dev/null
 echo "seed: type views set"
 
 # --- the records -----------------------------------------------------------

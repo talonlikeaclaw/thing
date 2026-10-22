@@ -4,7 +4,6 @@ import type { TypeDef } from "@/api/types";
 import {
   addSort,
   columnChoices,
-  effectiveView,
   filterFromParams,
   filterParam,
   moveSort,
@@ -25,11 +24,17 @@ const type: TypeDef = {
   description: "",
   schedule: false,
   properties: [{ key: "status", required: false, featured: true }],
-  view: {
-    sorts: [{ property: "title", direction: "asc", empty: "end" }],
-    filter: { op: "and", conditions: [] },
-    columns: ["title", "status"],
-  },
+  views: [
+    {
+      key: "all",
+      name: "All",
+      kind: "table",
+      sorts: [{ property: "title", direction: "asc", empty: "end" }],
+      filter: { op: "and", conditions: [] },
+      columns: ["title", "status"],
+    },
+  ],
+  default_view: "all",
 };
 
 describe("filter parameters", () => {
@@ -84,25 +89,7 @@ describe("sort parameters", () => {
   });
 });
 
-describe("effective view", () => {
-  it("falls back to the type's saved view and reads search text", () => {
-    const params = new URLSearchParams({ q: " fern " });
-    expect(effectiveView(type, params)).toEqual({
-      filter: type.view.filter,
-      sorts: type.view.sorts,
-      q: "fern",
-    });
-  });
-
-  it("lets the URL override a saved sort", () => {
-    const params = new URLSearchParams({
-      sorts: JSON.stringify([{ property: "status", direction: "desc" }]),
-    });
-    expect(effectiveView(type, params).sorts).toEqual([
-      { property: "status", direction: "desc", empty: "end" },
-    ]);
-  });
-
+describe("url parameters", () => {
   it("writes and clears a parameter without disturbing the others", () => {
     const params = new URLSearchParams({ type: "chore" });
     const withQuery = withParam(params, "q", "fern");

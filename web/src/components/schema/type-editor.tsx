@@ -10,7 +10,6 @@ import type {
   ScheduleLabels,
   TypeDef,
   TypeProperty,
-  ViewDef,
 } from "@/api/types";
 import { IconPicker } from "@/components/icon-picker";
 import { SmallButton } from "@/components/schema/small-button";
@@ -26,12 +25,9 @@ import {
   addProperty,
   effectiveProperties,
   formatLabel,
-  moveColumn,
   moveProperty,
   removeProperty,
   sameJson,
-  setColumn,
-  TITLE_COLUMN,
 } from "@/lib/schema";
 
 interface ConflictRecord {
@@ -95,7 +91,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
   const [schedule, setSchedule] = useState(type.schedule);
   const [labels, setLabels] = useState<ScheduleLabels>(type.schedule_labels ?? {});
   const [members, setMembers] = useState<TypeProperty[]>(type.properties);
-  const [columns, setColumns] = useState<string[]>(type.view.columns);
   const [pendingKey, setPendingKey] = useState("");
 
   // Adopt the saved definition, including any trimming the server applied.
@@ -108,7 +103,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
       setSchedule(update.data.schedule);
       setLabels(update.data.schedule_labels ?? {});
       setMembers(update.data.properties);
-      setColumns(update.data.view.columns);
     }
   }, [update.data]);
 
@@ -130,7 +124,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
   const addKey = available.some((property) => property.key === pendingKey)
     ? pendingKey
     : (available[0]?.key ?? "");
-  const view: ViewDef = { ...type.view, columns };
   const payload = {
     name: name.trim(),
     name_plural: plural.trim(),
@@ -139,7 +132,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     schedule,
     schedule_labels: schedule ? labels : {},
     properties: members,
-    view,
   };
   const initial = {
     name: type.name,
@@ -149,7 +141,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     schedule: type.schedule,
     schedule_labels: type.schedule_labels ?? {},
     properties: type.properties,
-    view: type.view,
   };
   const dirty = !sameJson(payload, initial);
   const invalid = !payload.name || !payload.name_plural;
@@ -159,26 +150,15 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
       return;
     }
     setMembers(addProperty(members, addKey));
-    setColumns(setColumn(columns, addKey, true));
     setPendingKey("");
   }
 
   function onRemove(key: string) {
     setMembers(removeProperty(members, key));
-    setColumns(setColumn(columns, key, false));
   }
 
   function onSave() {
     update.mutate(payload);
-  }
-
-  function onScheduleToggle(next: boolean) {
-    setSchedule(next);
-    if (next) {
-      setColumns(setColumn(columns, "due_date", true));
-    } else {
-      setColumns(columns.filter((column) => !isScheduleKey(column)));
-    }
   }
 
   const conflict = disableConflict(update.error);
@@ -251,7 +231,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
               type="checkbox"
               checked={schedule}
               disabled={!canEdit}
-              onChange={(event) => onScheduleToggle(event.target.checked)}
+              onChange={(event) => setSchedule(event.target.checked)}
             />
             Schedule
           </label>
@@ -317,8 +297,8 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
           <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
             Display names only. The file keys stay <span className="font-mono">due_date</span>,{" "}
             <span className="font-mono">recurrence</span> and{" "}
-            <span className="font-mono">last_completed_at</span>. Add Repeats as a column to edit
-            the cadence inline.
+            <span className="font-mono">last_completed_at</span>. Add Repeats to a view's
+            columns on the type page to edit the cadence inline.
           </p>
           <ul className="mt-1">
             {implicit.map((property) => (
@@ -331,20 +311,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
                   <span className="truncate text-[15px]">{property.name}</span>
                   <span className="label">{formatLabel(property.format)}</span>
                 </span>
-                <div className="flex items-center gap-3">
-                  <label className="label flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={columns.includes(property.key)}
-                      disabled={!canEdit}
-                      onChange={(event) =>
-                        setColumns(setColumn(columns, property.key, event.target.checked))
-                      }
-                    />
-                    Column
-                  </label>
-                  <span className="label">read only</span>
-                </div>
+                <span className="label">read only</span>
               </li>
             ))}
           </ul>
@@ -428,17 +395,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
                   <span className="label">{formatOf(member.key)}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <label className="label mr-2 flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={columns.includes(member.key)}
-                      disabled={!canEdit}
-                      onChange={(event) =>
-                        setColumns(setColumn(columns, member.key, event.target.checked))
-                      }
-                    />
-                    Column
-                  </label>
                   <SmallButton
                     label={`Move ${member.key} up`}
                     disabled={!canEdit || index === 0}
@@ -465,6 +421,17 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             ))}
           </ul>
         )}
+
+        <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
+          Columns, grouping and calendar layout are per view on the{" "}
+          <Link
+            to={`/s/${spaceId}/t/${type.key}`}
+            className="text-ink underline decoration-line-strong hover:decoration-accent"
+          >
+            type page
+          </Link>
+          .
+        </p>
 
         {canEdit && available.length > 0 ? (
           <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -499,62 +466,6 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             Every property in the space is already on this type.
           </p>
         ) : null}
-      </div>
-
-      <div className="mt-8">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h3 className="text-[15px] font-medium">View columns</h3>
-          <span className="label tnum">{columns.length}</span>
-        </div>
-        <ul>
-          <li className="flex items-center justify-between border-b rule py-2">
-            <span className="flex items-baseline gap-2">
-              <span className="font-mono text-[11px] text-faint">{TITLE_COLUMN}</span>
-              <span className="text-[15px]">Title</span>
-            </span>
-            <span className="label">fixed first</span>
-          </li>
-          {columns
-            .filter((column) => column !== TITLE_COLUMN)
-            .map((column) => (
-              <li
-                key={column}
-                className="flex items-center justify-between border-b rule py-2"
-              >
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="font-mono text-[11px] text-faint">{column}</span>
-                  <span className="truncate text-[15px]">{titleProperty(column)}</span>
-                </span>
-                <div className="flex items-center gap-1">
-                  <SmallButton
-                    label={`Move ${column} left`}
-                    disabled={
-                      !canEdit || columns.indexOf(column) <= 1
-                    }
-                    onClick={() => setColumns(moveColumn(columns, column, -1))}
-                  >
-                    <ChevronUp aria-hidden size={15} />
-                  </SmallButton>
-                  <SmallButton
-                    label={`Move ${column} right`}
-                    disabled={
-                      !canEdit || columns.indexOf(column) === columns.length - 1
-                    }
-                    onClick={() => setColumns(moveColumn(columns, column, 1))}
-                  >
-                    <ChevronDown aria-hidden size={15} />
-                  </SmallButton>
-                  <SmallButton
-                    label={`Hide ${column}`}
-                    disabled={!canEdit}
-                    onClick={() => setColumns(setColumn(columns, column, false))}
-                  >
-                    <X aria-hidden size={15} />
-                  </SmallButton>
-                </div>
-              </li>
-            ))}
-        </ul>
       </div>
 
       {canEdit ? (

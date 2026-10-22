@@ -120,11 +120,52 @@ export interface Filter {
   conditions: Condition[];
 }
 
+export type ViewKind = "table" | "board" | "gallery" | "calendar";
+
+/** One named saved view; every field belongs to the type file on disk. */
 export interface ViewDef {
+  /** Stable slug minted from the name at creation. */
+  key: string;
+  name: string;
+  kind: ViewKind;
   sorts: Sort[];
   filter: Filter;
-  /** `title` first, then property keys in display order. */
+  /** `title` first, then property keys in display order; empty only for calendar. */
   columns: string[];
+  /** Table widths in CSS pixels; absent means the renderer's default. */
+  widths?: Record<string, number>;
+  /** `board` only: the select property whose options are lanes. */
+  group_by?: string;
+  /** `gallery` only: the property label on the cover tile. */
+  cover?: string;
+  /** `calendar` only: the date property that places a record on a day. */
+  date_property?: string;
+}
+
+/** A new view; omitted layout and query fields copy the current default view. */
+export interface CreateView {
+  name: string;
+  kind: ViewKind;
+  filter?: Filter;
+  sorts?: Sort[];
+  columns?: string[];
+  widths?: Record<string, number>;
+  group_by?: string;
+  cover?: string;
+  date_property?: string;
+}
+
+/** The mutable subset of a view; `kind` and `key` never change. */
+export interface UpdateView {
+  name?: string;
+  filter?: Filter;
+  sorts?: Sort[];
+  columns?: string[];
+  widths?: Record<string, number>;
+  group_by?: string;
+  /** `null` clears the cover. */
+  cover?: string | null;
+  date_property?: string;
 }
 
 export type RecurrenceKind = "days" | "weekly" | "monthly";
@@ -170,7 +211,9 @@ export interface TypeDef {
   /** The generated schedule definitions; omitted when the type is not scheduled. */
   implicit_properties?: PropertyDef[];
   properties: TypeProperty[];
-  view: ViewDef;
+  /** Ordered saved views; a type always has at least one. */
+  views: ViewDef[];
+  default_view: string;
 }
 
 export interface TypeSummary {
@@ -192,7 +235,7 @@ export interface ValueJson {
   missing?: boolean;
 }
 
-/** One row of a type's table. `values` holds the view columns minus `title`. */
+/** One row of a view. `values` holds the selected view's fields minus `title`. */
 export interface ObjectSummary {
   id: Uuid;
   type: string;
@@ -206,6 +249,8 @@ export interface ObjectSummary {
 }
 
 export interface ObjectList {
+  /** The view the server projected the rows through. */
+  view: string;
   total: number;
   offset: number;
   limit: number;
@@ -256,6 +301,8 @@ export interface Agenda {
 /** The query the table sends; `filter` and `sorts` are already effective. */
 export interface ObjectsQuery {
   type: string;
+  /** The saved view to project; omitted means the type's default. */
+  view?: string;
   filter?: Filter;
   sorts?: Sort[];
   q?: string;

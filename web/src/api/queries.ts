@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { ApiError, isUnauthenticated, request } from "@/api/client";
 import type {
   Agenda,
+  CreateView,
   ObjectDetail,
   ObjectList,
   ObjectsQuery,
@@ -18,9 +19,9 @@ import type {
   TypeDef,
   TypeProperty,
   TypeSummary,
+  UpdateView,
   User,
   ValueJson,
-  ViewDef,
 } from "@/api/types";
 
 export const queryKeys = {
@@ -208,7 +209,6 @@ export interface UpdateType {
   description?: string;
   schedule?: boolean;
   properties?: TypeProperty[];
-  view?: ViewDef;
 }
 
 /** Every write can change counts and definitions, so refresh the whole space. */
@@ -234,6 +234,44 @@ export function useUpdateType(spaceId: string, key: string) {
     request<TypeDef>(`/api/spaces/${spaceId}/types/${key}`, {
       method: "PATCH",
       body: input,
+    }),
+  );
+}
+
+/** Creates a view; the returned type detail carries the minted key. */
+export function useCreateView(spaceId: string, typeKey: string) {
+  return useSpaceMutation<CreateView, TypeDef>(spaceId, (input) =>
+    request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views`, {
+      method: "POST",
+      body: input,
+    }),
+  );
+}
+
+/** Renames or reconfigures one view; the key and kind stay fixed. */
+export function useUpdateView(spaceId: string, typeKey: string, viewKey: string) {
+  return useSpaceMutation<UpdateView, TypeDef>(spaceId, (input) =>
+    request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}`, {
+      method: "PATCH",
+      body: input,
+    }),
+  );
+}
+
+/** Deletes a view; the server refuses the last one and promotes a default. */
+export function useDeleteView(spaceId: string, typeKey: string) {
+  return useSpaceMutation<string, TypeDef>(spaceId, (viewKey) =>
+    request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}`, {
+      method: "DELETE",
+    }),
+  );
+}
+
+/** Makes one view the default; the server keeps it idempotent. */
+export function useSetDefaultView(spaceId: string, typeKey: string) {
+  return useSpaceMutation<string, TypeDef>(spaceId, (viewKey) =>
+    request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}/default`, {
+      method: "POST",
     }),
   );
 }
@@ -279,6 +317,9 @@ export function useUpdateProperty(spaceId: string, key: string) {
 /** The list endpoint always takes its query in the URL; an empty filter is unfiltered. */
 function objectsPath(spaceId: string, query: ObjectsQuery): string {
   const params = new URLSearchParams({ type: query.type });
+  if (query.view) {
+    params.set("view", query.view);
+  }
   if (query.filter) {
     params.set("filter", JSON.stringify(query.filter));
   }

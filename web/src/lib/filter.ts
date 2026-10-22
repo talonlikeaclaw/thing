@@ -275,21 +275,6 @@ export function sortsFromParams(params: URLSearchParams): Sort[] | undefined {
   return sorts;
 }
 
-/** The view the table is showing: the URL's override, else the type's saved view. */
-export interface EffectiveView {
-  filter: Filter;
-  sorts: Sort[];
-  q: string;
-}
-
-export function effectiveView(type: TypeDef, params: URLSearchParams): EffectiveView {
-  return {
-    filter: filterFromParams(params) ?? type.view.filter,
-    sorts: sortsFromParams(params) ?? type.view.sorts,
-    q: (params.get("q") ?? "").trim(),
-  };
-}
-
 /** A copy of the params with one key set, or removed when the value is null. */
 export function withParam(
   params: URLSearchParams,

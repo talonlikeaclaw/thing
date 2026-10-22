@@ -37,3 +37,21 @@ export function defaultSpaceTimezone(): string {
   const named = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return named && SUPPORTED.includes(named) ? named : "UTC";
 }
+
+/**
+ * The calendar date `now` falls on in a zone, as `YYYY-MM-DD`.
+ *
+ * Built from formatted parts rather than `Date` getters so the browser's own
+ * zone cannot shift a due day; the server's schedule rules use the same zone.
+ */
+export function todayIn(timeZone: string, now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}

@@ -9,8 +9,10 @@ import {
   useUpdateObject,
 } from "@/api/queries";
 import type {
+  Filter,
   ObjectSummary,
   PropertyDef,
+  Sort,
   TypeDef,
 } from "@/api/types";
 import { ApiError } from "@/api/client";
@@ -22,13 +24,13 @@ import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import {
   columnChoices,
-  effectiveView,
   filterParam,
   sortsParam,
   withParam,
 } from "@/lib/filter";
 import { completeLabel } from "@/lib/schedule";
 import { useSpaceEvents } from "@/lib/use-space-events";
+import { effectiveQuery, selectedView } from "@/lib/views";
 
 interface TypeTableProps {
   spaceId: string;
@@ -40,8 +42,11 @@ interface TypeTableProps {
 /** The live table: the type's view, one row per record, cells edited in place. */
 export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps) {
   const [params, setParams] = useSearchParams();
-  const view = effectiveView(type, params);
-  const columns = type.view.columns.filter((key) => key !== "title");
+  const selected = selectedView(type, params.get("view") ?? undefined);
+  const view = selected.view;
+  const query = effectiveQuery(view, params);
+  const q = (params.get("q") ?? "").trim();
+  const columns = view.columns.filter((key) => key !== "title");
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const choices = columnChoices(type, properties);
   const update = useUpdateObject(spaceId);
@@ -53,18 +58,27 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
 
   useSpaceEvents(spaceId);
 
+  // A view deleted in another window falls back to the default instead of
+  // leaving a dead key in the URL.
+  useEffect(() => {
+    if (selected.unknown) {
+      setParams(withParam(params, "view", view.key), { replace: true });
+    }
+  }, [params, selected.unknown, setParams, view.key]);
+
   const objects = useObjects(spaceId, {
     type: type.key,
-    filter: view.filter,
-    sorts: view.sorts,
-    ...(view.q ? { q: view.q } : {}),
+    view: view.key,
+    filter: query.filter,
+    sorts: query.sorts,
+    ...(q ? { q } : {}),
   });
 
-  function setFilter(next: typeof view.filter) {
+  function setFilter(next: Filter) {
     setParams(withParam(params, "filter", filterParam(next)), { replace: true });
   }
 
-  function setSorts(next: typeof view.sorts) {
+  function setSorts(next: Sort[]) {
     setParams(withParam(params, "sorts", sortsParam(next)), { replace: true });
   }
 
@@ -169,8 +183,8 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
       </div>
 
       <SearchBox
-        value={view.q}
-        onSubmit={(q) => setParams(withParam(params, "q", q), { replace: true })}
+        value={q}
+        onSubmit={(next) => setParams(withParam(params, "q", next), { replace: true })}
       />
 
       <div className="mt-4 grid gap-4 border-t rule pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
@@ -178,10 +192,10 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
           spaceId={spaceId}
           type={type}
           properties={properties}
-          filter={view.filter}
+          filter={query.filter}
           onChange={setFilter}
         />
-        <SortBar columns={choices} sorts={view.sorts} onChange={setSorts} />
+        <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
       </div>
 
       {objects.isError ? (
@@ -195,10 +209,10 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
         <p className="mt-6 text-[13px] text-muted">Reading records…</p>
       ) : total === 0 ? (
         <p className="mt-6 max-w-[52ch] border-t rule pt-4 text-muted">
-          {view.filter.conditions.length > 0 || view.q
+          {query.filter.conditions.length > 0 || q
             ? "No records match this view. Loosen a filter or clear the search."
             : "This type has no records yet."}
-          {canEdit && view.filter.conditions.length === 0 && !view.q
+          {canEdit && query.filter.conditions.length === 0 && !q
             ? " Create the first one."
             : ""}
         </p>
