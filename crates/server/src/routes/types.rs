@@ -22,7 +22,7 @@ use thing_core::model::{
 };
 use thing_core::schedule::{DUE_DATE_KEY, SCHEDULE_KEYS, is_schedule_key, schedule_property_defs};
 use thing_core::slug::key_from_name;
-use thing_core::store::{SpaceStore, type_path};
+use thing_core::store::{SpaceStore, remove_property_from_type, type_path};
 use thing_core::validate::{self, MAX_TITLE_LEN, Schema};
 use time::OffsetDateTime;
 
@@ -256,6 +256,15 @@ async fn create(
     if !def.schedule {
         def.schedule_labels = ScheduleLabels::default();
     }
+    handle.with_index(|index| {
+        let schema = index.schema();
+        let errors = check_type(&schema, &def);
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(ApiError::validation_all(errors))
+        }
+    })?;
     handle.store.save_type(&def, None)?;
     let path = type_path(&key);
     handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
@@ -352,7 +361,40 @@ async fn update(
             next.description = description.trim().to_owned();
         }
         if let Some(properties) = &body.properties {
+            let removed: Vec<String> = next
+                .properties
+                .iter()
+                .filter(|member| !properties.iter().any(|kept| kept.key == member.key))
+                .map(|member| member.key.clone())
+                .collect();
             next.properties = properties.clone();
+            let mut errors = Vec::new();
+            for key in &removed {
+                for view in validate::dependent_views(&next, key) {
+                    let field = if view.group_by.as_deref() == Some(key.as_str()) {
+                        "group_by"
+                    } else {
+                        "date_property"
+                    };
+                    let message = if field == "group_by" {
+                        format!("groups by {key}, which is being removed; change the view first")
+                    } else {
+                        format!(
+                            "uses {key} as its date property, which is being removed; change the view first"
+                        )
+                    };
+                    errors.push(CoreError::ValidationFailed {
+                        field: format!("views.{}.{field}", view.key),
+                        message,
+                    });
+                }
+            }
+            if !errors.is_empty() {
+                return Err(ApiError::validation_all(errors));
+            }
+            for key in &removed {
+                remove_property_from_type(&mut next, key);
+            }
         }
         if let Some(labels) = &body.schedule_labels {
             next.schedule_labels = clean_schedule_labels(Some(labels.clone()))?;
@@ -364,8 +406,7 @@ async fn update(
             next.schedule_labels = ScheduleLabels::default();
         }
         let schema = index.schema();
-        let mut errors = check_members(&schema, &next.properties);
-        errors.extend(check_view(&schema, &next));
+        let errors = check_type(&schema, &next);
         if errors.is_empty() {
             Ok(next)
         } else {
@@ -441,7 +482,7 @@ async fn remove(
 }
 
 /// The whole definition with its generated properties, or a `404` naming the key.
-fn type_detail(handle: &Arc<SpaceHandle>, key: &str) -> Result<TypeDetail, ApiError> {
+pub(super) fn type_detail(handle: &Arc<SpaceHandle>, key: &str) -> Result<TypeDetail, ApiError> {
     handle
         .with_index(|index| index.type_def(key).map(TypeDetail::of))
         .ok_or_else(|| ApiError::not_found(format!("type {key}")))
@@ -557,48 +598,11 @@ fn check_members(schema: &Schema, members: &[TypeProperty]) -> Vec<CoreError> {
         .unwrap_or_default()
 }
 
-/// Checks every saved view's columns, filter and sorts. The per-kind field
-/// matrix is enforced by the view validation added in the next checkpoint.
-fn check_view(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
-    let mut errors = Vec::new();
-    for view in &def.views {
-        let field = |suffix: &str| format!("views.{}.{suffix}", view.key);
-        if view.columns.is_empty() {
-            if view.kind != ViewKind::Calendar {
-                errors.push(CoreError::ValidationFailed {
-                    field: field("columns"),
-                    message: format!("must start with {TITLE_KEY}"),
-                });
-            }
-        } else if view.columns.first().map(String::as_str) != Some(TITLE_KEY) {
-            errors.push(CoreError::ValidationFailed {
-                field: field("columns"),
-                message: format!("must start with {TITLE_KEY}"),
-            });
-        }
-        let mut seen: Vec<&str> = Vec::with_capacity(view.columns.len());
-        for column in &view.columns {
-            if column != TITLE_KEY && !def.has_property(column) {
-                errors.push(CoreError::ValidationFailed {
-                    field: column.clone(),
-                    message: format!("is not a property of type {}", def.key),
-                });
-            }
-            if seen.contains(&column.as_str()) {
-                errors.push(CoreError::ValidationFailed {
-                    field: column.clone(),
-                    message: "is listed twice".to_owned(),
-                });
-            }
-            seen.push(column);
-        }
-        if let Err(mut found) = validate::validate_filter(schema, def, &view.filter) {
-            errors.append(&mut found);
-        }
-        if let Err(mut found) = validate::validate_sorts(schema, def, &view.sorts) {
-            errors.append(&mut found);
-        }
-    }
+/// Checks a whole type: its property list and every saved view. This is the one
+/// call type and view routes share, so the API cannot drift from `/health`.
+pub(super) fn check_type(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
+    let mut errors = check_members(schema, &def.properties);
+    errors.extend(validate::validate_views(schema, def));
     errors
 }
 
@@ -669,11 +673,11 @@ mod tests {
             default_view: "all".to_owned(),
         };
         assert_eq!(
-            check_view(&schema, &def)
+            check_type(&schema, &def)
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
-            vec!["invalid room: is not a property of type plant"]
+            vec!["invalid views.all.columns: names no member: room"]
         );
     }
 
@@ -808,18 +812,18 @@ mod tests {
         let mut def = chore_type();
         def.schedule = true;
         def.views[0].columns.push(DUE_DATE_KEY.to_owned());
-        let found: Vec<String> = check_view(&schema, &def)
+        let found: Vec<String> = check_type(&schema, &def)
             .iter()
             .map(ToString::to_string)
             .collect();
         assert!(found.is_empty(), "{found:?}");
         def.schedule = false;
         assert_eq!(
-            check_view(&schema, &def)
+            check_type(&schema, &def)
                 .iter()
                 .map(ToString::to_string)
                 .collect::<Vec<_>>(),
-            vec!["invalid due_date: is not a property of type chore"]
+            vec!["invalid views.all.columns: names no member: due_date"]
         );
     }
 

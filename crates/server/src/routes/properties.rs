@@ -19,7 +19,7 @@ use thing_core::model::{ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role,
 use thing_core::schedule::is_schedule_key;
 use thing_core::slug::{is_valid_key, key_from_name};
 use thing_core::store::{SpaceStore, property_path};
-use thing_core::validate::MAX_TITLE_LEN;
+use thing_core::validate::{self, MAX_TITLE_LEN};
 use time::OffsetDateTime;
 
 use super::{ApiJson, ApiQuery, clean_text, space_for, uuid_param};
@@ -265,12 +265,37 @@ async fn remove(
     query.finish()?;
 
     let _guard = handle.write.lock().await;
-    let (types, objects) = handle.with_index(|index| {
+    let ((types, objects), dependent) = handle.with_index(|index| {
         if declared_property(index, &key).is_none() {
             return Err(ApiError::not_found(format!("property {key}")));
         }
-        Ok(usage(index, &key))
+        let dependent: Vec<Value> = index
+            .types()
+            .flat_map(|def| {
+                validate::dependent_views(def, &key)
+                    .into_iter()
+                    .map(|view| {
+                        let field = if view.group_by.as_deref() == Some(key.as_str()) {
+                            "group_by"
+                        } else {
+                            "date_property"
+                        };
+                        json!({
+                            "type": def.key,
+                            "view": view.key,
+                            "field": field,
+                        })
+                    })
+            })
+            .collect();
+        Ok((usage(index, &key), dependent))
     })?;
+    if !dependent.is_empty() {
+        return Err(ApiError::conflict(
+            "views use property",
+            json!({ "reason": "views use property", "views": dependent }),
+        ));
+    }
     if (types > 0 || objects > 0) && !force {
         return Err(ApiError::conflict(
             format!("property {key} is in use"),

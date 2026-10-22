@@ -11,6 +11,7 @@ mod properties;
 mod spaces;
 mod types;
 mod values;
+mod views;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -55,6 +56,7 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .merge(auth::routes())
         .merge(spaces::routes())
         .merge(types::routes())
+        .merge(views::routes())
         .merge(properties::routes())
         .merge(objects::routes())
         .merge(crate::events::routes())
@@ -2186,6 +2188,340 @@ mod tests {
             assert_eq!(event["payload"]["user"], viewer_id.as_str());
 
             expect_closed(&mut socket).await;
+        });
+    }
+
+    /// One view of a type detail, by key.
+    fn view<'a>(detail: &'a Value, key: &str) -> &'a Value {
+        detail["views"]
+            .as_array()
+            .expect("views")
+            .iter()
+            .find(|view| view["key"] == key)
+            .expect("the named view")
+    }
+
+    #[test]
+    fn view_routes_mint_keys_rename_and_promote_the_default() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("views@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}/types/plant", garden.space);
+            let views = format!("{base}/views");
+
+            let board = server
+                .call(
+                    "POST",
+                    &views,
+                    Some(json!({ "name": "By room", "kind": "board", "group_by": "room" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(board.status, StatusCode::CREATED, "{:?}", board.body);
+            assert_eq!(board.body["default_view"], "all");
+            let by_room = view(&board.body, "by_room");
+            assert_eq!(by_room["kind"], "board");
+            assert_eq!(by_room["group_by"], "room");
+            assert_eq!(by_room["columns"], json!(["title"]));
+
+            let duplicate = server
+                .call(
+                    "POST",
+                    &views,
+                    Some(json!({ "name": "By room", "kind": "gallery", "cover": "room" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(duplicate.status, StatusCode::CONFLICT);
+            assert_eq!(duplicate.code(), "conflict");
+
+            let gallery = server
+                .call(
+                    "POST",
+                    &views,
+                    Some(json!({
+                        "name": "Gallery",
+                        "kind": "gallery",
+                        "cover": "room",
+                        "columns": ["title", "room"]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(gallery.status, StatusCode::CREATED, "{:?}", gallery.body);
+            assert_eq!(view(&gallery.body, "gallery")["cover"], "room");
+
+            let renamed = server
+                .call(
+                    "PATCH",
+                    &format!("{views}/by_room"),
+                    Some(json!({ "name": "Rooms" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(renamed.status, StatusCode::OK, "{:?}", renamed.body);
+            assert_eq!(view(&renamed.body, "by_room")["name"], "Rooms");
+            assert_eq!(view(&renamed.body, "by_room")["kind"], "board");
+
+            let kind = server
+                .call(
+                    "PATCH",
+                    &format!("{views}/by_room"),
+                    Some(json!({ "kind": "table" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(kind.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(kind.field(), "body");
+
+            let chosen = server
+                .call(
+                    "POST",
+                    &format!("{views}/by_room/default"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(chosen.status, StatusCode::OK, "{:?}", chosen.body);
+            assert_eq!(chosen.body["default_view"], "by_room");
+
+            // The file order is all, by_room, gallery: deleting the default
+            // promotes the view that followed it.
+            let removed = server
+                .call("DELETE", &format!("{views}/by_room"), None, Some(&cookie))
+                .await;
+            assert_eq!(removed.status, StatusCode::OK, "{:?}", removed.body);
+            assert_eq!(removed.body["default_view"], "gallery");
+
+            let only = create_space(&server, &cookie, "Only").await;
+            server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{only}/types"),
+                    Some(json!({ "name": "Plant" })),
+                    Some(&cookie),
+                )
+                .await;
+            let last = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{only}/types/plant/views/all"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(last.status, StatusCode::CONFLICT);
+            assert_eq!(
+                last.body["error"]["details"]["reason"],
+                "a type needs at least one view"
+            );
+        });
+    }
+
+    #[test]
+    fn a_view_must_name_a_property_its_kind_can_use() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("viewrules@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let views = format!("/api/spaces/{}/types/plant/views", garden.space);
+
+            for (body, field) in [
+                (
+                    json!({ "name": "No lane", "kind": "board" }),
+                    "views.no_lane.group_by",
+                ),
+                (
+                    json!({ "name": "Wrong lane", "kind": "board", "group_by": "title" }),
+                    "views.wrong_lane.group_by",
+                ),
+                (
+                    json!({ "name": "No date", "kind": "calendar" }),
+                    "views.no_date.date_property",
+                ),
+                (
+                    json!({ "name": "Title cover", "kind": "gallery", "cover": "title" }),
+                    "views.title_cover.cover",
+                ),
+            ] {
+                let refused = server.call("POST", &views, Some(body), Some(&cookie)).await;
+                assert_eq!(
+                    refused.status,
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "{:?}",
+                    refused.body
+                );
+                assert_eq!(refused.field(), field, "{:?}", refused.body);
+            }
+        });
+    }
+
+    #[test]
+    fn member_removal_property_deletion_and_schedule_disable_respect_views() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("deps@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}/types/plant", garden.space);
+            let views = format!("{base}/views");
+
+            server
+                .call(
+                    "PATCH",
+                    &format!("{views}/all"),
+                    Some(json!({ "columns": ["title", "room"] })),
+                    Some(&cookie),
+                )
+                .await;
+            server
+                .call(
+                    "POST",
+                    &views,
+                    Some(json!({ "name": "By room", "kind": "board", "group_by": "room" })),
+                    Some(&cookie),
+                )
+                .await;
+            server
+                .call(
+                    "POST",
+                    &views,
+                    Some(json!({
+                        "name": "Gallery",
+                        "kind": "gallery",
+                        "cover": "room",
+                        "columns": ["title", "room"]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+
+            let refused = server
+                .call(
+                    "PATCH",
+                    &base,
+                    Some(json!({ "properties": [] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(refused.field(), "views.by_room.group_by");
+
+            let guarded = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{}/properties/room?force=true", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(guarded.status, StatusCode::CONFLICT);
+            assert_eq!(
+                guarded.body["error"]["details"]["views"][0]["type"],
+                "plant"
+            );
+            assert_eq!(
+                guarded.body["error"]["details"]["views"][0]["view"],
+                "by_room"
+            );
+            assert_eq!(
+                guarded.body["error"]["details"]["views"][0]["field"],
+                "group_by"
+            );
+
+            let renamed = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/properties/room/rename", garden.space),
+                    Some(json!({ "key": "area" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(renamed.status, StatusCode::OK, "{:?}", renamed.body);
+            let detail = server.call("GET", &base, None, Some(&cookie)).await;
+            assert_eq!(
+                view(&detail.body, "all")["columns"],
+                json!(["title", "area"])
+            );
+            assert_eq!(view(&detail.body, "by_room")["group_by"], "area");
+            assert_eq!(view(&detail.body, "gallery")["cover"], "area");
+            assert_eq!(
+                view(&detail.body, "gallery")["columns"],
+                json!(["title", "area"])
+            );
+
+            for key in ["by_room", "gallery"] {
+                let removed = server
+                    .call("DELETE", &format!("{views}/{key}"), None, Some(&cookie))
+                    .await;
+                assert_eq!(removed.status, StatusCode::OK, "{:?}", removed.body);
+            }
+            let stripped = server
+                .call(
+                    "PATCH",
+                    &base,
+                    Some(json!({ "properties": [] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(stripped.status, StatusCode::OK, "{:?}", stripped.body);
+            assert_eq!(view(&stripped.body, "all")["columns"], json!(["title"]));
+
+            let chores = chore_space(&server, &cookie).await;
+            let calendar = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{chores}/types/chore/views"),
+                    Some(json!({
+                        "name": "Calendar",
+                        "kind": "calendar",
+                        "date_property": "due_date"
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(calendar.status, StatusCode::CREATED, "{:?}", calendar.body);
+            assert_eq!(view(&calendar.body, "calendar")["columns"], json!([]));
+
+            let blocked = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{chores}/types/chore"),
+                    Some(json!({ "schedule": false })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(blocked.status, StatusCode::CONFLICT);
+            assert_eq!(
+                blocked.body["error"]["details"]["views"],
+                json!(["calendar"])
+            );
+
+            let removed = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{chores}/types/chore/views/calendar"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(removed.status, StatusCode::OK, "{:?}", removed.body);
+            let disabled = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{chores}/types/chore"),
+                    Some(json!({ "schedule": false })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(disabled.status, StatusCode::OK, "{:?}", disabled.body);
+            assert_eq!(disabled.body["views"][0]["columns"], json!(["title"]));
         });
     }
 }

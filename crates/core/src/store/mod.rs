@@ -267,7 +267,11 @@ pub(crate) fn rename_property_in_object(doc: &mut ObjectDoc, old: &str, new: &st
 
 /// Drops a key from a type's property list and every saved view; returns
 /// whether anything changed.
-pub(crate) fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
+///
+/// Routes guard the structural cases (`group_by`, `date_property`) first; this
+/// helper is the one place that knows every field a view may name, so a member
+/// removal can never leave a saved query pointing at a dead property.
+pub fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
     let mut changed = false;
     if def.properties.iter().any(|member| member.key == key) {
         def.properties.retain(|member| member.key != key);
