@@ -195,6 +195,23 @@ export function dueTone(status: ScheduleStatus | undefined): string {
   }
 }
 
+/** The Schedule page's relative phrase; the due date itself is always beside it. */
+export function duePhrase(status: ScheduleStatus, days: number | undefined): string {
+  if (days === undefined) {
+    return "";
+  }
+  switch (status) {
+    case "overdue":
+      return `Overdue ${Math.abs(days)}d`;
+    case "today":
+      return "Today";
+    case "upcoming":
+      return `In ${days}d`;
+    default:
+      return "";
+  }
+}
+
 /** A due date's table label: relative while it matters, the date otherwise. */
 export function dueCellLabel(schedule: ScheduleState | undefined, dueDate: unknown): string {
   if (typeof dueDate !== "string" || !schedule) {

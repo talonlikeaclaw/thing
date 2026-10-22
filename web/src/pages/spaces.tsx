@@ -3,8 +3,9 @@ import { Link, useNavigate } from "react-router";
 
 import { useCreateSpace, useSpaces } from "@/api/queries";
 import type { SpaceSummary } from "@/api/types";
-import { Button, FormError, TextField } from "@/components/ui/controls";
+import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { readError, shortId } from "@/lib/display";
+import { defaultSpaceTimezone, timezoneNames } from "@/lib/timezone";
 
 /** A keyed entry: the key opens the annotation, the name opens the space. */
 function SpaceRow({ space }: { space: SpaceSummary }) {
@@ -62,6 +63,8 @@ export function SpaceListPage() {
   const spaces = useSpaces();
   const create = useCreateSpace();
   const navigate = useNavigate();
+  const [timezone, setTimezone] = useState(defaultSpaceTimezone);
+  const zoneOptions = timezoneNames(timezone).map((zone) => ({ value: zone, label: zone }));
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,7 +73,7 @@ export function SpaceListPage() {
     const name = String(data.get("name") ?? "").trim();
     const icon = String(data.get("icon") ?? "").trim();
     create.mutate(
-      { name, ...(icon ? { icon } : {}) },
+      { name, timezone, ...(icon ? { icon } : {}) },
       {
         onSuccess: (space) => {
           form.reset();
@@ -134,7 +137,7 @@ export function SpaceListPage() {
           <p className="text-[13px] text-muted">Name it for what you track.</p>
         </div>
         <form
-          className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem_auto] md:items-end"
+          className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_14rem_auto] md:items-end"
           onSubmit={onCreate}
         >
           <TextField
@@ -145,6 +148,15 @@ export function SpaceListPage() {
             placeholder="Garden"
           />
           <TextField label="Icon" name="icon" maxLength={8} placeholder="Optional" />
+          <SelectField
+            label="Timezone"
+            value={timezone}
+            options={zoneOptions}
+            onValueChange={setTimezone}
+          />
+          <p className="text-[13px] text-muted md:col-start-3 md:row-start-2 md:-mt-1">
+            Due and overdue are calendar days in this zone.
+          </p>
           <Button type="submit" disabled={create.isPending}>
             {create.isPending ? "Creating…" : "Create space"}
           </Button>

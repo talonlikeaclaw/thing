@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router";
 
-import { useSpace, useSpaces } from "@/api/queries";
+import { useAgenda, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
 import { cn } from "@/lib/cn";
 
@@ -8,15 +8,19 @@ interface SpaceNavProps {
   spaceId: string;
   types: TypeSummary[];
   selectedTypeKey?: string;
+  /** Marks the Schedule link so it carries `aria-current` on its own page. */
+  selected?: "schedule";
   role: Role;
 }
 
 /** The space switcher and the space's tables; the rail every space surface shares. */
-export function SpaceNav({ spaceId, types, selectedTypeKey, role }: SpaceNavProps) {
+export function SpaceNav({ spaceId, types, selectedTypeKey, selected, role }: SpaceNavProps) {
   const spaces = useSpaces();
   const space = useSpace(spaceId);
+  const agenda = useAgenda(spaceId);
   const navigate = useNavigate();
   const list: SpaceSummary[] = spaces.data ?? [];
+  const overdue = agenda.data?.overdue.length ?? 0;
 
   return (
     <aside className="lg:sticky lg:top-6 lg:self-start">
@@ -86,6 +90,24 @@ export function SpaceNav({ spaceId, types, selectedTypeKey, role }: SpaceNavProp
       </div>
 
       <div className="mt-4 flex flex-col gap-1.5">
+        <Link
+          to={`/s/${spaceId}/agenda`}
+          aria-current={selected === "schedule" ? "page" : undefined}
+          className={cn(
+            "label flex items-center justify-between gap-2 py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center",
+            selected === "schedule" && "text-accent",
+          )}
+        >
+          <span>Schedule</span>
+          {overdue > 0 ? (
+            <span
+              className="rounded-full border border-danger px-1.5 text-[10px] tnum text-danger"
+              title={`${overdue} overdue`}
+            >
+              {overdue}
+            </span>
+          ) : null}
+        </Link>
         <Link
           to={`/s/${spaceId}/schema`}
           className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"

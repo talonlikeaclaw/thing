@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 
 import { AppShell, AuthGate } from "@/components/app-shell";
+import { AgendaPage } from "@/pages/agenda";
 import { JoinPage } from "@/pages/join";
 import { LoginPage } from "@/pages/login";
 import { MembersPage } from "@/pages/members";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
           { index: true, element: <SpaceListPage /> },
           { path: "s/:spaceId", element: <SpacePage /> },
           { path: "s/:spaceId/t/:typeKey", element: <TypeTablePage /> },
+          { path: "s/:spaceId/agenda", element: <AgendaPage /> },
           { path: "s/:spaceId/o/:objectId", element: <ObjectPage /> },
           { path: "s/:spaceId/schema", element: <SchemaPage /> },
           { path: "s/:spaceId/members", element: <MembersPage /> },

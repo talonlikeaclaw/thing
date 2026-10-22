@@ -4,6 +4,7 @@ import type { RecurrenceValue } from "@/api/types";
 import {
   completeLabel,
   dueCellLabel,
+  duePhrase,
   dueTone,
   isScheduleKey,
   labeledScheduleProperties,
@@ -133,6 +134,14 @@ describe("due presentation", () => {
       dueCellLabel({ status: "upcoming", days_until_due: 4 }, "2026-10-25"),
     ).toBe("2026-10-25");
     expect(dueCellLabel(undefined, "2026-10-25")).toBe("2026-10-25");
+  });
+
+  it("names the distance for the Schedule page", () => {
+    expect(duePhrase("overdue", -3)).toBe("Overdue 3d");
+    expect(duePhrase("today", 0)).toBe("Today");
+    expect(duePhrase("upcoming", 2)).toBe("In 2d");
+    expect(duePhrase("done", 0)).toBe("");
+    expect(duePhrase("upcoming", undefined)).toBe("");
   });
 
   it("knows the generated keys", () => {

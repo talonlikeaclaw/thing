@@ -386,7 +386,7 @@ GET /api/spaces/{space}/agenda?days=14   [viewer]
 ```json
 {
   "today": "2026-10-21",
-  "timezone": "Europe/Berlin",
+  "timezone": "America/Toronto",
   "overdue": [
     {"id":"<uuid>","type":"chore","type_name":"Chore","type_icon":"🧹",
      "title":"Water the monstera","rev":3,"due_date":"2026-10-20",
@@ -601,9 +601,11 @@ protocol. Do not run two in one turn.
    agenda/table/overdue badge update in the other without a refresh; change the timezone and see
    `today`/overdue recalculate. Check 375 px: rows tappable, recurrence inputs do not zoom.
 8. **Seed, docs and end-to-end.** Bump the workspace and `web/package.json` version to `0.2.0`.
-   Update `scripts/seed.sh` (Garden timezone `Europe/Berlin`, Chore scheduled, one overdue and one
-   upcoming record), `docs/ROADMAP.md` (M2 landed plus the plan link), `AGENTS.md` (current state,
-   new module, schedule invariants) and any README feature list.
+   Keep `scripts/seed.sh` as landed: Garden is `America/Toronto`, both `plant` and `chore` are
+   scheduled, and due/completion dates are relative to the day it runs. Verify it still produces
+   an overdue, a due-today and an upcoming record, then update `docs/ROADMAP.md` (M2 landed plus
+   the plan link), `AGENTS.md` (current state, new module, schedule invariants) and any README
+   feature list.
    Run the full verification in §10, including the container build if the Dockerfile changes (it
    should not). Report the final file/history bytes.
 
@@ -639,12 +641,12 @@ cd web && npm ci && npm run test:run && npm run lint && npm run typecheck && npm
 
 End-to-end smoke with `THING_DATA_DIR=./data cargo run -p thing-server` and a fresh seed:
 
-1. `scripts/seed.sh` completes. Garden has `timezone: Europe/Berlin` and a `chore` type with
-   `schedule: true`.
-2. The scheduled type file contains `schedule: true` and `columns: [title, due_date, ...]`; the
+1. `scripts/seed.sh` completes. Garden has `timezone: America/Toronto`, and both `plant` and
+   `chore` have `schedule: true`.
+2. The scheduled type files contain `schedule: true` and `columns: [title, due_date, ...]`; the
    generated keys have no files under `properties/`.
-3. A record with `due_date` set to yesterday and `recurrence: {kind: days, every: 3}` is listed as
-   `"status":"overdue"` with `"days_until_due":-1`, and appears under `overdue` in
+3. The chore `Water the monstera` (`due_date` yesterday, `recurrence: {kind: days, every: 3}`) is
+   listed as `"status":"overdue"` with `"days_until_due":-1`, and appears under `overdue` in
    `GET /agenda?days=14`.
 4. `POST /objects/<id>/complete {"rev":<current>}` returns the object with a due date three days
    from today (the completion was late, so it re-phased from today), `rev` incremented by one, and
@@ -706,5 +708,5 @@ UI pass (server on 8080, `npm run dev` in `web/`):
   recurrence exists.
 - No email, push, webhook or timer is added. If reminders return later, they get their own milestone
   with the slot-not-timer design recorded in the roadmap.
-- Seed data uses `Europe/Berlin`, but no test depends on the host timezone; core tests pass a fixed
-  `now` and an explicit zone.
+- Seed data uses `America/Toronto`, but no test depends on the host timezone; core tests pass a
+  fixed `now` and an explicit zone.
