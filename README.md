@@ -8,6 +8,12 @@ The model is deliberately Excel-shaped, because that is the model most people al
 a Type is a table, a Property is a column, an Object is a row, a Value is a cell. The point of
 `thing` is to make that model powerful instead of restrictive.
 
+- **Scheduled types.** A type can track a due date and repeat every N days, weeks or months.
+  Complete records the completion, advances the cadence and appends a revision. Due, overdue and
+  today are calendar days in the space's own IANA timezone, never elapsed hours.
+- **In-app reminders.** An overdue badge in the space rail and a Schedule page with Overdue, Today
+  and upcoming sections. No email, push notification or background job.
+
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
 - **One Rust core, reused.** `thing-core` holds the domain model, validation, query engine and

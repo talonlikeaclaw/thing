@@ -14,27 +14,31 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is deployed as v0.1.0 at <https://thing.talonlikeaclaw.com> (VMID 216); CI is
-green.** `thing-core` exposes `model`, `error`, `slug` (with the type/property key grammar next to
-the filename slugs), `value`, `markdown`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`,
-`filter`, `query` and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
-`tempfile::TempDir`, and table-view tests over a space built on disk. `thing-server` has its shell
-(`config`, `error`, `spaces`, `watcher`, `state`), its auth and membership surface (`accounts`,
-`auth`, `routes/auth`, `routes/spaces`), and its schema and object APIs: `routes/types` (types and
-their saved view), `routes/properties`
+**Current state: M1 is deployed as v0.1.0 at <https://thing.talonlikeaclaw.com> (VMID 216); M2 is
+landed (workspace `0.2.0`, not yet tagged or deployed); CI is green.** `thing-core` exposes
+`model`, `error`, `slug` (with the type/property key grammar next to the filename slugs), `value`,
+`markdown`, `schedule`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
+and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
+`tempfile::TempDir`, schedule tests over a fixed clock and explicit zone, and table-view tests over
+a space built on disk.
+`thing-server` has its shell (`config`, `error`, `spaces`, `watcher`, `state`), its auth and
+membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and its schema and object
+APIs: `routes/types` (types, their saved view and schedule vocabulary), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
-filter/sort/search, raw, history, trash, restore, purge, backlinks) and `routes/values` (the
-`{value, label}` rendering every response uses). `scripts/seed.sh` builds the Garden demo space
-against a running server. `web/` is a Vite + React 19 SPA with the signed-out surfaces (sign in,
-register, invite join), the space list, the schema editor (`pages/schema.tsx`, `components/schema/`)
-and the live per-type table (`pages/type-table.tsx`, `components/type-table.tsx`) with URL-backed
-filters and sorts, inline cell editing with optimistic writes and `409` recovery, WebSocket
-invalidation through `lib/use-space-events.ts`, the object panel with per-format inputs and a
-markdown body (`pages/object.tsx`, `components/object-panel.tsx`), and history and trash
-(`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
+filter/sort/search, raw, history, trash, restore, purge, backlinks, Complete and the agenda) and
+`routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh` builds the
+Garden demo space against a running server, with relative due dates in `America/Toronto`. `web/` is
+a Vite + React 19 SPA with the signed-out surfaces (sign in, register, invite join), the space list,
+the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-type table
+(`pages/type-table.tsx`, `components/type-table.tsx`) with URL-backed filters and sorts, inline cell
+editing with optimistic writes and `409` recovery, the recurrence editor, WebSocket invalidation
+through `lib/use-space-events.ts`, the object panel with per-format inputs, a markdown body and
+Complete (`pages/object.tsx`, `components/object-panel.tsx`), the Schedule page with overdue/today/
+upcoming buckets and the nav badge (`pages/agenda.tsx`, `components/space-nav.tsx`), and history and
+trash (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
 `.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
 Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
-same app with live reload. Nothing is tagged or deployed yet.
+same app with live reload. M2 is not tagged or deployed yet.
 
 ## Where the plan lives
 
@@ -42,17 +46,21 @@ same app with live reload. Nothing is tagged or deployed yet.
 |---|---|
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
+| `docs/plan/m2-scheduling-recurrence.md` | The M2 execution spec: schema 2, the schedule engine, implicit properties, Complete, agenda, web scheduling surfaces, verification. |
 
-M1 is implemented: **checkpoints 1–14 (scaffold; core model and format; store; index, validation and
-query; server shell; auth and membership; schema and object APIs; events and the WebSocket; web
-scaffold and auth screens; schema editor; live table; object panel and markdown body; history and
-trash; docs, CI, containers and the security pass) are landed and CI-green.** M1 is deployed on
-VMID 216 behind Cloudflare at `https://thing.talonlikeaclaw.com`; the next work is M2.
+M1 and M2 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store; index,
+validation and query; server shell; auth and membership; schema and object APIs; events and the
+WebSocket; web scaffold and auth screens; schema editor; live table; object panel and markdown body;
+history and trash; docs, CI, containers and the security pass) and checkpoints 1–8 of M2 (format and
+model; schedule engine; index and validation; server type/property/timezone surface; Complete,
+agenda and schedule JSON; web data layer and inputs; Schedule page and timezone surfaces; seed,
+docs and end-to-end) are landed and CI-green.** M1 is deployed on VMID 216 behind Cloudflare at
+`https://thing.talonlikeaclaw.com`; M2 is not deployed.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
 
-The post-M1 roadmap was revised on 2026-10-21: **M2** is scheduling and recurrence with in-app
+The post-M1 roadmap was revised on 2026-10-21: **M2** landed scheduling and recurrence with in-app
 reminders only; **M3** is saved views; **M4** is everyday usability plus generic CSV import/export.
 Email digests and source-specific `plant-tracker`/`chore` importers are deliberately out of scope.
 
@@ -81,9 +89,10 @@ Email digests and source-specific `plant-tracker`/`chore` importers are delibera
   parsing, tracing. Must not reimplement domain rules.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
-- **Core modules:** `model`, `markdown`, `store`, `validate`, `filter`, `query`, `index` exist.
-  The server shell, auth, the schema and object APIs, and the event bus exist; the SPA covers
-  auth, the space list, the schema editor, the live table, the object panel, history and trash.
+- **Core modules:** `model`, `markdown`, `schedule`, `store`, `validate`, `filter`, `query`, `index`
+  exist. The server shell, auth, the schema and object APIs (including Complete and the agenda), and
+  the event bus exist; the SPA covers auth, the space list, the schema editor, the live table, the
+  object panel, the Schedule page, history and trash.
 
 ## Key Directories
 
@@ -157,6 +166,8 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 - `Cargo.lock` is committed; keep in sync.
 - `argon2`, `rusqlite`, `notify`, `sha2`, `tower` and `http-body-util` are in use by `thing-server`
   (accounts, auth, the watcher, the HTTP tests). `futures-util` splits the WebSocket in `events.rs`.
+  `jiff` is core-only and owns IANA timezone lookup and civil-date arithmetic behind `schedule.rs`;
+  `time` remains the timestamp type everywhere else.
 
 ### Domain invariants (non-negotiable)
 - Object identity is **UUIDv7** in frontmatter; renaming, moving or retyping never breaks links.
@@ -187,6 +198,20 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   file; its id, revisions and body are untouched.
 - **Trashing is not a write.** Delete and restore move the file, stamp `trashed_at`, and append a
   revision that repeats the object's current `rev`; only a content write increments it.
+- **Scheduling is a type flag, not a second object kind.** `schedule: true` exposes `due_date`
+  (date), `recurrence` (recurrence) and `last_completed_at` (datetime) as generated properties.
+  Those keys are reserved in every space, are never written to `properties/`, and a type never
+  lists them in its own `properties`. Disabling scheduling is refused while any live or trashed
+  object of the type still holds one of the keys.
+- **Due is a calendar day in the space timezone.** `schedule::state` compares civil dates resolved
+  through jiff, never elapsed hours; a missing or invalid space timezone behaves as UTC and is
+  reported in `problems()`, never used to block reads or writes. A late completion re-phases from
+  the completion day; an early completion keeps the planned due date; a completion with no
+  recurrence clears `due_date` and keeps `last_completed_at`.
+- **Complete is a write action, not a form save.** It appends a `complete` revision with the full
+  new property map, requires the current `rev` (`409` otherwise), broadcasts `object.completed`,
+  and never accepts a title or body. The web's undo is an ordinary PATCH of the two schedule values
+  at the returned revision, not a history rewrite.
 - **A PATCH merges, and `null` removes.** `properties: {"room": "study"}` sets one value without
   touching the others; `properties: {"room": null}` drops the key. Every `PATCH` carries the `rev`
   the caller read, and a different one is a `409` with `details.current_rev`.
@@ -247,19 +272,24 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
 | `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, space/type/property YAML, history lines |
+| `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, recurrence labels |
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`) and the property rename/removal rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
 | `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,types,properties,objects,values}` |
 | `crates/server/src/events.rs` | The per-space broadcast channel, `SpaceEvent`, and the `/events` WebSocket: origin check, `hello`, then every event; data frames close it, a lagged listener is disconnected, and a removed member or deleted space closes its sockets. API broadcast plus the watcher's echo duplicate an invalidation; that is harmless by design |
 | `crates/server/src/watcher.rs` | Debounced reload of changed paths. Forwards only Create/Modify/Remove (Access events would feed a read loop), sorts the batch so `objects/` precedes `trash/`, and announces created/updated/deleted/restored/purged plus membership diffs from `space.yml` |
-| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint and the trash, restore and history routes |
+| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint, Complete, the agenda and the trash, restore and history routes |
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `web/src/api/client.ts` | The one request path: same-origin cookies, JSON, error envelope → `ApiError` |
 | `web/src/api/types.ts` | TypeScript mirrors of the Rust DTOs the SPA speaks to |
 | `web/src/api/queries.ts` | Every TanStack Query hook and mutation; auth success seeds `me` and `spaces`; schema writes invalidate the space prefix |
 | `web/src/lib/schema.ts` | Pure schema-edit helpers: membership and column order, option drafts, order-insensitive change detection |
+| `web/src/lib/schedule.ts` | Recurrence labels/drafts, schedule property names, due tone and relative due phrases; no date math |
+| `web/src/lib/timezone.ts` | The `Intl` timezone list, always including UTC and the space's current zone |
 | `web/src/components/schema/` | Type and property lists, editors, and the shared option editor |
+| `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
+| `web/src/pages/agenda.tsx` | The Schedule page: horizon, Overdue/Today/Next N buckets, Complete and the no-scheduled-type state |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
 | `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
@@ -313,7 +343,7 @@ When the UI changes, update them; never let them describe a different world.
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 237 tests (138 `thing-core`, 7 `tests/roundtrip.rs`, 57 `thing-server`, 35
+- **Current coverage:** 303 tests (164 `thing-core`, 10 `tests/roundtrip.rs`, 75 `thing-server`, 54
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

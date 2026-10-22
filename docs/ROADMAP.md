@@ -44,9 +44,10 @@ Binding for every milestone. Do not re-open any of these during implementation.
 
 ## Roadmap
 
-M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md). It is landed
-and deployed; the bullets below record how. Later milestones get their own
-`docs/plan/mN-*.md` when they start, so each one is written the way this one was. M2–M10 are recorded
+M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md) and M2 in
+[`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md). Both are landed; M1 is
+deployed. Later milestones get their own
+`docs/plan/mN-*.md` when they start, so each one is written the way this one was. M3–M10 are recorded
 here so the M1 schema does not need reshaping later; each carries its decisions already made.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
@@ -58,16 +59,19 @@ usability move ahead of search.
   roles, auth; user-defined types and properties; object CRUD with a markdown body; the live
   per-type table view with filters and sorts; read-only history; trash; external file edits noticed
   and reflected; a seed script; CI; container. The deployment bullets below are complete.
-- **M2 — Scheduling and recurrence.** Spec: [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md).
-  Any type may declare `schedule: true`, which adds three
-  implicit properties (`due_date` (date), `recurrence` (recurrence), `last_completed_at` (datetime))
-  plus a `complete` action that writes a completion and re-phases the cadence. Recurrence = `days` |
-  `weekly` | `monthly` with the chore-proven clamping rules (weekday `0`=Sun…`6`=Sat, month day
-  `1–31` clamped to the month's last day); due/overdue are **calendar days in the space's IANA
-  timezone**, never elapsed hours; a late completion re-phases from the day it happened. Reminders
-  are **in-app only**: an overdue badge and a due-today/upcoming surface. No email digest, push
-  notification or background notifier in this milestone; if those return, they get their own
-  milestone and the slot-not-timer design.
+- **M2 — Scheduling and recurrence.** **Landed** (workspace `0.2.0`, not yet deployed); spec:
+  [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md). Checkpoints 1–8 are
+  implemented: format schema 2; the calendar-day schedule engine; per-type schedule vocabulary;
+  Complete with a `complete` revision and optional undo; the agenda API and Schedule page; an
+  in-app overdue badge; and timezone pickers on creation and settings. A type declaring
+  `schedule: true` gains implicit `due_date` (date), `recurrence` (recurrence) and
+  `last_completed_at` (datetime), without writing property files. Recurrence = `days` | `weekly` |
+  `monthly` with the chore-proven clamping rules (weekday `0`=Sun…`6`=Sat, month day `1–31` clamped
+  to the month's last day); due/overdue are **calendar days in the space's IANA timezone**, never
+  elapsed hours; a late completion re-phases from the day it happened. Reminders are **in-app
+  only**: an overdue badge and a due-today/upcoming surface. No email digest, push notification or
+  background notifier in this milestone; if those return, they get their own milestone and the
+  slot-not-timer design.
 - **M3 — Views.** Multiple named views per type, stored in the type file: `table`, `board` (group by
   a select property), `gallery` (cover property) and `calendar` (a date property). Per-view visible
   columns, widths, sorts, filters, and a chosen default. The calendar consumes M2's due dates.
