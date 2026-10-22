@@ -62,7 +62,7 @@ export function PropertyCell({
       )}
       onClick={() => setEditing(true)}
     >
-      <CellValue
+      <PropertyValue
         property={property}
         value={value}
         label={label}
@@ -122,7 +122,7 @@ export function TitleCell({
   );
 }
 
-function CellValue({
+export function PropertyValue({
   property,
   value,
   label,

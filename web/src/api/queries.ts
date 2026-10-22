@@ -238,9 +238,25 @@ export function useUpdateType(spaceId: string, key: string) {
   );
 }
 
+/** Every view write returns the whole type; seed it so tabs and keys never lag. */
+function useViewMutation<TInput>(
+  spaceId: string,
+  typeKey: string,
+  mutationFn: (input: TInput) => Promise<TypeDef>,
+) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (detail) => {
+      client.setQueryData(queryKeys.type(spaceId, typeKey), detail);
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+    },
+  });
+}
+
 /** Creates a view; the returned type detail carries the minted key. */
 export function useCreateView(spaceId: string, typeKey: string) {
-  return useSpaceMutation<CreateView, TypeDef>(spaceId, (input) =>
+  return useViewMutation<CreateView>(spaceId, typeKey, (input) =>
     request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views`, {
       method: "POST",
       body: input,
@@ -250,7 +266,7 @@ export function useCreateView(spaceId: string, typeKey: string) {
 
 /** Renames or reconfigures one view; the key and kind stay fixed. */
 export function useUpdateView(spaceId: string, typeKey: string, viewKey: string) {
-  return useSpaceMutation<UpdateView, TypeDef>(spaceId, (input) =>
+  return useViewMutation<UpdateView>(spaceId, typeKey, (input) =>
     request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}`, {
       method: "PATCH",
       body: input,
@@ -260,7 +276,7 @@ export function useUpdateView(spaceId: string, typeKey: string, viewKey: string)
 
 /** Deletes a view; the server refuses the last one and promotes a default. */
 export function useDeleteView(spaceId: string, typeKey: string) {
-  return useSpaceMutation<string, TypeDef>(spaceId, (viewKey) =>
+  return useViewMutation<string>(spaceId, typeKey, (viewKey) =>
     request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}`, {
       method: "DELETE",
     }),
@@ -269,7 +285,7 @@ export function useDeleteView(spaceId: string, typeKey: string) {
 
 /** Makes one view the default; the server keeps it idempotent. */
 export function useSetDefaultView(spaceId: string, typeKey: string) {
-  return useSpaceMutation<string, TypeDef>(spaceId, (viewKey) =>
+  return useViewMutation<string>(spaceId, typeKey, (viewKey) =>
     request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}/default`, {
       method: "POST",
     }),

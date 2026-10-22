@@ -63,6 +63,7 @@ export function TypeTablePage() {
           type={typeData}
           properties={effectiveProperties(typeData, propertiesData)}
           canEdit={detail.role !== "viewer"}
+          timeZone={detail.timezone}
         />
       </div>
     </div>

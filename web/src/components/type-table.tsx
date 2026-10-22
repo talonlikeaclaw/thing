@@ -1,12 +1,16 @@
-import { ArrowUpRight, Check, Search } from "lucide-react";
+import { Columns3, Search, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
+import { useQueryClient } from "@tanstack/react-query";
+
+import { queryKeys } from "@/api/queries";
 import {
   useCompleteObject,
   useCreateObject,
   useObjects,
   useUpdateObject,
+  useUpdateView,
 } from "@/api/queries";
 import type {
   Filter,
@@ -14,13 +18,20 @@ import type {
   PropertyDef,
   Sort,
   TypeDef,
+  UpdateView,
 } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { FilterBar } from "@/components/filter-bar";
-import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { SortBar } from "@/components/sort-bar";
 import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
+import { BoardView } from "@/components/views/board-view";
+import { CalendarView } from "@/components/views/calendar-view";
+import { ColumnPanel } from "@/components/views/column-panel";
+import { GalleryView } from "@/components/views/gallery-view";
+import { TableView } from "@/components/views/table-view";
+import { ViewSettings } from "@/components/views/view-settings";
+import { ViewTabs } from "@/components/views/view-tabs";
 import { readError } from "@/lib/display";
 import {
   columnChoices,
@@ -28,43 +39,67 @@ import {
   sortsParam,
   withParam,
 } from "@/lib/filter";
-import { completeLabel } from "@/lib/schedule";
+import { todayIn } from "@/lib/timezone";
 import { useSpaceEvents } from "@/lib/use-space-events";
-import { effectiveQuery, selectedView } from "@/lib/views";
+import {
+  effectiveQuery,
+  monthOf,
+  queryIsDirty,
+  selectedView,
+  withWidth,
+} from "@/lib/views";
 
 interface TypeTableProps {
   spaceId: string;
   type: TypeDef;
   properties: PropertyDef[];
   canEdit: boolean;
+  timeZone: string;
 }
 
-/** The live table: the type's view, one row per record, cells edited in place. */
-export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps) {
+/** The type page: saved views, their shared toolbar, filters and a renderer. */
+export function TypeTable({
+  spaceId,
+  type,
+  properties,
+  canEdit,
+  timeZone,
+}: TypeTableProps) {
   const [params, setParams] = useSearchParams();
   const selected = selectedView(type, params.get("view") ?? undefined);
   const view = selected.view;
   const query = effectiveQuery(view, params);
   const q = (params.get("q") ?? "").trim();
-  const columns = view.columns.filter((key) => key !== "title");
-  const propertyByKey = new Map(properties.map((property) => [property.key, property]));
+  const today = todayIn(timeZone);
+  const requestedMonth = params.get("month") ?? "";
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)
+    ? requestedMonth
+    : monthOf(today);
   const choices = columnChoices(type, properties);
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
   const create = useCreateObject(spaceId);
+  const layout = useUpdateView(spaceId, type.key, view.key);
+  const client = useQueryClient();
   const toast = useToast();
-  const verb = completeLabel(type.schedule_labels);
   const [autoEditId, setAutoEditId] = useState<string | null>(null);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useSpaceEvents(spaceId);
 
-  // A view deleted in another window falls back to the default instead of
-  // leaving a dead key in the URL.
   useEffect(() => {
     if (selected.unknown) {
       setParams(withParam(params, "view", view.key), { replace: true });
     }
   }, [params, selected.unknown, setParams, view.key]);
+
+  // Panels belong to the view they were opened on, not to the next one.
+  useEffect(() => {
+    setColumnsOpen(false);
+    setSettingsOpen(false);
+    setAutoEditId(null);
+  }, [view.key]);
 
   const objects = useObjects(spaceId, {
     type: type.key,
@@ -74,20 +109,62 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
     ...(q ? { q } : {}),
   });
 
-  function setFilter(next: Filter) {
-    setParams(withParam(params, "filter", filterParam(next)), { replace: true });
-  }
-
-  function setSorts(next: Sort[]) {
-    setParams(withParam(params, "sorts", sortsParam(next)), { replace: true });
-  }
-
   function report(error: unknown) {
     if (error instanceof ApiError && error.status === 409) {
       toast.showToast(`Conflict — ${readError(error)}`, "danger");
     } else {
       toast.showToast(readError(error), "danger");
     }
+  }
+
+  function reportLayout(error: unknown) {
+    report(error);
+    void client.invalidateQueries({ queryKey: queryKeys.type(spaceId, type.key) });
+  }
+
+  function writeLayout(change: UpdateView) {
+    layout.mutate(change, { onError: reportLayout });
+  }
+
+  function selectView(key: string) {
+    const next = new URLSearchParams(params);
+    next.set("view", key);
+    next.delete("filter");
+    next.delete("sorts");
+    next.delete("month");
+    setParams(next, { replace: true });
+  }
+
+  function resetQuery() {
+    const next = new URLSearchParams(params);
+    next.delete("filter");
+    next.delete("sorts");
+    setParams(next, { replace: true });
+  }
+
+  function setMonth(next: string) {
+    setParams(withParam(params, "month", next), { replace: true });
+  }
+
+  function saveQuery() {
+    layout.mutate(
+      { filter: query.filter, sorts: query.sorts },
+      {
+        onSuccess: () => {
+          setParams(resetParams(params), { replace: true });
+          toast.showToast("View saved.");
+        },
+        onError: report,
+      },
+    );
+  }
+
+  function setFilter(next: Filter) {
+    setParams(withParam(params, "filter", filterParam(next)), { replace: true });
+  }
+
+  function setSorts(next: Sort[]) {
+    setParams(withParam(params, "sorts", sortsParam(next)), { replace: true });
   }
 
   function commitCell(
@@ -150,8 +227,11 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
     );
   }
 
+  const rows = objects.data?.objects ?? [];
   const total = objects.data?.total ?? 0;
-  const shown = objects.data?.objects.length ?? 0;
+  const shown = rows.length;
+  const dirty = queryIsDirty(view, query.filter, query.sorts);
+  const hasOverrides = params.has("filter") || params.has("sorts");
 
   return (
     <div className="settle">
@@ -182,10 +262,90 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
         </div>
       </div>
 
-      <SearchBox
-        value={q}
-        onSubmit={(next) => setParams(withParam(params, "q", next), { replace: true })}
+      <ViewTabs
+        spaceId={spaceId}
+        type={type}
+        properties={properties}
+        selectedKey={view.key}
+        canEdit={canEdit}
+        onSelect={selectView}
+        onCreated={selectView}
       />
+
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <SearchBox
+          value={q}
+          onSubmit={(next) => setParams(withParam(params, "q", next), { replace: true })}
+        />
+        {canEdit ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {view.kind === "calendar" ? null : (
+              <Button
+                type="button"
+                variant="ghost"
+                aria-expanded={columnsOpen}
+                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+                onClick={() => {
+                  setColumnsOpen((open) => !open);
+                  setSettingsOpen(false);
+                }}
+              >
+                <Columns3 aria-hidden size={14} />
+                Columns
+              </Button>
+            )}
+            <Button
+              type="button"
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              disabled={!dirty || layout.isPending}
+              onClick={saveQuery}
+            >
+              {layout.isPending ? "Saving…" : "Save view"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              disabled={!hasOverrides}
+              onClick={resetQuery}
+            >
+              Reset
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-expanded={settingsOpen}
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              onClick={() => {
+                setSettingsOpen((open) => !open);
+                setColumnsOpen(false);
+              }}
+            >
+              <Settings2 aria-hidden size={14} />
+              View settings
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {canEdit && columnsOpen ? (
+        <ColumnPanel
+          view={view}
+          properties={properties}
+          disabled={layout.isPending}
+          onPatch={writeLayout}
+        />
+      ) : null}
+
+      {canEdit && settingsOpen ? (
+        <ViewSettings
+          spaceId={spaceId}
+          type={type}
+          view={view}
+          onClose={() => setSettingsOpen(false)}
+          onDeleted={selectView}
+        />
+      ) : null}
 
       <div className="mt-4 grid gap-4 border-t rule pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
         <FilterBar
@@ -195,7 +355,9 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
           filter={query.filter}
           onChange={setFilter}
         />
-        <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
+        {view.kind === "calendar" ? null : (
+          <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
+        )}
       </div>
 
       {objects.isError ? (
@@ -216,108 +378,69 @@ export function TypeTable({ spaceId, type, properties, canEdit }: TypeTableProps
             ? " Create the first one."
             : ""}
         </p>
+      ) : view.kind === "board" ? (
+        <BoardView
+          spaceId={spaceId}
+          view={view}
+          rows={rows}
+          properties={properties}
+        />
+      ) : view.kind === "gallery" ? (
+        <GalleryView
+          spaceId={spaceId}
+          type={type}
+          view={view}
+          rows={rows}
+          properties={properties}
+        />
+      ) : view.kind === "calendar" ? (
+        <CalendarView
+          spaceId={spaceId}
+          view={view}
+          rows={rows}
+          properties={properties}
+          month={month}
+          today={today}
+          onMonthChange={setMonth}
+        />
       ) : (
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[40rem] border-collapse text-left">
-            <thead className="sticky top-0 z-10 bg-ground">
-              <tr className="border-b rule">
-                <th scope="col" className="label w-[12rem] py-2 pr-3 font-medium">
-                  Title
-                </th>
-                {columns.map((key) => {
-                  const property = propertyByKey.get(key);
-                  return (
-                    <th key={key} scope="col" className="label min-w-[6rem] py-2 pr-3 font-medium">
-                      <span className="flex items-baseline gap-1.5">
-                        <span className="truncate">{property?.name ?? key}</span>
-                        <span className="font-mono text-[9px] text-faint normal-case tracking-normal">
-                          {key}
-                        </span>
-                      </span>
-                    </th>
-                  );
-                })}
-                <th
-                  scope="col"
-                  className="sticky right-0 z-20 w-8 border-l rule bg-ground py-2"
-                >
-                  <span className="sr-only">Open</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {objects.data?.objects.map((row) => (
-                <tr key={row.id} className="border-b rule align-top">
-                  <td className="py-1 pr-2">
-                    <TitleCell
-                      title={row.title}
-                      canEdit={canEdit}
-                      startEditing={row.id === autoEditId}
-                      onCommit={(title) => commitTitle(row, title)}
-                      onCancel={() => setAutoEditId(null)}
-                    />
-                  </td>
-                  {columns.map((key) => {
-                    const property = propertyByKey.get(key);
-                    if (!property) {
-                      return (
-                        <td key={key} className="py-1 pr-2 font-mono text-[11px] text-faint">
-                          {key}
-                        </td>
-                      );
-                    }
-                    return (
-                      <td key={key} className="py-1 pr-2">
-                        <PropertyCell
-                          spaceId={spaceId}
-                          property={property}
-                          cell={row.values[key]}
-                          schedule={row.schedule}
-                          canEdit={canEdit}
-                          onCommit={(cell) => commitCell(row, property, cell)}
-                        />
-                      </td>
-                    );
-                  })}
-                  <td className="sticky right-0 w-[4.5rem] border-l rule bg-ground py-1 text-right">
-                    <div className="flex items-center justify-end gap-0.5">
-                      {canEdit && type.schedule && row.schedule?.status !== "done" ? (
-                        <button
-                          type="button"
-                          aria-label={`${verb} ${row.title}`}
-                          title={verb}
-                          disabled={complete.isPending}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
-                          onClick={() => completeRecord(row)}
-                        >
-                          <Check aria-hidden size={14} />
-                        </button>
-                      ) : null}
-                      <Link
-                        to={`/s/${spaceId}/o/${row.id}`}
-                        aria-label={`Open ${row.title}`}
-                        title="Open record"
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
-                      >
-                        <ArrowUpRight aria-hidden size={14} />
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {objects.data?.has_more ? (
-            <p className="mt-2 text-[12px] text-muted">
-              Showing the first {shown} of {total}; narrow the view to see the rest.
-            </p>
-          ) : null}
-          {update.isPending ? <span className="sr-only">Saving</span> : null}
-          {create.error ? <FormError message={readError(create.error)} /> : null}
-        </div>
+        <TableView
+          key={view.key}
+          spaceId={spaceId}
+          type={type}
+          view={view}
+          rows={rows}
+          properties={properties}
+          canEdit={canEdit}
+          completing={complete.isPending}
+          autoEditId={autoEditId}
+          onTitleCommit={commitTitle}
+          onCellCommit={commitCell}
+          onComplete={completeRecord}
+          onResize={(key, width) => {
+            const next = withWidth(view, key, width);
+            writeLayout({ columns: next.columns, widths: next.widths });
+          }}
+          onCancelAutoEdit={() => setAutoEditId(null)}
+        />
       )}
+
+      {objects.data?.has_more ? (
+        <p className="mt-2 text-[12px] text-muted">
+          Showing the first {shown} of {total}; narrow the view to see the rest.
+        </p>
+      ) : null}
+      {update.isPending ? <span className="sr-only">Saving</span> : null}
+      {create.error ? <FormError message={readError(create.error)} /> : null}
     </div>
   );
+}
+
+function resetParams(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams(params);
+  next.delete("filter");
+  next.delete("sorts");
+  return next;
 }
 
 function SearchBox({ value, onSubmit }: { value: string; onSubmit: (value: string) => void }) {
@@ -326,7 +449,7 @@ function SearchBox({ value, onSubmit }: { value: string; onSubmit: (value: strin
   return (
     <form
       role="search"
-      className="relative mt-4 max-w-[26rem]"
+      className="relative max-w-[26rem] min-w-[12rem] flex-1"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit(text.trim());
