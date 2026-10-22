@@ -55,7 +55,8 @@ With the server running, `scripts/seed.sh` builds the Garden demo space through 
 signs in as `THING_SEED_EMAIL` (default `a@b.c`), registers that account if the install has no such
 user, and names it with `THING_SEED_NAME` (default `Talon`). On an empty install that first account
 becomes the owner. There is no default password: set `THING_SEED_PASSWORD` and use the same value on
-later runs.
+later runs. The demo space is `America/Toronto`, both types are scheduled, and the records place
+work in the past, today and the coming weeks so the due surfaces have content immediately.
 
 ```sh
 THING_DATA_DIR=./data THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh

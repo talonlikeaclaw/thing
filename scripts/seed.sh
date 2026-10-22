@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds the "Garden" demo space through the API, exactly as the M1 plan's
-# smoke test describes it: two types, six properties and eight records.
+# Builds the "Garden" demo space through the API: two scheduled types, three
+# shared properties and eight records. Dates are relative to Montreal's
+# calendar day so the Schedule page starts with real overdue and upcoming work.
 #
 #   THING_DATA_DIR=./data cargo run -p thing-server &
 #   scripts/seed.sh
@@ -88,14 +89,55 @@ echo "seed: signed in as $EMAIL"
 
 # --- the space -------------------------------------------------------------
 
-space="$(request POST /api/spaces '{"name":"Garden","icon":"🪴"}' | json id)"
-echo "seed: space $space"
+space="$(request POST /api/spaces \
+    '{"name":"Garden","icon":"🪴","timezone":"America/Toronto"}' | json id)"
+echo "seed: space $space (America/Toronto)"
+
+# --- relative dates --------------------------------------------------------
+
+# Due and completion dates are civil days in the space zone. Keep the demo
+# useful whenever it is run instead of freezing it to one week in 2026.
+read -r yesterday today in_two in_three in_fourteen last_three last_four last_six last_eight now in_three_weekday <<< "$(python3 - <<'PY'
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+zone = ZoneInfo("America/Toronto")
+today = datetime.now(zone).date()
+stamp = datetime.now(timezone.utc).replace(microsecond=0)
+def day(offset):
+    return (today + timedelta(days=offset)).isoformat()
+def at(days_ago):
+    return (stamp - timedelta(days=days_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+# Python weekday: Monday=1…Sunday=7; recurrence weekday: Sunday=0…Saturday=6.
+print(
+    day(-1), day(0), day(2), day(3), day(14),
+    at(3), at(4), at(6), at(8), stamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    (today + timedelta(days=3)).isoweekday() % 7,
+)
+PY
+)"
 
 # --- the types -------------------------------------------------------------
 
-request POST "/api/spaces/$space/types" \
-    '{"name":"Plant","name_plural":"Plants","icon":"🪴","description":"Everything growing in the flat"}' >/dev/null
-request POST "/api/spaces/$space/types" '{"name":"Chore"}' >/dev/null
+request POST "/api/spaces/$space/types" '{
+    "name":"Plant","name_plural":"Plants","icon":"🪴",
+    "description":"Everything growing in the flat",
+    "schedule":true,
+    "schedule_labels":{
+        "due":"Next watering",
+        "recurrence":"Water every",
+        "last_completed":"Last watered",
+        "complete":"Water"
+    }}' >/dev/null
+request POST "/api/spaces/$space/types" '{
+    "name":"Chore",
+    "schedule":true,
+    "schedule_labels":{
+        "due":"Due",
+        "recurrence":"Repeats",
+        "last_completed":"Last done",
+        "complete":"Done"
+    }}' >/dev/null
 
 # --- the properties --------------------------------------------------------
 
@@ -105,39 +147,32 @@ request POST "/api/spaces/$space/properties" \
         {"name":"Study","color":"blue"},
         {"name":"Balcony","color":"green"}]}' >/dev/null
 request POST "/api/spaces/$space/properties" \
-    '{"name":"Watering interval days","format":"number"}' >/dev/null
-request POST "/api/spaces/$space/properties" \
-    '{"name":"Last watered","format":"date"}' >/dev/null
-request POST "/api/spaces/$space/properties" \
     '{"name":"Tags","format":"multi_select","options":[
         {"name":"Easy","color":"green"},
         {"name":"Indoors","color":"blue"}]}' >/dev/null
 request POST "/api/spaces/$space/properties" \
     '{"name":"Related plant","format":"relation","target_type":"plant"}' >/dev/null
-echo "seed: properties room, watering_interval_days, last_watered, tags, related_plant"
+echo "seed: properties room, tags, related_plant"
 
 # --- what each type shows --------------------------------------------------
 
 request PATCH "/api/spaces/$space/types/plant" '{
     "properties": [
         {"key":"room","featured":true},
-        {"key":"watering_interval_days","featured":true},
-        {"key":"last_watered"},
         {"key":"tags"},
         {"key":"related_plant"}
     ],
     "view": {
-        "columns": ["title","room","watering_interval_days","last_watered","tags","related_plant"],
+        "columns": ["title","room","due_date","recurrence","last_completed_at","tags","related_plant"],
         "sorts": [{"property":"updated_at","direction":"desc"}],
         "filter": {"op":"and","conditions":[]}
     }}' >/dev/null
 request PATCH "/api/spaces/$space/types/chore" '{
     "properties": [
-        {"key":"room","featured":true},
-        {"key":"last_watered","featured":true}
+        {"key":"room","featured":true}
     ],
     "view": {
-        "columns": ["title","room","last_watered"],
+        "columns": ["title","room","due_date","recurrence","last_completed_at"],
         "sorts": [{"property":"updated_at","direction":"desc"}],
         "filter": {"op":"and","conditions":[]}
     }}' >/dev/null
@@ -146,37 +181,38 @@ echo "seed: type views set"
 # --- the records -----------------------------------------------------------
 
 fiddle="$(object plant "Fiddle-leaf fig" \
-    '{"room":"study","watering_interval_days":10,"last_watered":"2026-10-10","tags":["indoors"]}' \
+    "{\"room\":\"study\",\"due_date\":\"$in_two\",\"recurrence\":{\"kind\":\"days\",\"every\":10},\"last_completed_at\":\"$last_eight\",\"tags\":[\"indoors\"]}" \
     "
 Repotted in spring; leaves wiped every other week.
 ")"
 monstera="$(object plant "Monstera in the study" \
-    "{\"room\":\"kitchen\",\"watering_interval_days\":7,\"last_watered\":\"2026-10-15\",\"tags\":[\"easy\",\"indoors\"],\"related_plant\":\"$fiddle\"}" \
+    "{\"room\":\"kitchen\",\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":7},\"last_completed_at\":\"$last_eight\",\"tags\":[\"easy\",\"indoors\"],\"related_plant\":\"$fiddle\"}" \
     "
-Watered today, new leaf unfurling at the top.
+Watered this week, new leaf unfurling at the top.
 ")"
 object plant "Balcony herbs" \
-    '{"room":"balcony","watering_interval_days":3,"last_watered":"2026-10-16","tags":["easy"]}' \
+    "{\"room\":\"balcony\",\"due_date\":\"$today\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_three\",\"tags\":[\"easy\"]}" \
     "
 Basil, mint and thyme in one trough.
 " >/dev/null
 object plant "Snake plant" \
-    '{"room":"study","watering_interval_days":14,"last_watered":"2026-09-30","tags":["easy"]}' \
+    "{\"room\":\"study\",\"due_date\":\"$in_fourteen\",\"recurrence\":{\"kind\":\"days\",\"every\":14},\"last_completed_at\":\"$now\",\"tags\":[\"easy\"]}" \
     "
 Nearly impossible to kill; water it when the soil is dry.
 " >/dev/null
 object chore "Water the monstera" \
-    '{"room":"kitchen","last_watered":"2026-10-15"}' >/dev/null
+    "{\"room\":\"kitchen\",\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_four\"}" >/dev/null
 object chore "Dust the shelves" \
-    '{"room":"study","last_watered":"2026-10-08"}' >/dev/null
+    "{\"room\":\"study\",\"due_date\":\"$in_three\",\"recurrence\":{\"kind\":\"weekly\",\"every\":1,\"weekday\":$in_three_weekday},\"last_completed_at\":\"$last_four\"}" >/dev/null
 object chore "Sweep the balcony" \
-    '{"room":"balcony","last_watered":"2026-10-12"}' >/dev/null
+    "{\"room\":\"balcony\",\"due_date\":\"$in_two\"}" >/dev/null
 object chore "Repot the fiddle-leaf" \
-    '{"room":"study"}' >/dev/null
+    "{\"room\":\"study\",\"last_completed_at\":\"$last_six\"}" >/dev/null
 
 echo "seed: 8 objects"
 echo
 echo "space:      $space"
+echo "timezone:   America/Toronto"
 echo "browse:     $BASE/s/$space/t/plant"
 echo "the file:   ${THING_DATA_DIR:-./data}/spaces/$space/objects/plant/monstera-in-the-study.md"
 echo "the record: ${THING_DATA_DIR:-./data}/spaces/$space/history/$monstera.ndjson"
