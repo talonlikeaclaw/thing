@@ -55,11 +55,11 @@ made.
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday
 usability move ahead of search.
 
-- **M1 — Engine core.** **Landed and deployed** as `v0.1.0` on VMID 216 at
-  <https://thing.talonlikeaclaw.com> — checkpoints 1–14 are implemented: spaces, members, invites,
-  roles, auth; user-defined types and properties; object CRUD with a markdown body; the live
-  per-type table view with filters and sorts; read-only history; trash; external file edits noticed
-  and reflected; a seed script; CI; container. The deployment bullets below are complete.
+- **M1 — Engine core.** **Landed and deployed** as `v0.1.0` — checkpoints 1–14 are implemented:
+  spaces, members, invites, roles, auth; user-defined types and properties; object CRUD with a
+  markdown body; the live per-type table view with filters and sorts; read-only history; trash;
+  external file edits noticed and reflected; a seed script; CI; container. The deployment is
+  complete; host-specific steps are kept outside this repository.
 - **M2 — Scheduling and recurrence.** **Landed** (workspace `0.2.0`, not yet deployed); spec:
   [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md). Checkpoints 1–8 are
   implemented: format schema 2; the calendar-day schedule engine; per-type schedule vocabulary;
@@ -156,32 +156,18 @@ narrowing scope, changing the file format, or skipping a verification.
 
 ## Deployment
 
+**Deployed 2026-10-21** as `v0.1.0`. The deployment is a self-hosted container with a persistent
+data volume; Postgres is **not** involved, so a nightly `tar` of that volume is a complete logical
+backup. Host-specific provisioning, addresses and tunnel configuration are kept outside this
+public repository.
 
-**Deployed 2026-10-21** as `v0.1.0` (VMID 216, `192.168.0.216`). The homelab repo holds the
-recipe; this milestone filled it in. Postgres is **not** involved,
-which makes this the first app in the fleet with no database dependency — a nightly `tar` of
-`/opt/thing/data` is a complete logical backup, and vzdump already covers the LXC. Each bullet below
-is its own checkpoint and its own commit, in the order listed, under the same delivery protocol as
-M1; the app repo is not touched.
-
-- `homelab/tofu/thing.tf` — VMID 216 (next free in the stable 200–249 range), hostname `thing`,
-  `192.168.0.216`, 2 cores, 2048 MB RAM, 16 GB rootfs, `unprivileged = true`, with
-  `features { nesting = true, keyctl = true }` so Docker runs inside the LXC without making it
-  privileged, keeping the `lifecycle { ignore_changes = [initialization[0].user_account[0]] }`
-  guard.
-- `homelab/ansible/inventory.ini` — add host `192.168.0.216` to a new `[thing]` group.
-- `homelab/ansible/playbooks/thing.yml` — `app_dir=/opt/thing`, `thing_version: "v0.1.0"` pinned by
-  tag, Docker install, `/opt/thing/.env` rendered at mode 0600 from `ansible/vars/thing.yml`
-  (`THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`, `THING_BIND=0.0.0.0:8080`, `THING_LISTEN_IP=0.0.0.0`),
-  `docker compose pull && up -d`, and a `pg_dump`-free data volume at `/opt/thing/data` owned by
-  UID/GID `1000` mode `0700` (the image runs unprivileged).
-- Register the first account over the LAN before the DNS route exists: the first account becomes the
-  owner without an invite, so the instance must not be publicly reachable unclaimed.
-- `homelab/ansible/playbooks/cloudflared.yml` — add `thing → http://192.168.0.216:8080` to the ingress
-  list, then rerun the playbook.
-- `ssh root@192.168.0.200 cloudflared tunnel route dns homelab thing.talonlikeaclaw.com`.
-- `homelab/README.md` — add the service row and update the upgrade checklist.
-
-Production pulls the pinned image built by the `v*` CI job rather than compiling Rust on the LXC: a
-Rust release build needs far more than 2 cores and 2 GB, and chore's 8 GB rootfs ENOSPC is already a
-documented hazard on this fleet.
+- Register the first account before the instance is publicly reachable: the first account becomes
+  the owner without an invite, so the instance must not be exposed unclaimed.
+- Production pulls the pinned image built by the `v*` CI job rather than compiling Rust on the
+  host; a Rust release build needs more memory and cores than a small deployment host typically
+  has.
+- Set `THING_COOKIE_SECURE=true` and `THING_PUBLIC_URL` to the deployment's own origin. The
+  compose port binds loopback by default; widen `THING_BIND`/`THING_LISTEN_IP` only behind the
+  tunnel.
+- The data volume is the only state. Keep it on durable storage owned by the image's unprivileged
+  user, and include it in the host's backup routine.

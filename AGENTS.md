@@ -14,8 +14,8 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is deployed as v0.1.0 at <https://thing.talonlikeaclaw.com> (VMID 216); M2
-(workspace `0.2.0`) and M3 (workspace `0.3.0`) are landed, not yet tagged or deployed; CI is green.**
+**Current state: M1 is deployed as v0.1.0; M2 (workspace `0.2.0`) and M3 (workspace `0.3.0`) are
+landed, not yet tagged or deployed; CI is green.**
 `thing-core` exposes
 `model`, `error`, `slug` (with the type/property key grammar next to the filename slugs), `value`,
 `markdown`, `schedule`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate` (objects, filters,
@@ -63,8 +63,8 @@ and model; schedule engine; index and validation; server type/property/timezone 
 agenda and schedule JSON; web data layer and inputs; Schedule page and timezone surfaces; seed,
 docs and end-to-end) and checkpoints 1–8 of M3 (format 3 and the saved-view model; view validation
 and health; server type and view routes; list by view; web data layer and view state; table views;
-board, gallery and calendar; seed, docs and end-to-end) are landed and CI-green.** M1 is deployed
-on VMID 216 behind Cloudflare at `https://thing.talonlikeaclaw.com`; M2 and M3 are not deployed.
+board, gallery and calendar; seed, docs and end-to-end) are landed and CI-green.** M1 is deployed;
+M2 and M3 are not deployed.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -352,11 +352,11 @@ When the UI changes, update them; never let them describe a different world.
   `.devcontainer/` run both dev servers against the source. `scripts/seed.sh` requires
   `THING_SEED_PASSWORD`, signs in as `THING_SEED_EMAIL` (default `a@b.c`) or registers it, and
   builds the Garden demo space against a running server.
-- **Deploy.** Production is live as `v0.1.0` on VMID 216 with `/opt/thing/data` as the volume and
-  `THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL=https://thing.talonlikeaclaw.com`,
-  `THING_BIND=0.0.0.0:8080` and `THING_LISTEN_IP=0.0.0.0` (the compose port binds loopback by
-  default); the deployment record is in `docs/ROADMAP.md` and the homelab repo. `tar` of the data
-  directory is a complete backup: the space content is only markdown.
+- **Deploy.** Production runs the release image behind a private tunnel with a persistent data
+  volume, `THING_COOKIE_SECURE=true`, `THING_PUBLIC_URL` set to the deployment's own origin, and
+  `THING_BIND`/`THING_LISTEN_IP` set by the deployment (the compose port binds loopback by default);
+  host-specific deployment steps live outside this repository. `tar` of the data directory is a
+  complete backup: the space content is only markdown.
 - Keep `tokio`, `axum`, `rusqlite` and `notify` out of `thing-core`; they belong in the shell or
   the store boundary.
 

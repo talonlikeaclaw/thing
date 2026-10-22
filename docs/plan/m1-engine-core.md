@@ -18,7 +18,7 @@ thing/
 │   │                           #   delivery protocol, deployment
 │   └── plan/m1-engine-core.md  # the M1 execution spec (§1–§10 of this plan)
 ├── Dockerfile                  # 3 stages: web build, rust build, runtime
-├── docker-compose.yml          # dev convenience only; prod compose lives in the homelab repo
+├── docker-compose.yml          # dev convenience only; production compose is kept outside this repo
 ├── scripts/seed.sh             # curl walkthrough that builds the "Garden" demo space
 ├── .github/workflows/ci.yml
 ├── crates/
@@ -280,8 +280,8 @@ filesystem.
 
 ### Config
 
-Read from the environment, no config file, no `DATABASE_URL` (matching the user's homelab
-convention of discrete variables):
+Read from the environment, no config file, no `DATABASE_URL` (matching the discrete-variable
+convention of self-hosted containers):
 
 | var | default | meaning |
 |---|---|---|

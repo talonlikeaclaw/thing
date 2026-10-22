@@ -42,7 +42,7 @@ relations and live collaboration.
 
 ## Operating Context
 
-The owner runs the server on their own hardware (a homelab container) behind a private tunnel and
+The owner runs the server on their own hardware (a self-hosted container) behind a private tunnel and
 opens it in a browser. Collaborators are invited by link and join a space at a role. The owner will
 also edit the markdown files directly in their own editor and expect the running app to notice and
 reflect those edits rather than serving or overwriting stale state. An omp agent may later drive
