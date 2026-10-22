@@ -215,8 +215,8 @@ space icons, never as interface iconography.
   editor on the right; on narrow screens the editor follows its list. Hairlines only.
 - **List row:** 15px name, mono 11px key, format or count right-aligned. The selected row's text
   turns lichen (`aria-current`); no background fill and no side stripe.
-- **Ordering:** membership and column order are explicit up/down 32px ghost icon buttons, 44px on
-  coarse pointers. `title` is listed first and marked `fixed first`, never draggable.
+- **Ordering:** membership order is explicit up/down 32px ghost icon buttons, 44px on coarse
+  pointers. Column order belongs to a view and lives on the type page, not in this editor.
 - **Options:** each row is a colour swatch input, the name field, its mono key once saved, then the
   order and remove controls. A new option is added inline below the list with the same two inputs.
   Option colours are user data; the lichen accent is not implied.
@@ -224,6 +224,48 @@ space icons, never as interface iconography.
   list, never a modal.
 - **Save state:** Save stays disabled until something changed; a successful write shows `SAVED` in
   lichen. A viewer sees the same definitions with the controls disabled and no Save.
+
+### View Switcher
+- **Tabs:** directly under the type header, one per saved view in file order: kind icon, name, and a
+  mono `DEFAULT` marker on the default. Selection is a 1px lichen bottom rule and lichen text, never
+  a filled chip. `aria-pressed` carries the state; the row scrolls horizontally at 375px.
+- **New view:** a ghost `+ New view` at the end of the row opens an inline form beneath it — name,
+  kind choice, and the kind's required property. It never opens a modal and never asks for a column
+  list; the new view copies the current default's layout.
+- **Toolbar:** search, filter and sort sit above the renderer, with `Save view` (only when the URL
+  query differs from the saved view), `Reset`, and `View settings` for editors. Layout edits write
+  as they commit; filter and sort edits wait for the explicit save.
+- **View settings:** an inline panel for rename, make-default and delete with an inline confirm. The
+  kind is shown read-only with "Kind is fixed; create a view to show these records another way".
+
+### Table View
+- **Widths:** a `<colgroup>` carries the saved per-view widths; `title` defaults to 240px and other
+  columns to 140px, clamped to 80–800px.
+- **Resize:** each header ends in a focusable vertical separator labelled `Resize <name>`; arrow
+  keys move 16px (Shift: 64px), a pointer drag commits on release, and coarse pointers get a larger
+  target with the same widths. Narrow screens scroll the table rather than reflowing it.
+
+### Board View
+- **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a
+  final `No value` lane only when records lack the value. Each lane is a 17rem ruled column with a
+  hairline top border, its option name and a mono count above the cards.
+- **Cards:** a `surface` panel with a hairline border and no shadow; the title, then the view's card
+  columns as mono key and value. No drag between lanes in M3.
+
+### Gallery View
+- **Grid:** 2 columns, 3 from `md`, 4 from `xl`, with a hairline at every tile edge rather than a
+  shadow.
+- **Cover:** the cover property's label, bottom-aligned on a `surface` panel with a hairline base;
+  an empty value falls back to the type icon. No invented gradient, image or generated art until
+  file properties exist. The card repeats the title and card columns.
+
+### Calendar View
+- **Grid:** Monday-first weeks in a 7-column ruled table; adjacent-month days are recessed with
+  `surface/40` and a faint numeral. Cell borders are hairlines (`rule`).
+- **Chips:** a link with a single hairline left edge, not a filled pill; at most three per day, then
+  mono `+N more`. Today is a mono `TODAY` label and lichen numeral, not a filled block.
+- **Navigation:** the month name, ghost previous/next buttons and `Today`, all 44px on coarse
+  pointers. A footer counts records with no value for the date property.
 
 ## Do's and Don'ts
 
@@ -234,6 +276,8 @@ space icons, never as interface iconography.
 - **Do** separate rows and sections with 1px hairlines and spacing, not cards or shadows.
 - **Do** name the next action in empty states and errors, in the product's own language.
 - **Do** keep the signed-out margin notes factual: they describe what the files and schema are.
+- **Do** let a view tab read as text plus a bottom rule, and let the calendar's today read as a
+  hairline and a mono label; colour never carries the state alone.
 
 ### Don't:
 - **Don't** introduce shadows, glass, gradients, glows or colored side stripes.

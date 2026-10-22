@@ -13,6 +13,10 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   today are calendar days in the space's own IANA timezone, never elapsed hours.
 - **In-app reminders.** An overdue badge in the space rail and a Schedule page with Overdue, Today
   and upcoming sections. No email, push notification or background job.
+- **Named views.** Each type carries its own saved views: a table with per-view columns and
+  widths, a board grouped by a select property, a gallery with a property as its cover, and a
+  calendar on a date property such as a schedule's due date. Column layout saves as you edit
+  it; filters and sorts save when you press **Save view**, and the selected view is in the URL.
 - **Editable spaces.** Rename a space, change its timezone, or delete it by typing its name. Icons
   are picked from a searchable emoji grid rather than pasted in; the same picker serves types.
 

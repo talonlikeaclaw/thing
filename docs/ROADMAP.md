@@ -44,12 +44,12 @@ Binding for every milestone. Do not re-open any of these during implementation.
 
 ## Roadmap
 
-M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md) and M2 in
-[`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md). Both are landed; M1 is
-deployed. M3 is specified in [`docs/plan/m3-views.md`](plan/m3-views.md) and is not started.
-Remaining milestones get their own `docs/plan/mN-*.md` when they start, so each one is written the
-way these were. M3–M10 are recorded here so the M1 schema does not need reshaping later; each
-carries its decisions already made.
+M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md), M2 in
+[`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md) and M3 in
+[`docs/plan/m3-views.md`](plan/m3-views.md). All three are landed; M1 is deployed and M2 and M3
+are not. The next milestone starts its own `docs/plan/mN-*.md`, written the way these were. M4–M10
+are recorded here so the format does not need reshaping later; each carries its decisions already
+made.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday
@@ -73,11 +73,15 @@ usability move ahead of search.
   only**: an overdue badge and a due-today/upcoming surface. No email digest, push notification or
   background notifier in this milestone; if those return, they get their own milestone and the
   slot-not-timer design.
-- **M3 — Views.** Multiple named views per type, stored in the type file: `table`, `board` (group by
-  a select property), `gallery` (cover property) and `calendar` (a date property). Per-view visible
-  columns, widths, sorts, filters, and a chosen default. The calendar consumes M2's due dates.
-  Views are the type's own saved query, not a separate object kind; cross-type views are not in this
-  milestone.
+- **M3 — Views.** **Landed** (workspace `0.3.0`, not yet deployed); spec:
+  [`docs/plan/m3-views.md`](plan/m3-views.md). Checkpoints 1–8 are implemented: format schema 3
+  with an ordered `views` list and one `default_view`; four kinds (`table`, `board`, `gallery`,
+  `calendar`); per-view filter, sorts, columns and table widths; kind-specific `group_by`, `cover`
+  and `date_property`; create, rename, reconfigure, delete and choose-default over the API and in
+  the SPA; a view switcher and `?view=` URL selection; immediate layout writes for editors and
+  explicit **Save view** for filters and sorts. A view is the type's own saved query, not a
+  separate object kind; cross-type and per-user views are not in this milestone. A schema-1 or
+  schema-2 type file still loads as one `all` table view and its next write upgrades it.
 - **M4 — Everyday usability.** Quick capture from anywhere (type picker, required properties,
   create-and-open), a command palette (Cmd/Ctrl+K) over spaces, types, records and actions, keyboard
   navigation and shortcuts, duplicate and move-to-trash actions with an undo window, multi-select

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Builds the "Garden" demo space through the API: two scheduled types, three
-# shared properties and eight records. Dates are relative to Montreal's
-# calendar day so the Schedule page starts with real overdue and upcoming work.
+# shared properties, eight records and named views (Plant's default table, a
+# room board, a gallery and a watering calendar). Dates are relative to
+# Montreal's calendar day so the Schedule page starts with real overdue and
+# upcoming work.
 #
 #   THING_DATA_DIR=./data cargo run -p thing-server &
 #   scripts/seed.sh
@@ -164,8 +166,22 @@ request PATCH "/api/spaces/$space/types/plant" '{
     ]}' >/dev/null
 request PATCH "/api/spaces/$space/types/plant/views/all" '{
     "columns": ["title","room","due_date","recurrence","last_completed_at","tags","related_plant"],
+    "widths": {"title":280,"due_date":160},
     "sorts": [{"property":"updated_at","direction":"desc"}],
     "filter": {"op":"and","conditions":[]}
+}' >/dev/null
+request POST "/api/spaces/$space/types/plant/views" '{
+    "name":"By room","kind":"board","group_by":"room",
+    "columns": ["title","due_date","recurrence"],
+    "sorts": [{"property":"due_date","direction":"asc"}]
+}' >/dev/null
+request POST "/api/spaces/$space/types/plant/views" '{
+    "name":"Gallery","kind":"gallery","cover":"room",
+    "columns": ["title","due_date","tags"]
+}' >/dev/null
+request POST "/api/spaces/$space/types/plant/views" '{
+    "name":"Watering","kind":"calendar","date_property":"due_date",
+    "sorts": [{"property":"due_date","direction":"asc"}]
 }' >/dev/null
 request PATCH "/api/spaces/$space/types/chore" '{
     "properties": [

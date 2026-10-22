@@ -14,33 +14,37 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is deployed as v0.1.0 at <https://thing.talonlikeaclaw.com> (VMID 216); M2 is
-landed (workspace `0.2.0`, not yet tagged or deployed); CI is green.** `thing-core` exposes
+**Current state: M1 is deployed as v0.1.0 at <https://thing.talonlikeaclaw.com> (VMID 216); M2
+(workspace `0.2.0`) and M3 (workspace `0.3.0`) are landed, not yet tagged or deployed; CI is green.**
+`thing-core` exposes
 `model`, `error`, `slug` (with the type/property key grammar next to the filename slugs), `value`,
-`markdown`, `schedule`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate`, `filter`, `query`
-and `index` (`SpaceIndex`), with fixture round-trip tests, filesystem tests over
-`tempfile::TempDir`, schedule tests over a fixed clock and explicit zone, and table-view tests over
-a space built on disk.
+`markdown`, `schedule`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate` (objects, filters,
+sorts and `validate_views`), `filter`, `query` and `index` (`SpaceIndex`, including
+`view_problems`), with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, schedule
+tests over a fixed clock and explicit zone, and table-view tests over a space built on disk.
 `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`, `state`), its auth and
 membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and its schema and object
-APIs: `routes/types` (types, their saved view and schedule vocabulary), `routes/properties`
+APIs: `routes/types` (types and schedule vocabulary), `routes/views` (named views: create, patch,
+delete, default), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
-filter/sort/search, raw, history, trash, restore, purge, backlinks, Complete and the agenda) and
-`routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh` builds the
-Garden demo space against a running server, with relative due dates in `America/Toronto`. `web/` is
+filter/sort/search/view selection, raw, history, trash, restore, purge, backlinks, Complete and the
+agenda) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
+builds the Garden demo space against a running server, with relative due dates in
+`America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is
 a Vite + React 19 SPA with the signed-out surfaces (sign in, register, invite join), the space list,
-the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-type table
-(`pages/type-table.tsx`, `components/type-table.tsx`) with URL-backed filters and sorts, inline cell
-editing with optimistic writes and `409` recovery, the recurrence editor, WebSocket invalidation
-through `lib/use-space-events.ts`, the object panel with per-format inputs, a markdown body and
-Complete (`pages/object.tsx`, `components/object-panel.tsx`), the Schedule page with overdue/today/
-upcoming buckets and the nav badge (`pages/agenda.tsx`, `components/space-nav.tsx`), space settings
+the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-type views
+(`pages/type-table.tsx`, `components/type-table.tsx`, `components/views/`) with URL-backed view
+selection, filters and sorts, inline cell editing with optimistic writes and `409` recovery, the
+recurrence editor, WebSocket invalidation through `lib/use-space-events.ts`, the object panel with
+per-format inputs, a markdown body and Complete (`pages/object.tsx`, `components/object-panel.tsx`),
+the Schedule page with overdue/today/upcoming buckets and the nav badge (`pages/agenda.tsx`,
+`components/space-nav.tsx`), space settings
 with name, searchable emoji icon, timezone and confirmed deletion (`pages/settings.tsx`,
 `components/icon-picker.tsx`, `lib/emoji.ts`), and history and trash
 (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
 `.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
 Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
-same app with live reload. M2 is not tagged or deployed yet.
+same app with live reload. M2 and M3 are not tagged or deployed yet.
 
 ## Where the plan lives
 
@@ -49,22 +53,26 @@ same app with live reload. M2 is not tagged or deployed yet.
 | `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 | `docs/plan/m2-scheduling-recurrence.md` | The M2 execution spec: schema 2, the schedule engine, implicit properties, Complete, agenda, web scheduling surfaces, verification. |
+| `docs/plan/m3-views.md` | The M3 execution spec: schema 3 named views, the four kinds, view CRUD and default, list projection, web view state and renderers, verification. |
 
-M1 and M2 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store; index,
-validation and query; server shell; auth and membership; schema and object APIs; events and the
-WebSocket; web scaffold and auth screens; schema editor; live table; object panel and markdown body;
-history and trash; docs, CI, containers and the security pass) and checkpoints 1–8 of M2 (format and
-model; schedule engine; index and validation; server type/property/timezone surface; Complete,
+M1, M2 and M3 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
+index, validation and query; server shell; auth and membership; schema and object APIs; events and
+the WebSocket; web scaffold and auth screens; schema editor; live table; object panel and markdown
+body; history and trash; docs, CI, containers and the security pass), checkpoints 1–8 of M2 (format
+and model; schedule engine; index and validation; server type/property/timezone surface; Complete,
 agenda and schedule JSON; web data layer and inputs; Schedule page and timezone surfaces; seed,
-docs and end-to-end) are landed and CI-green.** M1 is deployed on VMID 216 behind Cloudflare at
-`https://thing.talonlikeaclaw.com`; M2 is not deployed.
+docs and end-to-end) and checkpoints 1–8 of M3 (format 3 and the saved-view model; view validation
+and health; server type and view routes; list by view; web data layer and view state; table views;
+board, gallery and calendar; seed, docs and end-to-end) are landed and CI-green.** M1 is deployed
+on VMID 216 behind Cloudflare at `https://thing.talonlikeaclaw.com`; M2 and M3 are not deployed.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
 
 The post-M1 roadmap was revised on 2026-10-21: **M2** landed scheduling and recurrence with in-app
-reminders only; **M3** is saved views; **M4** is everyday usability plus generic CSV import/export.
-Email digests and source-specific `plant-tracker`/`chore` importers are deliberately out of scope.
+reminders only; **M3** landed named views; **M4** is everyday usability plus generic CSV
+import/export. Email digests and source-specific `plant-tracker`/`chore` importers are deliberately
+out of scope.
 
 ## Architecture & Data Flow
 
@@ -92,9 +100,9 @@ Email digests and source-specific `plant-tracker`/`chore` importers are delibera
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
 - **Core modules:** `model`, `markdown`, `schedule`, `store`, `validate`, `filter`, `query`, `index`
-  exist. The server shell, auth, the schema and object APIs (including Complete and the agenda), and
-  the event bus exist; the SPA covers auth, the space list, the schema editor, the live table, the
-  object panel, the Schedule page, history and trash.
+  exist. The server shell, auth, the schema, view and object APIs (including Complete and the
+  agenda), and the event bus exist; the SPA covers auth, the space list, the schema editor, the four
+  view renderers, the object panel, the Schedule page, history and trash.
 
 ## Key Directories
 
@@ -217,6 +225,22 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 - **A PATCH merges, and `null` removes.** `properties: {"room": "study"}` sets one value without
   touching the others; `properties: {"room": null}` drops the key. Every `PATCH` carries the `rev`
   the caller read, and a different one is a `409` with `details.current_rev`.
+- **A view is the type's saved query, not an object kind.** A type file carries an ordered `views`
+  list (1–50) and one `default_view`. View keys are minted from the name at creation, match the key
+  grammar, and never change; display names are unique case-insensitively; the kind is chosen once
+  and immutable. Only the field of the current kind exists: a table has no `group_by`, a calendar
+  has empty `columns` and a `date_property`.
+- **View problems are split by what can be known.** Key/name/default structure is enforced in
+  `parse_type`, so a broken type file is unparseable like any other. Cross-file meaning (columns are
+  members, `group_by` is a `select`, `date_property` is a `date`, widths are `80..=800`, filters and
+  sorts validate) is checked by `validate::validate_views` on every write and reported through
+  `/health`'s `view_problems`; the type still loads.
+- **A property rename walks every view; a removal checks structurally.** `group_by` and
+  `date_property` dependencies refuse a member/property removal (`422`/`409` naming the view), a
+  gallery `cover` is cleared, and every other view reference is stripped in the same write.
+- **Layout writes immediately, queries save explicitly.** Column visibility, order and table widths
+  PATCH the view as the control commits; filter and sort edits live in the URL until **Save view**.
+  Switching views clears those overrides.
 - **One spelling per concept.** No aliases, shims or parallel grammars.
 - **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
   does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
@@ -265,31 +289,35 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `rust-toolchain.toml` | Pins Rust 1.98.1; requests rustfmt/clippy |
 | `Cargo.lock` | Committed exact resolutions |
 | `crates/core/src/lib.rs` | Core crate root: module list, 2 consts, 1 unit test |
-| `crates/core/src/model.rs` | Domain model: every type the crate is typed against, plus the `ObjectSummary` projection, `TITLE_KEY`, `UPDATED_AT_KEY` and `RESERVED_KEYS` |
-| `crates/core/src/validate.rs` | `Schema` (borrowed from the index), `validate_object`, `validate_filter`, `validate_sorts`, `missing_relations` |
+| `crates/core/src/model.rs` | Domain model: every type the crate is typed against, including `ViewDef`/`ViewKind`, `TypeDef.views`/`default_view`, plus the `ObjectSummary` projection, `TITLE_KEY`, `UPDATED_AT_KEY` and `RESERVED_KEYS` |
+| `crates/core/src/validate.rs` | `Schema` (borrowed from the index), `validate_object`, `validate_filter`, `validate_sorts`, `validate_views`, `dependent_views`, `missing_relations` |
 | `crates/core/src/filter.rs` | `matches` / `row_matches`: one condition against one row, over every `CondOp` |
-| `crates/core/src/query.rs` | `apply`: the view's filter, then its total sort order |
-| `crates/core/src/index.rs` | `SpaceIndex`: a whole space in memory, `rebuild_from_disk`, `reload_file`, `problems`, `detail` |
+| `crates/core/src/query.rs` | `apply(filter, sorts, …)`: the view's filter, then its total sort order |
+| `crates/core/src/index.rs` | `SpaceIndex`: a whole space in memory, `rebuild_from_disk`, `reload_file`, `problems` (including `view_problems`), `detail` |
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
-| `crates/core/src/markdown.rs` | The on-disk format: object frontmatter, space/type/property YAML, history lines |
+| `crates/core/src/markdown.rs` | The on-disk format (schema 3): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
 | `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, recurrence labels |
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`) and the property rename/removal rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
-| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,types,properties,objects,values}` |
+| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,types,views,properties,objects,values}` |
 | `crates/server/src/events.rs` | The per-space broadcast channel, `SpaceEvent`, and the `/events` WebSocket: origin check, `hello`, then every event; data frames close it, a lagged listener is disconnected, and a removed member or deleted space closes its sockets. API broadcast plus the watcher's echo duplicate an invalidation; that is harmless by design |
 | `crates/server/src/watcher.rs` | Debounced reload of changed paths. Forwards only Create/Modify/Remove (Access events would feed a read loop), sorts the batch so `objects/` precedes `trash/`, and announces created/updated/deleted/restored/purged plus membership diffs from `space.yml` |
-| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint, Complete, the agenda and the trash, restore and history routes |
+| `crates/server/src/routes/types.rs` | Type CRUD and detail, schedule enable/disable, and the property-removal and dependency guards that keep saved views valid |
+| `crates/server/src/routes/views.rs` | Named-view create, patch, delete and default; mints keys once, protects the last view, promotes the default |
+| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint resolving `?view=` and projecting its fields, Complete, the agenda and the trash, restore and history routes |
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `web/src/api/client.ts` | The one request path: same-origin cookies, JSON, error envelope → `ApiError` |
 | `web/src/api/types.ts` | TypeScript mirrors of the Rust DTOs the SPA speaks to |
 | `web/src/api/queries.ts` | Every TanStack Query hook and mutation; auth success seeds `me` and `spaces`; schema writes invalidate the space prefix |
 | `web/src/lib/schema.ts` | Pure schema-edit helpers: membership and column order, option drafts, order-insensitive change detection |
+| `web/src/lib/views.ts` | Pure view state: selection and URL fallback, effective query and dirty check, widths and column moves, board lanes, calendar dates and month grid |
 | `web/src/lib/schedule.ts` | Recurrence labels/drafts, schedule property names, due tone and relative due phrases; no date math |
 | `web/src/lib/timezone.ts` | The `Intl` timezone list, always including UTC and the space's current zone |
-| `web/src/components/schema/` | Type and property lists, editors, and the shared option editor |
+| `web/src/components/schema/` | Type and property lists, editors, and the shared option editor; columns and grouping are per view on the type page |
+| `web/src/components/views/` | The view tab row, inline new-view form, view settings, column panel, and the four renderers (`table`, `board`, `gallery`, `calendar`) over one `useObjects` result |
 | `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
 | `web/src/pages/agenda.tsx` | The Schedule page: horizon, Overdue/Today/Next N buckets, Complete and the no-scheduled-type state |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
