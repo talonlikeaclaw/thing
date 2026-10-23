@@ -14,9 +14,15 @@ import { useLogout, useMe } from "@/api/queries";
 import { CommandPalette } from "@/components/command-palette";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
+import { TableShortcutsProvider } from "@/components/table-shortcuts";
 import { Button } from "@/components/ui/controls";
 import { Wordmark } from "@/components/wordmark";
-import { SHORTCUTS, useGlobalHotkeys, type HotkeyBinding } from "@/lib/hotkeys";
+import {
+  SHORTCUTS,
+  useGlobalHotkeys,
+  type HotkeyBinding,
+  type ShortcutDescriptor,
+} from "@/lib/hotkeys";
 import { useSpaceEvents } from "@/lib/use-space-events";
 
 /** Signed-out requests go to the form, and come back to where they were. */
@@ -94,6 +100,8 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   const capture = useQuickCapture();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Table bindings are registered by whichever grid is on screen.
+  const [tableShortcuts, setTableShortcuts] = useState<ShortcutDescriptor[]>([]);
   const connection = useSpaceEvents(spaceId);
   const previousPath = useRef(location.pathname);
   const [announcement, setAnnouncement] = useState("");
@@ -127,9 +135,10 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
     },
   };
   // A viewer sees no capture action, and the `c` sheet line would lie there.
-  const activeShortcuts = SHORTCUTS.filter(
-    (shortcut) => shortcut.id !== "capture" || capture.available,
-  );
+  const activeShortcuts = [
+    ...SHORTCUTS.filter((shortcut) => shortcut.id !== "capture" || capture.available),
+    ...tableShortcuts,
+  ];
   const bindings: HotkeyBinding[] = activeShortcuts.flatMap((shortcut) => {
     const run = shortcutActions[shortcut.id];
     if (!run) {
@@ -175,7 +184,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
         Skip to content
       </a>
       <header className="border-b rule">
-        <div className="mx-auto flex h-16 w-full max-w-[1080px] items-center justify-between gap-4 px-6">
+        <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6">
           <Wordmark />
           <div className="flex items-center gap-2 sm:gap-4">
             {capture.available ? (
@@ -246,11 +255,13 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-[1080px] flex-1 px-6 py-10 focus:outline-none"
+        className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10 focus:outline-none"
       >
-        <Outlet />
+        <TableShortcutsProvider onChange={setTableShortcuts}>
+          <Outlet />
+        </TableShortcutsProvider>
       </main>
-      <footer className="mx-auto w-full max-w-[1080px] px-6 py-6">
+      <footer className="mx-auto w-full max-w-[1400px] px-6 py-6">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t rule pt-4">
           <p className="font-mono text-[11px] text-faint">
             Markdown on disk is the source of truth.

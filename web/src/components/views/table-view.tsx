@@ -1,19 +1,42 @@
-import { ArrowUpRight, Check } from "lucide-react";
-import { useRef, useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpRight,
+  Check,
+  Copy,
+  Trash2,
+} from "lucide-react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Link } from "react-router";
 
 import type {
   ObjectSummary,
   PropertyDef,
+  Sort,
   TypeDef,
   ValueJson,
   ViewDef,
 } from "@/api/types";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
+import { cn } from "@/lib/cn";
+import { isEditableTarget } from "@/lib/hotkeys";
 import { completeLabel } from "@/lib/schedule";
-import { clampWidth, defaultWidth } from "@/lib/views";
+import { clampWidth, defaultWidth, MIN_COLUMN_WIDTH } from "@/lib/views";
 
-const OPEN_WIDTH = 72;
+const OPEN_WIDTH = 184;
+const SELECT_WIDTH = 44;
+
+interface Cell {
+  row: number;
+  col: number;
+}
 
 interface TableViewProps {
   spaceId: string;
@@ -23,7 +46,19 @@ interface TableViewProps {
   properties: PropertyDef[];
   canEdit: boolean;
   completing: boolean;
+  /** A query for different rows is in flight; the visible rows are stale. */
+  busy: boolean;
+  sorts: Sort[];
+  selected: ReadonlySet<string>;
+  /** Rows whose action is in flight, so only their controls freeze. */
+  pendingRows: ReadonlySet<string>;
+  /** The bulk editor's inline panel is taller than the selection band. */
+  bulkOpen: boolean;
   autoEditId: string | null;
+  onSort: (key: string, additive: boolean) => void;
+  onToggleRow: (id: string) => void;
+  onToggleAll: () => void;
+  onClearSelection: () => void;
   onTitleCommit: (row: ObjectSummary, title: string) => void;
   onCellCommit: (
     row: ObjectSummary,
@@ -31,11 +66,18 @@ interface TableViewProps {
     cell: { value: unknown; label: string },
   ) => void;
   onComplete: (row: ObjectSummary) => void;
+  onDuplicate: (row: ObjectSummary) => void;
+  onTrash: (row: ObjectSummary) => void;
+  onFocusSearch: () => void;
   onResize: (key: string, width: number) => void;
   onCancelAutoEdit: () => void;
 }
 
-/** The table renderer: one row per record, saved widths, cells edited in place. */
+/**
+ * The table renderer: one row per record, saved widths, cells edited in place.
+ * It is also a keyboard grid: one tab stop, arrow/j/k/h/l movement, Enter to
+ * open the active cell, `x` to select a row and `/` to reach search.
+ */
 export function TableView({
   spaceId,
   type,
@@ -44,10 +86,22 @@ export function TableView({
   properties,
   canEdit,
   completing,
+  busy,
+  sorts,
+  selected,
+  pendingRows,
+  bulkOpen,
   autoEditId,
+  onSort,
+  onToggleRow,
+  onToggleAll,
+  onClearSelection,
   onTitleCommit,
   onCellCommit,
   onComplete,
+  onDuplicate,
+  onTrash,
+  onFocusSearch,
   onResize,
   onCancelAutoEdit,
 }: TableViewProps) {
@@ -55,11 +109,149 @@ export function TableView({
   const columns = view.columns.filter((key) => key !== "title");
   const [preview, setPreview] = useState<Record<string, number>>({});
   const widthOf = (key: string) => preview[key] ?? defaultWidth(view, key);
-  const totalWidth =
-    widthOf("title") +
-    columns.reduce((sum, key) => sum + widthOf(key), 0) +
-    OPEN_WIDTH;
+  // Flexible columns share the space the fixed ones leave, in the proportions
+  // their saved widths describe: a wide window fills instead of scrolling, and
+  // a narrow one stops at the resize floor and lets the scrollport take over.
+  const portRef = useRef<HTMLDivElement>(null);
+  const [available, setAvailable] = useState(0);
+  useLayoutEffect(() => {
+    const port = portRef.current;
+    if (!port) {
+      return;
+    }
+    const measure = () => setAvailable(port.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(port);
+    return () => observer.disconnect();
+  }, []);
+
+  const fixedWidth = (canEdit ? SELECT_WIDTH : 0) + OPEN_WIDTH;
+  const flexTotal =
+    widthOf("title") + columns.reduce((sum, key) => sum + widthOf(key), 0);
+  const flexKeys = ["title", ...columns];
+  const minFlex = MIN_COLUMN_WIDTH * flexKeys.length;
+  const flexSpace = Math.max(minFlex, available - fixedWidth);
+  const scale = flexTotal === 0 ? 1 : flexSpace / flexTotal;
+  const widths = new Map<string, number>();
+  for (const key of flexKeys) {
+    widths.set(
+      key,
+      preview[key] ?? Math.max(MIN_COLUMN_WIDTH, Math.round(widthOf(key) * scale)),
+    );
+  }
+  // Rounding leaves a pixel or two over; hand the remainder to the last
+  // flexible column so a fitted table never grows a scrollbar.
+  if (Object.keys(preview).length === 0 && flexSpace === available - fixedWidth) {
+    const current = flexKeys.reduce((sum, key) => sum + (widths.get(key) ?? 0), 0);
+    const last = flexKeys[flexKeys.length - 1];
+    if (last) {
+      widths.set(
+        last,
+        Math.max(MIN_COLUMN_WIDTH, (widths.get(last) ?? 0) + (flexSpace - current)),
+      );
+    }
+  }
+  const columnWidth = (key: string) => widths.get(key) ?? widthOf(key);
+  const tableWidth =
+    fixedWidth + flexKeys.reduce((sum, key) => sum + columnWidth(key), 0);
   const verb = completeLabel(type.schedule_labels);
+
+  // Column 0 is the checkbox for editors, then the title, then properties.
+  const selectOffset = canEdit ? 1 : 0;
+  const titleCol = selectOffset;
+  const actionCol = selectOffset + columns.length + 1;
+  const colCount = actionCol + 1;
+
+  const gridRef = useRef<HTMLTableElement>(null);
+  const [active, setActive] = useState<Cell | null>(null);
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setActive(null);
+      return;
+    }
+    setActive((current) => (current && current.row < rows.length ? current : { row: 0, col: 0 }));
+  }, [rows.length]);
+
+  function activate(row: number, col: number) {
+    setActive({ row, col });
+    window.requestAnimationFrame(() => {
+      gridRef.current?.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`)?.focus();
+    });
+  }
+
+  function move(rowDelta: number, colDelta: number) {
+    if (rows.length === 0) {
+      return;
+    }
+    const base = active ?? { row: 0, col: 0 };
+    activate(
+      Math.min(Math.max(0, base.row + rowDelta), rows.length - 1),
+      Math.min(Math.max(0, base.col + colDelta), colCount - 1),
+    );
+  }
+
+  function activateCell(cell: Cell) {
+    if (busy) {
+      return;
+    }
+    const row = rows[cell.row];
+    const element = gridRef.current?.querySelector<HTMLElement>(
+      `[data-cell="${cell.row}:${cell.col}"]`,
+    );
+    if (!row || !element) {
+      return;
+    }
+    if (canEdit && cell.col === 0) {
+      onToggleRow(row.id);
+      return;
+    }
+    if (cell.col === actionCol) {
+      element.querySelector<HTMLAnchorElement>("a")?.click();
+      return;
+    }
+    element.querySelector<HTMLButtonElement>("button")?.click();
+  }
+
+  function onGridKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.defaultPrevented || isEditableTarget(event.target)) {
+      return;
+    }
+    const cell = active ?? { row: 0, col: 0 };
+    const key = event.key;
+    if (key === "j" || key === "ArrowDown") {
+      event.preventDefault();
+      move(1, 0);
+    } else if (key === "k" || key === "ArrowUp") {
+      event.preventDefault();
+      move(-1, 0);
+    } else if (key === "l" || key === "ArrowRight") {
+      event.preventDefault();
+      move(0, 1);
+    } else if (key === "h" || key === "ArrowLeft") {
+      event.preventDefault();
+      move(0, -1);
+    } else if (key === "x" && canEdit) {
+      event.preventDefault();
+      if (!event.repeat) {
+        const row = rows[cell.row];
+        if (row) {
+          onToggleRow(row.id);
+        }
+      }
+    } else if (key === "Enter") {
+      event.preventDefault();
+      activateCell(cell);
+    } else if (key === "Escape") {
+      event.preventDefault();
+      setActive(null);
+      onClearSelection();
+    } else if (key === "/") {
+      event.preventDefault();
+      onFocusSearch();
+    }
+  }
 
   function resize(key: string, width: number) {
     setPreview((current) => {
@@ -70,28 +262,91 @@ export function TableView({
     onResize(key, width);
   }
 
+  function sortOf(key: string): Sort | undefined {
+    return sorts.find((sort) => sort.property === key);
+  }
+
+  function cellProps(row: number, col: number) {
+    const current = active !== null && active.row === row && active.col === col;
+    return {
+      "data-cell": `${row}:${col}`,
+      tabIndex: current ? 0 : -1,
+      onFocus: () => setActive({ row, col }),
+    } as const;
+  }
+
+  function sortHeader(key: string) {
+    const sort = sortOf(key);
+    return {
+      "aria-sort": sort ? (sort.direction === "asc" ? "ascending" : "descending") : "none",
+    } as const;
+  }
+
+  const selectedOnPage = rows.filter((row) => selected.has(row.id)).length;
+  const allSelected = rows.length > 0 && selectedOnPage === rows.length;
+
   return (
-    <div className="mt-6 overflow-x-auto">
+    <div
+      ref={portRef}
+      className={cn(
+        "mt-6 max-h-[70vh] overflow-auto",
+        bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-16",
+      )}
+      onKeyDown={onGridKeyDown}
+    >
       <table
+        ref={gridRef}
+        role="grid"
+        aria-label={`${type.name_plural} records`}
+        aria-rowcount={rows.length + 1}
+        aria-colcount={colCount}
+        aria-busy={busy}
+        aria-multiselectable={canEdit ? true : undefined}
         className="table-fixed border-collapse text-left"
-        style={{ width: totalWidth }}
+        style={{ width: tableWidth }}
       >
         <colgroup>
-          <col style={{ width: widthOf("title") }} />
+          {canEdit ? <col style={{ width: SELECT_WIDTH }} /> : null}
+          <col style={{ width: columnWidth("title") }} />
           {columns.map((key) => (
-            <col key={key} style={{ width: widthOf(key) }} />
+            <col key={key} style={{ width: columnWidth(key) }} />
           ))}
           <col style={{ width: OPEN_WIDTH }} />
         </colgroup>
-        <thead className="sticky top-0 z-10 bg-ground">
+        <thead className="sticky top-0 z-20 bg-ground">
           <tr className="border-b rule">
-            <th scope="col" className="label relative py-2 pr-3 font-medium">
-              <span className="flex items-baseline gap-1.5">
-                <span className="truncate">Title</span>
-                <span className="font-mono text-[9px] text-faint normal-case tracking-normal">
-                  title
-                </span>
-              </span>
+            {canEdit ? (
+              <th
+                scope="col"
+                className="sticky left-0 z-30 bg-ground py-2 text-center"
+              >
+                <input
+                  ref={(element) => {
+                    if (element) {
+                      element.indeterminate = selectedOnPage > 0 && !allSelected;
+                    }
+                  }}
+                  type="checkbox"
+                  aria-label="Select every row on this page"
+                  checked={allSelected}
+                  disabled={busy || rows.length === 0}
+                  className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
+                  onChange={onToggleAll}
+                />
+              </th>
+            ) : null}
+            <th
+              scope="col"
+              className="sticky z-30 border-r rule bg-surface py-2 pr-3 font-medium"
+              style={{ left: selectOffset * SELECT_WIDTH }}
+              {...sortHeader("title")}
+            >
+              <HeaderSort
+                columnKey="title"
+                label="Title"
+                sort={sortOf("title")}
+                onSort={onSort}
+              />
               {canEdit ? (
                 <ColumnResizer
                   label="Title"
@@ -111,13 +366,14 @@ export function TableView({
                   key={key}
                   scope="col"
                   className="label relative py-2 pr-3 font-medium"
+                  {...sortHeader(key)}
                 >
-                  <span className="flex items-baseline gap-1.5">
-                    <span className="truncate">{label}</span>
-                    <span className="font-mono text-[9px] text-faint normal-case tracking-normal">
-                      {key}
-                    </span>
-                  </span>
+                  <HeaderSort
+                    columnKey={key}
+                    label={label}
+                    sort={sortOf(key)}
+                    onSort={onSort}
+                  />
                   {canEdit ? (
                     <ColumnResizer
                       label={label}
@@ -133,75 +389,204 @@ export function TableView({
             })}
             <th
               scope="col"
-              className="sticky right-0 z-20 border-l rule bg-ground py-2"
+              className="sticky right-0 z-30 border-l rule bg-ground py-2"
             >
-              <span className="sr-only">Open</span>
+              <span className="sr-only">Actions</span>
             </th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b rule align-top">
-              <td className="py-1 pr-2">
-                <TitleCell
-                  title={row.title}
-                  canEdit={canEdit}
-                  startEditing={row.id === autoEditId}
-                  onCommit={(title) => onTitleCommit(row, title)}
-                  onCancel={onCancelAutoEdit}
-                />
-              </td>
-              {columns.map((key) => {
-                const property = propertyByKey.get(key);
-                if (!property) {
+        <tbody className={busy ? "pointer-events-none opacity-60" : undefined}>
+          {rows.map((row, rowIndex) => {
+            const isSelected = selected.has(row.id);
+            const rowActive = active?.row === rowIndex;
+            const rowPending = pendingRows.has(row.id);
+            return (
+              <tr
+                key={row.id}
+                aria-rowindex={rowIndex + 2}
+                aria-selected={canEdit ? isSelected : undefined}
+                data-active={rowActive ? "true" : undefined}
+                className={cn(
+                  "group border-b rule align-top",
+                  isSelected && "bg-raised",
+                  rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
+                )}
+              >
+                {canEdit ? (
+                  <td
+                    {...cellProps(rowIndex, 0)}
+                    aria-label={`Select “${row.title}”`}
+                    className={cn(
+                      "sticky left-0 z-10 py-1 text-center outline-none",
+                      isSelected ? "bg-raised" : "bg-ground",
+                    )}
+                  >
+                    <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={busy}
+                        tabIndex={rowActive ? 0 : -1}
+                        aria-label={`Select “${row.title}”`}
+                        className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
+                        onChange={() => onToggleRow(row.id)}
+                      />
+                    </label>
+                  </td>
+                ) : null}
+                <th
+                  {...cellProps(rowIndex, titleCol)}
+                  scope="row"
+                  aria-label={
+                    canEdit
+                      ? `Edit title for “${row.title}”, currently “${row.title}”`
+                      : `Title “${row.title}”`
+                  }
+                  className={cn(
+                    "sticky z-10 border-r rule py-1 pr-2 text-left font-normal outline-none",
+                    isSelected ? "bg-raised" : "bg-surface",
+                  )}
+                  style={{ left: selectOffset * SELECT_WIDTH }}
+                >
+                  <TitleCell
+                    title={row.title}
+                    canEdit={canEdit}
+                    startEditing={row.id === autoEditId}
+                    onCommit={(title) => onTitleCommit(row, title)}
+                    onCancel={onCancelAutoEdit}
+                  />
+                </th>
+                {columns.map((key, offset) => {
+                  const property = propertyByKey.get(key);
+                  if (!property) {
+                    return (
+                      <td
+                        key={key}
+                        {...cellProps(rowIndex, titleCol + 1 + offset)}
+                        className="py-1 pr-2 font-mono text-[11px] text-faint outline-none"
+                      >
+                        {key}
+                      </td>
+                    );
+                  }
+                  const label = row.values[key]?.label ?? "";
                   return (
-                    <td key={key} className="py-1 pr-2 font-mono text-[11px] text-faint">
-                      {key}
+                    <td
+                      key={key}
+                      {...cellProps(rowIndex, titleCol + 1 + offset)}
+                      aria-label={
+                        canEdit
+                          ? `Edit ${property.name} for “${row.title}”, currently “${label || "empty"}”`
+                          : `${property.name} for “${row.title}”: ${label || "empty"}`
+                      }
+                      className="py-1 pr-2 outline-none"
+                    >
+                      <PropertyCell
+                        spaceId={spaceId}
+                        property={property}
+                        cell={row.values[key] as ValueJson | undefined}
+                        schedule={row.schedule}
+                        canEdit={canEdit}
+                        onCommit={(cell) => onCellCommit(row, property, cell)}
+                      />
                     </td>
                   );
-                }
-                return (
-                  <td key={key} className="py-1 pr-2">
-                    <PropertyCell
-                      spaceId={spaceId}
-                      property={property}
-                      cell={row.values[key] as ValueJson | undefined}
-                      schedule={row.schedule}
-                      canEdit={canEdit}
-                      onCommit={(cell) => onCellCommit(row, property, cell)}
-                    />
-                  </td>
-                );
-              })}
-              <td className="sticky right-0 w-[4.5rem] border-l rule bg-ground py-1 text-right">
-                <div className="flex items-center justify-end gap-0.5">
-                  {canEdit && type.schedule && row.schedule?.status !== "done" ? (
-                    <button
-                      type="button"
-                      aria-label={`${verb} ${row.title}`}
-                      title={verb}
-                      disabled={completing}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
-                      onClick={() => onComplete(row)}
+                })}
+                <td
+                  {...cellProps(rowIndex, actionCol)}
+                  aria-label={`Actions for “${row.title}”`}
+                  className={cn(
+                    "sticky right-0 border-l rule py-1 text-right outline-none",
+                    isSelected ? "bg-raised" : "bg-ground",
+                  )}
+                >
+                  <div className="row-actions flex items-center justify-end gap-0.5">
+                    {canEdit && type.schedule && row.schedule?.status !== "done" ? (
+                      <RowAction
+                        label={`${verb} ${row.title}`}
+                        title={verb}
+                        disabled={completing || busy}
+                        tabIndex={rowActive ? 0 : -1}
+                        onClick={() => onComplete(row)}
+                      >
+                        <Check aria-hidden size={14} />
+                      </RowAction>
+                    ) : null}
+                    {canEdit ? (
+                      <>
+                        <RowAction
+                          label={`Duplicate ${row.title}`}
+                          title="Duplicate"
+                          disabled={busy || rowPending}
+                          tabIndex={rowActive ? 0 : -1}
+                          onClick={() => onDuplicate(row)}
+                        >
+                          <Copy aria-hidden size={14} />
+                        </RowAction>
+                        <RowAction
+                          label={`Move ${row.title} to trash`}
+                          title="Move to trash"
+                          disabled={busy || rowPending}
+                          tabIndex={rowActive ? 0 : -1}
+                          danger
+                          onClick={() => onTrash(row)}
+                        >
+                          <Trash2 aria-hidden size={14} />
+                        </RowAction>
+                      </>
+                    ) : null}
+                    <Link
+                      to={`/s/${spaceId}/o/${row.id}`}
+                      aria-label={`Open ${row.title}`}
+                      title="Open record"
+                      tabIndex={rowActive ? 0 : -1}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
                     >
-                      <Check aria-hidden size={14} />
-                    </button>
-                  ) : null}
-                  <Link
-                    to={`/s/${spaceId}/o/${row.id}`}
-                    aria-label={`Open ${row.title}`}
-                    title="Open record"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
-                  >
-                    <ArrowUpRight aria-hidden size={14} />
-                  </Link>
-                </div>
-              </td>
-            </tr>
-          ))}
+                      <ArrowUpRight aria-hidden size={14} />
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function RowAction({
+  label,
+  title,
+  disabled,
+  tabIndex,
+  danger,
+  onClick,
+  children,
+}: {
+  label: string;
+  title: string;
+  disabled: boolean;
+  tabIndex: number;
+  danger?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={title}
+      disabled={disabled}
+      tabIndex={tabIndex}
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11",
+        danger ? "hover:text-danger" : "hover:text-accent",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -217,56 +602,88 @@ interface ColumnResizerProps {
  * write happens on release. Arrow keys move 16px, Shift 64px.
  */
 function ColumnResizer({ label, width, onPreview, onCommit }: ColumnResizerProps) {
-  const drag = useRef<{ x: number; width: number } | null>(null);
+  const [dragging, setDragging] = useState<{ startX: number; startWidth: number } | null>(null);
 
-  function finish(event: React.PointerEvent<HTMLDivElement>) {
-    const start = drag.current;
-    if (!start) {
-      return;
-    }
-    drag.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    onCommit(clampWidth(start.width + event.clientX - start.x));
+  function widthFor(delta: number) {
+    return clampWidth((dragging?.startWidth ?? width) + delta);
   }
 
   return (
-    <div
+    <span
       role="separator"
+      aria-label={`Resize ${label} column`}
       aria-orientation="vertical"
-      aria-label={`Resize ${label}`}
-      aria-valuemin={80}
-      aria-valuemax={800}
-      aria-valuenow={Math.round(width)}
+      aria-valuenow={width}
       tabIndex={0}
       className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none border-r border-transparent transition-colors hover:border-line-strong focus-visible:border-accent pointer-coarse:w-4"
       onPointerDown={(event) => {
         event.preventDefault();
-        drag.current = { x: event.clientX, width };
         event.currentTarget.setPointerCapture(event.pointerId);
+        setDragging({ startX: event.clientX, startWidth: width });
       }}
       onPointerMove={(event) => {
-        const start = drag.current;
-        if (start) {
-          onPreview(clampWidth(start.width + event.clientX - start.x));
-        }
-      }}
-      onPointerUp={finish}
-      onPointerCancel={(event) => {
-        drag.current = null;
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-          event.currentTarget.releasePointerCapture(event.pointerId);
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+        if (!dragging) {
           return;
         }
-        event.preventDefault();
+        onPreview(clampWidth(dragging.startWidth + event.clientX - dragging.startX));
+      }}
+      onPointerUp={(event) => {
+        if (!dragging) {
+          return;
+        }
+        const next = widthFor(event.clientX - dragging.startX);
+        setDragging(null);
+        onCommit(next);
+      }}
+      onPointerCancel={() => setDragging(null)}
+      onKeyDown={(event) => {
         const step = event.shiftKey ? 64 : 16;
-        onCommit(clampWidth(width + (event.key === "ArrowRight" ? step : -step)));
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          onCommit(clampWidth(width - step));
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          onCommit(clampWidth(width + step));
+        }
       }}
     />
+  );
+}
+
+function HeaderSort({
+  columnKey,
+  label,
+  sort,
+  onSort,
+}: {
+  columnKey: string;
+  label: string;
+  sort: Sort | undefined;
+  onSort: (key: string, additive: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink"
+      title={label}
+      aria-label={`Sort by ${label}${
+        sort ? `, currently ${sort.direction === "asc" ? "ascending" : "descending"}` : ""
+      }`}
+      onClick={(event) => onSort(columnKey, event.shiftKey)}
+    >
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate">{label}</span>
+        {sort ? (
+          sort.direction === "asc" ? (
+            <ArrowUp aria-hidden size={11} className="shrink-0 text-accent" />
+          ) : (
+            <ArrowDown aria-hidden size={11} className="shrink-0 text-accent" />
+          )
+        ) : null}
+      </span>
+      <span className="w-full truncate font-mono text-[9px] text-faint normal-case tracking-normal">
+        {columnKey}
+      </span>
+    </button>
   );
 }

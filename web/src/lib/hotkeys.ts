@@ -61,6 +61,40 @@ export const SHORTCUTS: ShortcutDescriptor[] = [
   },
 ];
 
+/**
+ * The table's own bindings. They live here so the `?` sheet and the grid read
+ * one list; the grid handles the keys and the sheet only shows them while a
+ * grid is mounted.
+ */
+export const TABLE_SHORTCUTS: ShortcutDescriptor[] = [
+  { id: "table-next", key: "j", keys: "J / ↓", label: "Next row", scope: "Table" },
+  { id: "table-previous", key: "k", keys: "K / ↑", label: "Previous row", scope: "Table" },
+  { id: "table-right", key: "l", keys: "L / →", label: "Next column", scope: "Table" },
+  { id: "table-left", key: "h", keys: "H / ←", label: "Previous column", scope: "Table" },
+  {
+    id: "table-activate",
+    key: "enter",
+    keys: "Enter",
+    label: "Open the active cell or record",
+    scope: "Table",
+  },
+  { id: "table-select", key: "x", keys: "X", label: "Select the active row", scope: "Table" },
+  { id: "table-search", key: "/", keys: "/", label: "Focus search", scope: "Table" },
+  {
+    id: "table-clear",
+    key: "escape",
+    allowInInput: true,
+    keys: "Esc",
+    label: "Clear the active row and selection",
+    scope: "Table",
+  },
+];
+
+/** Table bindings a viewer can use: navigation and opening, never selection. */
+export const TABLE_VIEWER_SHORTCUTS = TABLE_SHORTCUTS.filter(
+  (shortcut) => shortcut.id !== "table-select",
+);
+
 export function isApplePlatform(): boolean {
   if (typeof navigator === "undefined") {
     return false;

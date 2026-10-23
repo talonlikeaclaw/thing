@@ -143,3 +143,21 @@
     animation: none;
   }
 }
+
+/* Row actions stay quiet on a fine pointer and are always present on touch. */
+.row-actions {
+  opacity: 1;
+}
+
+@media (pointer: fine) {
+  .row-actions {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  tr:hover .row-actions,
+  tr:focus-within .row-actions,
+  tr[data-active="true"] .row-actions {
+    opacity: 1;
+  }
+}

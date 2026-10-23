@@ -96,9 +96,32 @@ export function columnChoice(columns: ColumnChoice[], key: string): ColumnChoice
   return columns.find((column) => column.key === key);
 }
 
-/** A new condition of the default format for a column. */
+/** A new condition of the default format for a column; it starts without a value. */
 export function newCondition(column: ColumnChoice): Condition {
-  return { property: column.key, condition: operatorsFor(column.format)[0] ?? "equal", value: "" };
+  return { property: column.key, condition: operatorsFor(column.format)[0] ?? "equal" };
+}
+
+/**
+ * Whether a condition carries everything the server needs. A row being edited
+ * is a draft until it does; drafts stay in the bar and never reach the wire.
+ */
+export function conditionIsComplete(condition: Condition): boolean {
+  if (!conditionTakesValue(condition.condition)) {
+    return true;
+  }
+  const value = condition.value;
+  if (value === undefined || value === null || value === "") {
+    return false;
+  }
+  return !Array.isArray(value) || value.length > 0;
+}
+
+/** The filter the query and a saved view carry: complete conditions only. */
+export function completeFilter(filter: Filter): Filter {
+  return {
+    op: filter.op,
+    conditions: filter.conditions.filter(conditionIsComplete),
+  };
 }
 
 /** Changes the operator and drops any value the new operator cannot carry. */
@@ -161,6 +184,25 @@ export function conditionText(value: unknown): string {
 
 /** The default order a new sort appends. */
 export const DEFAULT_SORT_DIRECTION: SortDirection = "asc";
+
+/**
+ * One header click: ascending, then descending, then removed. Without Shift
+ * the column becomes the only sort; with Shift it joins or leaves the list.
+ */
+export function cycleSort(sorts: Sort[], property: string, additive: boolean): Sort[] {
+  const current = sorts.find((sort) => sort.property === property);
+  if (!current) {
+    const next: Sort = { property, direction: "asc" };
+    return additive ? [...sorts, next] : [next];
+  }
+  if (current.direction === "asc") {
+    const flipped: Sort = { ...current, direction: "desc" };
+    return additive
+      ? sorts.map((sort) => (sort.property === property ? flipped : sort))
+      : [flipped];
+  }
+  return additive ? sorts.filter((sort) => sort.property !== property) : [];
+}
 
 /** Appends a sort once per property; sorting by the same column twice is noise. */
 export function addSort(sorts: Sort[], property: string): Sort[] {

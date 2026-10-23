@@ -4,6 +4,9 @@ import type { TypeDef } from "@/api/types";
 import {
   addSort,
   columnChoices,
+  completeFilter,
+  conditionIsComplete,
+  cycleSort,
   filterFromParams,
   filterParam,
   moveSort,
@@ -148,5 +151,52 @@ describe("condition values", () => {
       "last_completed_at",
       "updated_at",
     ]);
+  });
+});
+
+describe("filter drafts", () => {
+  it("keeps a condition out of the query until it has a value", () => {
+    const draft = newCondition({ key: "title", label: "Title", format: "text" });
+    expect(draft.value).toBeUndefined();
+    expect(conditionIsComplete(draft)).toBe(false);
+    expect(completeFilter({ op: "and", conditions: [draft] })).toEqual({
+      op: "and",
+      conditions: [],
+    });
+
+    const filled = withConditionValue(draft, "fern");
+    expect(conditionIsComplete(filled)).toBe(true);
+    expect(completeFilter({ op: "and", conditions: [draft, filled] }).conditions).toEqual([
+      filled,
+    ]);
+  });
+
+  it("treats value-less operators and empty lists as complete or incomplete", () => {
+    expect(conditionIsComplete({ property: "title", condition: "is_empty" })).toBe(true);
+    expect(conditionIsComplete({ property: "title", condition: "equal", value: [] })).toBe(false);
+    expect(conditionIsComplete({ property: "title", condition: "equal", value: "" })).toBe(false);
+    expect(conditionIsComplete({ property: "title", condition: "equal", value: "0" })).toBe(true);
+  });
+});
+
+describe("header sorting", () => {
+  it("cycles one column through ascending, descending and off", () => {
+    const ascending = cycleSort([], "status", false);
+    expect(ascending).toEqual([{ property: "status", direction: "asc" }]);
+    const descending = cycleSort(ascending, "status", false);
+    expect(descending).toEqual([{ property: "status", direction: "desc" }]);
+    expect(cycleSort(descending, "status", false)).toEqual([]);
+  });
+
+  it("keeps other columns only when Shift is held", () => {
+    const base = [{ property: "title", direction: "asc" as const }];
+    expect(cycleSort(base, "status", false).map((sort) => sort.property)).toEqual(["status"]);
+    expect(cycleSort(base, "status", true).map((sort) => sort.property)).toEqual([
+      "title",
+      "status",
+    ]);
+    const both = cycleSort(base, "status", true);
+    expect(cycleSort(both, "status", true)[1]?.direction).toBe("desc");
+    expect(cycleSort(cycleSort(both, "status", true), "status", true)).toEqual(base);
   });
 });

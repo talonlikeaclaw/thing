@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
-import { useCompleteObject, useTrashObject, useUpdateObject } from "@/api/queries";
+import {
+  useCompleteObject,
+  useDuplicateObject,
+  useTrashObject,
+  useUpdateObject,
+} from "@/api/queries";
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
@@ -87,6 +92,7 @@ export function ObjectPanel({
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
   const trash = useTrashObject(spaceId);
+  const duplicate = useDuplicateObject(spaceId);
   const navigate = useNavigate();
   const toast = useToast();
   const objectId = object.id;
@@ -240,6 +246,30 @@ export function ObjectPanel({
     }
   }
 
+  /** A copy is an ordinary create; Undo trashes exactly the copy. */
+  function duplicateRecord() {
+    if (duplicate.isPending) {
+      return;
+    }
+    duplicate.mutate(
+      { id: objectId },
+      {
+        onSuccess: (copy) => {
+          toast.showToast(`Duplicated “${copy.title}”.`, "plain", {
+            label: "Undo",
+            onAction: () =>
+              trash.mutate(copy.id, {
+                onSuccess: () => toast.showToast("Moved the duplicate to the trash."),
+                onError: (error) =>
+                  toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+              }),
+          });
+        },
+        onError: (error) => setSaveError(readError(error)),
+      },
+    );
+  }
+
   function moveToTrash() {
     trash.mutate(objectId, {
       onSuccess: () => {
@@ -347,15 +377,27 @@ export function ObjectPanel({
             <span className="label">read only</span>
           )}
           {canEdit ? (
-            <Button
-              type="button"
-              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={!dirty || update.isPending || invalid.size > 0}
-              title="Save (Cmd/Ctrl+S)"
-              onClick={save}
-            >
-              {update.isPending ? "Saving…" : "Save"}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                disabled={duplicate.isPending || dirty}
+                title={dirty ? "Save or discard the draft before duplicating" : "Duplicate record"}
+                onClick={duplicateRecord}
+              >
+                {duplicate.isPending ? "Duplicating…" : "Duplicate"}
+              </Button>
+              <Button
+                type="button"
+                className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                disabled={!dirty || update.isPending || invalid.size > 0}
+                title="Save (Cmd/Ctrl+S)"
+                onClick={save}
+              >
+                {update.isPending ? "Saving…" : "Save"}
+              </Button>
+            </>
           ) : null}
         </div>
       </div>

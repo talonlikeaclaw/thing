@@ -1,14 +1,19 @@
 import { Columns3, Search, Settings2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/api/queries";
 import {
+  useBulkRestoreObjects,
+  useBulkTrashObjects,
   useCompleteObject,
   useCreateObject,
+  useDuplicateObject,
   useObjects,
+  useRestoreObject,
+  useTrashObject,
   useUpdateObject,
   useUpdateView,
 } from "@/api/queries";
@@ -19,10 +24,13 @@ import type {
   Sort,
   TypeDef,
   UpdateView,
+  Uuid,
 } from "@/api/types";
 import { ApiError } from "@/api/client";
+import { BulkBar } from "@/components/bulk-bar";
 import { FilterBar } from "@/components/filter-bar";
 import { SortBar } from "@/components/sort-bar";
+import { useTableShortcuts } from "@/components/table-shortcuts";
 import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { BoardView } from "@/components/views/board-view";
@@ -35,10 +43,17 @@ import { ViewTabs } from "@/components/views/view-tabs";
 import { readError } from "@/lib/display";
 import {
   columnChoices,
+  cycleSort,
   filterParam,
   sortsParam,
   withParam,
 } from "@/lib/filter";
+import {
+  TABLE_SHORTCUTS,
+  TABLE_VIEWER_SHORTCUTS,
+  type ShortcutDescriptor,
+} from "@/lib/hotkeys";
+import { clampPage, PAGE_SIZE, pageCount, pageFromParam, pageRange } from "@/lib/paging";
 import { todayIn } from "@/lib/timezone";
 import {
   effectiveQuery,
@@ -46,7 +61,12 @@ import {
   queryIsDirty,
   selectedView,
   withWidth,
+  withoutPage,
 } from "@/lib/views";
+
+/** The layout views ask for the server maximum; only the table pages. */
+const LAYOUT_LIMIT = 500;
+const NO_SHORTCUTS: ShortcutDescriptor[] = [];
 
 interface TypeTableProps {
   spaceId: string;
@@ -76,15 +96,51 @@ export function TypeTable({
     : monthOf(today);
   const choices = columnChoices(type, properties);
   const tableView = type.views.find((entry) => entry.kind === "table");
+  const isTable = view.kind === "table";
+  const page = isTable ? pageFromParam(params.get("page")) : 1;
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
   const create = useCreateObject(spaceId);
+  const duplicate = useDuplicateObject(spaceId);
+  const trash = useTrashObject(spaceId);
+  const restore = useRestoreObject(spaceId);
+  const bulkTrash = useBulkTrashObjects(spaceId);
+  const bulkRestore = useBulkRestoreObjects(spaceId);
   const layout = useUpdateView(spaceId, type.key, view.key);
   const client = useQueryClient();
   const toast = useToast();
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const [autoEditId, setAutoEditId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+  const [pendingRows, setPendingRows] = useState<ReadonlySet<string>>(new Set());
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+
+  const tableShortcuts = useMemo(
+    () => (isTable ? (canEdit ? TABLE_SHORTCUTS : TABLE_VIEWER_SHORTCUTS) : NO_SHORTCUTS),
+    [canEdit, isTable],
+  );
+  useTableShortcuts(tableShortcuts);
+
+  // Step 1 starts on the first property this view actually shows.
+  const initialBulkKey =
+    view.columns.find(
+      (key) => key !== "title" && properties.some((property) => property.key === key),
+    ) ??
+    properties[0]?.key ??
+    "";
+
+  // Generated schedule keys are never required; only declared members can be.
+  const requiredKeys = useMemo(
+    () =>
+      new Set(
+        type.properties
+          .filter((member) => member.required)
+          .map((member) => member.key),
+      ),
+    [type.properties],
+  );
 
   useEffect(() => {
     if (selected.unknown) {
@@ -99,13 +155,70 @@ export function TypeTable({
     setAutoEditId(null);
   }, [view.key]);
 
+  // `page` only means something to the table; leaving it behind would make a
+  // later view switch inherit a stale page number.
+  useEffect(() => {
+    if (!isTable && params.has("page")) {
+      setParams(withParam(params, "page", null), { replace: true });
+    }
+  }, [isTable, params, setParams]);
+
   const objects = useObjects(spaceId, {
     type: type.key,
     view: view.key,
     filter: query.filter,
     sorts: query.sorts,
     ...(q ? { q } : {}),
+    limit: isTable ? PAGE_SIZE : LAYOUT_LIMIT,
+    offset: isTable ? (page - 1) * PAGE_SIZE : 0,
   });
+
+  const rows = objects.data?.objects ?? [];
+  const total = objects.data?.total ?? 0;
+
+  // A page that shrank under the reader (a live delete, a filter) clamps to
+  // the last real page instead of showing an empty stretch.
+  useEffect(() => {
+    if (!isTable || objects.data === undefined || page <= pageCount(total)) {
+      return;
+    }
+    const clamped = clampPage(page, total);
+    setParams(withParam(params, "page", clamped === 1 ? null : String(clamped)), {
+      replace: true,
+    });
+  }, [isTable, objects.data, page, params, setParams, total]);
+
+  // Selection is page-local: any change that changes the loaded rows drops it.
+  const selectionKey = [
+    view.key,
+    filterParam(query.filter),
+    sortsParam(query.sorts),
+    q,
+    page,
+  ].join("\u0000");
+  useEffect(() => {
+    setSelection(new Set());
+  }, [selectionKey]);
+
+  // The bar unmounts with the selection; the next selection starts collapsed.
+  useEffect(() => {
+    if (selection.size === 0) {
+      setBulkPanelOpen(false);
+    }
+  }, [selection]);
+
+  // A live delete can remove a selected row without a query change.
+  const rowIds = rows.map((row) => row.id).join(",");
+  useEffect(() => {
+    setSelection((current) => {
+      if (current.size === 0) {
+        return current;
+      }
+      const visible = new Set(rowIds === "" ? [] : rowIds.split(","));
+      const kept = new Set([...current].filter((id) => visible.has(id)));
+      return kept.size === current.size ? current : kept;
+    });
+  }, [rowIds]);
 
   function report(error: unknown) {
     if (error instanceof ApiError && error.status === 409) {
@@ -124,33 +237,51 @@ export function TypeTable({
     layout.mutate(change, { onError: reportLayout });
   }
 
-  function selectView(key: string) {
+  /** Every query edit drops `page`; the table starts from its first page. */
+  function editParams(edit: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(params);
-    next.set("view", key);
-    next.delete("filter");
-    next.delete("sorts");
-    next.delete("month");
-    setParams(next, { replace: true });
+    edit(next);
+    setParams(withoutPage(next), { replace: true });
+  }
+
+  function goPage(next: number) {
+    setParams(
+      withParam(params, "page", next === 1 ? null : String(clampPage(next, total))),
+      { replace: true },
+    );
+  }
+
+  function selectView(key: string) {
+    editParams((next) => {
+      next.set("view", key);
+      next.delete("filter");
+      next.delete("sorts");
+      next.delete("month");
+    });
   }
 
   function clearQuery() {
-    const next = new URLSearchParams(params);
-    next.delete("q");
-    next.delete("filter");
-    next.delete("sorts");
-    setParams(next, { replace: true });
+    editParams((next) => {
+      next.delete("q");
+      next.delete("filter");
+      next.delete("sorts");
+    });
   }
 
   function clearFilter() {
-    setParams(withParam(params, "filter", ""), { replace: true });
+    setParams(withParam(withoutPage(params), "filter", ""), { replace: true });
   }
 
   function clearSearch() {
-    setParams(withParam(params, "q", ""), { replace: true });
+    setParams(withParam(withoutPage(params), "q", ""), { replace: true });
   }
 
   function setMonth(next: string) {
     setParams(withParam(params, "month", next), { replace: true });
+  }
+
+  function submitSearch(next: string) {
+    setParams(withParam(withoutPage(params), "q", next), { replace: true });
   }
 
   function saveQuery() {
@@ -167,11 +298,19 @@ export function TypeTable({
   }
 
   function setFilter(next: Filter) {
-    setParams(withParam(params, "filter", filterParam(next)), { replace: true });
+    editParams((paramsNext) => {
+      paramsNext.set("filter", filterParam(next));
+    });
   }
 
   function setSorts(next: Sort[]) {
-    setParams(withParam(params, "sorts", sortsParam(next)), { replace: true });
+    editParams((paramsNext) => {
+      paramsNext.set("sorts", sortsParam(next));
+    });
+  }
+
+  function sortBy(key: string, additive: boolean) {
+    setSorts(cycleSort(query.sorts, key, additive));
   }
 
   function commitCell(
@@ -224,6 +363,92 @@ export function TypeTable({
     );
   }
 
+  function startRowAction(id: string) {
+    setPendingRows((current) => new Set(current).add(id));
+  }
+
+  function endRowAction(id: string) {
+    setPendingRows((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function duplicateRecord(row: ObjectSummary) {
+    startRowAction(row.id);
+    duplicate.mutate(
+      { id: row.id },
+      {
+        onSuccess: (copy) => {
+          toast.showToast(`Duplicated “${copy.title}”.`, "plain", {
+            label: "Undo",
+            onAction: () =>
+              trash.mutate(copy.id, {
+                onSuccess: () => toast.showToast("Moved the duplicate to the trash."),
+                onError: (error) =>
+                  toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+              }),
+          });
+        },
+        onError: report,
+        onSettled: () => endRowAction(row.id),
+      },
+    );
+  }
+
+  function trashRecord(row: ObjectSummary) {
+    startRowAction(row.id);
+    trash.mutate(row.id, {
+      onSuccess: () => {
+        toast.showToast(`Moved “${row.title}” to the trash.`, "plain", {
+          label: "Undo",
+          onAction: () =>
+            restore.mutate(row.id, {
+              onSuccess: () => toast.showToast("Restored the record."),
+              onError: (error) =>
+                toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+            }),
+        });
+      },
+      onError: report,
+      onSettled: () => endRowAction(row.id),
+    });
+  }
+
+  /** Bulk undo lives here because the bar unmounts with its selection. */
+  function undoBulkTrash(ids: Uuid[]) {
+    bulkRestore.mutate(ids, {
+      onSuccess: (result) => {
+        if (result.failed.length > 0) {
+          toast.showToast(`Could not restore ${result.failed.length}.`, "danger");
+        } else {
+          toast.showToast(
+            `Restored ${ids.length} ${ids.length === 1 ? "record" : "records"}.`,
+          );
+        }
+      },
+      onError: (error) =>
+        toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+    });
+  }
+
+  function undoBulkDuplicate(ids: Uuid[]) {
+    bulkTrash.mutate(ids, {
+      onSuccess: (result) => {
+        if (result.failed.length > 0) {
+          toast.showToast(`Could not undo ${result.failed.length}.`, "danger");
+        } else {
+          toast.showToast(
+            `Moved ${ids.length} ${ids.length === 1 ? "record" : "records"} to the trash.`,
+          );
+        }
+      },
+      onError: (error) =>
+        toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+    });
+  }
+
   function createRecord() {
     create.mutate(
       { type: type.key, title: "Untitled" },
@@ -234,12 +459,36 @@ export function TypeTable({
     );
   }
 
-  const rows = objects.data?.objects ?? [];
-  const total = objects.data?.total ?? 0;
+  function toggleRow(id: string) {
+    setSelection((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelection((current) => {
+      const every = rows.length > 0 && rows.every((row) => current.has(row.id));
+      return every ? new Set() : new Set(rows.map((row) => row.id));
+    });
+  }
+
   const shown = rows.length;
   const dirty = queryIsDirty(view, query.filter, query.sorts);
   const hasOverrides = params.has("q") || params.has("filter") || params.has("sorts");
   const hasFilter = query.filter.conditions.length > 0;
+  const busy = objects.isPlaceholderData || objects.isFetching;
+  const selectedRows = rows.filter((row) => selection.has(row.id));
+  const range = pageRange(total, page);
+
+  function focusSearch() {
+    searchRef.current?.focus();
+  }
 
   return (
     <div className="settle">
@@ -281,10 +530,7 @@ export function TypeTable({
       />
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-        <SearchBox
-          value={q}
-          onSubmit={(next) => setParams(withParam(params, "q", next), { replace: true })}
-        />
+        <SearchBox value={q} inputRef={searchRef} onSubmit={submitSearch} />
         {canEdit ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {view.kind === "calendar" ? null : (
@@ -449,30 +695,93 @@ export function TypeTable({
           onMonthChange={setMonth}
         />
       ) : (
-        <TableView
-          key={view.key}
-          spaceId={spaceId}
-          type={type}
-          view={view}
-          rows={rows}
-          properties={properties}
-          canEdit={canEdit}
-          completing={complete.isPending}
-          autoEditId={autoEditId}
-          onTitleCommit={commitTitle}
-          onCellCommit={commitCell}
-          onComplete={completeRecord}
-          onResize={(key, width) => {
-            const next = withWidth(view, key, width);
-            writeLayout({ columns: next.columns, widths: next.widths });
-          }}
-          onCancelAutoEdit={() => setAutoEditId(null)}
-        />
+        // The selection band floats over the scrollport instead of pushing the
+        // table down; the scrollport keeps room at its end so no row is
+        // permanently hidden behind it.
+        <div className="relative">
+          <TableView
+            key={view.key}
+            spaceId={spaceId}
+            type={type}
+            view={view}
+            rows={rows}
+            properties={properties}
+            canEdit={canEdit}
+            completing={complete.isPending}
+            busy={busy}
+            sorts={query.sorts}
+            selected={selection}
+            pendingRows={pendingRows}
+            bulkOpen={bulkPanelOpen && selectedRows.length > 0}
+            autoEditId={autoEditId}
+            onSort={sortBy}
+            onToggleRow={toggleRow}
+            onToggleAll={toggleAll}
+            onClearSelection={() => setSelection(new Set())}
+            onTitleCommit={commitTitle}
+            onCellCommit={commitCell}
+            onComplete={completeRecord}
+            onDuplicate={duplicateRecord}
+            onTrash={trashRecord}
+            onFocusSearch={focusSearch}
+            onResize={(key, width) => {
+              const next = withWidth(view, key, width);
+              writeLayout({ columns: next.columns, widths: next.widths });
+            }}
+            onCancelAutoEdit={() => setAutoEditId(null)}
+          />
+          {canEdit && selectedRows.length > 0 ? (
+            <div className="absolute inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 md:inset-x-3">
+              <BulkBar
+                spaceId={spaceId}
+                properties={properties}
+                initialPropertyKey={initialBulkKey}
+                requiredKeys={requiredKeys}
+                rows={selectedRows}
+                onPanelChange={setBulkPanelOpen}
+                onResult={(failed) => setSelection(new Set(failed))}
+                onClear={() => setSelection(new Set())}
+                onUndoTrash={undoBulkTrash}
+                onUndoDuplicate={undoBulkDuplicate}
+              />
+            </div>
+          ) : null}
+        </div>
       )}
 
-      {objects.data?.has_more ? (
-        <p className="mt-2 text-[12px] text-muted">
-          Showing the first {shown} of {total}; narrow the view to see the rest.
+      {objects.data && isTable ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3">
+          <span className="font-mono text-[11px] tnum text-muted">
+            {range.first === 0 ? "0" : `${range.first}–${range.last}`} of {total}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label="Previous page"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={page <= 1}
+              onClick={() => goPage(page - 1)}
+            >
+              Prev
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label="Next page"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={page >= pageCount(total)}
+              onClick={() => goPage(page + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {objects.data && !isTable && total > rows.length ? (
+        <p className="mt-2 font-mono text-[11px] text-muted">
+          Showing the first {rows.length} of {total}; open the table to page through every
+          record.
         </p>
       ) : null}
       {update.isPending ? <span className="sr-only">Saving</span> : null}
@@ -485,6 +794,7 @@ function resetParams(params: URLSearchParams): URLSearchParams {
   const next = new URLSearchParams(params);
   next.delete("filter");
   next.delete("sorts");
+  next.delete("page");
   return next;
 }
 
@@ -492,7 +802,15 @@ function resetParams(params: URLSearchParams): URLSearchParams {
  * Search commits on Enter or after a 250ms pause; blur alone does nothing, so
  * tabbing away never changes the query. Clear is always present once committed.
  */
-function SearchBox({ value, onSubmit }: { value: string; onSubmit: (value: string) => void }) {
+function SearchBox({
+  value,
+  inputRef,
+  onSubmit,
+}: {
+  value: string;
+  inputRef?: RefObject<HTMLInputElement | null>;
+  onSubmit: (value: string) => void;
+}) {
   const [text, setText] = useState(value);
   const committed = useRef(value);
   const submitRef = useRef(onSubmit);
@@ -542,6 +860,7 @@ function SearchBox({ value, onSubmit }: { value: string; onSubmit: (value: strin
         className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-faint"
       />
       <input
+        ref={inputRef}
         aria-label="Search titles and bodies"
         className="h-8 w-full rounded-field border border-line-interactive bg-ground pr-9 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
         placeholder="Search titles and bodies"

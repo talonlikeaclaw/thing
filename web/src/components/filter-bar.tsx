@@ -1,16 +1,27 @@
 import { Plus, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useRelationChoices } from "@/api/queries";
-import type { CondOp, Condition, Filter, PropertyDef, PropertyFormat, TypeDef } from "@/api/types";
+import type {
+  CondOp,
+  Condition,
+  Filter,
+  FilterOp,
+  PropertyDef,
+  PropertyFormat,
+  TypeDef,
+} from "@/api/types";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button } from "@/components/ui/controls";
 import {
   columnChoice,
   columnChoices,
+  completeFilter,
+  conditionIsComplete,
   conditionTakesValue,
   conditionText,
   CONDITION_LABELS,
+  filterParam,
   newCondition,
   operatorsFor,
   parseConditionText,
@@ -26,38 +37,56 @@ interface FilterBarProps {
   onChange: (filter: Filter) => void;
 }
 
-/** Conditions over the table's own columns; every edit is a URL write upstream. */
+/**
+ * Conditions over the table's own columns. A condition is local until it has a
+ * value; only complete conditions become the URL's filter, so a half-typed row
+ * never blanks the table or reaches the server.
+ */
 export function FilterBar({ spaceId, type, properties, filter, onChange }: FilterBarProps) {
   const columns = columnChoices(type, properties);
+  const [draft, setDraft] = useState<Condition[]>(filter.conditions);
+  const published = useRef(filterParam(filter));
+
+  // An outside change (view switch, Clear filters, a saved view) replaces the
+  // draft; the bar's own writes are already reflected and never reset it.
+  useEffect(() => {
+    const incoming = filterParam(filter);
+    if (incoming === published.current) {
+      return;
+    }
+    published.current = incoming;
+    setDraft(filter.conditions);
+  }, [filter]);
+
+  function publish(next: Condition[], nextOp: FilterOp = filter.op) {
+    setDraft(next);
+    const complete = completeFilter({ op: nextOp, conditions: next });
+    published.current = filterParam(complete);
+    onChange(complete);
+  }
 
   function replace(index: number, condition: Condition) {
-    onChange({
-      ...filter,
-      conditions: filter.conditions.map((existing, at) => (at === index ? condition : existing)),
-    });
+    publish(draft.map((existing, at) => (at === index ? condition : existing)));
   }
 
   function remove(index: number) {
-    onChange({
-      ...filter,
-      conditions: filter.conditions.filter((_, at) => at !== index),
-    });
+    publish(draft.filter((_, at) => at !== index));
   }
 
   function add() {
-    const used = new Set(filter.conditions.map((condition) => condition.property));
+    const used = new Set(draft.map((condition) => condition.property));
     const column = columns.find((choice) => choice.key !== "updated_at" && !used.has(choice.key));
     if (!column) {
       return;
     }
-    onChange({ ...filter, conditions: [...filter.conditions, newCondition(column)] });
+    publish([...draft, newCondition(column)]);
   }
 
   return (
     <section aria-label="Filters" className="border-b rule pb-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="label">Filter</span>
-        {filter.conditions.length > 1 ? (
+        {draft.length > 1 ? (
           <div className="flex items-center gap-1" role="group" aria-label="Match">
             {(["and", "or"] as const).map((op) => (
               <button
@@ -65,7 +94,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                 type="button"
                 aria-pressed={filter.op === op}
                 className="label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11"
-                onClick={() => onChange({ ...filter, op })}
+                onClick={() => publish(draft, op)}
               >
                 {op}
               </button>
@@ -74,11 +103,11 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
         ) : null}
       </div>
 
-      {filter.conditions.length === 0 ? (
+      {draft.length === 0 ? (
         <p className="mt-1 text-[12px] text-faint">Every record in this type.</p>
       ) : (
         <ul className="mt-1">
-          {filter.conditions.map((condition, index) => {
+          {draft.map((condition, index) => {
             const column = columnChoice(columns, condition.property);
             const format = column?.format ?? "text";
             const operators = operatorsFor(format);
@@ -132,6 +161,9 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                     replace(index, withConditionValue({ ...condition, condition: op }, value))
                   }
                 />
+                {conditionIsComplete(condition) ? null : (
+                  <span className="label text-faint">Needs a value</span>
+                )}
                 <button
                   type="button"
                   aria-label="Remove condition"
@@ -275,6 +307,12 @@ function TextConditionValue({
   useEffect(() => setText(external), [external]);
 
   function commit() {
+    // An empty field is a draft, not a value: the row stays visible and the
+    // condition leaves the query instead of being sent as "".
+    if (text.trim() === "") {
+      onChange(null);
+      return;
+    }
     const parsed = parseConditionText(conditionOp, format, text);
     if (parsed !== undefined) {
       onChange(parsed);
