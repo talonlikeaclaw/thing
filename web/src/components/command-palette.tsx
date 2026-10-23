@@ -7,9 +7,11 @@ import {
   useMe,
   usePaletteRecords,
   useSpaces,
+  useTrash,
   useTypes,
 } from "@/api/queries";
 import { cn } from "@/lib/cn";
+import { relativeTime } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { rank } from "@/lib/search";
 
@@ -40,27 +42,6 @@ interface CommandPaletteProps {
   onCapture?: () => void;
 }
 
-function relativeTime(iso: string): string {
-  const at = new Date(iso).getTime();
-  if (Number.isNaN(at)) {
-    return "";
-  }
-  const seconds = Math.round((at - Date.now()) / 1000);
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["year", 60 * 60 * 24 * 365],
-    ["month", 60 * 60 * 24 * 30],
-    ["day", 60 * 60 * 24],
-    ["hour", 60 * 60],
-    ["minute", 60],
-  ];
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-  for (const [unit, size] of units) {
-    if (Math.abs(seconds) >= size) {
-      return formatter.format(Math.round(seconds / size), unit);
-    }
-  }
-  return "just now";
-}
 
 /**
  * The global command sheet: actions, recent records, types and spaces, plus a
@@ -76,6 +57,7 @@ export function CommandPalette({
   const me = useMe();
   const spaces = useSpaces(open);
   const types = useTypes(spaceId);
+  const trash = useTrash(spaceId);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
@@ -168,12 +150,15 @@ export function CommandPalette({
     });
   }
 
-  const recentItems: PaletteItem[] = recent.map((item) => ({
-    id: `recent:${item.id}`,
-    label: item.title,
-    hint: `${item.type} · ${relativeTime(item.at)}`,
-    to: `/s/${spaceId}/o/${item.id}`,
-  }));
+  const trashed = new Set((trash.data ?? []).map((item) => item.id));
+  const recentItems: PaletteItem[] = recent
+    .filter((item) => !trashed.has(item.id))
+    .map((item) => ({
+      id: `recent:${item.id}`,
+      label: item.title,
+      hint: `${item.type} · ${relativeTime(item.at)}`,
+      to: `/s/${spaceId}/o/${item.id}`,
+    }));
   const typeItems: PaletteItem[] = typeList.map((type) => ({
     id: `type:${type.key}`,
     label: type.name,

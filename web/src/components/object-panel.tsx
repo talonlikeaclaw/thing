@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { effectiveMembers, sameJson } from "@/lib/schema";
+import { useRecordRecent } from "@/lib/use-record-recent";
 
 interface ObjectPanelProps {
   spaceId: string;
@@ -89,6 +90,7 @@ export function ObjectPanel({
   const navigate = useNavigate();
   const toast = useToast();
   const objectId = object.id;
+  useRecordRecent(spaceId, object);
 
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const effective = type ? effectiveMembers(type) : [];

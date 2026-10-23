@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 
 import { usePurgeObject, useRestoreObject, useSpace, useTrash, useTypes } from "@/api/queries";
 import type { TrashItem } from "@/api/types";
@@ -91,9 +91,17 @@ function TrashList({
       </p>
 
       {items.length === 0 ? (
-        <p className="mt-8 border-t rule pt-4 text-muted">
-          The trash is empty. Deleting a record from its panel moves it here.
-        </p>
+        <div className="mt-8 grid gap-3 border-t rule pt-4">
+          <p className="text-muted">
+            The trash is empty. Deleting a record from its panel moves it here.
+          </p>
+          <Link
+            to={`/s/${spaceId}`}
+            className="w-fit text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+          >
+            Back to the space
+          </Link>
+        </div>
       ) : (
         <ul className="mt-6 border-t rule">
           {items.map((item) => {

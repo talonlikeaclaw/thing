@@ -66,7 +66,7 @@ export function TypeList({
 
       {types.length === 0 ? (
         <p className="border-b rule py-4 text-[13px] text-muted">
-          No types yet. A type is a table: its properties become columns.
+          No types yet. A type is a table. Its properties are columns; its records are rows.
         </p>
       ) : (
         <ul>

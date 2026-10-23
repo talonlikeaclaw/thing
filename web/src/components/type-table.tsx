@@ -75,6 +75,7 @@ export function TypeTable({
     ? requestedMonth
     : monthOf(today);
   const choices = columnChoices(type, properties);
+  const tableView = type.views.find((entry) => entry.kind === "table");
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
   const create = useCreateObject(spaceId);
@@ -138,6 +139,14 @@ export function TypeTable({
     next.delete("filter");
     next.delete("sorts");
     setParams(next, { replace: true });
+  }
+
+  function clearFilter() {
+    setParams(withParam(params, "filter", ""), { replace: true });
+  }
+
+  function clearSearch() {
+    setParams(withParam(params, "q", ""), { replace: true });
   }
 
   function setMonth(next: string) {
@@ -230,6 +239,7 @@ export function TypeTable({
   const shown = rows.length;
   const dirty = queryIsDirty(view, query.filter, query.sorts);
   const hasOverrides = params.has("q") || params.has("filter") || params.has("sorts");
+  const hasFilter = query.filter.conditions.length > 0;
 
   return (
     <div className="settle">
@@ -368,20 +378,54 @@ export function TypeTable({
       ) : objects.isPending ? (
         <p className="mt-6 text-[13px] text-muted">Reading records…</p>
       ) : total === 0 ? (
-        <p className="mt-6 max-w-[52ch] border-t rule pt-4 text-muted">
-          {query.filter.conditions.length > 0 || q
-            ? "No records match this view. Loosen a filter or clear the search."
-            : "This type has no records yet."}
-          {canEdit && query.filter.conditions.length === 0 && !q
-            ? " Create the first one."
-            : ""}
-        </p>
+        <div className="mt-6 grid max-w-[52ch] gap-3 border-t rule pt-4">
+          <p className="text-muted">
+            {hasFilter || q
+              ? "No records match this view."
+              : "This type has no records yet."}
+          </p>
+          {hasFilter || q ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {hasFilter ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                  onClick={clearFilter}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
+              {q ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                  onClick={clearSearch}
+                >
+                  Clear search
+                </Button>
+              ) : null}
+            </div>
+          ) : canEdit ? (
+            <Button
+              type="button"
+              className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={create.isPending}
+              onClick={createRecord}
+            >
+              {create.isPending ? "Creating…" : "New record"}
+            </Button>
+          ) : null}
+        </div>
       ) : view.kind === "board" ? (
         <BoardView
           spaceId={spaceId}
           view={view}
           rows={rows}
           properties={properties}
+          canEdit={canEdit}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       ) : view.kind === "gallery" ? (
         <GalleryView
@@ -395,6 +439,9 @@ export function TypeTable({
         <CalendarView
           spaceId={spaceId}
           view={view}
+          {...(tableView
+            ? { tableHref: `/s/${spaceId}/t/${type.key}?view=${tableView.key}` }
+            : {})}
           rows={rows}
           properties={properties}
           month={month}

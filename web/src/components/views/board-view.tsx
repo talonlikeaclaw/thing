@@ -2,6 +2,7 @@ import { Link } from "react-router";
 
 import type { ObjectSummary, PropertyDef, ViewDef } from "@/api/types";
 import { PropertyValue } from "@/components/property-cell";
+import { Button } from "@/components/ui/controls";
 import { groupRows } from "@/lib/views";
 
 interface BoardViewProps {
@@ -9,20 +10,44 @@ interface BoardViewProps {
   view: ViewDef;
   rows: ObjectSummary[];
   properties: PropertyDef[];
+  canEdit: boolean;
+  onOpenSettings: () => void;
 }
 
 /** A board: one lane per select option, cards carrying the view's columns. */
-export function BoardView({ spaceId, view, rows, properties }: BoardViewProps) {
+export function BoardView({
+  spaceId,
+  view,
+  rows,
+  properties,
+  canEdit,
+  onOpenSettings,
+}: BoardViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const group = view.group_by ? propertyByKey.get(view.group_by) : undefined;
   const cards = view.columns.filter((key) => key !== "title");
 
   if (!group) {
     return (
-      <p className="mt-6 max-w-[52ch] border-t rule pt-4 text-muted">
-        This board names no select property to group by. Open View settings or edit the
-        type file so the view has a <span className="font-mono text-[12px]">group_by</span>.
-      </p>
+      <div className="mt-6 grid max-w-[52ch] gap-3 border-t rule pt-4">
+        <p className="text-muted">
+          This board needs a select property to group by.
+        </p>
+        {canEdit ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-8 w-fit px-3 text-[12px] pointer-coarse:min-h-11"
+            onClick={onOpenSettings}
+          >
+            Open view settings
+          </Button>
+        ) : (
+          <p className="text-[13px] text-faint">
+            Ask an editor to choose a select property in View settings.
+          </p>
+        )}
+      </div>
     );
   }
 

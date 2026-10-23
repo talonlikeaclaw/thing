@@ -144,3 +144,26 @@ export function parseCellText(format: PropertyFormat, text: string): unknown {
 export function isChecked(value: unknown): boolean {
   return value === true;
 }
+
+/** A time as the reader's browser says it, for recent lists and palette rows. */
+export function relativeTime(iso: string, now: number = Date.now()): string {
+  const at = new Date(iso).getTime();
+  if (Number.isNaN(at)) {
+    return "";
+  }
+  const seconds = Math.round((at - now) / 1000);
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["year", 60 * 60 * 24 * 365],
+    ["month", 60 * 60 * 24 * 30],
+    ["day", 60 * 60 * 24],
+    ["hour", 60 * 60],
+    ["minute", 60],
+  ];
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) {
+      return formatter.format(Math.round(seconds / size), unit);
+    }
+  }
+  return "just now";
+}

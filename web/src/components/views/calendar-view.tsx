@@ -15,6 +15,8 @@ interface CalendarViewProps {
   properties: PropertyDef[];
   month: string;
   today: string;
+  /** The same type's table view, when one exists. */
+  tableHref?: string;
   onMonthChange: (month: string) => void;
 }
 
@@ -26,6 +28,7 @@ export function CalendarView({
   properties,
   month,
   today,
+  tableHref,
   onMonthChange,
 }: CalendarViewProps) {
   const dateProperty = view.date_property
@@ -84,6 +87,22 @@ export function CalendarView({
           </button>
         </div>
       </div>
+
+      {rows.length > 0 && dated === 0 ? (
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t rule pt-3">
+          <p className="text-[13px] text-muted">
+            No record in this view has a {dateProperty.name} yet.
+          </p>
+          {tableHref ? (
+            <Link
+              to={tableHref}
+              className="text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+            >
+              Open the table
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-2 grid grid-cols-7 border-t border-l rule">
         {WEEKDAYS.map((day) => (

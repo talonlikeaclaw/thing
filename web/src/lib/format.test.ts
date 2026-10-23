@@ -7,6 +7,7 @@ import {
   isBlank,
   optionName,
   parseCellText,
+  relativeTime,
   valueLabel,
 } from "@/lib/format";
 
@@ -72,5 +73,20 @@ describe("datetime fields", () => {
   it("returns nothing for an unreadable instant", () => {
     expect(datetimeLocal("not a date")).toBe("");
     expect(fromDatetimeLocal("")).toBeNull();
+  });
+});
+
+describe("relativeTime", () => {
+  const now = Date.parse("2026-10-23T12:00:00Z");
+
+  it("uses whole units around the reference instant", () => {
+    expect(relativeTime("2026-10-23T11:59:40Z", now)).toBe("just now");
+    expect(relativeTime("2026-10-23T10:00:00Z", now)).toBe("2 hours ago");
+    expect(relativeTime("2026-10-22T12:00:00Z", now)).toBe("yesterday");
+    expect(relativeTime("2026-10-25T12:00:00Z", now)).toBe("in 2 days");
+  });
+
+  it("returns nothing for an unreadable instant", () => {
+    expect(relativeTime("not a date", now)).toBe("");
   });
 });

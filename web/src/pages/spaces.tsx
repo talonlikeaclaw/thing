@@ -132,8 +132,7 @@ export function SpaceListPage() {
           </div>
         ) : spaces.data.length === 0 ? (
           <p className="max-w-[52ch] border-b rule py-6 text-muted">
-            No spaces yet. Start one for your plants, your chores, or whatever you keep track of.
-            The files stay yours.
+            No spaces yet. Start one below; you can invite people once it exists.
           </p>
         ) : (
           <ul>

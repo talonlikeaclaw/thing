@@ -17,6 +17,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     upcoming: true,
     changes: [
       "Capture a record from any space with the header's Capture button or C; only the type's required fields are asked for.",
+      "Open a space to a home with recent records, every type and its counts, and the next action; recents stay in this browser and drop trashed records.",
+      "New spaces explain types and start at the first one, and an empty table or search now offers the action that fills it.",
       "Every space page now carries the same rail, marks the current page, adds Overview, and turns into a compact space bar on small screens.",
       "Navigation moves focus to the new page's heading, announces the title, restores scroll, and offers a skip-to-content link.",
       "A lost live connection is shown in the header, and a failed session check offers Retry instead of sending you to sign in.",
