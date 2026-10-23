@@ -16,6 +16,11 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Everyday usability",
     upcoming: true,
     changes: [
+      "Capture a record from any space with the header's Capture button or C; only the type's required fields are asked for.",
+      "Every space page now carries the same rail, marks the current page, adds Overview, and turns into a compact space bar on small screens.",
+      "Navigation moves focus to the new page's heading, announces the title, restores scroll, and offers a skip-to-content link.",
+      "A lost live connection is shown in the header, and a failed session check offers Retry instead of sending you to sign in.",
+      "Toasts pause while you hover or focus them, and one carrying Undo is no longer pushed out by newer messages.",
       "Open a command palette with Cmd/Ctrl+K to reach spaces, types, records and actions.",
       "Reach every shortcut from the header's Shortcuts button, or press ?.",
       "Reorder the space rail's links; the order is kept in this browser.",

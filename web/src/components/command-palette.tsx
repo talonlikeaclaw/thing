@@ -17,7 +17,10 @@ interface PaletteItem {
   id: string;
   label: string;
   hint: string;
-  to: string;
+  /** A navigation target, or a callback for actions that are not routes. */
+  to?: string;
+  run?: () => void;
+  disabled?: boolean;
 }
 
 type SectionId = "actions" | "recent" | "records" | "types" | "spaces";
@@ -33,6 +36,8 @@ interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   /** The space in the path, or `undefined` on the spaces list. */
   spaceId: string | undefined;
+  /** Present for an owner or editor in a space; opens the capture sheet. */
+  onCapture?: () => void;
 }
 
 function relativeTime(iso: string): string {
@@ -62,7 +67,12 @@ function relativeTime(iso: string): string {
  * bounded title lookup. Records are fetched only while the query is non-empty;
  * M5 replaces this lookup with the real search index.
  */
-export function CommandPalette({ open, onOpenChange, spaceId }: CommandPaletteProps) {
+export function CommandPalette({
+  open,
+  onOpenChange,
+  spaceId,
+  onCapture,
+}: CommandPaletteProps) {
   const me = useMe();
   const spaces = useSpaces(open);
   const types = useTypes(spaceId);
@@ -102,6 +112,14 @@ export function CommandPalette({ open, onOpenChange, spaceId }: CommandPalettePr
 
   const actions: PaletteItem[] = [];
   if (spaceId) {
+    if (onCapture) {
+      actions.push({
+        id: "action:capture",
+        label: "Quick capture",
+        hint: "create a record",
+        run: onCapture,
+      });
+    }
     actions.push(
       {
         id: "action:schedule",
@@ -141,6 +159,14 @@ export function CommandPalette({ open, onOpenChange, spaceId }: CommandPalettePr
     hint: "global",
     to: "/",
   });
+  if (!spaceId) {
+    actions.unshift({
+      id: "action:capture",
+      label: "Quick capture",
+      hint: "Open a space to capture a record",
+      disabled: true,
+    });
+  }
 
   const recentItems: PaletteItem[] = recent.map((item) => ({
     id: `recent:${item.id}`,
@@ -218,8 +244,14 @@ export function CommandPalette({ open, onOpenChange, spaceId }: CommandPalettePr
   }, [open, activeIndex, flat.length]);
 
   function select(item: PaletteItem) {
+    if (item.disabled) {
+      return;
+    }
     onOpenChange(false);
-    navigate(item.to);
+    item.run?.();
+    if (item.to) {
+      navigate(item.to);
+    }
   }
 
   function onInputKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
@@ -323,9 +355,13 @@ export function CommandPalette({ open, onOpenChange, spaceId }: CommandPalettePr
                             id={`palette-option-${flatIndex}`}
                             role="option"
                             aria-selected={selected}
+                            aria-disabled={item.disabled || undefined}
                             className={cn(
-                              "flex cursor-pointer items-baseline gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors",
-                              selected ? "bg-raised text-accent" : "text-ink",
+                              "flex items-baseline gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors",
+                              item.disabled
+                                ? "cursor-default text-faint"
+                                : "cursor-pointer",
+                              !item.disabled && (selected ? "bg-raised text-accent" : "text-ink"),
                             )}
                             onMouseEnter={() => setActive(flatIndex)}
                             onClick={() => select(item)}

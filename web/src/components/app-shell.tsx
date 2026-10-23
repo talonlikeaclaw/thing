@@ -1,4 +1,4 @@
-import { Keyboard, Search } from "lucide-react";
+import { Keyboard, Plus, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Link,
@@ -12,6 +12,7 @@ import {
 
 import { useLogout, useMe } from "@/api/queries";
 import { CommandPalette } from "@/components/command-palette";
+import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
 import { Button } from "@/components/ui/controls";
 import { Wordmark } from "@/components/wordmark";
@@ -68,41 +69,68 @@ export function AuthGate() {
   return <Outlet />;
 }
 
+/**
+ * The shell owns the space context for quick capture, so the header, palette
+ * and hotkeys share one sheet without every page mounting its own provider.
+ */
 export function AppShell() {
-  const me = useMe();
-  const logout = useLogout();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // A layout route cannot read child params; matching both shapes covers the
   // space home and every page under it.
   const spaceHome = useMatch("/s/:spaceId");
   const spaceChild = useMatch("/s/:spaceId/*");
   const spaceId = spaceHome?.params.spaceId ?? spaceChild?.params.spaceId;
+  return (
+    <QuickCaptureProvider spaceId={spaceId}>
+      <AppFrame spaceId={spaceId} />
+    </QuickCaptureProvider>
+  );
+}
+
+function AppFrame({ spaceId }: { spaceId: string | undefined }) {
+  const me = useMe();
+  const logout = useLogout();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const capture = useQuickCapture();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const connection = useSpaceEvents(spaceId);
   const previousPath = useRef(location.pathname);
   const [announcement, setAnnouncement] = useState("");
 
   const shortcutActions: Record<string, () => void> = {
     palette: () => {
+      capture.close();
       setShortcutsOpen(false);
       setPaletteOpen((open) => !open);
     },
+    capture: () => {
+      if (capture.available) {
+        setPaletteOpen(false);
+        setShortcutsOpen(false);
+        capture.open();
+      }
+    },
     shortcuts: () => {
-      if (!paletteOpen && !shortcutsOpen) {
+      if (!paletteOpen && !shortcutsOpen && !capture.isOpen) {
         setShortcutsOpen(true);
       }
     },
     escape: () => {
-      if (paletteOpen) {
+      if (capture.isOpen) {
+        capture.close();
+      } else if (paletteOpen) {
         setPaletteOpen(false);
       } else if (shortcutsOpen) {
         setShortcutsOpen(false);
       }
     },
   };
-  const bindings: HotkeyBinding[] = SHORTCUTS.flatMap((shortcut) => {
+  // A viewer sees no capture action, and the `c` sheet line would lie there.
+  const activeShortcuts = SHORTCUTS.filter(
+    (shortcut) => shortcut.id !== "capture" || capture.available,
+  );
+  const bindings: HotkeyBinding[] = activeShortcuts.flatMap((shortcut) => {
     const run = shortcutActions[shortcut.id];
     if (!run) {
       return [];
@@ -150,6 +178,19 @@ export function AppShell() {
         <div className="mx-auto flex h-16 w-full max-w-[1080px] items-center justify-between gap-4 px-6">
           <Wordmark />
           <div className="flex items-center gap-2 sm:gap-4">
+            {capture.available ? (
+              <Button
+                variant="ghost"
+                aria-label="Capture a record (C)"
+                aria-keyshortcuts="c"
+                aria-haspopup="dialog"
+                className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
+                onClick={() => capture.open()}
+              >
+                <Plus aria-hidden size={15} />
+                <span className="hidden sm:inline">Capture</span>
+              </Button>
+            ) : null}
             {spaceId && connection !== "live" ? (
               <span
                 role="status"
@@ -225,8 +266,17 @@ export function AppShell() {
           </div>
         </div>
       </footer>
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} spaceId={spaceId} />
-      <ShortcutSheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        spaceId={spaceId}
+        {...(capture.available ? { onCapture: () => capture.open() } : {})}
+      />
+      <ShortcutSheet
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        shortcuts={activeShortcuts}
+      />
     </div>
   );
 }

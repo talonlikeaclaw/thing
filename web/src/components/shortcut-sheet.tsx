@@ -1,14 +1,16 @@
 import { Dialog } from "@base-ui/react/dialog";
 
-import { SHORTCUTS } from "@/lib/hotkeys";
+import type { ShortcutDescriptor } from "@/lib/hotkeys";
 
 interface ShortcutSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Only the bindings the current route actually registers. */
+  shortcuts: ShortcutDescriptor[];
 }
 
-/** The `?` overlay: one keyed list of every shortcut the app owns. */
-export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
+/** The `?` overlay: one keyed list of every active shortcut. */
+export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -30,7 +32,7 @@ export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
               <dl>
-                {SHORTCUTS.map((shortcut) => (
+                {shortcuts.map((shortcut) => (
                   <div
                     key={shortcut.id}
                     className="flex items-baseline justify-between gap-4 border-b rule py-2 last:border-b-0"

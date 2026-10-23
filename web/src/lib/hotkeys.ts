@@ -38,6 +38,13 @@ export const SHORTCUTS: ShortcutDescriptor[] = [
     scope: "Global",
   },
   {
+    id: "capture",
+    key: "c",
+    keys: "C",
+    label: "Capture a record",
+    scope: "Space",
+  },
+  {
     id: "shortcuts",
     key: "?",
     keys: "?",
