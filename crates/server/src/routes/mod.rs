@@ -6,6 +6,7 @@
 //! axum's own rejections.
 
 mod auth;
+mod csv;
 mod objects;
 mod properties;
 mod spaces;
@@ -58,6 +59,7 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .merge(types::routes())
         .merge(views::routes())
         .merge(properties::routes())
+        .merge(csv::routes())
         .merge(objects::routes())
         .merge(crate::events::routes())
         .route("/api", any(no_such_route))
@@ -376,6 +378,8 @@ mod tests {
         body: Value,
         cookie: Option<String>,
         headers: HeaderMap,
+        /// The response verbatim, for CSV, markdown and other non-JSON bodies.
+        bytes: Vec<u8>,
     }
 
     impl Reply {
@@ -388,6 +392,10 @@ mod tests {
                 .as_str()
                 .unwrap_or_default()
         }
+
+        fn text(&self) -> &str {
+            std::str::from_utf8(&self.bytes).expect("a UTF-8 response")
+        }
     }
 
     impl Server {
@@ -398,17 +406,33 @@ mod tests {
             body: Option<Value>,
             cookie: Option<&str>,
         ) -> Reply {
+            match body {
+                Some(body) => {
+                    let bytes = body.to_string().into_bytes();
+                    self.call_raw(method, uri, Some("application/json"), &bytes, cookie)
+                        .await
+                }
+                None => self.call_raw(method, uri, None, &[], cookie).await,
+            }
+        }
+
+        /// A request with a body that is not JSON: CSV, markdown or nothing.
+        async fn call_raw(
+            &self,
+            method: &str,
+            uri: &str,
+            content_type: Option<&str>,
+            body: &[u8],
+            cookie: Option<&str>,
+        ) -> Reply {
             let mut request = Request::builder().method(method).uri(uri);
             if let Some(cookie) = cookie {
                 request = request.header("cookie", cookie);
             }
-            let request = match body {
-                Some(body) => request
-                    .header("content-type", "application/json")
-                    .body(Body::from(body.to_string()))
-                    .expect("a request"),
-                None => request.body(Body::empty()).expect("a request"),
-            };
+            if let Some(content_type) = content_type {
+                request = request.header("content-type", content_type);
+            }
+            let request = request.body(Body::from(body.to_vec())).expect("a request");
             let response = self
                 .router
                 .clone()
@@ -427,13 +451,15 @@ mod tests {
                 .collect()
                 .await
                 .expect("a body")
-                .to_bytes();
+                .to_bytes()
+                .to_vec();
             let body = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
             Reply {
                 status,
                 body,
                 cookie,
                 headers,
+                bytes,
             }
         }
 
@@ -871,6 +897,440 @@ mod tests {
             space,
             plant: created.body["id"].as_str().expect("an id").to_owned(),
         }
+    }
+
+    /// A second unscheduled type carrying the same `room` property, so an
+    /// export of `plant` can be imported without relation targets.
+    async fn specimen_type(server: &Server, cookie: &str, space: &str) -> String {
+        let created = server
+            .call(
+                "POST",
+                &format!("/api/spaces/{space}/types"),
+                Some(json!({ "name": "Specimen" })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+        let key = created.body["key"].as_str().expect("a key").to_owned();
+        let patched = server
+            .call(
+                "PATCH",
+                &format!("/api/spaces/{space}/types/{key}"),
+                Some(json!({ "properties": [{ "key": "room" }] })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+        key
+    }
+
+    #[test]
+    fn exporting_a_type_writes_csv_and_a_header_only_template() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("export@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let url = format!("/api/spaces/{}/types/plant/export", garden.space);
+
+            let exported = server.call_raw("GET", &url, None, &[], Some(&cookie)).await;
+            assert_eq!(exported.status, StatusCode::OK);
+            assert_eq!(
+                exported.headers.get("content-type").expect("a type"),
+                "text/csv; charset=utf-8"
+            );
+            let disposition = exported
+                .headers
+                .get("content-disposition")
+                .expect("a disposition")
+                .to_str()
+                .expect("ASCII");
+            assert!(
+                disposition.starts_with("attachment; filename=\"thing-plant-"),
+                "{disposition}"
+            );
+            assert!(disposition.ends_with(".csv\""), "{disposition}");
+            let date = time::OffsetDateTime::now_utc().date();
+            let filename = format!(
+                "thing-plant-{:04}-{:02}-{:02}.csv",
+                date.year(),
+                u8::from(date.month()),
+                date.day()
+            );
+            assert!(disposition.contains(&filename), "{disposition}");
+
+            let text = exported.text();
+            assert!(text.starts_with('\u{feff}'), "the export has no BOM");
+            let lines: Vec<&str> = text
+                .trim_start_matches('\u{feff}')
+                .split("\r\n")
+                .filter(|line| !line.is_empty())
+                .collect();
+            assert_eq!(lines[0], "title,room,_body");
+            assert_eq!(lines.len(), 2);
+            assert!(
+                lines[1].starts_with("Monstera in the study,kitchen,\""),
+                "{}",
+                lines[1]
+            );
+            assert!(lines[1].contains("Watered."));
+
+            let template = server
+                .call_raw(
+                    "GET",
+                    &format!("{url}?template=true"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(template.status, StatusCode::OK);
+            assert_eq!(template.text(), "\u{feff}title,room,_body\r\n");
+
+            let bad_template = server
+                .call_raw(
+                    "GET",
+                    &format!("{url}?template=maybe"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(bad_template.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(bad_template.field(), "template");
+
+            let unknown = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/types/ghost/export", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::NOT_FOUND);
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", garden.space),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code");
+            let viewer = server
+                .register("export-viewer@example.com", Some(code))
+                .await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let allowed = server
+                .call_raw("GET", &url, None, &[], Some(&viewer_cookie))
+                .await;
+            assert_eq!(allowed.status, StatusCode::OK);
+        });
+    }
+
+    #[test]
+    fn a_valid_csv_dry_runs_previews_and_commits_with_one_event() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("import@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let specimen = specimen_type(&server, &cookie, &garden.space).await;
+            let export = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/types/plant/export", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(export.status, StatusCode::OK);
+            let url = format!("/api/spaces/{}/types/{specimen}/import", garden.space);
+            let space = Uuid::parse_str(&garden.space).expect("an id");
+            let handle = server.state.registry.get(space).expect("a loaded space");
+
+            let dry = server
+                .call_raw(
+                    "POST",
+                    &format!("{url}?dry_run=true"),
+                    Some("text/csv"),
+                    &export.bytes,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(dry.status, StatusCode::OK, "{:?}", dry.body);
+            assert_eq!(dry.body["rows"], 1);
+            assert_eq!(dry.body["valid"], true);
+            assert_eq!(dry.body["errors"], json!([]));
+            assert_eq!(dry.body["preview"][0]["row"], 1);
+            assert_eq!(dry.body["preview"][0]["title"], "Monstera in the study");
+            assert_eq!(dry.body["preview"][0]["values"]["room"], "kitchen");
+
+            let mut events = handle.events.subscribe();
+            let commit = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv; charset=utf-8"),
+                    &export.bytes,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(commit.status, StatusCode::CREATED, "{:?}", commit.body);
+            assert_eq!(commit.body["count"], 1);
+            assert_eq!(commit.body["created"][0]["title"], "Monstera in the study");
+            let first = commit.body["created"][0]["id"]
+                .as_str()
+                .expect("an id")
+                .to_owned();
+
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "objects.imported");
+            assert_eq!(event.payload["type"], specimen.as_str());
+            assert_eq!(event.payload["count"], 1);
+
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{first}", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(detail.status, StatusCode::OK, "{:?}", detail.body);
+            assert_eq!(detail.body["type"], specimen.as_str());
+            assert_eq!(detail.body["rev"], 1);
+            assert_eq!(detail.body["properties"]["room"]["value"], "kitchen");
+            assert_eq!(detail.body["body"], "\nWatered.\n");
+
+            let history = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{first}/history", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let lines = history.body.as_array().expect("a list");
+            assert_eq!(lines.len(), 1);
+            assert_eq!(lines[0]["action"], "create");
+
+            let raw = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{first}/raw", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert!(raw.text().starts_with("---\nschema: 3\n"));
+
+            let again = server
+                .call_raw("POST", &url, Some("text/csv"), &export.bytes, Some(&cookie))
+                .await;
+            assert_eq!(again.status, StatusCode::CREATED, "{:?}", again.body);
+            assert_ne!(again.body["created"][0]["id"], first.as_str());
+
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type={specimen}", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.body["total"], 2);
+        });
+    }
+
+    #[test]
+    fn an_invalid_import_is_refused_by_row_and_writes_nothing() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("import-bad@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let specimen = specimen_type(&server, &cookie, &garden.space).await;
+            let url = format!("/api/spaces/{}/types/{specimen}/import", garden.space);
+
+            let broken = b"title,room\nBad,attic\n";
+            let dry = server
+                .call_raw(
+                    "POST",
+                    &format!("{url}?dry_run=true"),
+                    Some("text/csv"),
+                    broken,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(dry.status, StatusCode::OK);
+            assert_eq!(dry.body["rows"], 1);
+            assert_eq!(dry.body["valid"], false);
+            assert_eq!(dry.body["errors"][0]["row"], 1);
+            assert_eq!(dry.body["errors"][0]["field"], "room");
+            assert_eq!(dry.body["errors"][0]["message"], "unknown option attic");
+            assert_eq!(dry.body["preview"], json!([]));
+
+            let refused = server
+                .call_raw("POST", &url, Some("text/csv"), broken, Some(&cookie))
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(refused.body["error"]["details"]["errors"][0]["row"], 1);
+            assert_eq!(
+                refused.body["error"]["details"]["errors"][0]["field"],
+                "room"
+            );
+
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type={specimen}", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.body["total"], 0, "a refused row wrote something");
+
+            let unknown_header = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    b"title,mystery\nA,x\n",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown_header.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(
+                unknown_header.body["error"]["details"]["errors"][0]["row"],
+                0
+            );
+            assert_eq!(
+                unknown_header.body["error"]["details"]["errors"][0]["field"],
+                "mystery"
+            );
+
+            let header_only = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    b"title,room\n",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(header_only.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(
+                header_only.body["error"]["details"]["errors"][0]["field"],
+                "csv"
+            );
+        });
+    }
+
+    #[test]
+    fn an_import_checks_its_limits_content_type_and_role() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("import-limits@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let specimen = specimen_type(&server, &cookie, &garden.space).await;
+            let url = format!("/api/spaces/{}/types/{specimen}/import", garden.space);
+
+            let too_big = vec![b'a'; 5 * 1024 * 1024 + 1];
+            let oversized = server
+                .call_raw("POST", &url, Some("text/csv"), &too_big, Some(&cookie))
+                .await;
+            assert_eq!(oversized.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(
+                oversized.body["error"]["details"]["errors"][0]["field"],
+                "csv"
+            );
+            assert!(
+                oversized.body["error"]["details"]["errors"][0]["message"]
+                    .as_str()
+                    .expect("a message")
+                    .contains("5 MiB")
+            );
+
+            let mut many = String::from("title,room\n");
+            for index in 0..=10_000 {
+                many.push_str(&format!("Fern {index},kitchen\n"));
+            }
+            let too_many = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    many.as_bytes(),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(too_many.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(too_many.body["error"]["details"]["errors"][0]["row"], 0);
+            assert!(
+                too_many.body["error"]["details"]["errors"][0]["message"]
+                    .as_str()
+                    .expect("a message")
+                    .contains("10000")
+            );
+
+            let bad_flag = server
+                .call_raw(
+                    "POST",
+                    &format!("{url}?dry_run=maybe"),
+                    Some("text/csv"),
+                    b"title,room\n",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(bad_flag.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(bad_flag.field(), "dry_run");
+
+            let wrong_type = server
+                .call_raw("POST", &url, Some("application/json"), b"{}", Some(&cookie))
+                .await;
+            assert_eq!(wrong_type.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(wrong_type.field(), "content-type");
+
+            let missing_type = server
+                .call_raw("POST", &url, None, b"title,room\n", Some(&cookie))
+                .await;
+            assert_eq!(missing_type.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(missing_type.field(), "content-type");
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", garden.space),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code");
+            let viewer = server
+                .register("import-viewer@example.com", Some(code))
+                .await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let refused = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    b"title,room\nFern,kitchen\n",
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::FORBIDDEN);
+        });
     }
 
     #[test]

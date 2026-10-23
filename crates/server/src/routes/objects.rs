@@ -1093,7 +1093,7 @@ fn names(value: &CoreValue, target: Uuid) -> bool {
 }
 
 /// The object's title and property map after a write.
-fn snapshot_of(doc: &ObjectDoc) -> Snapshot {
+pub(super) fn snapshot_of(doc: &ObjectDoc) -> Snapshot {
     Snapshot {
         title: doc.title.clone(),
         properties: doc.properties.clone(),

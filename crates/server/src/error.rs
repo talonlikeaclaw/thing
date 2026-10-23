@@ -75,6 +75,33 @@ impl ApiError {
         refused
     }
 
+    /// `422` — details that carry a row and a field, as CSV problems do.
+    /// The first message becomes the response's own; every problem stays in
+    /// `details.errors` so a panel can list them all.
+    pub fn validation_details(errors: Vec<Value>) -> Self {
+        let message = errors
+            .first()
+            .and_then(|error| error["message"].as_str())
+            .unwrap_or("the request was refused")
+            .to_owned();
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            code: "validation_failed",
+            message,
+            details: json!({ "errors": errors }),
+        }
+    }
+
+    /// `500` with a payload naming what did land before the failure.
+    pub fn internal_details(message: impl Into<String>, details: Value) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            code: "internal",
+            message: message.into(),
+            details,
+        }
+    }
+
     /// The message the response carries, for tests.
     #[cfg(test)]
     pub fn message(&self) -> &str {
