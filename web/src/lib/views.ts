@@ -51,6 +51,13 @@ export function effectiveQuery(
   };
 }
 
+/** The same query without the page, for any edit that changes the result set. */
+export function withoutPage(params: URLSearchParams): URLSearchParams {
+  const next = new URLSearchParams(params);
+  next.delete("page");
+  return next;
+}
+
 /** Normalizes the omitted `empty` placement so a default sort is not "dirty". */
 function normalizedSorts(sorts: Sort[]): Sort[] {
   return sorts.map((sort) => ({

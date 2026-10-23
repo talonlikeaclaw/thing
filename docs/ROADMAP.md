@@ -48,9 +48,10 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M3 are landed; M1 is
-deployed and M2 and M3 are not. M4 is specified but not started. The next milestone starts its own
-`docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not
-need reshaping later; each carries its decisions already made.
+deployed and M2 and M3 are not. M4 is in progress: checkpoints 1–3 are committed and checkpoint 4 is
+in the working tree. The next milestone starts its own `docs/plan/mN-*.md`, written the way these
+were. M5–M10 are recorded here so the format does not need reshaping later; each carries its
+decisions already made.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday
@@ -83,13 +84,19 @@ usability move ahead of search.
   explicit **Save view** for filters and sorts. A view is the type's own saved query, not a
   separate object kind; cross-type and per-user views are not in this milestone. A schema-1 or
   schema-2 type file still loads as one `all` table view and its next write upgrades it.
-- **M4 — Everyday usability.** **Specified** (not started); spec:
+- **M4 — Everyday usability.** **In progress** (checkpoints 1–3 committed; checkpoint 4 in the
+  working tree); spec:
   [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). Quick capture from anywhere
   (type picker, required properties, create-and-open), a command palette (Cmd/Ctrl+K) over spaces,
   types, records and actions, keyboard navigation and shortcuts, duplicate and move-to-trash actions
   with an undo window, multi-select and bulk edits in the table, table paging, recent items, in-place
   onboarding empty states, and responsive/touch polish. CSV import and export for any type lands
-  here: it is the migration path that does not depend on a particular source application.
+  here: it is the migration path that does not depend on a particular source application. The
+  milestone also carries the UX floor the rest depends on: one space layout route, draft-safe
+  navigation, local retryable write errors, truthful list state, route focus/titles, contrast and
+  touch rules; the existing invite/member and type/property-delete routes gain their UI; and a
+  browser-local, per-user, per-space highlight accent (lichen, yellow, orange, cyan, green, pink)
+  is chosen in Settings.
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
   `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph

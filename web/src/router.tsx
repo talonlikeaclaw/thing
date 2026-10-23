@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 
 import { AppShell, AuthGate } from "@/components/app-shell";
 import { AgendaPage } from "@/pages/agenda";
+import { ChangelogPage } from "@/pages/changelog";
 import { JoinPage } from "@/pages/join";
 import { LoginPage } from "@/pages/login";
 import { MembersPage } from "@/pages/members";
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
           { path: "s/:spaceId/members", element: <MembersPage /> },
           { path: "s/:spaceId/settings", element: <SettingsPage /> },
           { path: "s/:spaceId/trash", element: <TrashPage /> },
+          { path: "changelog", element: <ChangelogPage /> },
         ],
       },
     ],

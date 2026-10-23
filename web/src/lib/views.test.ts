@@ -16,6 +16,7 @@ import {
   withColumn,
   withWidth,
   withoutColumn,
+  withoutPage,
 } from "@/lib/views";
 
 const table: ViewDef = {
@@ -120,6 +121,17 @@ describe("effective query", () => {
         table.sorts,
       ),
     ).toBe(true);
+  });
+});
+
+describe("paging params", () => {
+  it("drops the page while keeping every other parameter", () => {
+    const params = new URLSearchParams({ view: "all", page: "3", q: "fern" });
+    const next = withoutPage(params);
+    expect(next.get("page")).toBeNull();
+    expect(next.get("view")).toBe("all");
+    expect(next.get("q")).toBe("fern");
+    expect(params.get("page")).toBe("3");
   });
 });
 

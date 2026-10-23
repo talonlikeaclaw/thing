@@ -2,10 +2,13 @@ import { useMutation, useQuery, useQueryClient, useQueries } from "@tanstack/rea
 import type { QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { ApiError, isUnauthenticated, request } from "@/api/client";
+import { ApiError, downloadFile, isUnauthenticated, request, sendCsv } from "@/api/client";
 import type {
   Agenda,
   CreateView,
+  CsvImportResult,
+  CsvPreview,
+  DuplicateObjectInput,
   ObjectDetail,
   ObjectList,
   ObjectsQuery,
@@ -21,8 +24,10 @@ import type {
   TypeSummary,
   UpdateView,
   User,
+  Uuid,
   ValueJson,
 } from "@/api/types";
+import { readError } from "@/lib/display";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -39,6 +44,7 @@ export const queryKeys = {
     ["space", id, "object", objectId, "history"] as const,
   trash: (id: string) => ["space", id, "trash"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
+  palette: (id: string, typeKey: string) => ["space", id, "palette", typeKey] as const,
 };
 
 /** The signed-in user, or `null` when the request had no live session. */
@@ -698,3 +704,228 @@ export function useRelationChoices(
   return { choices, loading };
 }
 
+
+/** A title the palette can match, bounded to the newest rows of each type. */
+export interface PaletteRecord {
+  id: Uuid;
+  type: string;
+  title: string;
+  updated_at: string;
+}
+
+/**
+ * The palette looks at titles, not the saved view: an empty filter keeps every
+ * record eligible and the updated-desc sort makes the cap the newest rows.
+ */
+export function usePaletteRecords(
+  spaceId: string | undefined,
+  typeKeys: string[],
+  enabled: boolean,
+): PaletteRecord[] {
+  const lists = useQueries({
+    queries: (spaceId ? typeKeys : []).map((key) => ({
+      queryKey: queryKeys.palette(spaceId ?? "", key),
+      queryFn: async () => {
+        const params = new URLSearchParams({
+          type: key,
+          filter: JSON.stringify({ op: "and", conditions: [] }),
+          sorts: JSON.stringify([{ property: "updated_at", direction: "desc" }]),
+          limit: "100",
+        });
+        return request<ObjectList>(`/api/spaces/${spaceId}/objects?${params}`);
+      },
+      enabled: enabled && Boolean(spaceId),
+      staleTime: 60_000,
+    })),
+  });
+
+  const rows: PaletteRecord[] = [];
+  for (const list of lists) {
+    for (const object of list.data?.objects ?? []) {
+      rows.push({
+        id: object.id,
+        type: object.type,
+        title: object.title,
+        updated_at: object.updated_at,
+      });
+    }
+  }
+  return rows;
+}
+
+/** A duplicate is an ordinary create, so the returned detail is a new object. */
+export function useDuplicateObject(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: DuplicateObjectInput) =>
+      request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${input.id}/duplicate`, {
+        method: "POST",
+        body: input.title === undefined ? {} : { title: input.title },
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.objectsPrefix(spaceId) });
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+      void client.invalidateQueries({ queryKey: queryKeys.types(spaceId) });
+    },
+  });
+}
+
+export interface BulkTarget {
+  id: Uuid;
+  rev: number;
+}
+
+export interface BulkFailure {
+  id: Uuid;
+  message: string;
+}
+
+/** The per-record outcome of a fan-out; there is no batch route. */
+export interface BulkResult {
+  succeeded: Uuid[];
+  failed: BulkFailure[];
+}
+
+async function fanOut<T>(
+  items: readonly T[],
+  idOf: (item: T) => Uuid,
+  run: (item: T) => Promise<Uuid>,
+): Promise<BulkResult> {
+  const results = await Promise.allSettled(items.map(run));
+  const succeeded: Uuid[] = [];
+  const failed: BulkFailure[] = [];
+  results.forEach((result, index) => {
+    const item = items[index];
+    if (item === undefined) {
+      return;
+    }
+    if (result.status === "fulfilled") {
+      succeeded.push(result.value);
+    } else {
+      failed.push({ id: idOf(item), message: readError(result.reason) });
+    }
+  });
+  return { succeeded, failed };
+}
+
+/** Bulk writes are truthful counts, not optimistic row rewrites. */
+function useBulkMutation<TInput>(
+  spaceId: string,
+  mutationFn: (input: TInput) => Promise<BulkResult>,
+) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.objectsPrefix(spaceId) });
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+    },
+  });
+}
+
+export function useBulkUpdateObjects(spaceId: string) {
+  return useBulkMutation<{
+    targets: BulkTarget[];
+    properties: Record<string, unknown | null>;
+  }>(spaceId, ({ targets, properties }) =>
+    fanOut(
+      targets,
+      (target) => target.id,
+      async (target) => {
+        await request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${target.id}`, {
+          method: "PATCH",
+          body: { rev: target.rev, properties },
+        });
+        return target.id;
+      },
+    ),
+  );
+}
+
+export function useBulkTrashObjects(spaceId: string) {
+  return useBulkMutation<Uuid[]>(spaceId, (ids) =>
+    fanOut(
+      ids,
+      (id) => id,
+      async (id) => {
+        await request<TrashItem>(`/api/spaces/${spaceId}/objects/${id}`, { method: "DELETE" });
+        return id;
+      },
+    ),
+  );
+}
+
+export function useBulkRestoreObjects(spaceId: string) {
+  return useBulkMutation<Uuid[]>(spaceId, (ids) =>
+    fanOut(
+      ids,
+      (id) => id,
+      async (id) => {
+        await request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${id}/restore`, {
+          method: "POST",
+        });
+        return id;
+      },
+    ),
+  );
+}
+
+/** Succeeds with the created ids, so Undo can trash exactly what this made. */
+export function useBulkDuplicateObjects(spaceId: string) {
+  return useBulkMutation<DuplicateObjectInput[]>(spaceId, (inputs) =>
+    fanOut(
+      inputs,
+      (input) => input.id,
+      async (input) => {
+        const created = await request<ObjectDetail>(
+          `/api/spaces/${spaceId}/objects/${input.id}/duplicate`,
+          {
+            method: "POST",
+            body: input.title === undefined ? {} : { title: input.title },
+          },
+        );
+        return created.id;
+      },
+    ),
+  );
+}
+
+/** A dry run parses and validates the file; it never writes. */
+export function useCsvPreview(spaceId: string, typeKey: string) {
+  return useMutation({
+    mutationFn: (file: File) =>
+      sendCsv<CsvPreview>(
+        `/api/spaces/${spaceId}/types/${typeKey}/import?dry_run=true`,
+        file,
+      ),
+  });
+}
+
+/** A commit refuses every problem; a partial I/O failure still refreshes the space. */
+export function useImportCsv(spaceId: string, typeKey: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) =>
+      sendCsv<CsvImportResult>(
+        `/api/spaces/${spaceId}/types/${typeKey}/import?dry_run=false`,
+        file,
+      ),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.space(spaceId) }),
+    onError: (error) => {
+      if (error instanceof ApiError && error.status >= 500) {
+        void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+      }
+    },
+  });
+}
+
+/** Export is a download, so its button owns pending state, not a query cache. */
+export function useExportCsv(spaceId: string, typeKey: string) {
+  return useMutation<void, Error, boolean | undefined>({
+    mutationFn: (template = false) =>
+      downloadFile(
+        `/api/spaces/${spaceId}/types/${typeKey}/export${template ? "?template=true" : ""}`,
+        `thing-${typeKey}.csv`,
+      ),
+  });
+}

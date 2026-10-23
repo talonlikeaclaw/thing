@@ -330,6 +330,40 @@ export interface Revision {
   changed: string[];
 }
 
+/** One reason a CSV file was refused; `row` 0 means the file or header. */
+export interface CsvProblem {
+  row: number;
+  field: string;
+  message: string;
+}
+
+/** A valid row a dry run previews, already converted to typed values. */
+export interface CsvPreviewRow {
+  row: number;
+  title: string;
+  values: Record<string, unknown>;
+}
+
+/** The result of a dry run: counts, every problem, and at most 20 valid rows. */
+export interface CsvPreview {
+  rows: number;
+  valid: boolean;
+  errors: CsvProblem[];
+  preview: CsvPreviewRow[];
+}
+
+/** What a committed import created. */
+export interface CsvImportResult {
+  count: number;
+  created: { id: Uuid; title: string }[];
+}
+
+/** Duplicate takes the source id and an optional title override. */
+export interface DuplicateObjectInput {
+  id: Uuid;
+  title?: string;
+}
+
 /** One trashed record; the file and its history survive until purged. */
 export interface TrashItem {
   id: Uuid;

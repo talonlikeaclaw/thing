@@ -196,9 +196,17 @@ space icons, never as interface iconography.
 - **Labels:** uppercase mono 11px above the field, 6px gap; hints and errors sit below at 13px.
 
 ### Navigation
-- **App header:** 64px tall, hairline bottom rule, wordmark at left, account email and a ghost
-  "Sign out" at right. No sidebar in the signed-out surface; the space list is the navigation.
+- **App header:** 64px tall, hairline bottom rule, wordmark at left, a ghost Search control with
+  the platform shortcut cap, a ghost Shortcuts control, account email and a ghost "Sign out" at
+  right. Below `sm`, the two controls become 44px icon buttons; the email is hidden. No sidebar in
+  the signed-out surface; the space list is the navigation.
 - **Wordmark:** mono "thing" with a 10px lichen square. It is the only decorative use of the accent.
+- **Space rail:** **All spaces** stays fixed at the top under a hairline; below it, Schema,
+  Schedule, Members, Trash and Settings form one ordered list. A ghost **Reorder links** control
+  reveals a 32px up/down pair on each row (44px on coarse pointers), and the order persists per user
+  and space in the browser. The active row is lichen text, never a filled chip.
+- **Footer:** the files sentence, a **Changelog** link and mono `v<version>` on one hairline; the
+  version comes from the build, not a hand-typed string.
 
 ### Space Index Entry
 - **Shape:** a full-width row separated by hairlines, never a card.

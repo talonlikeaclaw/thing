@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, request } from "@/api/client";
+import { ApiError, request, sendCsv } from "@/api/client";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -78,5 +78,55 @@ describe("request", () => {
     expect(failure).toBeInstanceOf(ApiError);
     expect((failure as ApiError).code).toBe("network");
     expect((failure as ApiError).status).toBe(0);
+  });
+});
+
+describe("sendCsv", () => {
+  it("posts the file as text/csv and returns the JSON body", async () => {
+    const fetch = vi.fn().mockResolvedValue(json({ rows: 1, valid: true }));
+    vi.stubGlobal("fetch", fetch);
+    const file = new File(["title\nFern\n"], "plants.csv", { type: "text/csv" });
+
+    await expect(sendCsv("/api/spaces/1/types/plant/import", file)).resolves.toEqual({
+      rows: 1,
+      valid: true,
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/spaces/1/types/plant/import",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "same-origin",
+        body: file,
+        headers: expect.objectContaining({ "content-type": "text/csv" }),
+      }),
+    );
+  });
+
+  it("maps a row-aware 422 to the same ApiError envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json(
+          {
+            error: {
+              code: "validation_failed",
+              message: "one row was refused",
+              details: { errors: [{ row: 2, field: "room", message: "unknown option" }] },
+            },
+          },
+          422,
+        ),
+      ),
+    );
+
+    const failure = await sendCsv("/import", new File(["x"], "x.csv")).catch(
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).details.errors).toEqual([
+      { row: 2, field: "room", message: "unknown option" },
+    ]);
   });
 });
