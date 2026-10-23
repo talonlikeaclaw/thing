@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
 import { Wordmark } from "@/components/wordmark";
+import { Button, FormError } from "@/components/ui/controls";
+import { readError } from "@/lib/display";
+import { useRouteMeta } from "@/lib/route";
 
 interface AuthScaffoldProps {
   title: string;
@@ -14,6 +17,7 @@ interface AuthScaffoldProps {
  * The notes are real properties of the product, not claims about a future one.
  */
 export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffoldProps) {
+  useRouteMeta(title);
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[1040px] flex-col px-6">
       <header className="flex h-16 shrink-0 items-center justify-between border-b rule">
@@ -76,5 +80,38 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
         </aside>
       </main>
     </div>
+  );
+}
+
+/** The auth surface while the session probe is still unanswered. */
+export function AuthWaiting({ title }: { title: string }) {
+  return (
+    <AuthScaffold title={title} subtitle="Checking your session first.">
+      <p role="status" className="text-[13px] text-muted">
+        Checking your session…
+      </p>
+    </AuthScaffold>
+  );
+}
+
+/** A failed session probe is retryable; it is not a signed-out visitor. */
+export function AuthUnavailable({
+  title,
+  error,
+  onRetry,
+}: {
+  title: string;
+  error: unknown;
+  onRetry: () => void;
+}) {
+  return (
+    <AuthScaffold title={title} subtitle="The server did not answer. Your session is still here.">
+      <div className="grid gap-3">
+        <FormError message={readError(error)} />
+        <Button variant="ghost" className="w-fit" onClick={onRetry}>
+          Retry
+        </Button>
+      </div>
+    </AuthScaffold>
   );
 }

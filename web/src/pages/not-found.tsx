@@ -1,8 +1,10 @@
 import { Link } from "react-router";
 
 import { Wordmark } from "@/components/wordmark";
+import { useRouteMeta } from "@/lib/route";
 
 export function NotFoundPage() {
+  useRouteMeta("Not found");
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[1040px] flex-col px-6">
       <header className="flex h-16 items-center border-b rule">

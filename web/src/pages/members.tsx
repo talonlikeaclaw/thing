@@ -1,37 +1,28 @@
 import { Link, useParams } from "react-router";
 
 import { useSpace } from "@/api/queries";
-import { Button, FormError } from "@/components/ui/controls";
-import { formatDate, readError } from "@/lib/display";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { formatDate } from "@/lib/display";
+import { useRouteMeta } from "@/lib/route";
 
 export function MembersPage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
 
-  if (space.isPending) {
+  useRouteMeta("Members");
+
+  const detail = space.data;
+  if (!detail) {
     return <p className="text-[13px] text-muted">Reading the space…</p>;
   }
 
-  if (space.isError) {
-    return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(space.error)} />
-        <Button variant="ghost" className="w-fit" onClick={() => void space.refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
-  const detail = space.data;
-
   return (
     <div className="settle">
-      <Link to={`/s/${spaceId}`} className="label hover:text-accent">
-        ← {space.data?.name ?? "space"}
-      </Link>
+      <Breadcrumbs
+        items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Members" }]}
+      />
 
-      <div className="mt-4 flex items-baseline gap-3">
+      <div className="flex items-baseline gap-3">
         {detail.icon ? (
           <span aria-hidden className="text-[26px] leading-none">
             {detail.icon}

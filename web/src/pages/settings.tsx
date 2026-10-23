@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 
 import { type UpdateSpace, useDeleteSpace, useSpace, useUpdateSpace } from "@/api/queries";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { IconPicker } from "@/components/icon-picker";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
+import { useRouteMeta } from "@/lib/route";
 import { timezoneNames } from "@/lib/timezone";
 
 /** `/s/:spaceId/settings` — a space's name, icon, zone and deletion. */
@@ -30,22 +32,12 @@ export function SettingsPage() {
     setZone(space.data.timezone);
   }, [space.data]);
 
-  if (space.isPending) {
-    return <p className="text-[13px] text-muted">Reading the space…</p>;
-  }
-
-  if (space.isError) {
-    return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(space.error)} />
-        <Button variant="ghost" className="w-fit" onClick={() => void space.refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
+  useRouteMeta("Space settings");
 
   const detail = space.data;
+  if (!detail) {
+    return <p className="text-[13px] text-muted">Reading the space…</p>;
+  }
   const owner = detail.role === "owner";
   const trimmedName = name.trim();
   const nextIcon = icon.trim() ? icon.trim() : null;
@@ -65,7 +57,7 @@ export function SettingsPage() {
   const dirty = Object.keys(changes).length > 0;
   const invalid = trimmedName === "";
 
-  function onSave(event: FormEvent<HTMLFormElement>) {
+  const onSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!dirty || invalid || update.isPending) {
       return;
@@ -73,9 +65,9 @@ export function SettingsPage() {
     update.mutate(changes, {
       onSuccess: (saved) => toast.showToast(`Saved “${saved.name}”.`),
     });
-  }
+  };
 
-  function onDelete() {
+  const onDelete = () => {
     if (confirm.trim() !== detail.name || remove.isPending) {
       return;
     }
@@ -88,15 +80,15 @@ export function SettingsPage() {
         },
       },
     );
-  }
+  };
 
   return (
     <div className="settle max-w-[52ch]">
-      <Link to={`/s/${detail.id}`} className="label hover:text-accent">
-        ← {detail.name}
-      </Link>
+      <Breadcrumbs
+        items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Space settings" }]}
+      />
 
-      <div className="mt-4 flex items-baseline gap-3">
+      <div className="flex items-baseline gap-3">
         {detail.icon ? (
           <span aria-hidden className="text-[26px] leading-none">
             {detail.icon}

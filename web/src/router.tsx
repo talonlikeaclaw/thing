@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 
 import { AppShell, AuthGate } from "@/components/app-shell";
+import { SpaceLayout } from "@/components/space-layout";
 import { AgendaPage } from "@/pages/agenda";
 import { ChangelogPage } from "@/pages/changelog";
 import { JoinPage } from "@/pages/join";
@@ -27,14 +28,20 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <SpaceListPage /> },
-          { path: "s/:spaceId", element: <SpacePage /> },
-          { path: "s/:spaceId/t/:typeKey", element: <TypeTablePage /> },
-          { path: "s/:spaceId/agenda", element: <AgendaPage /> },
-          { path: "s/:spaceId/o/:objectId", element: <ObjectPage /> },
-          { path: "s/:spaceId/schema", element: <SchemaPage /> },
-          { path: "s/:spaceId/members", element: <MembersPage /> },
-          { path: "s/:spaceId/settings", element: <SettingsPage /> },
-          { path: "s/:spaceId/trash", element: <TrashPage /> },
+          {
+            path: "s/:spaceId",
+            element: <SpaceLayout />,
+            children: [
+              { index: true, element: <SpacePage /> },
+              { path: "t/:typeKey", element: <TypeTablePage /> },
+              { path: "agenda", element: <AgendaPage /> },
+              { path: "o/:objectId", element: <ObjectPage /> },
+              { path: "schema", element: <SchemaPage /> },
+              { path: "members", element: <MembersPage /> },
+              { path: "settings", element: <SettingsPage /> },
+              { path: "trash", element: <TrashPage /> },
+            ],
+          },
           { path: "changelog", element: <ChangelogPage /> },
         ],
       },

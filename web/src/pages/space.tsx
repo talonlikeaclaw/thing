@@ -1,37 +1,19 @@
 import { Link, Navigate, useParams } from "react-router";
 
 import { useSpace, useTypes } from "@/api/queries";
-import { Button, FormError } from "@/components/ui/controls";
-import { readError } from "@/lib/display";
+import { useRouteMeta } from "@/lib/route";
 
-/** `/s/:spaceId` is the first type's table, unless the space has no types yet. */
+/**
+ * `/s/:spaceId` — until checkpoint 7 rewrites it as the space home, a space
+ * with types still redirects to its first table. The layout owns the rail and
+ * every space-level failure.
+ */
 export function SpacePage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
   const types = useTypes(spaceId);
 
-  if (space.isPending || types.isPending) {
-    return <p className="text-[13px] text-muted">Reading the space…</p>;
-  }
-
-  const error = space.error ?? types.error;
-  if (error) {
-    return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(error)} />
-        <Button
-          variant="ghost"
-          className="w-fit"
-          onClick={() => {
-            void space.refetch();
-            void types.refetch();
-          }}
-        >
-          Retry
-        </Button>
-      </div>
-    );
-  }
+  useRouteMeta(space.data?.name ?? "Space");
 
   const detail = space.data;
   const first = types.data?.[0];

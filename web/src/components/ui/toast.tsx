@@ -32,8 +32,9 @@ interface ToastApi {
 const ToastContext = createContext<ToastApi | null>(null);
 
 const DISMISS_MS = 6000;
+const MAX_VISIBLE = 4;
 
-/** One transient sentence in the corner; refusals stay long enough to read. */
+/** One transient sentence in the corner; refusals stay until dismissed. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
@@ -45,64 +46,93 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const showToast = useCallback(
     (message: string, tone: ToastTone = "plain", action?: ToastAction) => {
       const id = nextId.current++;
-      setToasts((current) => [...current.slice(-2), { id, message, tone, action }]);
+      setToasts((current) => {
+        const next = [...current, { id, message, tone, action }];
+        if (next.length <= MAX_VISIBLE) {
+          return next;
+        }
+        // An action toast owns its Undo; only a plain or danger toast may go.
+        const evictable = next.findIndex((toast) => toast.action === undefined);
+        if (evictable !== -1) {
+          next.splice(evictable, 1);
+        }
+        return next;
+      });
     },
     [],
   );
 
-  useEffect(() => {
-    if (toasts.length === 0) {
-      return;
-    }
-    const timers = toasts.map((toast) => window.setTimeout(() => dismiss(toast.id), DISMISS_MS));
-    return () => {
-      for (const timer of timers) {
-        window.clearTimeout(timer);
-      }
-    };
-  }, [toasts, dismiss]);
-
   return (
     <ToastContext value={{ showToast }}>
       {children}
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed right-4 bottom-4 z-50 grid w-[min(24rem,calc(100vw-2rem))] gap-2"
-      >
+      <div className="pointer-events-none fixed right-4 bottom-4 z-50 grid w-[min(24rem,calc(100vw-2rem))] gap-2">
         {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            role={toast.tone === "danger" ? "alert" : "status"}
-            className={cn(
-              "pointer-events-auto flex items-start gap-3 rounded-sheet border bg-surface px-4 py-3 text-[13px] shadow-none",
-              toast.tone === "danger" ? "border-danger text-danger" : "border-line text-ink",
-            )}
-          >
-            <p className="min-w-0 flex-1">{toast.message}</p>
-            {toast.action ? (
-              <button
-                type="button"
-                className="shrink-0 text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
-                onClick={() => {
-                  toast.action?.onAction();
-                  dismiss(toast.id);
-                }}
-              >
-                {toast.action.label}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              aria-label="Dismiss"
-              className="-mr-1 -mt-0.5 inline-flex min-h-6 min-w-6 items-center justify-center text-faint transition-colors hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-              onClick={() => dismiss(toast.id)}
-            >
-              <X aria-hidden size={14} />
-            </button>
-          </div>
+          <ToastRow key={toast.id} toast={toast} dismiss={dismiss} />
         ))}
       </div>
     </ToastContext>
+  );
+}
+
+type ToastRowProps = {
+  toast: Toast;
+  dismiss: (id: number) => void;
+};
+
+/**
+ * Each toast owns its timer, pauses while hovered or focused, and is its own
+ * live region. A danger toast never auto-dismisses.
+ */
+function ToastRow({ toast, dismiss }: ToastRowProps) {
+  const [paused, setPaused] = useState(false);
+  const remaining = useRef(DISMISS_MS);
+
+  useEffect(() => {
+    if (toast.tone === "danger" || paused) {
+      return;
+    }
+    const started = Date.now();
+    const timer = window.setTimeout(() => dismiss(toast.id), remaining.current);
+    return () => {
+      window.clearTimeout(timer);
+      remaining.current = Math.max(0, remaining.current - (Date.now() - started));
+    };
+  }, [toast.id, toast.tone, paused, dismiss]);
+
+  return (
+    <div
+      role={toast.tone === "danger" ? "alert" : "status"}
+      className={cn(
+        "pointer-events-auto flex items-start gap-3 rounded-sheet border bg-surface px-4 py-3 text-[13px] shadow-none",
+        toast.tone === "danger" ? "border-danger text-danger" : "border-line text-ink",
+      )}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <p className="min-w-0 flex-1">{toast.message}</p>
+      {toast.action ? (
+        <button
+          type="button"
+          className="shrink-0 text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
+          onClick={() => {
+            toast.action?.onAction();
+            dismiss(toast.id);
+          }}
+        >
+          {toast.action.label}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        aria-label="Dismiss"
+        className="-mr-1 -mt-0.5 inline-flex min-h-6 min-w-6 items-center justify-center text-faint transition-colors hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+        onClick={() => dismiss(toast.id)}
+      >
+        <X aria-hidden size={14} />
+      </button>
+    </div>
   );
 }
 

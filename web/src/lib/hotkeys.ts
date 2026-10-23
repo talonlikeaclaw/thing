@@ -9,6 +9,51 @@ export interface HotkeyBinding {
   run: (event: KeyboardEvent) => void;
 }
 
+export type ShortcutScope = "Global" | "Space" | "Table" | "Record";
+
+/** One advertised shortcut. The listener and the sheet read the same list. */
+export interface ShortcutDescriptor {
+  id: string;
+  key: string;
+  mod?: boolean;
+  allowInInput?: boolean;
+  keys: string;
+  label: string;
+  scope: ShortcutScope;
+}
+
+/**
+ * Every shortcut the app currently registers. Adding a binding means adding
+ * one descriptor here; the `?` sheet renders this list, so it can never
+ * advertise a key that does nothing.
+ */
+export const SHORTCUTS: ShortcutDescriptor[] = [
+  {
+    id: "palette",
+    key: "k",
+    mod: true,
+    allowInInput: true,
+    keys: "⌘K / Ctrl K",
+    label: "Open the command palette",
+    scope: "Global",
+  },
+  {
+    id: "shortcuts",
+    key: "?",
+    keys: "?",
+    label: "Show this shortcut sheet",
+    scope: "Global",
+  },
+  {
+    id: "escape",
+    key: "escape",
+    allowInInput: true,
+    keys: "Esc",
+    label: "Close the open overlay",
+    scope: "Global",
+  },
+];
+
 export function isApplePlatform(): boolean {
   if (typeof navigator === "undefined") {
     return false;
@@ -52,7 +97,14 @@ export function useGlobalHotkeys(bindings: HotkeyBinding[], enabled = true): str
       return;
     }
     const listener = (event: KeyboardEvent) => {
+      // A surface that already handled the key owns it, and a held toggle must
+      // not strobe the overlay.
+      if (event.defaultPrevented || event.repeat) {
+        return;
+      }
       const pressed = event.key.toLowerCase();
+      const inDialog =
+        event.target instanceof HTMLElement && event.target.closest('[role="dialog"]') !== null;
       for (const binding of latest.current) {
         if (binding.key.toLowerCase() !== pressed) {
           continue;
@@ -66,7 +118,7 @@ export function useGlobalHotkeys(bindings: HotkeyBinding[], enabled = true): str
         } else if (event.metaKey || event.ctrlKey || event.altKey) {
           continue;
         }
-        if (!binding.allowInInput && isEditableTarget(event.target)) {
+        if (!binding.allowInInput && (isEditableTarget(event.target) || inDialog)) {
           continue;
         }
         event.preventDefault();

@@ -25,7 +25,7 @@ interface PropertyFieldProps {
 }
 
 const control =
-  "h-10 w-full rounded-field border border-line bg-ground px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-10 w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 /**
  * One property in the record panel: an input per format, bound to the panel's
@@ -301,7 +301,7 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
           <input
             autoFocus
             aria-label={`Filter ${property.name} options`}
-            className="mb-1 h-8 w-full rounded-[4px] border border-line bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+            className="mb-1 h-8 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
             placeholder="Filter or type a new option"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -445,7 +445,7 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
     <div className="grid max-w-[30rem] gap-1 rounded-field border border-line bg-ground p-2">
       <input
         aria-label={`Filter ${property.name} targets`}
-        className="h-8 w-full rounded-[4px] border border-line bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="h-8 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
         placeholder={multi ? "Filter targets" : "Search targets"}
         value={query}
         onChange={(event) => setQuery(event.target.value)}

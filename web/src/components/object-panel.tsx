@@ -496,7 +496,7 @@ export function ObjectPanel({
         {canEdit && mode === "write" ? (
           <textarea
             aria-label="Markdown body"
-            className="mt-2 min-h-[22rem] w-full resize-y rounded-field border border-line bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:text-[16px]"
+            className="mt-2 min-h-[22rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:text-[16px]"
             placeholder="Write in markdown. Saves with the rest of the record."
             spellCheck
             value={draft.body}

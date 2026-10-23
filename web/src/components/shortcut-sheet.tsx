@@ -1,21 +1,11 @@
 import { Dialog } from "@base-ui/react/dialog";
 
+import { SHORTCUTS } from "@/lib/hotkeys";
+
 interface ShortcutSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const SHORTCUTS: { keys: string; description: string; scope: string }[] = [
-  { keys: "⌘K / Ctrl K", description: "Open the command palette", scope: "Global" },
-  { keys: "c", description: "Capture a record", scope: "Global" },
-  { keys: "?", description: "Show this shortcut sheet", scope: "Global" },
-  { keys: "Esc", description: "Close the open overlay", scope: "Global" },
-  { keys: "/", description: "Focus the table's search field", scope: "Table" },
-  { keys: "j / k", description: "Move to the next or previous row", scope: "Table" },
-  { keys: "x", description: "Select or clear the active row", scope: "Table" },
-  { keys: "Enter", description: "Open the active row", scope: "Table" },
-  { keys: "⌘S / Ctrl S", description: "Save the current view", scope: "Table" },
-];
 
 /** The `?` overlay: one keyed list of every shortcut the app owns. */
 export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
@@ -42,7 +32,7 @@ export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
               <dl>
                 {SHORTCUTS.map((shortcut) => (
                   <div
-                    key={`${shortcut.scope}:${shortcut.keys}`}
+                    key={shortcut.id}
                     className="flex items-baseline justify-between gap-4 border-b rule py-2 last:border-b-0"
                   >
                     <dt className="shrink-0">
@@ -51,7 +41,7 @@ export function ShortcutSheet({ open, onOpenChange }: ShortcutSheetProps) {
                       </kbd>
                     </dt>
                     <dd className="flex min-w-0 flex-1 items-baseline justify-between gap-3 text-[13px] text-muted">
-                      <span>{shortcut.description}</span>
+                      <span>{shortcut.label}</span>
                       <span className="label shrink-0">{shortcut.scope}</span>
                     </dd>
                   </div>

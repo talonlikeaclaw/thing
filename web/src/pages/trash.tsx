@@ -3,11 +3,12 @@ import { useParams } from "react-router";
 
 import { usePurgeObject, useRestoreObject, useSpace, useTrash, useTypes } from "@/api/queries";
 import type { TrashItem } from "@/api/types";
-import { SpaceNav } from "@/components/space-nav";
-import { Button, FormError } from "@/components/ui/controls";
+import { Button } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ErrorState } from "@/components/error-state";
 import { formatDate, readError } from "@/lib/display";
-import { useSpaceEvents } from "@/lib/use-space-events";
+import { useRouteMeta } from "@/lib/route";
 
 /** `/s/:spaceId/trash` — what was deleted, with restore and the one true purge. */
 export function TrashPage() {
@@ -16,29 +17,23 @@ export function TrashPage() {
   const types = useTypes(spaceId);
   const trash = useTrash(spaceId);
 
-  useSpaceEvents(spaceId);
+  useRouteMeta("Trash");
 
-  if (space.isPending || types.isPending || trash.isPending) {
+  if (types.isPending || trash.isPending) {
     return <p className="text-[13px] text-muted">Reading the trash…</p>;
   }
 
-  const error = space.error ?? types.error ?? trash.error;
+  const error = types.error ?? trash.error;
   if (error) {
     return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(error)} />
-        <Button
-          variant="ghost"
-          className="w-fit"
-          onClick={() => {
-            void space.refetch();
-            void types.refetch();
-            void trash.refetch();
-          }}
-        >
-          Retry
-        </Button>
-      </div>
+      <ErrorState
+        error={error}
+        subject="Trash"
+        onRetry={() => {
+          void types.refetch();
+          void trash.refetch();
+        }}
+      />
     );
   }
 
@@ -50,16 +45,14 @@ export function TrashPage() {
   }
 
   return (
-    <div className="settle grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
-      <SpaceNav spaceId={detail.id} types={typesData} role={detail.role} />
-      <div className="min-w-0">
-        <TrashList
-          spaceId={detail.id}
-          items={items}
-          typeNames={new Map(typesData.map((type) => [type.key, type.name]))}
-          canEdit={detail.role !== "viewer"}
-        />
-      </div>
+    <div className="settle">
+      <Breadcrumbs items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Trash" }]} />
+      <TrashList
+        spaceId={detail.id}
+        items={items}
+        typeNames={new Map(typesData.map((type) => [type.key, type.name]))}
+        canEdit={detail.role !== "viewer"}
+      />
     </div>
   );
 }

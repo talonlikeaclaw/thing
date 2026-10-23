@@ -11,6 +11,7 @@
   --color-raised: #212621;
   --color-line: #2d332d;
   --color-line-strong: #3a423a;
+  --color-line-interactive: #667066;
   --color-ink: #e8ece4;
   --color-muted: #9aa398;
   --color-faint: #747d72;
@@ -33,6 +34,7 @@
     --color-raised: #efeee6;
     --color-line: #d9d7ca;
     --color-line-strong: #c2c0b0;
+    --color-line-interactive: #8a8a7c;
     --color-ink: #1b1d19;
     --color-muted: #5f665c;
     --color-faint: #7c837a;

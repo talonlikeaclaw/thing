@@ -56,7 +56,7 @@ export function IconPicker({ label, value, onChange, disabled, id, hint }: IconP
           aria-labelledby={`${fieldId}-label`}
           aria-describedby={hintId}
           className={cn(
-            "flex h-10 w-full items-center gap-2 rounded-field border border-line bg-ground px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
+            "flex h-10 w-full items-center gap-2 rounded-field border border-line-interactive bg-ground px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
           )}
         >
           {value ? (
@@ -88,7 +88,7 @@ export function IconPicker({ label, value, onChange, disabled, id, hint }: IconP
                 }}
                 placeholder="Search emoji"
                 aria-label="Search emoji"
-                className="h-9 w-full rounded-[4px] border border-line bg-ground px-2 text-[14px] text-ink focus:border-accent"
+                className="h-9 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent"
               />
               <div className="mt-2 max-h-64 overflow-auto">
                 {searching ? (
@@ -124,7 +124,7 @@ export function IconPicker({ label, value, onChange, disabled, id, hint }: IconP
                     placeholder="Any other emoji"
                     aria-label="Any other emoji"
                     maxLength={8}
-                    className="h-9 min-w-0 flex-1 rounded-[4px] border border-line bg-ground px-2 text-[14px] text-ink focus:border-accent"
+                    className="h-9 min-w-0 flex-1 rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent"
                   />
                   <button
                     type="button"

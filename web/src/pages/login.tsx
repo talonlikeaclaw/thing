@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router";
 
 import { readError } from "@/lib/display";
 import { useLogin, useMe } from "@/api/queries";
-import { AuthScaffold } from "@/components/auth-scaffold";
+import { AuthScaffold, AuthUnavailable, AuthWaiting } from "@/components/auth-scaffold";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 
 export function LoginPage() {
@@ -11,8 +11,16 @@ export function LoginPage() {
   const login = useLogin();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const from = internalPath((location.state as { from?: unknown } | null)?.from);
 
+  if (me.isPending) {
+    return <AuthWaiting title="Sign in" />;
+  }
+  if (me.isError) {
+    return (
+      <AuthUnavailable title="Sign in" error={me.error} onRetry={() => void me.refetch()} />
+    );
+  }
   if (me.data) {
     return <Navigate to={from} replace />;
   }
@@ -67,4 +75,15 @@ export function LoginPage() {
       </form>
     </AuthScaffold>
   );
+}
+
+/** Only an internal path may be a post-login target. */
+function internalPath(raw: unknown): string {
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//")) {
+    return "/";
+  }
+  if (raw === "/login" || raw.startsWith("/login?") || raw.startsWith("/login#")) {
+    return "/";
+  }
+  return raw;
 }

@@ -4,9 +4,11 @@ import { Link, useNavigate } from "react-router";
 import { useCreateSpace, useSpaces } from "@/api/queries";
 import type { SpaceSummary } from "@/api/types";
 import { IconPicker } from "@/components/icon-picker";
+import { ErrorState } from "@/components/error-state";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { readError, shortId } from "@/lib/display";
 import { defaultSpaceTimezone, timezoneNames } from "@/lib/timezone";
+import { useRouteMeta } from "@/lib/route";
 
 /** A keyed entry: the key opens the annotation, the name opens the space. */
 function SpaceRow({ space }: { space: SpaceSummary }) {
@@ -70,6 +72,7 @@ function SpaceRow({ space }: { space: SpaceSummary }) {
 }
 
 export function SpaceListPage() {
+  useRouteMeta("Spaces");
   const spaces = useSpaces();
   const create = useCreateSpace();
   const navigate = useNavigate();
@@ -120,11 +123,12 @@ export function SpaceListPage() {
         {spaces.isPending ? (
           <p className="border-b rule py-6 text-[13px] text-muted">Reading the index…</p>
         ) : spaces.isError ? (
-          <div className="grid gap-3 border-b rule py-6">
-            <FormError message={readError(spaces.error)} />
-            <Button variant="ghost" className="w-fit" onClick={() => void spaces.refetch()}>
-              Retry
-            </Button>
+          <div className="border-b rule py-6">
+            <ErrorState
+              error={spaces.error}
+              subject="The index"
+              onRetry={() => void spaces.refetch()}
+            />
           </div>
         ) : spaces.data.length === 0 ? (
           <p className="max-w-[52ch] border-b rule py-6 text-muted">

@@ -210,7 +210,7 @@ export function ViewTabs({
                     key={value}
                     type="button"
                     aria-pressed={kind === value}
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-field border border-line px-2.5 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-pressed:border-accent aria-pressed:text-accent pointer-coarse:min-h-11"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-field border border-line-interactive px-2.5 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-pressed:border-accent aria-pressed:text-accent pointer-coarse:min-h-11"
                     onClick={() => changeKind(value)}
                   >
                     <Icon aria-hidden size={14} />

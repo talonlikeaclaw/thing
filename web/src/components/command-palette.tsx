@@ -344,7 +344,7 @@ export function CommandPalette({ open, onOpenChange, spaceId }: CommandPalettePr
             </div>
 
             <div className="flex items-center justify-between gap-3 border-t rule px-4 py-2 text-[11px] text-faint">
-              <span className="font-mono">↑↓ move · Enter open · ? shortcuts · Esc close</span>
+              <span className="font-mono">↑↓ move · Enter open · Esc close</span>
               <span aria-live="polite" className="font-mono tnum">
                 {flat.length} results
               </span>

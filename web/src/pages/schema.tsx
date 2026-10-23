@@ -1,12 +1,13 @@
-import { Link, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 
 import { useProperties, useSpace, useType, useTypes } from "@/api/queries";
 import { PropertyEditor } from "@/components/schema/property-editor";
 import { PropertyList } from "@/components/schema/property-list";
 import { TypeEditor } from "@/components/schema/type-editor";
 import { TypeList } from "@/components/schema/type-list";
-import { Button, FormError } from "@/components/ui/controls";
-import { readError } from "@/lib/display";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ErrorState } from "@/components/error-state";
+import { useRouteMeta } from "@/lib/route";
 import { effectiveProperties } from "@/lib/schema";
 
 export function SchemaPage() {
@@ -36,20 +37,7 @@ export function SchemaPage() {
     setParams(next, { replace: true });
   }
 
-  if (space.isPending) {
-    return <p className="text-[13px] text-muted">Reading the schema…</p>;
-  }
-
-  if (space.isError) {
-    return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(space.error)} />
-        <Button variant="ghost" className="w-fit" onClick={() => void space.refetch()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
+  useRouteMeta("Schema");
 
   if (types.isPending || properties.isPending) {
     return <p className="text-[13px] text-muted">Reading the schema…</p>;
@@ -58,33 +46,30 @@ export function SchemaPage() {
   if (types.isError || properties.isError) {
     const error = types.error ?? properties.error;
     return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(error)} />
-        <Button
-          variant="ghost"
-          className="w-fit"
-          onClick={() => {
-            void types.refetch();
-            void properties.refetch();
-          }}
-        >
-          Retry
-        </Button>
-      </div>
+      <ErrorState
+        error={error}
+        subject="Schema"
+        onRetry={() => {
+          void types.refetch();
+          void properties.refetch();
+        }}
+      />
     );
   }
 
   const detail = space.data;
+  if (!detail) {
+    return <p className="text-[13px] text-muted">Reading the schema…</p>;
+  }
   const canEdit = detail.role !== "viewer";
-  const spacePath = `/s/${detail.id}`;
 
   return (
     <div className="settle">
-      <Link to={spacePath} className="label hover:text-accent">
-        ← {detail.name}
-      </Link>
+      <Breadcrumbs
+        items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schema" }]}
+      />
 
-      <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">Schema</h1>
         <span className="label">{detail.role}</span>
       </div>
@@ -107,10 +92,7 @@ export function SchemaPage() {
             <p className="text-[13px] text-muted">Reading the type…</p>
           ) : type.isError ? (
             <div className="grid gap-3">
-              <FormError message={readError(type.error)} />
-              <Button variant="ghost" className="w-fit" onClick={() => void type.refetch()}>
-                Retry
-              </Button>
+              <ErrorState error={type.error} subject="This type" onRetry={() => void type.refetch()} />
             </div>
           ) : type.data ? (
             <TypeEditor

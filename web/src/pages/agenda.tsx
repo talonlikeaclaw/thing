@@ -2,14 +2,15 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 
 import { useAgenda, useCompleteObject, useSpace, useTypes } from "@/api/queries";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ErrorState } from "@/components/error-state";
+import { useRouteMeta } from "@/lib/route";
 import type { AgendaRow } from "@/api/types";
-import { SpaceNav } from "@/components/space-nav";
-import { Button, FormError } from "@/components/ui/controls";
+import { Button } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { duePhrase, dueTone } from "@/lib/schedule";
-import { useSpaceEvents } from "@/lib/use-space-events";
 
 const HORIZONS = [7, 14, 30] as const;
 
@@ -21,29 +22,23 @@ export function AgendaPage() {
   const types = useTypes(spaceId);
   const agenda = useAgenda(spaceId, horizon);
 
-  useSpaceEvents(spaceId);
+  useRouteMeta("Schedule");
 
-  if (space.isPending || types.isPending || agenda.isPending) {
+  if (types.isPending || agenda.isPending) {
     return <p className="text-[13px] text-muted">Reading the schedule…</p>;
   }
 
-  const error = space.error ?? types.error ?? agenda.error;
+  const error = types.error ?? agenda.error;
   if (error) {
     return (
-      <div className="grid max-w-[52ch] gap-3">
-        <FormError message={readError(error)} />
-        <Button
-          variant="ghost"
-          className="w-fit"
-          onClick={() => {
-            void space.refetch();
-            void types.refetch();
-            void agenda.refetch();
-          }}
-        >
-          Retry
-        </Button>
-      </div>
+      <ErrorState
+        error={error}
+        subject="Schedule"
+        onRetry={() => {
+          void types.refetch();
+          void agenda.refetch();
+        }}
+      />
     );
   }
 
@@ -58,14 +53,11 @@ export function AgendaPage() {
   const canEdit = detail.role !== "viewer";
 
   return (
-    <div className="settle grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
-      <SpaceNav
-        spaceId={detail.id}
-        types={typesData}
-        selected="schedule"
-        role={detail.role}
+    <div className="settle">
+      <Breadcrumbs
+        items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schedule" }]}
       />
-      <div className="min-w-0">
+      <div>
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
           <h1 className="text-[26px] font-medium tracking-[-0.02em]">Schedule</h1>
           <div role="group" aria-label="Horizon" className="flex items-center gap-1">

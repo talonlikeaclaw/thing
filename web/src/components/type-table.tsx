@@ -1,5 +1,5 @@
-import { Columns3, Search, Settings2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Columns3, Search, Settings2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,7 +40,6 @@ import {
   withParam,
 } from "@/lib/filter";
 import { todayIn } from "@/lib/timezone";
-import { useSpaceEvents } from "@/lib/use-space-events";
 import {
   effectiveQuery,
   monthOf,
@@ -85,8 +84,6 @@ export function TypeTable({
   const [autoEditId, setAutoEditId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  useSpaceEvents(spaceId);
 
   useEffect(() => {
     if (selected.unknown) {
@@ -135,8 +132,9 @@ export function TypeTable({
     setParams(next, { replace: true });
   }
 
-  function resetQuery() {
+  function clearQuery() {
     const next = new URLSearchParams(params);
+    next.delete("q");
     next.delete("filter");
     next.delete("sorts");
     setParams(next, { replace: true });
@@ -231,7 +229,7 @@ export function TypeTable({
   const total = objects.data?.total ?? 0;
   const shown = rows.length;
   const dirty = queryIsDirty(view, query.filter, query.sorts);
-  const hasOverrides = params.has("filter") || params.has("sorts");
+  const hasOverrides = params.has("q") || params.has("filter") || params.has("sorts");
 
   return (
     <div className="settle">
@@ -307,9 +305,9 @@ export function TypeTable({
               variant="ghost"
               className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
               disabled={!hasOverrides}
-              onClick={resetQuery}
+              onClick={clearQuery}
             >
-              Reset
+              Clear filters
             </Button>
             <Button
               type="button"
@@ -443,16 +441,52 @@ function resetParams(params: URLSearchParams): URLSearchParams {
   return next;
 }
 
+/**
+ * Search commits on Enter or after a 250ms pause; blur alone does nothing, so
+ * tabbing away never changes the query. Clear is always present once committed.
+ */
 function SearchBox({ value, onSubmit }: { value: string; onSubmit: (value: string) => void }) {
   const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
+  const committed = useRef(value);
+  const submitRef = useRef(onSubmit);
+  submitRef.current = onSubmit;
+
+  useEffect(() => {
+    setText(value);
+    committed.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    const trimmed = text.trim();
+    if (trimmed === committed.current) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      committed.current = trimmed;
+      submitRef.current(trimmed);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [text]);
+
+  function commit() {
+    const trimmed = text.trim();
+    committed.current = trimmed;
+    submitRef.current(trimmed);
+  }
+
+  function clear() {
+    setText("");
+    committed.current = "";
+    submitRef.current("");
+  }
+
   return (
     <form
       role="search"
       className="relative max-w-[26rem] min-w-[12rem] flex-1"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(text.trim());
+        commit();
       }}
     >
       <Search
@@ -462,12 +496,21 @@ function SearchBox({ value, onSubmit }: { value: string; onSubmit: (value: strin
       />
       <input
         aria-label="Search titles and bodies"
-        className="h-8 w-full rounded-field border border-line bg-ground pr-2 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="h-8 w-full rounded-field border border-line-interactive bg-ground pr-9 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
         placeholder="Search titles and bodies"
         value={text}
         onChange={(event) => setText(event.target.value)}
-        onBlur={() => onSubmit(text.trim())}
       />
+      {text !== "" || value !== "" ? (
+        <button
+          type="button"
+          aria-label="Clear search"
+          className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[3px] text-faint transition-colors hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+          onClick={clear}
+        >
+          <X aria-hidden size={13} />
+        </button>
+      ) : null}
     </form>
   );
 }

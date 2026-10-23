@@ -1,9 +1,11 @@
 import { Link } from "react-router";
 
 import { CHANGELOG } from "@/content/changelog";
+import { useRouteMeta } from "@/lib/route";
 
 /** The user-facing release notes the footer links to. */
 export function ChangelogPage() {
+  useRouteMeta("Changelog");
   return (
     <div className="settle max-w-[62ch]">
       <p className="label">Changelog</p>

@@ -11,7 +11,7 @@ type ButtonVariant = "primary" | "ghost" | "danger";
 const buttonStyles: Record<ButtonVariant, string> = {
   primary:
     "bg-accent text-accent-ink hover:brightness-105 active:brightness-95 disabled:hover:brightness-100",
-  ghost: "border border-line text-ink hover:border-line-strong hover:bg-raised",
+  ghost: "border border-line-interactive text-ink hover:border-line-strong hover:bg-raised",
   danger: "border border-danger text-danger hover:bg-raised",
 };
 
@@ -39,7 +39,7 @@ interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "cla
 }
 
 const controlStyles =
-  "w-full rounded-field border border-line bg-ground px-3 text-[15px] text-ink transition-colors pointer-coarse:text-[16px] hover:border-line-strong focus:border-accent";
+  "w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors pointer-coarse:text-[16px] hover:border-line-strong focus:border-accent";
 
 function FieldMessages({
   hint,

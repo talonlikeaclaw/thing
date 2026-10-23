@@ -7,7 +7,7 @@
 
 export interface ApiErrorDetails {
   field?: string;
-  errors?: { field: string; message: string }[];
+  errors?: { row?: number; field?: string; message: string }[];
   current_rev?: number;
   reason?: string;
   [key: string]: unknown;

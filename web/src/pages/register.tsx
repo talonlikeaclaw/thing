@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 
 import { readError } from "@/lib/display";
 import { useMe, useRegister } from "@/api/queries";
-import { AuthScaffold } from "@/components/auth-scaffold";
+import { AuthScaffold, AuthUnavailable, AuthWaiting } from "@/components/auth-scaffold";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 
 interface RegisterFormProps {
@@ -83,6 +83,18 @@ export function RegisterForm({ invite }: RegisterFormProps) {
 export function RegisterPage() {
   const me = useMe();
 
+  if (me.isPending) {
+    return <AuthWaiting title="Create your account" />;
+  }
+  if (me.isError) {
+    return (
+      <AuthUnavailable
+        title="Create your account"
+        error={me.error}
+        onRetry={() => void me.refetch()}
+      />
+    );
+  }
   if (me.data) {
     return <Navigate to="/" replace />;
   }

@@ -18,7 +18,7 @@ interface OptionEditorProps {
 }
 
 const optionFieldStyles =
-  "h-9 min-w-0 rounded-field border border-line bg-ground px-2 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11";
+  "h-9 min-w-0 rounded-field border border-line-interactive bg-ground px-2 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11";
 
 /** Options in display order, with inline creation; nothing is saved until Save. */
 export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEditorProps) {

@@ -40,7 +40,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
               >
                 <select
                   aria-label="Sort column"
-                  className="h-8 rounded-[4px] border border-line bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
                   value={sort.property}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -73,7 +73,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                 </select>
                 <select
                   aria-label="Sort direction"
-                  className="h-8 rounded-[4px] border border-line bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
                   value={sort.direction}
                   onChange={(event) =>
                     onChange(
@@ -90,7 +90,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                 </select>
                 <select
                   aria-label="Empty placement"
-                  className="h-8 rounded-[4px] border border-line bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
                   value={sort.empty ?? "end"}
                   onChange={(event) =>
                     onChange(
@@ -143,7 +143,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <select
             aria-label="Add a sort column"
-            className="h-8 rounded-[4px] border border-line bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+            className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
             value={addKey}
             onChange={(event) => setPending(event.target.value)}
           >

@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from "react-router";
 
 import { useLogout, useMe } from "@/api/queries";
-import { AuthScaffold } from "@/components/auth-scaffold";
+import { AuthScaffold, AuthUnavailable, AuthWaiting } from "@/components/auth-scaffold";
 import { RegisterForm } from "@/pages/register";
 import { Button } from "@/components/ui/controls";
 
@@ -10,6 +10,20 @@ export function JoinPage() {
   const me = useMe();
   const logout = useLogout();
   const navigate = useNavigate();
+
+  if (me.isPending) {
+    return <AuthWaiting title="Join this space" />;
+  }
+
+  if (me.isError) {
+    return (
+      <AuthUnavailable
+        title="Join this space"
+        error={me.error}
+        onRetry={() => void me.refetch()}
+      />
+    );
+  }
 
   if (me.data) {
     return (
