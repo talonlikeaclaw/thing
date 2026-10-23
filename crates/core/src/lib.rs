@@ -4,6 +4,7 @@
 //! filesystem. The server, and every later binary (CLI, Tauri desktop, MCP
 //! server), link this crate and reuse the same implementation.
 
+pub mod csv;
 pub mod error;
 pub mod filter;
 pub mod index;
