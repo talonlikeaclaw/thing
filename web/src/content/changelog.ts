@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Open a command palette with Cmd/Ctrl+K to reach spaces, types, records and actions.",
       "Reach every shortcut from the header's Shortcuts button, or press ?.",
       "A lost live connection is shown in the header, and a failed session check offers Retry instead of sending you to sign in.",
+      "Export any type to CSV, download a header-only template, and import records back with a preview that refuses a broken row before writing.",
     ],
     details: [
       "Quick capture remembers the last type you captured in this browser.",
@@ -38,6 +39,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Toasts pause while you hover or focus them, and one carrying Undo is no longer pushed out by newer messages.",
       "Reorder the space rail's links; the order is kept in this browser.",
       "The footer names the running build and links to these notes, which now lead with highlights and fold the rest away.",
+      "The type page's Data panel exports every live record; import is create-only, uses property keys as its header, and is all-or-nothing at validation.",
     ],
   },
   {

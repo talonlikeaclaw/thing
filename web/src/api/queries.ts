@@ -893,10 +893,11 @@ export function useBulkDuplicateObjects(spaceId: string) {
 /** A dry run parses and validates the file; it never writes. */
 export function useCsvPreview(spaceId: string, typeKey: string) {
   return useMutation({
-    mutationFn: (file: File) =>
+    mutationFn: ({ file, signal }: { file: File; signal?: AbortSignal }) =>
       sendCsv<CsvPreview>(
         `/api/spaces/${spaceId}/types/${typeKey}/import?dry_run=true`,
         file,
+        signal ? { signal } : {},
       ),
   });
 }
@@ -925,7 +926,7 @@ export function useExportCsv(spaceId: string, typeKey: string) {
     mutationFn: (template = false) =>
       downloadFile(
         `/api/spaces/${spaceId}/types/${typeKey}/export${template ? "?template=true" : ""}`,
-        `thing-${typeKey}.csv`,
+        `thing-${typeKey}-${new Date().toISOString().slice(0, 10)}.csv`,
       ),
   });
 }

@@ -1,4 +1,4 @@
-import { Columns3, Search, Settings2, X } from "lucide-react";
+import { Columns3, FileSpreadsheet, Search, Settings2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useSearchParams } from "react-router";
 
@@ -36,6 +36,7 @@ import { useToast } from "@/components/ui/toast";
 import { BoardView } from "@/components/views/board-view";
 import { CalendarView } from "@/components/views/calendar-view";
 import { ColumnPanel } from "@/components/views/column-panel";
+import { DataPanel } from "@/components/views/data-panel";
 import { GalleryView } from "@/components/views/gallery-view";
 import { TableView } from "@/components/views/table-view";
 import { ViewSettings } from "@/components/views/view-settings";
@@ -113,6 +114,7 @@ export function TypeTable({
   const [autoEditId, setAutoEditId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [pendingRows, setPendingRows] = useState<ReadonlySet<string>>(new Set());
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
@@ -531,55 +533,73 @@ export function TypeTable({
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <SearchBox value={q} inputRef={searchRef} onSubmit={submitSearch} />
-        {canEdit ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {view.kind === "calendar" ? null : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {canEdit ? (
+            <>
+              {view.kind === "calendar" ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-expanded={columnsOpen}
+                  className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+                  onClick={() => {
+                    setColumnsOpen((open) => !open);
+                    setSettingsOpen(false);
+                    setDataOpen(false);
+                  }}
+                >
+                  <Columns3 aria-hidden size={14} />
+                  Columns
+                </Button>
+              )}
+              <Button
+                type="button"
+                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+                disabled={!dirty || layout.isPending}
+                onClick={saveQuery}
+              >
+                {layout.isPending ? "Saving…" : "Save view"}
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
-                aria-expanded={columnsOpen}
+                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+                disabled={!hasOverrides}
+                onClick={clearQuery}
+              >
+                Clear filters
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                aria-expanded={settingsOpen}
                 className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
                 onClick={() => {
-                  setColumnsOpen((open) => !open);
-                  setSettingsOpen(false);
+                  setSettingsOpen((open) => !open);
+                  setColumnsOpen(false);
+                  setDataOpen(false);
                 }}
               >
-                <Columns3 aria-hidden size={14} />
-                Columns
+                <Settings2 aria-hidden size={14} />
+                View settings
               </Button>
-            )}
-            <Button
-              type="button"
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              disabled={!dirty || layout.isPending}
-              onClick={saveQuery}
-            >
-              {layout.isPending ? "Saving…" : "Save view"}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              disabled={!hasOverrides}
-              onClick={clearQuery}
-            >
-              Clear filters
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              aria-expanded={settingsOpen}
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              onClick={() => {
-                setSettingsOpen((open) => !open);
-                setColumnsOpen(false);
-              }}
-            >
-              <Settings2 aria-hidden size={14} />
-              View settings
-            </Button>
-          </div>
-        ) : null}
+            </>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            aria-expanded={dataOpen}
+            className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+            onClick={() => {
+              setDataOpen((open) => !open);
+              setColumnsOpen(false);
+              setSettingsOpen(false);
+            }}
+          >
+            <FileSpreadsheet aria-hidden size={14} />
+            Data
+          </Button>
+        </div>
       </div>
 
       {canEdit && columnsOpen ? (
@@ -598,6 +618,19 @@ export function TypeTable({
           view={view}
           onClose={() => setSettingsOpen(false)}
           onDeleted={selectView}
+        />
+      ) : null}
+
+      {dataOpen ? (
+        <DataPanel
+          spaceId={spaceId}
+          type={type}
+          canEdit={canEdit}
+          onClose={() => setDataOpen(false)}
+          onImported={() => {
+            setDataOpen(false);
+            setSelection(new Set());
+          }}
         />
       ) : null}
 

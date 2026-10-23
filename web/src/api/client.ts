@@ -82,7 +82,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 /** Posts a file as `text/csv`; the server answers JSON or the same error envelope. */
-export async function sendCsv<T>(path: string, file: File | Blob): Promise<T> {
+export async function sendCsv<T>(
+  path: string,
+  file: File | Blob,
+  options: { signal?: AbortSignal } = {},
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(path, {
@@ -93,8 +97,13 @@ export async function sendCsv<T>(path: string, file: File | Blob): Promise<T> {
         "content-type": "text/csv",
       },
       body: file,
+      ...(options.signal ? { signal: options.signal } : {}),
     });
-  } catch {
+  } catch (error) {
+    // An aborted dry run is the user choosing another file, not a failure.
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
     throw new ApiError(0, "network", "Could not reach the server. Check the connection and retry.");
   }
 
