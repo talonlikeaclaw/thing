@@ -337,6 +337,7 @@ mod tests {
     use crate::accounts::Accounts;
     use crate::spaces::SpaceRegistry;
     use crate::state::{ACCOUNTS_FILE, AppState};
+    use thing_core::validate::MAX_TITLE_LEN;
 
     const PASSWORD: &str = "correct-horse-battery";
 
@@ -1416,6 +1417,228 @@ mod tests {
                 unknown_option.body["error"]["details"]["errors"][0]["message"],
                 "unknown option attic"
             );
+        });
+    }
+
+    #[test]
+    fn duplicating_an_object_copies_it_and_leaves_the_source_alone() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("duplicate@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}/objects", garden.space);
+            let source = format!("{base}/{}", garden.plant);
+
+            let before = server.call("GET", &source, None, Some(&cookie)).await;
+            assert_eq!(before.status, StatusCode::OK);
+            let history_before = server
+                .call("GET", &format!("{source}/history"), None, Some(&cookie))
+                .await;
+
+            let duplicated = server
+                .call(
+                    "POST",
+                    &format!("{source}/duplicate"),
+                    Some(json!({})),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                duplicated.status,
+                StatusCode::CREATED,
+                "{:?}",
+                duplicated.body
+            );
+            let copy = duplicated.body["id"].as_str().expect("an id");
+            assert_ne!(copy, garden.plant);
+            assert_eq!(duplicated.body["type"], "plant");
+            assert_eq!(duplicated.body["rev"], 1);
+            assert_eq!(duplicated.body["title"], "Monstera in the study (copy)");
+            assert_eq!(duplicated.body["properties"]["room"]["value"], "kitchen");
+            assert_eq!(duplicated.body["body"], "\nWatered.\n");
+
+            let history = server
+                .call(
+                    "GET",
+                    &format!("{base}/{copy}/history"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let lines = history.body.as_array().expect("a list");
+            assert_eq!(lines.len(), 1);
+            assert_eq!(lines[0]["action"], "create");
+            assert_eq!(lines[0]["rev"], 1);
+
+            let after = server.call("GET", &source, None, Some(&cookie)).await;
+            assert_eq!(after.body, before.body, "the source changed");
+            let history_after = server
+                .call("GET", &format!("{source}/history"), None, Some(&cookie))
+                .await;
+            assert_eq!(history_after.body, history_before.body);
+
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.body["total"], 2);
+        });
+    }
+
+    #[test]
+    fn a_duplicate_takes_an_optional_title_and_refuses_a_bad_one() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("duplicate-title@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let source = format!(
+                "/api/spaces/{}/objects/{}/duplicate",
+                garden.space, garden.plant
+            );
+
+            let named = server
+                .call(
+                    "POST",
+                    &source,
+                    Some(json!({ "title": "  Patio Monstera  " })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(named.status, StatusCode::CREATED, "{:?}", named.body);
+            assert_eq!(named.body["title"], "Patio Monstera");
+
+            let overlong = server
+                .call(
+                    "POST",
+                    &source,
+                    Some(json!({ "title": "a".repeat(MAX_TITLE_LEN + 1) })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(overlong.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(overlong.field(), "title");
+
+            let unknown = server
+                .call(
+                    "POST",
+                    &source,
+                    Some(json!({ "name": "Patio" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unknown.field(), "body");
+        });
+    }
+
+    #[test]
+    fn a_duplicate_keeps_every_schedule_value() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server
+                .register("duplicate-schedule@example.com", None)
+                .await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}/objects");
+
+            let created = server
+                .call(
+                    "POST",
+                    &base,
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Water the monstera",
+                        "properties": {
+                            "due_date": day(-1),
+                            "recurrence": { "kind": "days", "every": 3 },
+                            "last_completed_at": "2026-10-19T08:00:00Z"
+                        }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            let id = created.body["id"].as_str().expect("an id");
+
+            let duplicated = server
+                .call(
+                    "POST",
+                    &format!("{base}/{id}/duplicate"),
+                    Some(json!({})),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                duplicated.status,
+                StatusCode::CREATED,
+                "{:?}",
+                duplicated.body
+            );
+            for key in ["due_date", "recurrence", "last_completed_at"] {
+                assert_eq!(
+                    duplicated.body["properties"][key], created.body["properties"][key],
+                    "{key} changed in the copy"
+                );
+            }
+            assert_eq!(duplicated.body["schedule"], created.body["schedule"]);
+        });
+    }
+
+    #[test]
+    fn a_trashed_source_cannot_be_duplicated_and_a_viewer_may_not_duplicate() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("duplicate-trash@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}/objects", garden.space);
+            let source = format!("{base}/{}", garden.plant);
+
+            let trashed = server.call("DELETE", &source, None, Some(&cookie)).await;
+            assert_eq!(trashed.status, StatusCode::OK);
+            let missing = server
+                .call(
+                    "POST",
+                    &format!("{source}/duplicate"),
+                    Some(json!({})),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(missing.status, StatusCode::NOT_FOUND);
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", garden.space),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code");
+            let viewer = server
+                .register("duplicate-viewer@example.com", Some(code))
+                .await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let refused = server
+                .call(
+                    "POST",
+                    &format!("{base}/{}/duplicate", garden.plant),
+                    Some(json!({})),
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::FORBIDDEN);
         });
     }
 

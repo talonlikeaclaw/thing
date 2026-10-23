@@ -59,6 +59,10 @@ pub fn routes() -> Router<SharedState> {
             "/api/spaces/{space}/objects/{object}/complete",
             post(complete),
         )
+        .route(
+            "/api/spaces/{space}/objects/{object}/duplicate",
+            post(duplicate),
+        )
         .route("/api/spaces/{space}/objects/{object}/raw", get(raw))
         .route("/api/spaces/{space}/objects/{object}/history", get(history))
         .route(
@@ -267,6 +271,98 @@ async fn create(
         })
         .ok_or_else(|| ApiError::internal("the object did not survive its own write"))?;
     Ok((StatusCode::CREATED, Json(created)))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DuplicateRequest {
+    #[serde(default)]
+    title: Option<String>,
+}
+
+/// `POST /api/spaces/{space}/objects/{object}/duplicate` [editor]
+///
+/// A duplicate is an ordinary create: new identity, first revision, same type,
+/// properties and body. Nothing is normalized or re-phased, and the source file
+/// is never touched.
+async fn duplicate(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path((space, object)): Path<(String, String)>,
+    ApiJson(body): ApiJson<DuplicateRequest>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let id = uuid_param(&object, "object")?;
+    let handle = space_for(&state, &caller, space, Role::Editor)?;
+    let requested_title = body.title;
+    let _guard = handle.write.lock().await;
+
+    let source = handle.with_index(|index| -> Result<ObjectDoc, ApiError> {
+        index
+            .object(id)
+            .cloned()
+            .ok_or_else(|| ApiError::not_found(format!("object {id}")))
+    })?;
+
+    let now = OffsetDateTime::now_utc();
+    let mut next = source;
+    next.id = Uuid::now_v7();
+    next.title = match &requested_title {
+        Some(title) => clean_text("title", title, MAX_TITLE_LEN)?,
+        None => copy_title(&next.title),
+    };
+    next.rev = 1;
+    next.created_at = now;
+    next.updated_at = now;
+    next.created_by = caller.user.id;
+    next.updated_by = caller.user.id;
+    next.trashed_at = None;
+    next.trashed_from = None;
+
+    let path = handle.store.new_object_path(&next.type_key, &next.title)?;
+    handle.with_index(|index| {
+        if let Err(errors) = validate::validate_object(&index.schema(), &next) {
+            return Err(ApiError::validation_all(errors));
+        }
+        Ok(())
+    })?;
+
+    handle.store.save_object(&path, &next, None)?;
+    handle.store.append_revision(
+        next.id,
+        &Revision {
+            rev: next.rev,
+            at: now,
+            by: caller.user.id,
+            action: RevisionAction::Create,
+            snapshot: snapshot_of(&next),
+            body: Some(next.body.clone()),
+        },
+    )?;
+    handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+    handle.broadcast(
+        "object.created",
+        json!({ "id": next.id, "type": next.type_key, "rev": next.rev }),
+    );
+    tracing::info!(
+        space = %space,
+        user = %caller.user.id,
+        source = %id,
+        object = %next.id,
+        "object duplicated"
+    );
+
+    let created = object_response(&handle, next.id)?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// The default title of a duplicate: the source title with ` (copy)` appended,
+/// with the base shortened so the result fits [`MAX_TITLE_LEN`].
+fn copy_title(title: &str) -> String {
+    const SUFFIX: &str = " (copy)";
+    let room = MAX_TITLE_LEN.saturating_sub(SUFFIX.chars().count());
+    let base: String = title.chars().take(room).collect();
+    format!("{base}{SUFFIX}")
 }
 
 #[derive(Debug, Deserialize)]
