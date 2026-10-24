@@ -1,11 +1,26 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 
-import { type UpdateSpace, useDeleteSpace, useSpace, useUpdateSpace } from "@/api/queries";
+import {
+  type UpdateSpace,
+  useDeleteSpace,
+  useMe,
+  useSpace,
+  useUpdateSpace,
+} from "@/api/queries";
+import { AccentPicker } from "@/components/accent-picker";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { IconPicker } from "@/components/icon-picker";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
+import {
+  DEFAULT_ACCENT,
+  accentKey,
+  applyAccent,
+  readAccent,
+  writeAccent,
+  type AccentId,
+} from "@/lib/accent";
 import { readError } from "@/lib/display";
 import { useRouteMeta } from "@/lib/route";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
@@ -15,6 +30,7 @@ import { timezoneNames } from "@/lib/timezone";
 export function SettingsPage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
+  const me = useMe();
   const update = useUpdateSpace(spaceId ?? "");
   const remove = useDeleteSpace(spaceId ?? "");
   const navigate = useNavigate();
@@ -23,6 +39,24 @@ export function SettingsPage() {
   const [icon, setIcon] = useState("");
   const [zone, setZone] = useState("UTC");
   const [confirm, setConfirm] = useState("");
+  const [accent, setAccent] = useState<AccentId>(DEFAULT_ACCENT);
+  const userId = me.data?.id;
+
+  useEffect(() => {
+    if (!userId || !spaceId) {
+      return;
+    }
+    setAccent(readAccent(window.localStorage, accentKey(userId, spaceId)));
+  }, [userId, spaceId]);
+
+  /** Immediate apply and best-effort persist; a refusal never shows an error. */
+  const chooseAccent = (next: AccentId) => {
+    setAccent(next);
+    if (userId && spaceId) {
+      writeAccent(window.localStorage, accentKey(userId, spaceId), next);
+    }
+    applyAccent(document.documentElement, next);
+  };
 
   useEffect(() => {
     if (!space.data) {
@@ -170,6 +204,28 @@ export function SettingsPage() {
             </p>
           </div>
         )}
+      </section>
+
+      <section aria-labelledby="space-appearance" className="mt-10 border-t rule pt-6">
+        <div className="flex items-baseline justify-between border-b rule pb-2">
+          <h2 id="space-appearance" className="text-[17px] font-medium">
+            Appearance
+          </h2>
+          {accent !== DEFAULT_ACCENT ? (
+            <Button
+              variant="ghost"
+              className="min-h-8 px-2 py-0 text-[12px]"
+              onClick={() => chooseAccent(DEFAULT_ACCENT)}
+            >
+              Reset to Lichen
+            </Button>
+          ) : null}
+        </div>
+        <p className="mt-4 text-[13px] text-muted">
+          Highlight is saved in this browser for this space. It changes focus, selection and the
+          primary action; nobody else sees it.
+        </p>
+        <AccentPicker value={accent} onChange={chooseAccent} labelledBy="space-appearance" />
       </section>
 
       {guard}

@@ -27,6 +27,74 @@
   --radius-sheet: 10px;
 }
 
+/*
+ * Highlight accent: a browser-local, per-user, per-space preference. Only the
+ * two accent tokens move; every component keeps reading `accent` /
+ * `accent-ink`. Values mirror `web/src/lib/accent.ts`, and
+ * `lib/accent.test.ts` enforces the 4.5:1 contrast floor in both schemes.
+ */
+:root[data-accent="lichen"] {
+  --color-accent: #c8d96b;
+  --color-accent-ink: #14180f;
+}
+
+:root[data-accent="yellow"] {
+  --color-accent: #f2d64b;
+  --color-accent-ink: #1a1503;
+}
+
+:root[data-accent="orange"] {
+  --color-accent: #f5a24a;
+  --color-accent-ink: #1c1204;
+}
+
+:root[data-accent="cyan"] {
+  --color-accent: #6fdbe8;
+  --color-accent-ink: #04181a;
+}
+
+:root[data-accent="green"] {
+  --color-accent: #7fe08a;
+  --color-accent-ink: #051706;
+}
+
+:root[data-accent="pink"] {
+  --color-accent: #f49ac1;
+  --color-accent-ink: #1d0711;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-accent="lichen"] {
+    --color-accent: #5f6f1e;
+    --color-accent-ink: #f7f8f0;
+  }
+
+  :root[data-accent="yellow"] {
+    --color-accent: #6f5d00;
+    --color-accent-ink: #fbf9ea;
+  }
+
+  :root[data-accent="orange"] {
+    --color-accent: #9a4a00;
+    --color-accent-ink: #fdf6ee;
+  }
+
+  :root[data-accent="cyan"] {
+    --color-accent: #00646e;
+    --color-accent-ink: #eefcfe;
+  }
+
+  :root[data-accent="green"] {
+    --color-accent: #256b33;
+    --color-accent-ink: #f0fbf2;
+  }
+
+  :root[data-accent="pink"] {
+    --color-accent: #96325f;
+    --color-accent-ink: #fdf1f6;
+  }
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     --color-ground: #f4f3ec;

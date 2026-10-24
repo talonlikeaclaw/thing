@@ -17,6 +17,19 @@
       "danger": { "role": "secondary", "displayName": "Ember", "canonical": "#f08a72", "tonalRamp": ["oklch(20% 0.06 30)", "oklch(32% 0.09 30)", "oklch(44% 0.12 30)", "oklch(56% 0.13 30)", "oklch(68% 0.13 30)", "oklch(79% 0.11 30)", "oklch(88% 0.07 30)", "oklch(95% 0.03 30)"] },
       "warning": { "role": "tertiary", "displayName": "Amber", "canonical": "#dcaa54", "tonalRamp": ["oklch(20% 0.05 80)", "oklch(32% 0.07 80)", "oklch(44% 0.09 80)", "oklch(56% 0.10 80)", "oklch(68% 0.10 80)", "oklch(79% 0.10 80)", "oklch(88% 0.06 80)", "oklch(95% 0.03 80)"] }
     },
+    "accentPalettes": {
+      "default": "lichen",
+      "storage": "browser-local, per user and per space; never synced or served",
+      "contrastFloor": "4.5:1 accent-on-ground and ink-on-accent in both schemes, enforced by web/src/lib/accent.test.ts",
+      "palettes": [
+        { "id": "lichen", "label": "Lichen", "dark": { "accent": "#c8d96b", "ink": "#14180f" }, "light": { "accent": "#5f6f1e", "ink": "#f7f8f0" } },
+        { "id": "yellow", "label": "Yellow", "dark": { "accent": "#f2d64b", "ink": "#1a1503" }, "light": { "accent": "#6f5d00", "ink": "#fbf9ea" } },
+        { "id": "orange", "label": "Orange", "dark": { "accent": "#f5a24a", "ink": "#1c1204" }, "light": { "accent": "#9a4a00", "ink": "#fdf6ee" } },
+        { "id": "cyan", "label": "Cyan", "dark": { "accent": "#6fdbe8", "ink": "#04181a" }, "light": { "accent": "#00646e", "ink": "#eefcfe" } },
+        { "id": "green", "label": "Green", "dark": { "accent": "#7fe08a", "ink": "#051706" }, "light": { "accent": "#256b33", "ink": "#f0fbf2" } },
+        { "id": "pink", "label": "Pink", "dark": { "accent": "#f49ac1", "ink": "#1d0711" }, "light": { "accent": "#96325f", "ink": "#fdf1f6" } }
+      ]
+    },
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "Auth titles and page headings; one per screen." },
       "title": { "displayName": "Title", "purpose": "Space list and space name." },
@@ -80,17 +93,17 @@
       "Dark ground with near-neutral, slightly green-black surfaces.",
       "Hairline 1px rules instead of shadows or cards.",
       "Mono for keys, ids, timestamps and counts; sans for prose and controls.",
-      "One lichen accent, used only for state (selection, focus, primary action).",
+      "One accent, chosen from six browser-local palettes, used only for state (selection, focus, primary action); Lichen is the default.",
       "A keyed index as the recurring structure: a short mono key leads every entry."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Lichen marks state: focus, selection, the primary action, the wordmark. It never fills large areas and never appears twice in one row for two different meanings.", "section": "colors" },
-      { "name": "The Light Is Not a Theme Skin Rule", "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens lichen for contrast; it does not add shadows, cards or new ornament.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "The chosen accent (Lichen by default) marks state: focus, selection, the primary action, the wordmark, the active rail and view tabs. It never fills large areas and never appears twice in one row for two different meanings. Choosing another palette does not add a second accent.", "section": "colors" },
+      { "name": "The Light Is Not a Theme Skin Rule", "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or new ornament.", "section": "colors" },
       { "name": "The Keys Are Mono Rule", "body": "Anything the system treats as an identifier or measurement is mono and tabular. Anything a person reads as a sentence is sans.", "section": "typography" },
       { "name": "The Hairline Rule", "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.", "section": "elevation" }
     ],
     "dos": [
-      "Do keep the accent to state and the wordmark; if it is not saying selected, focused or primary action, it is the wrong color.",
+      "Do keep the chosen accent to state and the wordmark; if it is not saying selected, focused or primary action, it is the wrong color.",
       "Do use mono for keys, ids, counts, timestamps and labels, and tabular numerals for every number.",
       "Do separate rows and sections with 1px hairlines and spacing, not cards or shadows.",
       "Do name the next action in empty states and errors, in the product's own language.",
@@ -98,7 +111,7 @@
     ],
     "donts": [
       "Don't introduce shadows, glass, gradients, glows or colored side stripes.",
-      "Don't fill large surfaces with lichen or introduce a second accent.",
+      "Don't fill large surfaces with the accent or introduce a second accent.",
       "Don't use emoji as interface icons; they belong only to user-authored space icons.",
       "Don't turn the index into a card grid, add a sidebar before the space exists, or hide the create action behind a modal.",
       "Don't set prose in mono or identifiers in sans."

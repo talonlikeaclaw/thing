@@ -94,13 +94,14 @@ for contrast.
 - Dark ground with near-neutral, slightly green-black surfaces.
 - Hairline 1px rules instead of shadows or cards.
 - Mono for keys, ids, timestamps and counts; sans for prose and controls.
-- One lichen accent, used only for state (selection, focus, primary action).
+- One accent, chosen from six browser-local palettes, used only for state (selection, focus, primary
+  action); Lichen is the default.
 - A keyed index as the recurring structure: a short mono key leads every entry.
 
 ## Colors
 
-A near-neutral dark scale carrying one yellow-green accent. The palette is functional: no color
-appears without a job.
+A near-neutral dark scale carrying one accent, Lichen by default (see *Highlight accent* below).
+The palette is functional: no color appears without a job.
 
 ### Primary
 - **Lichen** (`{colors.accent}`): primary action, focus rings, the wordmark square, and the active
@@ -121,12 +122,34 @@ appears without a job.
 - **Ember** (`{colors.danger}`): validation errors and destructive intent; text only.
 - **Amber** (`{colors.warning}`): degraded state, never decoration.
 
-**The One Accent Rule.** Lichen marks state: focus, selection, the primary action, the wordmark.
-It never fills large areas and never appears twice in one row for two different meanings.
+### Highlight accent
+The accent is Lichen by default, and a person may choose one of six palettes in **Settings >
+Appearance**. The choice is **browser-local, per user and per space**: it never syncs, never reaches
+the server and is never a shared space brand. Only space routes are themed; `/`, auth and
+`/changelog` render Lichen.
+
+| id | label | dark accent | dark ink | light accent | light ink |
+|---|---|---|---|---|---|
+| `lichen` | Lichen | `#c8d96b` | `#14180f` | `#5f6f1e` | `#f7f8f0` |
+| `yellow` | Yellow | `#f2d64b` | `#1a1503` | `#6f5d00` | `#fbf9ea` |
+| `orange` | Orange | `#f5a24a` | `#1c1204` | `#9a4a00` | `#fdf6ee` |
+| `cyan` | Cyan | `#6fdbe8` | `#04181a` | `#00646e` | `#eefcfe` |
+| `green` | Green | `#7fe08a` | `#051706` | `#256b33` | `#f0fbf2` |
+| `pink` | Pink | `#f49ac1` | `#1d0711` | `#96325f` | `#fdf1f6` |
+
+`web/src/lib/accent.ts` is the single source for the picker and the contrast test; `globals.css`
+mirrors the values as `:root[data-accent=…]` overrides of `--color-accent` and `--color-accent-ink`.
+Components keep using those two tokens and never branch on the accent id. Every palette clears
+4.5:1 for accent text on ground and ink on accent in both schemes, enforced by
+`lib/accent.test.ts`.
+
+**The One Accent Rule.** The chosen accent marks state: focus, selection, the primary action, the
+wordmark, the active rail and view tabs. It never fills large areas and never appears twice in one
+row for two different meanings. Choosing Yellow does not add a second accent.
 
 **The Light Is Not a Theme Skin Rule.** Light mode keeps the same type scale, rules and hierarchy.
-It swaps the ground to bone and darkens lichen for contrast; it does not add shadows, cards or new
-ornament.
+It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or
+new ornament.
 
 ## Typography
 
@@ -289,7 +312,7 @@ space icons, never as interface iconography.
 
 ### Don't:
 - **Don't** introduce shadows, glass, gradients, glows or colored side stripes.
-- **Don't** fill large surfaces with lichen or introduce a second accent.
+- **Don't** fill large surfaces with the accent or introduce a second accent.
 - **Don't** use emoji as interface icons; they belong only to user-authored space icons.
 - **Don't** turn the index into a card grid, add a sidebar before the space exists, or hide the
   create action behind a modal.

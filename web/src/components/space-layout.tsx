@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Outlet, useParams } from "react-router";
 
 import { useMe, useSpace, useTypes } from "@/api/queries";
 import { ErrorState } from "@/components/error-state";
 import { SpaceNav } from "@/components/space-nav";
+import { accentKey, applyAccent, readAccent, resetAccent } from "@/lib/accent";
 import { recordVisit, visitsKey } from "@/lib/visits";
 
 /**
@@ -27,6 +28,19 @@ export function SpaceLayout() {
     }
     recordVisit(window.localStorage, visitsKey(userId), spaceId, Date.now());
   }, [userId, spaceId]);
+
+  // The accent is per user and per space; a layout effect means the first
+  // paint inside a space already uses the saved hue. Outside a space the root
+  // attribute is dropped, so `/`, auth, `/changelog` and 404 stay Lichen.
+  useLayoutEffect(() => {
+    if (!userId || !spaceId) {
+      return;
+    }
+    const saved = readAccent(window.localStorage, accentKey(userId, spaceId));
+    applyAccent(document.documentElement, saved);
+  }, [userId, spaceId]);
+
+  useLayoutEffect(() => () => resetAccent(document.documentElement), []);
 
   // The layout owns the title while no page is rendered; a loaded space lets
   // the page set its own, and this effect stays out of the way.
