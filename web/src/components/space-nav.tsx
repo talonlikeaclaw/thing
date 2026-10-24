@@ -1,9 +1,14 @@
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Dialog } from "@base-ui/react/dialog";
+import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { useAgenda, useMe, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
+import { usePalette } from "@/components/palette-context";
+import { useQuickCapture } from "@/components/quick-capture";
+import { ThingIcon } from "@/components/thing-icon";
 import { cn } from "@/lib/cn";
 import {
   DEFAULT_NAV_ORDER,
@@ -32,8 +37,9 @@ const UTILITY: Record<NavLink, { label: string; path: string }> = {
  * The space switcher and the space's tables, plus the utility links.
  *
  * The current link comes from the pathname, so every surface under a space
- * shares one truthful rail. Below `lg` the rail becomes a sticky disclosure
- * bar; the table is not pushed below the fold.
+ * shares one truthful rail. Below `lg` the rail becomes a bottom bar that
+ * opens the same links as a sheet, within reach of a thumb; the table is not
+ * pushed below the fold.
  */
 export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const location = useLocation();
@@ -42,6 +48,8 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const space = useSpace(spaceId);
   const agenda = useAgenda(spaceId);
   const me = useMe();
+  const capture = useQuickCapture();
+  const openPalette = usePalette();
   const list: SpaceSummary[] = spaces.data ?? [];
   const overdue = agenda.data?.overdue.length ?? 0;
   const userId = me.data?.id;
@@ -89,67 +97,89 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
 
   return (
     <>
-      <div className="sticky top-0 z-30 -mx-6 border-b rule bg-ground/95 px-6 py-2 backdrop-blur lg:hidden">
-        <button
-          type="button"
-          aria-expanded={mobileOpen}
-          aria-controls="space-menu"
-          className="flex min-h-11 w-full items-center gap-3 text-left"
-          onClick={() => setMobileOpen((open) => !open)}
-        >
-          {space.data?.icon ? (
-            <span aria-hidden className="text-[18px] leading-none">
-              {space.data.icon}
-            </span>
-          ) : null}
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-medium">
-              {space.data?.name ?? "This space"}
-            </span>
-            <span className="label">{role}</span>
-          </span>
-          <ChevronDown
-            aria-hidden
-            size={16}
-            className={cn("shrink-0 text-muted transition-transform", mobileOpen && "rotate-180")}
-          />
-        </button>
+      <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+        {/* The page wrapper animates a transform, which would become the
+            containing block of a fixed child; the bar lives on the body. */}
+        {createPortal(
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t rule bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+            <div className="flex items-center gap-1 px-3">
+              <Dialog.Trigger
+                aria-label={`Space menu for ${space.data?.name ?? "this space"}`}
+                className="flex min-h-14 min-w-0 flex-1 items-center gap-3 pr-1 text-left"
+              >
+                <ThingIcon icon={space.data?.icon} size="md" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-medium">
+                    {space.data?.name ?? "This space"}
+                  </span>
+                  <span className="label">{role}</span>
+                </span>
+                <ChevronUp aria-hidden size={16} className="shrink-0 text-muted" />
+              </Dialog.Trigger>
+              {capture.available ? (
+                <BarAction label="Capture a record (C)" onClick={() => capture.open()}>
+                  <Plus aria-hidden size={17} />
+                </BarAction>
+              ) : null}
+              <BarAction label="Search and commands" onClick={openPalette}>
+                <Search aria-hidden size={17} />
+              </BarAction>
+            </div>
+          </div>,
+          document.body,
+        )}
 
-        {mobileOpen ? (
-          <div id="space-menu" className="max-h-[70dvh] overflow-y-auto border-t rule pt-3 pb-4">
-            <SpaceSwitcher
-              id="space-switcher-mobile"
-              spaceId={spaceId}
-              spaceName={space.data?.name ?? "This space"}
-              role={role}
-              list={list}
-              onNavigate={close}
-            />
-            <div className="mt-4">
-              <TypesList
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85 lg:hidden" />
+          <Dialog.Viewport className="fixed inset-0 z-50 flex items-end lg:hidden">
+            <Dialog.Popup className="max-h-[85dvh] w-full overflow-y-auto rounded-t-sheet border border-line bg-surface px-6 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+              <div className="flex items-center justify-between gap-3">
+                <Dialog.Title className="label">Space navigation</Dialog.Title>
+                <Dialog.Close
+                  aria-label="Close space navigation"
+                  className="-mr-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-field text-faint transition-colors hover:text-ink"
+                >
+                  <X aria-hidden size={17} />
+                </Dialog.Close>
+              </div>
+              <Dialog.Description className="sr-only">
+                Switch spaces, open a type, or reach a space page.
+              </Dialog.Description>
+
+              <SpaceSwitcher
+                id="space-switcher-mobile"
                 spaceId={spaceId}
-                types={types}
-                pathname={pathname}
+                spaceName={space.data?.name ?? "This space"}
+                role={role}
+                list={list}
                 onNavigate={close}
               />
-            </div>
-            <div className="mt-4 border-t rule pt-3">
-              <AllSpacesLink onNavigate={close} />
-              <OverviewLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
-              <UtilityLinks
-                spaceId={spaceId}
-                pathname={pathname}
-                order={order}
-                overdue={overdue}
-                reordering={reordering}
-                onMove={move}
-                onToggleReorder={() => setReordering((current) => !current)}
-                onNavigate={close}
-              />
-            </div>
-          </div>
-        ) : null}
-      </div>
+              <div className="mt-4">
+                <TypesList
+                  spaceId={spaceId}
+                  types={types}
+                  pathname={pathname}
+                  onNavigate={close}
+                />
+              </div>
+              <div className="mt-4 border-t rule pt-3">
+                <AllSpacesLink onNavigate={close} />
+                <OverviewLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
+                <UtilityLinks
+                  spaceId={spaceId}
+                  pathname={pathname}
+                  order={order}
+                  overdue={overdue}
+                  reordering={reordering}
+                  onMove={move}
+                  onToggleReorder={() => setReordering((current) => !current)}
+                  onNavigate={close}
+                />
+              </div>
+            </Dialog.Popup>
+          </Dialog.Viewport>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <aside className="hidden lg:sticky lg:top-6 lg:block lg:self-start">
         <SpaceSwitcher
@@ -179,6 +209,28 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         </div>
       </aside>
     </>
+  );
+}
+
+/** A 44px icon action in the phone's bottom bar. */
+function BarAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-field text-muted transition-colors hover:bg-raised hover:text-ink"
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -260,16 +312,12 @@ function TypesList({
                   aria-current={active ? "page" : undefined}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-baseline justify-between gap-2 py-2 text-[14px] transition-colors hover:text-accent pointer-coarse:min-h-11",
+                    "flex min-h-9 items-center justify-between gap-2 px-1 py-2 text-[14px] transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11",
                     active && "text-accent",
                   )}
                 >
-                  <span className="flex min-w-0 items-baseline gap-1.5">
-                    {type.icon ? (
-                      <span aria-hidden className="leading-none">
-                        {type.icon}
-                      </span>
-                    ) : null}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <ThingIcon icon={type.icon} size="sm" />
                     <span className="truncate">{type.name_plural}</span>
                   </span>
                   <span className="label tnum shrink-0">{type.object_count}</span>
@@ -285,11 +333,11 @@ function TypesList({
 
 function AllSpacesLink({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="border-b rule pb-2">
+    <div className="border-b rule">
       <Link
         to="/"
         onClick={onNavigate}
-        className="label flex py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+        className="label flex min-h-9 items-center px-1 py-2 transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11"
       >
         All spaces
       </Link>
@@ -315,7 +363,7 @@ function OverviewLink({
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
         className={cn(
-          "label flex py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center",
+          "label flex min-h-9 items-center px-1 py-2 transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11",
           active && "text-accent",
         )}
       >
@@ -346,19 +394,19 @@ function UtilityLinks({
 }) {
   return (
     <>
-      <ul className="mt-2 flex flex-col gap-1.5">
+      <ul className="flex flex-col">
         {order.map((key, index) => {
           const item = UTILITY[key];
           const to = `/s/${spaceId}/${item.path}`;
           const active = pathname === to;
           return (
-            <li key={key} className="flex items-center gap-1">
+            <li key={key} className="flex items-center gap-1 border-b rule">
               <Link
                 to={to}
                 aria-current={active ? "page" : undefined}
                 onClick={onNavigate}
                 className={cn(
-                  "label flex min-w-0 flex-1 items-center justify-between gap-2 py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center",
+                  "label flex min-h-9 min-w-0 flex-1 items-center justify-between gap-2 px-1 py-2 transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11",
                   active && "text-accent",
                 )}
               >
@@ -398,7 +446,7 @@ function UtilityLinks({
           );
         })}
       </ul>
-      <div className="mt-1 flex justify-end">
+      <div className="mt-2 flex justify-end">
         <button
           type="button"
           aria-pressed={reordering}

@@ -977,16 +977,24 @@ and View settings. The inline panel (below the toolbar, above the filter bar) co
 
 ### 7.8 Responsive and touch
 
-- Header: the new actions are icon buttons below `sm`; Sign out also becomes a labeled icon button
-  so the wordmark, Capture, palette and Sign out fit without overflow.
+- Header: below `lg` Capture and palette move into the bottom bar, so the header keeps only the
+  wordmark and a 44px Sign out icon; from `lg` they stay as labeled header controls. The Shortcuts
+  button is keyboard-only and does not render below `sm` or on a coarse pointer; its `?` cap and the
+  palette's key hints follow.
 - Palette and capture: full-width bottom sheets below `sm`, 16px inputs, 44px rows, focus trap,
   Escape, and focus restored to the trigger.
 - Space nav: Overview first; every link and the space select keep 44px targets on coarse pointers.
-  Below `lg` the rail is a sticky space bar with a disclosure, not an in-flow block that pushes the
-  table below the fold; opening it shows the same links and closes on selection or Escape.
-- Table: keep horizontal scrolling with the sticky header, pinned title and action columns.
-  Checkboxes, row actions and the bulk bar are 44px on coarse pointers. Do not add a card renderer
-  in M4.
+  Below `lg` the rail is a fixed **bottom bar** carrying the space menu plus direct Capture and
+  palette buttons, within thumb reach rather than at the top; the space area opens the same links
+  as a bottom sheet. The bar clears the safe area, the page and footer reserve room for it, and the
+  sheet closes on selection, Escape or its close button with focus returned to the bar. It is
+  rendered through a portal because the page wrapper's transform would otherwise capture a fixed
+  child.
+- Table: keep horizontal scrolling with the sticky header and pinned title on desktop.
+  Checkboxes, row actions and the bulk bar are 44px on coarse pointers. Below 640px the title
+  unpins, the action cell keeps only Open plus a 44px row menu (Complete, Duplicate, Move to trash),
+  so a property column is visible and swipeable; the action column is no longer 184px of icons.
+  Do not add a card renderer in M4.
 - Toasts: action buttons are 44px on coarse pointers and remain keyboard reachable; danger toasts
   do not auto-dismiss while hovered or focused.
 - Contrast floor: introduce `--color-line-interactive` at ≥3:1 against `ground` for field, select
@@ -1249,7 +1257,9 @@ for it rather than restarting.
     confirming selection/focus/primary action change together, that the choice survives reload and
     is different in a second space, that a fresh profile is Lichen, that a non-owner can change it,
     and that `npm run test:run` enforces the contrast floor.
-13. **Responsive, docs and end-to-end.** Do the responsive/touch pass in §7.8, bump the workspace and
+13. **Responsive, docs and end-to-end.** Do the responsive/touch pass in §7.8 (including the bottom
+    nav drawer, hidden mobile keyboard affordances, compact table row actions and in-zone
+    timestamps), bump the workspace and
     web package to `0.4.0`, move the `Unreleased` changelog entry to `0.4.0`, update `docs/ROADMAP.md`
     (M4 landed, checkpoints, plan link, version), `AGENTS.md` (current state, new invariants, critical
     files), `README.md` (features and CSV command examples), `DESIGN.md` and

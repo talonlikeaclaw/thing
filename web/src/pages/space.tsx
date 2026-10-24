@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 import { useMe, useSpace, useTrash, useTypes } from "@/api/queries";
 import type { TypeSummary } from "@/api/types";
 import { useQuickCapture } from "@/components/quick-capture";
+import { ThingIcon } from "@/components/thing-icon";
 import { Button } from "@/components/ui/controls";
 import { relativeTime } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
@@ -47,11 +48,7 @@ export function SpacePage() {
   return (
     <div className="settle">
       <div className="flex flex-wrap items-baseline gap-3">
-        {detail.icon ? (
-          <span aria-hidden className="text-[26px] leading-none">
-            {detail.icon}
-          </span>
-        ) : null}
+        <ThingIcon icon={detail.icon} size="lg" />
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">{detail.name}</h1>
         <span className="label">{detail.role}</span>
         <Link
@@ -154,11 +151,7 @@ function TypeRow({ spaceId, type }: { spaceId: string; type: TypeSummary }) {
         className="flex items-baseline justify-between gap-3 py-3 transition-colors hover:text-accent pointer-coarse:min-h-11"
       >
         <span className="flex min-w-0 items-baseline gap-2">
-          {type.icon ? (
-            <span aria-hidden className="text-[16px] leading-none">
-              {type.icon}
-            </span>
-          ) : null}
+          <ThingIcon icon={type.icon} size="sm" />
           <span className="truncate text-[15px] font-medium">{type.name}</span>
           <span className="font-mono text-[10.5px] text-faint">{type.key}</span>
           {type.schedule ? <span className="label shrink-0 text-accent">SCHEDULED</span> : null}

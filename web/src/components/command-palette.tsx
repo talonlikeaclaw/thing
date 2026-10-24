@@ -342,7 +342,7 @@ export function CommandPalette({
                             aria-selected={selected}
                             aria-disabled={item.disabled || undefined}
                             className={cn(
-                              "flex items-baseline gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors",
+                              "flex items-baseline gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors pointer-coarse:min-h-11",
                               item.disabled
                                 ? "cursor-default text-faint"
                                 : "cursor-pointer",
@@ -365,7 +365,7 @@ export function CommandPalette({
             </div>
 
             <div className="flex items-center justify-between gap-3 border-t rule px-4 py-2 text-[11px] text-faint">
-              <span className="font-mono">↑↓ move · Enter open · Esc close</span>
+              <span className="hidden font-mono sm:inline pointer-coarse:hidden">↑↓ move · Enter open · Esc close</span>
               <span aria-live="polite" className="font-mono tnum">
                 {flat.length} results
               </span>

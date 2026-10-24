@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PropertyDef, TypeDef } from "@/api/types";
 import {
+  captureFields,
   captureTypeKey,
   readCaptureType,
   requiredProperties,
@@ -94,6 +95,43 @@ function type(properties: TypeDef["properties"], schedule = false): TypeDef {
       : {}),
   };
 }
+
+describe("captureFields", () => {
+  it("groups required members before the other editable fields", () => {
+    const chore = type(
+      [
+        { key: "room", required: true, featured: false },
+        { key: "notes", required: false, featured: false },
+      ],
+      true,
+    );
+    const properties = [property("notes"), property("room")];
+    const fields = captureFields(chore, properties);
+    expect(fields.required.map((entry) => entry.key)).toEqual(["room"]);
+    expect(fields.optional.map((entry) => entry.key)).toEqual([
+      "notes",
+      "due_date",
+      "recurrence",
+    ]);
+  });
+
+  it("skips an optional member with no definition", () => {
+    const chore = type([
+      { key: "room", required: true, featured: false },
+      { key: "ghost", required: false, featured: false },
+    ]);
+    const fields = captureFields(chore, [property("room")]);
+    expect(fields.required.map((entry) => entry.key)).toEqual(["room"]);
+    expect(fields.optional).toEqual([]);
+  });
+
+  it("returns two empty groups without a type", () => {
+    expect(captureFields(undefined, [property("room")])).toEqual({
+      required: [],
+      optional: [],
+    });
+  });
+});
 
 describe("requiredProperties", () => {
   it("returns required members in type order, resolved to definitions", () => {

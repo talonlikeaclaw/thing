@@ -18,7 +18,21 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   calendar on a date property such as a schedule's due date. Column layout saves as you edit
   it; filters and sorts save when you press **Save view**, and the selected view is in the URL.
 - **Editable spaces.** Rename a space, change its timezone, or delete it by typing its name. Icons
-  are picked from a searchable emoji grid rather than pasted in; the same picker serves types.
+  are picked from a searchable emoji grid rather than pasted in; the same picker serves types. The
+  timezone field filters as you type and offers this device's zone; timestamps render in the
+  space's zone.
+- **Capture from anywhere.** `C` opens a minimal capture sheet for the chosen type's required
+  properties, with Create and Create-and-open; the last type is remembered in the browser.
+  `Cmd/Ctrl+K` opens a palette over spaces, types, records and actions, and `?` lists every
+  shortcut on a keyboard-capable screen.
+- **A table that behaves.** Paging, multi-select and bulk property edits, inline duplicate and
+  move-to-trash with Undo, header sorting, a pinned title and dimmed stale rows. On a phone the
+  row actions fold into one menu so property columns stay reachable, and the bottom bar carries the
+  space drawer, Capture and Search within thumb reach.
+- **CSV in and out.** Export every live record of a type, download a header-only template, and
+  import a reviewed file with a dry run that names a broken row before anything is written.
+- **Browser-local accents.** Pick one of six contrast-tested highlight palettes per space; it
+  changes focus, selection and the primary action only, never anyone else's screen.
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
@@ -77,6 +91,26 @@ THING_DATA_DIR=./data THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
 THING_SEED_EMAIL=you@example.com THING_SEED_NAME=Talon \
   THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
 ```
+
+### CSV
+
+Export a type, fetch its template, then dry-run and commit an import. `-b` carries the session
+cookie from a signed-in `curl`; `?dry_run=true` writes nothing.
+
+```sh
+SPACE=<space-uuid>
+TYPE=plant
+curl -b cookies.txt "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/export" -o "$TYPE.csv"
+curl -b cookies.txt "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/export?template=true" -o template.csv
+curl -b cookies.txt -H 'content-type: text/csv' --data-binary @"$TYPE.csv" \
+  "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/import?dry_run=true"
+curl -b cookies.txt -H 'content-type: text/csv' --data-binary @"$TYPE.csv" \
+  "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/import?dry_run=false"
+```
+
+The header is `title`, the type's property keys in order, and `_body`; lists, relations,
+recurrences and booleans are JSON, and an empty cell means the property is absent. Import is
+create-only and all-or-nothing at validation.
 
 ### Security scan
 

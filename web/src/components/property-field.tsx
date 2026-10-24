@@ -39,7 +39,14 @@ const control =
  */
 export function PropertyField(props: PropertyFieldProps) {
   if (!props.canEdit) {
-    return <ReadOnlyValue property={props.property} value={props.value} label={props.label} />;
+    return (
+      <ReadOnlyValue
+        property={props.property}
+        value={props.value}
+        label={props.label}
+        timeZone={props.timeZone}
+      />
+    );
   }
 
   if (props.locked) {
@@ -76,10 +83,12 @@ function ReadOnlyValue({
   property,
   value,
   label,
+  timeZone,
 }: {
   property: PropertyDef;
   value: unknown;
   label: string;
+  timeZone?: string;
 }) {
   if (property.format === "checkbox") {
     return isChecked(value) ? (
@@ -119,7 +128,7 @@ function ReadOnlyValue({
       )}
     >
       {property.format === "datetime" && typeof value === "string"
-        ? formatDateTime(value)
+        ? formatDateTime(value, timeZone)
         : label}
     </span>
   );
@@ -205,10 +214,10 @@ function TextField({
         </p>
       ) : null}
       {format === "date" || format === "datetime" ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
-            className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+            className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-2 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:min-w-11 max-sm:px-2 max-sm:text-[13px]"
             onClick={() => {
               setText("");
               setInvalid(false);
@@ -220,7 +229,7 @@ function TextField({
           </button>
           <button
             type="button"
-            className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+            className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-2 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:min-w-11 max-sm:px-2 max-sm:text-[13px]"
             onClick={() => {
               const zone =
                 timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -549,7 +558,7 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
       {selected.length > 0 ? (
         <button
           type="button"
-          className="border-t rule pt-1 text-left text-[12px] text-faint hover:text-ink"
+          className="border-t rule pt-1 text-right text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]"
           onClick={() => onChange(null)}
         >
           Clear relation

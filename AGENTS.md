@@ -14,7 +14,7 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is deployed as v0.1.0; M2 (workspace `0.2.0`) and M3 (workspace `0.3.0`) are
+**Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`) and M4 (`0.4.0`) are
 landed, not yet tagged or deployed; CI is green.**
 `thing-core` exposes
 `model`, `error`, `slug` (with the type/property key grammar next to the filename slugs), `value`,
@@ -44,7 +44,18 @@ with name, searchable emoji icon, timezone and confirmed deletion (`pages/settin
 (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
 `.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
 Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
-same app with live reload. M2 and M3 are not tagged or deployed yet.
+same app with live reload. M2, M3 and M4 are not tagged or deployed yet.
+
+M4 added the everyday-use layer: quick capture and a command palette with global hotkeys
+(`components/quick-capture.tsx`, `components/command-palette.tsx`, `lib/hotkeys.ts`), the space
+home with browser-local recents and rail order (`pages/space.tsx`, `lib/recent.ts`,
+`lib/nav-order.ts`), table paging, selection, bulk edits and row actions
+(`components/type-table.tsx`, `components/views/table-view.tsx`, `components/bulk-bar.tsx`), CSV
+export/import (`crates/core/src/csv.rs`, `routes/csv.rs`, `components/views/data-panel.tsx`), the
+member/type/property lifecycle surfaces, and the browser-local highlight accent
+(`lib/accent.ts`, `components/accent-picker.tsx`). Mobile swaps the rail for a portaled bottom
+bar and drawer carrying Capture and Search, and the table for a compact row menu; keyboard-only
+affordances are hidden there, and every timestamp renders in the space's zone.
 
 ## Where the plan lives
 
@@ -54,8 +65,9 @@ same app with live reload. M2 and M3 are not tagged or deployed yet.
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 | `docs/plan/m2-scheduling-recurrence.md` | The M2 execution spec: schema 2, the schedule engine, implicit properties, Complete, agenda, web scheduling surfaces, verification. |
 | `docs/plan/m3-views.md` | The M3 execution spec: schema 3 named views, the four kinds, view CRUD and default, list projection, web view state and renderers, verification. |
+| `docs/plan/m4-everyday-usability.md` | The M4 execution spec: CSV, duplicate, palette, capture, home, table truth, lifecycle, accent, responsive and end-to-end verification. |
 
-M1, M2 and M3 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
+M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
 the WebSocket; web scaffold and auth screens; schema editor; live table; object panel and markdown
 body; history and trash; docs, CI, containers and the security pass), checkpoints 1–8 of M2 (format
@@ -63,14 +75,16 @@ and model; schedule engine; index and validation; server type/property/timezone 
 agenda and schedule JSON; web data layer and inputs; Schedule page and timezone surfaces; seed,
 docs and end-to-end) and checkpoints 1–8 of M3 (format 3 and the saved-view model; view validation
 and health; server type and view routes; list by view; web data layer and view state; table views;
-board, gallery and calendar; seed, docs and end-to-end) are landed and CI-green.** M1 is deployed;
-M2 and M3 are not deployed.
+board, gallery and calendar; seed, docs and end-to-end) and checkpoints 1–13 of M4 (CSV codec and
+routes; duplicate; palette and shortcuts; UX foundation; quick capture; space home; table truth and
+bulk actions; data panel; draft safety; lifecycle; highlight accent; responsive, docs and
+end-to-end) are landed and CI-green.** M1 is deployed; M2–M4 are not deployed.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
 
 The post-M1 roadmap was revised on 2026-10-21: **M2** landed scheduling and recurrence with in-app
-reminders only; **M3** landed named views; **M4** is everyday usability plus generic CSV
+reminders only; **M3** landed named views; **M4** landed everyday usability plus generic CSV
 import/export. Email digests and source-specific `plant-tracker`/`chore` importers are deliberately
 out of scope.
 

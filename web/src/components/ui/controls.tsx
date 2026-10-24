@@ -32,6 +32,40 @@ export function Button({ variant = "primary", className, ...props }: ButtonProps
   );
 }
 
+/**
+ * One button in a compact inline editor (a table cell, the cadence field, a
+ * filter value). Dense for a mouse; a full-height target under a finger, even
+ * when a narrow window reports a fine pointer.
+ */
+export const inlineAction =
+  "min-h-7 px-2 text-[12px] pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:min-w-11 max-sm:text-[13px]";
+
+/**
+ * The action row of a compact editor. Right-aligned, because the primary action
+ * belongs under the right thumb; dismissive actions come first so the primary
+ * button sits closest to that corner.
+ */
+export function InlineActions({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-1.5 border-t rule pt-1.5">
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The save row of a long editor. It floats at the bottom of the viewport while
+ * the editor is on screen, clearing the mobile tab bar, so a save is never a
+ * scroll away; the translucent surface keeps the content beneath it readable.
+ */
+export function StickyActionBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] z-20 mt-8 flex flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur lg:bottom-0">
+      {children}
+    </div>
+  );
+}
+
 interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "className"> {
   label: ReactNode;
   error?: string;

@@ -10,7 +10,7 @@ import {
 } from "@/api/queries";
 import type { PropertyDef, TypeSummary } from "@/api/types";
 import { OptionEditor } from "@/components/schema/option-editor";
-import { Button, FormError, TextField } from "@/components/ui/controls";
+import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
@@ -173,22 +173,27 @@ export function PropertyEditor({
       </div>
 
       {canEdit ? (
-        <div className="mt-5 flex flex-wrap items-center gap-3">
+        <StickyActionBar>
           <Button
             type="button"
-            className="min-h-9 px-3 text-[13px]"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
             disabled={!dirty || invalid || update.isPending}
             onClick={() => void saveDraft()}
           >
             {update.isPending ? "Saving…" : "Save property"}
           </Button>
-          {update.isSuccess && !dirty ? (
-            <span className="label text-accent">Saved</span>
+          {dirty ? (
+            <span className="label flex items-center gap-1.5 text-accent">
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+              Unsaved changes
+            </span>
+          ) : update.isSuccess ? (
+            <span className="label">Saved</span>
           ) : null}
           <div className="min-w-[12rem] flex-1">
             <FormError message={update.error ? readError(update.error) : null} />
           </div>
-        </div>
+        </StickyActionBar>
       ) : (
         <p className="mt-5 text-[13px] text-muted">
           Viewers can read the schema but not change it.

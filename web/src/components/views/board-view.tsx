@@ -8,6 +8,8 @@ import { groupRows } from "@/lib/views";
 
 interface BoardViewProps {
   spaceId: string;
+  /** The space's calendar zone for timestamp values. */
+  timeZone?: string;
   view: ViewDef;
   rows: ObjectSummary[];
   properties: PropertyDef[];
@@ -24,6 +26,7 @@ interface BoardViewProps {
 /** A board: one lane per select option, cards carrying the view's columns. */
 export function BoardView({
   spaceId,
+  timeZone,
   view,
   rows,
   properties,
@@ -135,6 +138,7 @@ export function BoardView({
                                     label={row.values[key]?.label ?? ""}
                                     missing={row.values[key]?.missing}
                                     schedule={row.schedule}
+                                    timeZone={timeZone}
                                   />
                                 </dd>
                               </div>

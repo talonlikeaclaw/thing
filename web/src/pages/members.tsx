@@ -13,6 +13,7 @@ import {
 import type { Invite, Member, Role, SpaceDetail } from "@/api/types";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
+import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, SelectField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, readError } from "@/lib/display";
@@ -55,11 +56,7 @@ export function MembersPage() {
       />
 
       <div className="flex items-baseline gap-3">
-        {detail.icon ? (
-          <span aria-hidden className="text-[26px] leading-none">
-            {detail.icon}
-          </span>
-        ) : null}
+        <ThingIcon icon={detail.icon} size="lg" />
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">{detail.name}</h1>
         <span className="label">{detail.role}</span>
       </div>
@@ -72,7 +69,7 @@ export function MembersPage() {
         <dt className="label">Space id</dt>
         <dd className="font-mono text-[12px] break-all text-muted">{detail.id}</dd>
         <dt className="label">Created</dt>
-        <dd className="font-mono text-[12px] text-muted">{formatDate(detail.created_at)}</dd>
+        <dd className="font-mono text-[12px] text-muted">{formatDate(detail.created_at, detail.timezone)}</dd>
         <dt className="label">Types</dt>
         <dd className="font-mono text-[12px] tnum text-muted">{detail.type_count}</dd>
       </dl>
@@ -84,7 +81,7 @@ export function MembersPage() {
         currentUser={me.data?.id}
       />
 
-      {owner ? <InvitePanel spaceId={detail.id} /> : null}
+      {owner ? <InvitePanel spaceId={detail.id} timeZone={detail.timezone} /> : null}
 
       {!owner ? (
         <p className="mt-8 border-t rule pt-4 text-[13px] text-muted">
@@ -256,7 +253,7 @@ function inviteUrl(code: string): string {
   return `${window.location.origin}/join/${code}`;
 }
 
-function InvitePanel({ spaceId }: { spaceId: string }) {
+function InvitePanel({ spaceId, timeZone }: { spaceId: string; timeZone: string }) {
   const invites = useInvites(spaceId, true);
   const create = useCreateInvite(spaceId);
   const revoke = useRevokeInvite(spaceId);
@@ -324,6 +321,7 @@ function InvitePanel({ spaceId }: { spaceId: string }) {
           <InviteList
             title="Pending"
             invites={pending}
+            timeZone={timeZone}
             empty="No unused invites. Create one above and copy its link."
             onRevoke={(code) => {
               setRevokeError(null);
@@ -340,6 +338,7 @@ function InvitePanel({ spaceId }: { spaceId: string }) {
             <InviteList
               title="Used"
               invites={used}
+              timeZone={timeZone}
               empty=""
               onRevoke={undefined}
               revoking={undefined}
@@ -355,6 +354,7 @@ function InvitePanel({ spaceId }: { spaceId: string }) {
 function InviteList({
   title,
   invites,
+  timeZone,
   empty,
   onRevoke,
   revoking,
@@ -362,6 +362,7 @@ function InviteList({
 }: {
   title: string;
   invites: Invite[];
+  timeZone: string;
   empty: string;
   onRevoke: ((code: string) => void) | undefined;
   revoking: string | undefined;
@@ -381,6 +382,7 @@ function InviteList({
             <InviteRow
               key={invite.code}
               invite={invite}
+              timeZone={timeZone}
               onRevoke={onRevoke}
               revoking={revoking === invite.code}
               error={revokeError?.code === invite.code ? revokeError.message : null}
@@ -394,11 +396,13 @@ function InviteList({
 
 function InviteRow({
   invite,
+  timeZone,
   onRevoke,
   revoking,
   error,
 }: {
   invite: Invite;
+  timeZone: string;
   onRevoke: ((code: string) => void) | undefined;
   revoking: boolean;
   error: string | null;
@@ -425,8 +429,8 @@ function InviteRow({
           <span className="label">{invite.role}</span>
           <span className="font-mono text-[10.5px] text-faint">
             {invite.used_at
-              ? `used ${formatDate(invite.used_at)}`
-              : `created ${formatDate(invite.created_at)}`}
+              ? `used ${formatDate(invite.used_at, timeZone)}`
+              : `created ${formatDate(invite.created_at, timeZone)}`}
           </span>
         </span>
         {onRevoke ? (

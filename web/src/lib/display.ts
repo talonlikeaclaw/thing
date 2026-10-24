@@ -5,15 +5,21 @@ export function shortId(id: string): string {
   return id.slice(-6);
 }
 
-export function formatDate(iso: string): string {
+/**
+ * A calendar day in the space's zone.
+ *
+ * The zone is required by every surface that knows it; the browser's zone is
+ * only the fallback for a context without a space.
+ */
+export function formatDate(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
-    timeZone: "UTC",
+    ...(timeZone ? { timeZone } : {}),
   }).format(new Date(iso));
 }
 
-/** An instant as the reader's browser shows it; a malformed value reads as itself. */
-export function formatDateTime(iso: string): string {
+/** An instant in the space's zone; a malformed value reads as itself. */
+export function formatDateTime(iso: string, timeZone?: string): string {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) {
     return iso;
@@ -21,6 +27,7 @@ export function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    ...(timeZone ? { timeZone } : {}),
   }).format(at);
 }
 

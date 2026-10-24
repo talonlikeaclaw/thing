@@ -11,7 +11,9 @@ import {
 import { AccentPicker } from "@/components/accent-picker";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { IconPicker } from "@/components/icon-picker";
-import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
+import { ThingIcon } from "@/components/thing-icon";
+import { TimezonePicker } from "@/components/timezone-picker";
+import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import {
   DEFAULT_ACCENT,
@@ -76,7 +78,6 @@ export function SettingsPage() {
   const owner = detail.role === "owner";
   const trimmedName = name.trim();
   const nextIcon = icon.trim() ? icon.trim() : null;
-  const zoneOptions = timezoneNames(zone).map((value) => ({ value, label: value }));
 
   // Only send what changed, so saving one field never rewrites another.
   const changes: UpdateSpace = {};
@@ -139,16 +140,12 @@ export function SettingsPage() {
       />
 
       <div className="flex items-baseline gap-3">
-        {detail.icon ? (
-          <span aria-hidden className="text-[26px] leading-none">
-            {detail.icon}
-          </span>
-        ) : null}
+        <ThingIcon icon={detail.icon} size="lg" />
         <h1 className="text-[26px] font-medium tracking-[-0.02em]">Space settings</h1>
         <span className="label">{detail.role}</span>
       </div>
 
-      <section aria-labelledby="space-identity" className="mt-8 border-t rule pt-6">
+      <section aria-labelledby="space-identity" className="mt-10">
         <div className="flex items-baseline justify-between border-b rule pb-2">
           <h2 id="space-identity" className="text-[17px] font-medium">
             Identity
@@ -174,14 +171,16 @@ export function SettingsPage() {
                 onChange={(event) => setName(event.target.value)}
               />
             </div>
-            <SelectField
+            <TimezonePicker
               label="Timezone"
               value={zone}
-              options={zoneOptions}
+              zones={timezoneNames(zone)}
               onValueChange={setZone}
               disabled={update.isPending}
-              hint="Due and overdue are calendar days in this zone."
             />
+            <p className="text-[13px] text-muted">
+              Due and overdue are calendar days in this zone.
+            </p>
             <FormError message={update.error ? readError(update.error) : null} />
             <div className="flex items-baseline gap-3">
               <Button type="submit" disabled={!dirty || invalid || update.isPending}>
@@ -193,9 +192,7 @@ export function SettingsPage() {
         ) : (
           <div className="mt-4 grid gap-2">
             <div className="flex items-baseline gap-3">
-              <span aria-hidden className="text-[26px] leading-none">
-                {detail.icon ?? "·"}
-              </span>
+              <ThingIcon icon={detail.icon} size="md" />
               <span className="text-[17px]">{detail.name}</span>
             </div>
             <p className="font-mono text-[12px] text-muted">{detail.timezone}</p>
@@ -206,7 +203,7 @@ export function SettingsPage() {
         )}
       </section>
 
-      <section aria-labelledby="space-appearance" className="mt-10 border-t rule pt-6">
+      <section aria-labelledby="space-appearance" className="mt-10">
         <div className="flex items-baseline justify-between border-b rule pb-2">
           <h2 id="space-appearance" className="text-[17px] font-medium">
             Appearance

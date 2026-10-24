@@ -81,7 +81,7 @@ export function SpaceLayout() {
   }
 
   return (
-    <div className="settle grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
+    <div className="settle grid gap-8 pb-24 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10 lg:pb-0">
       <SpaceNav spaceId={detail.id} types={typeList} role={detail.role} />
       <div className="min-w-0">
         <Outlet />

@@ -4,8 +4,10 @@ import { Link, useNavigate } from "react-router";
 import { useCreateSpace, useMe, useSpaces } from "@/api/queries";
 import type { SpaceSummary } from "@/api/types";
 import { IconPicker } from "@/components/icon-picker";
+import { ThingIcon } from "@/components/thing-icon";
 import { ErrorState } from "@/components/error-state";
-import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
+import { TimezonePicker } from "@/components/timezone-picker";
+import { Button, FormError, TextField } from "@/components/ui/controls";
 import { readError, shortId } from "@/lib/display";
 import { defaultSpaceTimezone, timezoneNames } from "@/lib/timezone";
 import { useRouteMeta } from "@/lib/route";
@@ -34,11 +36,7 @@ function SpaceRow({ space }: { space: SpaceSummary }) {
           className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 self-stretch py-1.5 pointer-coarse:min-h-11 md:grid-cols-[minmax(0,1fr)_4rem_4rem_6rem]"
         >
           <span className="flex min-w-0 items-baseline gap-2">
-            {space.icon ? (
-              <span aria-hidden className="text-[17px] leading-none">
-                {space.icon}
-              </span>
-            ) : null}
+            <ThingIcon icon={space.icon} size="md" />
             <span className="truncate text-[17px] font-medium tracking-[-0.01em] group-hover:underline">
               {space.name}
             </span>
@@ -83,7 +81,6 @@ export function SpaceListPage() {
   const [timezone, setTimezone] = useState(defaultSpaceTimezone);
   const [icon, setIcon] = useState("");
   const [visits, setVisits] = useState<Visits>({});
-  const zoneOptions = timezoneNames(timezone).map((zone) => ({ value: zone, label: zone }));
   const userId = me.data?.id;
 
   // Recency is browser-local; reading it here keeps the list honest across
@@ -183,11 +180,12 @@ export function SpaceListPage() {
             placeholder="Garden"
           />
           <IconPicker label="Icon" value={icon} onChange={setIcon} />
-          <SelectField
+          <TimezonePicker
             label="Timezone"
             value={timezone}
-            options={zoneOptions}
+            zones={timezoneNames(timezone)}
             onValueChange={setTimezone}
+            showDeviceZone={false}
           />
           <p className="text-[13px] text-muted md:col-start-3 md:row-start-2 md:-mt-1">
             Due and overdue are calendar days in this zone.

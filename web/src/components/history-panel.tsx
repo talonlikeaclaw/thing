@@ -15,6 +15,8 @@ interface HistoryPanelProps {
   properties: PropertyDef[];
   /** Resolves a writer's UUID to a name; falls back to the short id. */
   memberName: (userId: string) => string;
+  /** The space's calendar zone for revision timestamps. */
+  timeZone?: string;
 }
 
 /** A revision's identity: its number and the moment it was written. */
@@ -34,7 +36,13 @@ const ACTION_LABELS: Record<RevisionAction, string> = {
  * One record's history: every line, newest first, with the selected write
  * diffed against the snapshot before it. Read-only by design in M1.
  */
-export function HistoryPanel({ spaceId, objectId, properties, memberName }: HistoryPanelProps) {
+export function HistoryPanel({
+  spaceId,
+  objectId,
+  properties,
+  memberName,
+  timeZone,
+}: HistoryPanelProps) {
   const history = useHistory(spaceId, objectId);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
@@ -93,7 +101,7 @@ export function HistoryPanel({ spaceId, objectId, properties, memberName }: Hist
                       <span className="flex items-baseline justify-between gap-2">
                         <span className="text-[13px]">{ACTION_LABELS[revision.action]}</span>
                         <span className="font-mono text-[10px] text-faint">
-                          {formatMoment(revision.at)}
+                          {formatMoment(revision.at, timeZone)}
                         </span>
                       </span>
                       <span className="block text-[12px] text-muted">
@@ -112,7 +120,7 @@ export function HistoryPanel({ spaceId, objectId, properties, memberName }: Hist
                 Revision {current.rev} · {ACTION_LABELS[current.action]}
               </span>
               <span className="font-mono text-[10px] text-faint">
-                {formatMoment(current.at)} · {memberName(current.by)}
+                {formatMoment(current.at, timeZone)} · {memberName(current.by)}
               </span>
             </div>
 

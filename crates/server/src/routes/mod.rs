@@ -1881,6 +1881,70 @@ mod tests {
     }
 
     #[test]
+    fn a_new_object_starts_with_its_title_as_a_heading() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("heading@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "plant", "title": "  Fern  " })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            assert_eq!(created.body["body"], "# Fern\n");
+
+            let id = created.body["id"].as_str().expect("an id");
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{id}", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(detail.body["body"], "# Fern\n");
+
+            let written = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Ivy",
+                        "body": "\nClimbed the wall.\n"
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(written.status, StatusCode::CREATED, "{:?}", written.body);
+            assert_eq!(written.body["body"], "\nClimbed the wall.\n");
+
+            let whitespace = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "plant", "title": "Moss", "body": "  \n\t" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                whitespace.status,
+                StatusCode::CREATED,
+                "{:?}",
+                whitespace.body
+            );
+            assert_eq!(whitespace.body["body"], "# Moss\n");
+        });
+    }
+
+    #[test]
     fn duplicating_an_object_copies_it_and_leaves_the_source_alone() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

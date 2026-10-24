@@ -1,5 +1,5 @@
 import type { PropertyDef, TypeDef } from "@/api/types";
-import { effectiveMembers } from "@/lib/schema";
+import { effectiveMembers, effectiveProperties } from "@/lib/schema";
 
 /** The slice of `Storage` quick capture needs; a fake can stand in for it. */
 export interface CaptureStorage {
@@ -35,25 +35,52 @@ export function writeCaptureType(
   }
 }
 
+/** Complete owns this generated key; quick capture never offers it. */
+const LAST_COMPLETED_KEY = "last_completed_at";
+
+export interface CaptureFields {
+  required: PropertyDef[];
+  optional: PropertyDef[];
+}
+
 /**
- * The properties quick capture must ask for: the type's required declared
- * members, resolved to their definitions. Generated schedule keys are marked
- * optional by `effectiveMembers`, so they never appear here.
+ * Every editable field quick capture can send: required declared members
+ * first, then the rest in type order. Generated schedule definitions are
+ * resolved from the type itself; the completion stamp is omitted because
+ * Complete writes it.
  */
+export function captureFields(
+  type: TypeDef | undefined,
+  properties: readonly PropertyDef[],
+): CaptureFields {
+  if (!type) {
+    return { required: [], optional: [] };
+  }
+  const byKey = new Map(
+    effectiveProperties(type, [...properties]).map((property) => [property.key, property]),
+  );
+  const required: PropertyDef[] = [];
+  const optional: PropertyDef[] = [];
+  const seen = new Set<string>();
+  for (const member of effectiveMembers(type)) {
+    const property = byKey.get(member.key);
+    if (!property || seen.has(property.key)) {
+      continue;
+    }
+    if (member.required) {
+      seen.add(property.key);
+      required.push(property);
+    } else if (property.key !== LAST_COMPLETED_KEY) {
+      seen.add(property.key);
+      optional.push(property);
+    }
+  }
+  return { required, optional };
+}
+
 export function requiredProperties(
   type: TypeDef | undefined,
   properties: readonly PropertyDef[],
 ): PropertyDef[] {
-  if (!type) {
-    return [];
-  }
-  const byKey = new Map(properties.map((property) => [property.key, property]));
-  const required: PropertyDef[] = [];
-  for (const member of effectiveMembers(type)) {
-    const property = byKey.get(member.key);
-    if (member.required && property && !required.some((known) => known.key === property.key)) {
-      required.push(property);
-    }
-  }
-  return required;
+  return captureFields(type, properties).required;
 }

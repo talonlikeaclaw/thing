@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-19T00:00:00Z",
+  "generatedAt": "2026-10-23T00:00:00Z",
   "title": "Design System: thing",
   "extensions": {
     "colorMeta": {
@@ -11,7 +11,7 @@
       "line-strong": { "role": "neutral", "displayName": "Hairline Lit", "canonical": "#3a423a", "tonalRamp": ["oklch(28% 0.010 130)", "oklch(36% 0.010 130)", "oklch(45% 0.010 130)", "oklch(54% 0.010 130)", "oklch(64% 0.010 130)", "oklch(75% 0.010 130)", "oklch(86% 0.010 130)", "oklch(96% 0.010 130)"] },
       "ink": { "role": "neutral", "displayName": "Moon Ink", "canonical": "#e8ece4", "tonalRamp": ["oklch(18% 0.006 120)", "oklch(30% 0.006 120)", "oklch(42% 0.006 120)", "oklch(54% 0.006 120)", "oklch(66% 0.006 120)", "oklch(78% 0.006 120)", "oklch(88% 0.006 120)", "oklch(96% 0.006 120)"] },
       "muted": { "role": "neutral", "displayName": "Fog", "canonical": "#9aa398", "tonalRamp": ["oklch(20% 0.006 125)", "oklch(32% 0.006 125)", "oklch(44% 0.006 125)", "oklch(56% 0.006 125)", "oklch(68% 0.006 125)", "oklch(80% 0.006 125)", "oklch(89% 0.006 125)", "oklch(96% 0.006 125)"] },
-      "faint": { "role": "neutral", "displayName": "Distant Fog", "canonical": "#747d72", "tonalRamp": ["oklch(17% 0.006 125)", "oklch(28% 0.006 125)", "oklch(39% 0.006 125)", "oklch(50% 0.006 125)", "oklch(61% 0.006 125)", "oklch(73% 0.006 125)", "oklch(85% 0.006 125)", "oklch(95% 0.006 125)"] },
+      "faint": { "role": "neutral", "displayName": "Distant Fog", "canonical": "#868e84", "tonalRamp": ["oklch(17% 0.006 125)", "oklch(28% 0.006 125)", "oklch(39% 0.006 125)", "oklch(50% 0.006 125)", "oklch(61% 0.006 125)", "oklch(73% 0.006 125)", "oklch(85% 0.006 125)", "oklch(95% 0.006 125)"] },
       "accent": { "role": "primary", "displayName": "Lichen", "canonical": "#c8d96b", "tonalRamp": ["oklch(18% 0.09 115)", "oklch(30% 0.12 115)", "oklch(42% 0.14 115)", "oklch(54% 0.15 115)", "oklch(66% 0.16 115)", "oklch(78% 0.16 115)", "oklch(87% 0.12 115)", "oklch(95% 0.06 115)"] },
       "accent-ink": { "role": "primary", "displayName": "Lichen Ink", "canonical": "#14180f", "tonalRamp": ["oklch(15% 0.02 120)", "oklch(27% 0.02 120)", "oklch(39% 0.02 120)", "oklch(51% 0.02 120)", "oklch(63% 0.02 120)", "oklch(74% 0.02 120)", "oklch(86% 0.02 120)", "oklch(96% 0.02 120)"] },
       "danger": { "role": "secondary", "displayName": "Ember", "canonical": "#f08a72", "tonalRamp": ["oklch(20% 0.06 30)", "oklch(32% 0.09 30)", "oklch(44% 0.12 30)", "oklch(56% 0.13 30)", "oklch(68% 0.13 30)", "oklch(79% 0.11 30)", "oklch(88% 0.07 30)", "oklch(95% 0.03 30)"] },
@@ -29,6 +29,14 @@
         { "id": "green", "label": "Green", "dark": { "accent": "#7fe08a", "ink": "#051706" }, "light": { "accent": "#256b33", "ink": "#f0fbf2" } },
         { "id": "pink", "label": "Pink", "dark": { "accent": "#f49ac1", "ink": "#1d0711" }, "light": { "accent": "#96325f", "ink": "#fdf1f6" } }
       ]
+    },
+    "surfaces": {
+      "commandPalette": "Bottom sheet below sm, 40rem centred above; one search row, grouped results, 44px rows on coarse pointers; keyboard footer only on keyboard screens; focus trapped and returned.",
+      "quickCapture": "Two-mode sheet, 34rem wide; type, title, required properties only; Create keeps the sheet, Create and open navigates; refusals stay inline with Retry.",
+      "bulkBar": "Hairline band inside the table scrollport, not a floating card; names count and property, previews the value, keeps failed rows selected, Undo runs from the page.",
+      "rowActions": "Line icons at one weight; 32px fine pointer, 44px coarse; phones fold Complete/Duplicate/Trash into one 44px menu and keep Open separate.",
+      "mobileSheets": "Palette, capture, space drawer and row menu rise from the bottom; safe-area padding; focus trap; Escape and a close control; content and footer reserve room for the fixed space bar, which carries the space menu plus direct Capture and palette actions.",
+      "tablePhones": "Below 640px the checkbox stays pinned, the title scrolls, and the action cell is Open plus a menu; property columns remain swipeable."
     },
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "Auth titles and page headings; one per screen." },
@@ -94,13 +102,15 @@
       "Hairline 1px rules instead of shadows or cards.",
       "Mono for keys, ids, timestamps and counts; sans for prose and controls.",
       "One accent, chosen from six browser-local palettes, used only for state (selection, focus, primary action); Lichen is the default.",
-      "A keyed index as the recurring structure: a short mono key leads every entry."
+      "A keyed index as the recurring structure: a short mono key leads every entry.",
+      "On phones, navigation and sheets live at the bottom, within thumb reach; keyboard-only affordances are absent."
     ],
     "rules": [
       { "name": "The One Accent Rule", "body": "The chosen accent (Lichen by default) marks state: focus, selection, the primary action, the wordmark, the active rail and view tabs. It never fills large areas and never appears twice in one row for two different meanings. Choosing another palette does not add a second accent.", "section": "colors" },
       { "name": "The Light Is Not a Theme Skin Rule", "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or new ornament.", "section": "colors" },
       { "name": "The Keys Are Mono Rule", "body": "Anything the system treats as an identifier or measurement is mono and tabular. Anything a person reads as a sentence is sans.", "section": "typography" },
-      { "name": "The Hairline Rule", "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.", "section": "elevation" }
+      { "name": "The Hairline Rule", "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.", "section": "elevation" },
+      { "name": "The Thumb First Rule", "body": "Below lg the rail and every overlay rise from the bottom of the screen, with 44px targets and safe-area padding. A keyboard shortcut that has no keyboard is not rendered. A compact editor's primary action sits last at the right edge, with its clear/cancel actions before it; the same right edge applies to text shortcuts under a field.", "section": "layout" }
     ],
     "dos": [
       "Do keep the chosen accent to state and the wordmark; if it is not saying selected, focused or primary action, it is the wrong color.",

@@ -1,9 +1,11 @@
+import { Popover } from "@base-ui/react/popover";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
   Check,
   Copy,
+  MoreHorizontal,
   Trash2,
 } from "lucide-react";
 import {
@@ -11,6 +13,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -32,8 +35,28 @@ import { isEditableTarget } from "@/lib/hotkeys";
 import { completeLabel } from "@/lib/schedule";
 import { clampWidth, defaultWidth, MIN_COLUMN_WIDTH } from "@/lib/views";
 
-const OPEN_WIDTH = 184;
+const OPEN_WIDTH_FINE = 134;
+const OPEN_WIDTH_COARSE = 182;
+/** Compact rows keep only the ⋯ menu and Open, with no gap between them. */
+const COMPACT_EDITOR_WIDTH_FINE = 64;
+const COMPACT_EDITOR_WIDTH_COARSE = 80;
+const COMPACT_VIEWER_WIDTH_FINE = 32;
+const COMPACT_VIEWER_WIDTH_COARSE = 40;
 const SELECT_WIDTH = 44;
+
+function subscribeCoarse(onChange: () => void) {
+  const media = window.matchMedia("(pointer: coarse)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function coarsePointer() {
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
+function useCoarsePointer() {
+  return useSyncExternalStore(subscribeCoarse, coarsePointer, () => false);
+}
 
 interface Cell {
   row: number;
@@ -142,7 +165,26 @@ export function TableView({
     return () => observer.disconnect();
   }, []);
 
-  const fixedWidth = (canEdit ? SELECT_WIDTH : 0) + OPEN_WIDTH;
+  // Below a phone width the action cell keeps only Open and a menu; the title
+  // unpins so a property column has room to be read while swiping.
+  const compact = available > 0 ? available < 640 : window.innerWidth < 640;
+  const coarse = useCoarsePointer();
+  // On a phone the checkbox column is hidden until the reader asks to select,
+  // so the title starts at the left edge and the freed width goes to content.
+  const [selecting, setSelecting] = useState(false);
+  const showSelect = canEdit && (!compact || selecting);
+  const openWidth = compact
+    ? canEdit
+      ? coarse
+        ? COMPACT_EDITOR_WIDTH_COARSE
+        : COMPACT_EDITOR_WIDTH_FINE
+      : coarse
+        ? COMPACT_VIEWER_WIDTH_COARSE
+        : COMPACT_VIEWER_WIDTH_FINE
+    : coarse
+      ? OPEN_WIDTH_COARSE
+      : OPEN_WIDTH_FINE;
+  const fixedWidth = (showSelect ? SELECT_WIDTH : 0) + openWidth;
   const flexTotal =
     widthOf("title") + columns.reduce((sum, key) => sum + widthOf(key), 0);
   const flexKeys = ["title", ...columns];
@@ -174,7 +216,7 @@ export function TableView({
   const verb = completeLabel(type.schedule_labels);
 
   // Column 0 is the checkbox for editors, then the title, then properties.
-  const selectOffset = canEdit ? 1 : 0;
+  const selectOffset = showSelect ? 1 : 0;
   const titleCol = selectOffset;
   const actionCol = selectOffset + columns.length + 1;
   const colCount = actionCol + 1;
@@ -189,6 +231,24 @@ export function TableView({
     }
     setActive((current) => (current && current.row < rows.length ? current : { row: 0, col: 0 }));
   }, [rows.length]);
+
+  // A selection made by keyboard or the bulk bar must keep its checkboxes.
+  useEffect(() => {
+    if (selected.size > 0) {
+      setSelecting(true);
+    }
+  }, [selected.size]);
+
+  function toggleSelecting() {
+    if (!selecting) {
+      setSelecting(true);
+      return;
+    }
+    setSelecting(false);
+    if (selected.size > 0) {
+      onClearSelection();
+    }
+  }
 
   function activate(row: number, col: number) {
     setActive({ row, col });
@@ -302,10 +362,34 @@ export function TableView({
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
 
   return (
+    <>
+    {compact ? (
+      <div className="mt-3 flex items-center gap-3 sm:hidden">
+        <p
+          className="min-w-0 flex-1 truncate text-[11px] text-muted"
+          title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
+        >
+          {selecting
+            ? "Tap the boxes to select rows"
+            : "Swipe sideways for columns · ⋯ for row actions"}
+        </p>
+        {canEdit ? (
+          <button
+            type="button"
+            aria-pressed={selecting}
+            className="label shrink-0 text-[11px] text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
+            onClick={toggleSelecting}
+          >
+            {selecting ? "Done" : "Select"}
+          </button>
+        ) : null}
+      </div>
+    ) : null}
     <div
       ref={portRef}
       className={cn(
-        "mt-6 max-h-[70vh] overflow-auto",
+        compact ? "mt-2" : "mt-6",
+        "max-h-[70vh] overflow-auto",
         bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-16",
       )}
       onKeyDown={onGridKeyDown}
@@ -322,39 +406,44 @@ export function TableView({
         style={{ width: tableWidth }}
       >
         <colgroup>
-          {canEdit ? <col style={{ width: SELECT_WIDTH }} /> : null}
+          {showSelect ? <col style={{ width: SELECT_WIDTH }} /> : null}
           <col style={{ width: columnWidth("title") }} />
           {columns.map((key) => (
             <col key={key} style={{ width: columnWidth(key) }} />
           ))}
-          <col style={{ width: OPEN_WIDTH }} />
+          <col style={{ width: openWidth }} />
         </colgroup>
         <thead className="sticky top-0 z-20 bg-ground">
           <tr className="border-b rule">
-            {canEdit ? (
+            {showSelect ? (
               <th
                 scope="col"
                 className="sticky left-0 z-30 bg-ground py-2 text-center"
               >
-                <input
-                  ref={(element) => {
-                    if (element) {
-                      element.indeterminate = selectedOnPage > 0 && !allSelected;
-                    }
-                  }}
-                  type="checkbox"
-                  aria-label="Select every row on this page"
-                  checked={allSelected}
-                  disabled={busy || rows.length === 0}
-                  className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
-                  onChange={onToggleAll}
-                />
+                <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                  <input
+                    ref={(element) => {
+                      if (element) {
+                        element.indeterminate = selectedOnPage > 0 && !allSelected;
+                      }
+                    }}
+                    type="checkbox"
+                    aria-label="Select every row on this page"
+                    checked={allSelected}
+                    disabled={busy || rows.length === 0}
+                    className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
+                    onChange={onToggleAll}
+                  />
+                </label>
               </th>
             ) : null}
             <th
               scope="col"
-              className="sticky z-30 border-r rule bg-surface py-2 pr-3 font-medium"
-              style={{ left: selectOffset * SELECT_WIDTH }}
+              className={cn(
+                "z-30 border-r rule bg-surface py-2 pr-3 font-medium",
+                !compact && "sticky",
+              )}
+              style={compact ? undefined : { left: selectOffset * SELECT_WIDTH }}
               {...sortHeader("title")}
             >
               <HeaderSort
@@ -414,7 +503,7 @@ export function TableView({
         <tbody className={busy ? "pointer-events-none opacity-60" : undefined}>
           {draft ? (
             <tr className="border-b rule bg-raised/40">
-              {canEdit ? <td className="sticky left-0 z-10 bg-raised/40" /> : null}
+              {showSelect ? <td className="sticky left-0 z-10 bg-raised/40" /> : null}
               <th
                 scope="row"
                 className="sticky z-10 border-r rule p-1 text-left font-normal"
@@ -501,7 +590,7 @@ export function TableView({
                   rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
                 )}
               >
-                {canEdit ? (
+                {showSelect ? (
                   <td
                     {...cellProps(rowIndex, 0)}
                     aria-label={`Select “${row.title}”`}
@@ -532,10 +621,11 @@ export function TableView({
                       : `Title “${row.title}”`
                   }
                   className={cn(
-                    "sticky z-10 border-r rule py-1 pr-2 text-left font-normal outline-none",
+                    "z-10 border-r rule py-1 pr-2 text-left font-normal outline-none",
+                    !compact && "sticky",
                     isSelected ? "bg-raised" : "bg-surface",
                   )}
-                  style={{ left: selectOffset * SELECT_WIDTH }}
+                  style={compact ? undefined : { left: selectOffset * SELECT_WIDTH }}
                 >
                   <TitleCell
                     title={row.title}
@@ -570,6 +660,7 @@ export function TableView({
                     >
                       <PropertyCell
                         spaceId={spaceId}
+                        timeZone={timeZone}
                         property={property}
                         cell={row.values[key] as ValueJson | undefined}
                         schedule={row.schedule}
@@ -588,8 +679,25 @@ export function TableView({
                     isSelected ? "bg-raised" : "bg-ground",
                   )}
                 >
-                  <div className="row-actions flex items-center justify-end gap-0.5">
-                    {canEdit && type.schedule && row.schedule?.status !== "done" ? (
+                  <div
+                    className={cn(
+                      "row-actions flex items-center justify-end",
+                      compact ? "gap-0" : "gap-0.5",
+                    )}
+                  >
+                    {compact && canEdit ? (
+                      <RowActionsMenu
+                        row={row}
+                        verb={verb}
+                        tight
+                        completing={completing}
+                        busy={busy || rowPending}
+                        onComplete={() => onComplete(row)}
+                        onDuplicate={() => onDuplicate(row)}
+                        onTrash={() => onTrash(row)}
+                      />
+                    ) : null}
+                    {!compact && canEdit && type.schedule && row.schedule?.status !== "done" ? (
                       <RowAction
                         label={`${verb} ${row.title}`}
                         title={verb}
@@ -600,7 +708,7 @@ export function TableView({
                         <Check aria-hidden size={14} />
                       </RowAction>
                     ) : null}
-                    {canEdit ? (
+                    {!compact && canEdit ? (
                       <>
                         <RowAction
                           label={`Duplicate ${row.title}`}
@@ -628,7 +736,10 @@ export function TableView({
                       aria-label={`Open ${row.title}`}
                       title="Open record"
                       tabIndex={rowActive ? 0 : -1}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+                      className={cn(
+                        "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11",
+                        compact && "pointer-coarse:w-10",
+                      )}
                     >
                       <ArrowUpRight aria-hidden size={14} />
                     </Link>
@@ -640,6 +751,73 @@ export function TableView({
         </tbody>
       </table>
     </div>
+    </>
+  );
+}
+
+/** The phone-width row menu: the three actions an inline cell would crowd out. */
+function RowActionsMenu({
+  row,
+  verb,
+  tight,
+  completing,
+  busy,
+  onComplete,
+  onDuplicate,
+  onTrash,
+}: {
+  row: ObjectSummary;
+  verb: string;
+  tight?: boolean;
+  completing: boolean;
+  busy: boolean;
+  onComplete: () => void;
+  onDuplicate: () => void;
+  onTrash: () => void;
+}) {
+  const canComplete = row.schedule !== undefined && row.schedule.status !== "done";
+  const item =
+    "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        aria-label={`More actions for “${row.title}”`}
+        className={cn(
+          "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11",
+          tight && "pointer-coarse:w-10",
+        )}
+      >
+        <MoreHorizontal aria-hidden size={16} />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={4} align="end" className="z-50">
+          <Popover.Popup className="min-w-[11rem] rounded-field border border-line bg-surface p-1">
+            {canComplete ? (
+              <Popover.Close
+                className={item}
+                disabled={completing || busy}
+                onClick={onComplete}
+              >
+                <Check aria-hidden size={14} />
+                {verb}
+              </Popover.Close>
+            ) : null}
+            <Popover.Close className={item} disabled={busy} onClick={onDuplicate}>
+              <Copy aria-hidden size={14} />
+              Duplicate
+            </Popover.Close>
+            <Popover.Close
+              className={cn(item, "text-danger")}
+              disabled={busy}
+              onClick={onTrash}
+            >
+              <Trash2 aria-hidden size={14} />
+              Move to trash
+            </Popover.Close>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -752,14 +930,14 @@ function HeaderSort({
   return (
     <button
       type="button"
-      className="flex min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink"
+      className="flex w-full min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink"
       title={label}
       aria-label={`Sort by ${label}${
         sort ? `, currently ${sort.direction === "asc" ? "ascending" : "descending"}` : ""
       }`}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
-      <span className="flex min-w-0 items-center gap-1">
+      <span className="flex w-full min-w-0 items-center gap-1">
         <span className="truncate">{label}</span>
         {sort ? (
           sort.direction === "asc" ? (

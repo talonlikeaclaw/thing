@@ -23,9 +23,9 @@ import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import {
+  captureFields,
   captureTypeKey,
   readCaptureType,
-  requiredProperties,
   writeCaptureType,
 } from "@/lib/capture";
 import { readApiProblems, readError } from "@/lib/display";
@@ -47,9 +47,10 @@ const control =
   "h-10 w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 /**
- * The app-wide quick capture sheet: one title, the type's required properties,
- * Create and Create and open. It lives beside the router so the header, the
- * palette and any page can open it and a failed write keeps every value.
+ * The app-wide quick capture sheet: one title, the type's required fields and
+ * every other editable field in a compact grid, Create and Create and open. It
+ * lives beside the router so the header, the palette and any page can open it
+ * and a failed write keeps every value.
  */
 export function QuickCaptureProvider({
   spaceId,
@@ -136,13 +137,15 @@ function QuickCaptureDialog({
   const [error, setError] = useState<string | null>(null);
   /** Bumped after Create stays open; focus returns once the button re-enables. */
   const [refocus, setRefocus] = useState(0);
+  /** Remounts every property editor when the draft is cleared, so no stale text survives. */
+  const [epoch, setEpoch] = useState(0);
   /** The field a refusal named; focused once the pending buttons re-enable. */
   const [problemField, setProblemField] = useState<string | null>(null);
 
   const typeList = types.data ?? [];
   const type = useType(spaceId, selected ?? undefined);
   const properties = useProperties(spaceId);
-  const required = requiredProperties(type.data, properties.data ?? []);
+  const { required, optional } = captureFields(type.data, properties.data ?? []);
   const missing = required.filter((property) => isBlank(values[property.key]));
   const ready =
     selected !== null &&
@@ -162,6 +165,7 @@ function QuickCaptureDialog({
     setInvalid(new Set());
     setError(null);
     setRefocus(0);
+    setEpoch((current) => current + 1);
     setProblemField(null);
     setSelected(null);
   }, [open, spaceId]);
@@ -218,6 +222,7 @@ function QuickCaptureDialog({
     setSelected(next === "" ? null : next);
     setValues({});
     setInvalid(new Set());
+    setEpoch((current) => current + 1);
     setError(null);
   }
 
@@ -241,7 +246,7 @@ function QuickCaptureDialog({
       return;
     }
     const payload: Record<string, unknown> = {};
-    for (const property of required) {
+    for (const property of [...required, ...optional]) {
       const value = values[property.key];
       if (!isBlank(value)) {
         payload[property.key] = value;
@@ -273,6 +278,7 @@ function QuickCaptureDialog({
           setTitle("");
           setValues({});
           setInvalid(new Set());
+          setEpoch((current) => current + 1);
           setProblemField(null);
           setRefocus((current) => current + 1);
           toast.showToast("Record created", "plain", {
@@ -321,7 +327,7 @@ function QuickCaptureDialog({
               <div>
                 <Dialog.Title className="text-[17px] font-medium">Quick capture</Dialog.Title>
                 <Dialog.Description className="mt-1 text-[13px] text-muted">
-                  Only the type's required fields. Add the rest from the record.
+                  Required fields first, then every editable field in a compact grid.
                 </Dialog.Description>
               </div>
               <Dialog.Close
@@ -433,10 +439,11 @@ function QuickCaptureDialog({
                     </p>
                   ) : null}
 
-                  {ready
-                    ? required.map((property) => (
+                  {ready ? (
+                    <>
+                      {required.map((property) => (
                         <div
-                          key={property.key}
+                          key={`${property.key}:${epoch}`}
                           id={`capture-field-${property.key}`}
                           className="grid gap-1.5"
                         >
@@ -450,11 +457,8 @@ function QuickCaptureDialog({
                             spaceId={spaceId ?? ""}
                             property={property}
                             value={values[property.key] ?? null}
-                            label={valueLabel(
-                              property.format,
-                              values[property.key],
-                              property,
-                            )}
+                            label={valueLabel(property.format, values[property.key], property)}
+                            timeZone={space.data?.timezone}
                             canEdit
                             onChange={(value) =>
                               setValues((current) => ({
@@ -475,8 +479,72 @@ function QuickCaptureDialog({
                             }
                           />
                         </div>
-                      ))
-                    : null}
+                      ))}
+                      {optional.length > 0 ? (
+                        <section
+                          aria-labelledby="capture-other-fields"
+                          className="grid gap-3 border-t rule pt-4"
+                        >
+                          <div className="flex items-baseline justify-between gap-2">
+                            <h3 id="capture-other-fields" className="label">
+                              Other fields
+                            </h3>
+                            <span className="label tnum">{optional.length}</span>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {optional.map((property) => (
+                              <div
+                                key={`${property.key}:${epoch}`}
+                                id={`capture-field-${property.key}`}
+                                className="grid content-start gap-1"
+                              >
+                                <span className="flex items-baseline justify-between gap-2">
+                                  <span
+                                    className="label min-w-0 truncate"
+                                    title={property.name}
+                                  >
+                                    {property.name}
+                                  </span>
+                                  <span className="shrink-0 font-mono text-[10px] text-faint">
+                                    {property.key}
+                                  </span>
+                                </span>
+                                <PropertyField
+                                  spaceId={spaceId ?? ""}
+                                  property={property}
+                                  value={values[property.key] ?? null}
+                                  label={valueLabel(
+                                    property.format,
+                                    values[property.key],
+                                    property,
+                                  )}
+                                  timeZone={space.data?.timezone}
+                                  canEdit
+                                  onChange={(value) =>
+                                    setValues((current) => ({
+                                      ...current,
+                                      [property.key]: value,
+                                    }))
+                                  }
+                                  onInvalid={(isInvalid) =>
+                                    setInvalid((current) => {
+                                      const next = new Set(current);
+                                      if (isInvalid) {
+                                        next.add(property.key);
+                                      } else {
+                                        next.delete(property.key);
+                                      }
+                                      return next;
+                                    })
+                                  }
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      ) : null}
+                    </>
+                  ) : null}
                 </div>
               )}
             </div>

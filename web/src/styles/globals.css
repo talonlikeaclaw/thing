@@ -14,7 +14,7 @@
   --color-line-interactive: #667066;
   --color-ink: #e8ece4;
   --color-muted: #9aa398;
-  --color-faint: #747d72;
+  --color-faint: #868e84;
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
   --color-danger: #f08a72;
@@ -105,7 +105,7 @@
     --color-line-interactive: #8a8a7c;
     --color-ink: #1b1d19;
     --color-muted: #5f665c;
-    --color-faint: #7c837a;
+    --color-faint: #676d65;
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
     --color-danger: #a33a28;
@@ -127,6 +127,21 @@
 
   html {
     background: var(--color-ground);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  h1 {
+    line-height: 1.2;
+  }
+
+  h2,
+  h3 {
+    line-height: 1.4;
   }
 
   body {

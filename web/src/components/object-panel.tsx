@@ -11,7 +11,7 @@ import {
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
-import { Button, FormError } from "@/components/ui/controls";
+import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
@@ -529,53 +529,58 @@ export function ObjectPanel({
       </div>
 
       <p className="mt-2 font-mono text-[11px] text-faint">
-        updated {formatDate(object.updated_at)} · created {formatDate(object.created_at)}
+        updated {formatDate(object.updated_at, timeZone)} · created{" "}
+        {formatDate(object.created_at, timeZone)}
         {type ? ` · ${type.key}` : ""}
       </p>
 
       {type?.schedule && object.schedule ? (
         <section
           aria-label="Schedule"
-          className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-y rule py-2.5"
+          className="mt-4 flex items-center gap-4 border-y rule py-2.5"
         >
-          <span className={cn("label", dueTone(object.schedule.status))}>
-            {STATUS_LABELS[object.schedule.status]}
-          </span>
-          {object.schedule.due_date ? (
-            <span className="text-[13px] text-muted">
-              {dueLabel}{" "}
-              <span className={cn("tnum", dueTone(object.schedule.status))}>
-                {object.schedule.due_date}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
+            <span className={cn("label", dueTone(object.schedule.status))}>
+              {STATUS_LABELS[object.schedule.status]}
+            </span>
+            {object.schedule.due_date ? (
+              <span className="text-[13px] text-muted">
+                {dueLabel}{" "}
+                <span className={cn("tnum", dueTone(object.schedule.status))}>
+                  {object.schedule.due_date}
+                </span>
               </span>
-            </span>
-          ) : null}
-          {object.schedule.status === "overdue" &&
-          object.schedule.days_until_due !== undefined ? (
-            <span className="text-[13px] text-danger tnum">
-              {Math.abs(object.schedule.days_until_due)}d overdue
-            </span>
-          ) : null}
-          {object.schedule.status === "upcoming" &&
-          object.schedule.days_until_due !== undefined ? (
-            <span className="text-[13px] text-muted tnum">
-              in {object.schedule.days_until_due}d
-            </span>
-          ) : null}
-          {type.schedule && object.properties.recurrence?.label ? (
-            <span className="text-[13px] text-muted">
-              {object.properties.recurrence.label}
-            </span>
-          ) : null}
-          {object.schedule.completed_at ? (
-            <span className="text-[13px] text-faint">
-              {completedLabel}{" "}
-              <span className="tnum">{formatDate(object.schedule.completed_at)}</span>
-            </span>
-          ) : null}
+            ) : null}
+            {object.schedule.status === "overdue" &&
+            object.schedule.days_until_due !== undefined ? (
+              <span className="text-[13px] text-danger tnum">
+                {Math.abs(object.schedule.days_until_due)}d overdue
+              </span>
+            ) : null}
+            {object.schedule.status === "upcoming" &&
+            object.schedule.days_until_due !== undefined ? (
+              <span className="text-[13px] text-muted tnum">
+                in {object.schedule.days_until_due}d
+              </span>
+            ) : null}
+            {type.schedule && object.properties.recurrence?.label ? (
+              <span className="text-[13px] text-muted">
+                {object.properties.recurrence.label}
+              </span>
+            ) : null}
+            {object.schedule.completed_at ? (
+              <span className="text-[13px] text-faint">
+                {completedLabel}{" "}
+                <span className="tnum">
+                  {formatDate(object.schedule.completed_at, timeZone)}
+                </span>
+              </span>
+            ) : null}
+          </div>
           {canEdit && object.schedule.status !== "done" ? (
             <Button
               type="button"
-              className="ml-auto min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+              className="min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
               disabled={complete.isPending || confirmComplete}
               onClick={onComplete}
             >
@@ -806,7 +811,7 @@ export function ObjectPanel({
       ) : null}
 
       {canEdit ? (
-        <div className="sticky bottom-0 z-20 mt-8 flex flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur">
+        <StickyActionBar>
           <Button
             type="button"
             className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -838,7 +843,7 @@ export function ObjectPanel({
               </Button>
             </span>
           ) : null}
-        </div>
+        </StickyActionBar>
       ) : null}
       {guard}
     </div>

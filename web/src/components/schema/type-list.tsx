@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 import { useCreateType } from "@/api/queries";
 import type { TypeSummary } from "@/api/types";
 import { IconPicker } from "@/components/icon-picker";
+import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 
@@ -88,11 +89,7 @@ export function TypeList({
                 onClick={() => onSelect(type.key)}
               >
                 <span className="flex min-w-0 items-baseline gap-2">
-                  {type.icon ? (
-                    <span aria-hidden className="text-[15px] leading-none">
-                      {type.icon}
-                    </span>
-                  ) : null}
+                  <ThingIcon icon={type.icon} size="sm" />
                   <span className="truncate text-[15px]">{type.name}</span>
                   <span className="font-mono text-[11px] text-faint">{type.key}</span>
                   {type.schedule ? (

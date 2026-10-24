@@ -9,7 +9,7 @@ colors:
   line-strong: "#3a423a"
   ink: "#e8ece4"
   muted: "#9aa398"
-  faint: "#747d72"
+  faint: "#868e84"
   accent: "#c8d96b"
   accent-ink: "#14180f"
   danger: "#f08a72"
@@ -116,7 +116,7 @@ The palette is functional: no color appears without a job.
 - **Hairline Lit** (`{colors.line-strong}`): hover borders and underlined links.
 - **Moon Ink** (`{colors.ink}`): primary text.
 - **Fog** (`{colors.muted}`): secondary text, labels, annotations.
-- **Distant Fog** (`{colors.faint}`): placeholders and the quietest metadata.
+- **Distant Fog** (`{colors.faint}`): placeholders and the quietest metadata; kept at ≥4.5:1 against every ground.
 
 ### Semantic
 - **Ember** (`{colors.danger}`): validation errors and destructive intent; text only.
@@ -211,6 +211,12 @@ space icons, never as interface iconography.
 - **Ghost:** transparent ground, 1px hairline border, ink text; hover lifts the border to
   `{colors.line-strong}` and fills `{colors.raised}`.
 - **Disabled:** 50% opacity, no hover change, not-allowed cursor.
+- **Inline editor actions:** the bar under a compact editor — cadence, multi-select, relation,
+  date shortcuts — puts the primary action last at the **right** edge, with Clear and Cancel before
+  it. Mouse-dense 28px buttons grow to 44px minimum targets on a coarse pointer or a phone-width
+  window. The same right edge applies to text actions under a field (date Clear/Today, Clear
+  relation). The action belongs where a right thumb already rests; do not left-align a commit
+  inside a cell or sheet.
 
 ### Inputs / Fields
 - **Style:** 40px height, 1px `{colors.line}` border, `{colors.ground}` ground, 6px radius, 15px text.
@@ -219,10 +225,19 @@ space icons, never as interface iconography.
 - **Labels:** uppercase mono 11px above the field, 6px gap; hints and errors sit below at 13px.
 
 ### Navigation
-- **App header:** 64px tall, hairline bottom rule, wordmark at left, a ghost Search control with
-  the platform shortcut cap, a ghost Shortcuts control, account email and a ghost "Sign out" at
-  right. Below `sm`, the two controls become 44px icon buttons; the email is hidden. No sidebar in
-  the signed-out surface; the space list is the navigation.
+- **App header:** 64px tall, hairline bottom rule, wordmark centred in the row at left, a ghost
+  Capture, a ghost Search with the platform shortcut cap, a ghost Shortcuts control, account email
+  and a ghost "Sign out" at right. Below `lg`, Capture and Search live in the bottom bar instead, so
+  the header keeps only the wordmark and a 44px Sign out icon; the email is hidden. The Shortcuts
+  control is keyboard-only and does not render below `sm` or on a coarse pointer, and neither does
+  the palette's key-hint footer. No sidebar in the signed-out surface; the space list is the
+  navigation.
+- **Mobile space drawer:** below `lg` the rail is a fixed bottom bar — space icon and name, role
+  and an up chevron on the left, then 44px Capture and Search actions — within thumb reach, above
+  the safe area. The left area opens a bottom sheet
+  with the same space switcher, types, Overview and utility links, a close control, focus trapped
+  and returned to the bar, closing on selection or Escape. It is portaled to `body` so the page's
+  settle transform cannot trap it.
 - **Wordmark:** mono "thing" with a 10px lichen square. It is the only decorative use of the accent.
 - **Space rail:** **All spaces** stays fixed at the top under a hairline; below it, Schema,
   Schedule, Members, Trash and Settings form one ordered list. A ghost **Reorder links** control
@@ -275,6 +290,10 @@ space icons, never as interface iconography.
 - **Resize:** each header ends in a focusable vertical separator labelled `Resize <name>`; arrow
   keys move 16px (Shift: 64px), a pointer drag commits on release, and coarse pointers get a larger
   target with the same widths. Narrow screens scroll the table rather than reflowing it.
+- **Phones:** below 640px the checkbox column stays pinned, the title scrolls with the row, and the
+  right cell carries only Open plus a 44px actions menu (Complete, Duplicate, Move to trash); the
+  saved action cell is not 184px of icons over the property columns. The menu is a hairline
+  popover with 44px rows and named actions.
 
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a
@@ -297,6 +316,42 @@ space icons, never as interface iconography.
   mono `+N more`. Today is a mono `TODAY` label and lichen numeral, not a filled block.
 - **Navigation:** the month name, ghost previous/next buttons and `Today`, all 44px on coarse
   pointers. A footer counts records with no value for the date property.
+
+### Command Palette
+- **Shape:** a bottom sheet below `sm` and a 40rem centred sheet above; one 56px search row with
+  the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.
+- **Rows:** title left, mono hint right, a raised ground and accent text for the active row; 44px
+  minimum on coarse pointers. The footer states the result count and, on keyboard screens only,
+  the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger.
+
+### Quick Capture
+- **Shape:** the same two-mode sheet as the palette, 34rem wide on desktop; type, title, then only
+  the type's required properties. Create keeps the sheet open and resets the title; Create and open
+  navigates. Fields are 16px on coarse pointers and actions 44px.
+- **Refusal:** the sheet stays open with the attempted values and an inline error with Retry; a
+  second Create is blocked while one is in flight. A space with no types offers the link to make
+  one instead of a form.
+
+### Bulk Bar
+- **Shape:** a hairline band inside the table scrollport, never a floating card. It names the count
+  and property, previews the value, and carries Apply, Clear and the row actions fan-out.
+- **Failure:** rows that failed stay selected and are named; the bar never reports a silent
+  success, and Undo runs from the page because the bar unmounts with the selection.
+
+### Row Actions and Toasts
+- **Row actions:** 32px line icons at one weight on a fine pointer, always present and 44px on
+  coarse pointers; on phones they collapse into the actions menu above. Hover turns Duplicate and
+  Open to the accent, Move to trash to ember.
+- **Toasts:** bottom-right, 24rem maximum, hairline border on `surface`; danger uses ember text and
+  never auto-dismisses. Hover or focus pauses the timer, an Undo toast is not evicted, and action
+  text is 44px tall on coarse pointers. On phones the stack sits above the bottom space bar.
+
+### CSV Data Panel
+- **Shape:** an inline panel under the type toolbar, never a modal. Export and template are ghost
+  controls; import is an editor-only file field with a dry-run preview, then Commit.
+- **Report:** a valid preview names the row and field count; a refused file lists row and field
+  problems in place and writes nothing. Limits are stated before upload, and a viewer sees Export
+  only.
 
 ## Do's and Don'ts
 

@@ -48,9 +48,8 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M3 are landed; M1 is
-deployed and M2 and M3 are not. M4 is in progress: checkpoints 1–4 are committed and checkpoint 5 is
-in the working tree. The next milestone starts its own `docs/plan/mN-*.md`, written the way these
-were. M5–M10 are recorded here so the format does not need reshaping later; each carries its
+deployed and M2–M4 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
+The next milestone starts its own `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not need reshaping later; each carries its
 decisions already made.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
@@ -84,8 +83,8 @@ usability move ahead of search.
   explicit **Save view** for filters and sorts. A view is the type's own saved query, not a
   separate object kind; cross-type and per-user views are not in this milestone. A schema-1 or
   schema-2 type file still loads as one `all` table view and its next write upgrades it.
-- **M4 — Everyday usability.** **In progress** (checkpoints 1–4 committed; checkpoint 5 in the
-  working tree); spec:
+- **M4 — Everyday usability.** **Landed** (workspace `0.4.0`, not yet deployed; checkpoints 1–13
+  implemented); spec:
   [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). Quick capture from anywhere
   (type picker, required properties, create-and-open), a command palette (Cmd/Ctrl+K) over spaces,
   types, records and actions, keyboard navigation and shortcuts, duplicate and move-to-trash actions
@@ -96,7 +95,15 @@ usability move ahead of search.
   navigation, local retryable write errors, truthful list state, route focus/titles, contrast and
   touch rules; the existing invite/member and type/property-delete routes gain their UI; and a
   browser-local, per-user, per-space highlight accent (lichen, yellow, orange, cyan, green, pink)
-  is chosen in Settings.
+  is chosen in Settings. Phones get a bottom nav drawer within thumb reach, no keyboard-only
+  affordances on screen, and a compact table whose row actions fold into a menu so property columns
+  stay reachable; timestamps render in the space's zone.
+
+  **Deferred to v0.4.1:** a browser-local **left/right-handed** preference. v0.4.0 assumes a right
+  thumb and puts compact-editor commits at the right edge, which fixes the immediate friction; a
+  real handedness mode must flip every thumb-zone surface together — the mobile bar and its sheet,
+  action rows, toasts, row menus and the record save bar — and be verified in both modes. A partial
+  flip is worse than a right-handed default, so it is not a 0.4.0 patch.
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
   `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph

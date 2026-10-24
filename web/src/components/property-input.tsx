@@ -4,7 +4,7 @@ import { type KeyboardEvent, useRef, useState } from "react";
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
 import { RecurrenceInput } from "@/components/recurrence-input";
-import { Button } from "@/components/ui/controls";
+import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 import {
   datetimeLocal,
@@ -149,7 +149,7 @@ function CheckboxInput({ property, value, onCommit, onCancel }: PropertyInputPro
         aria-label={property.name}
         autoFocus
         className={cn(
-          "inline-flex h-5 w-5 items-center justify-center rounded-[3px] border transition-colors",
+          "inline-flex h-5 w-5 items-center justify-center rounded-[3px] border transition-colors pointer-coarse:h-11 pointer-coarse:w-11",
           next ? "border-accent bg-accent text-accent-ink" : "border-line-strong text-transparent",
         )}
         onClick={() => onCommit(next, String(next))}
@@ -158,7 +158,7 @@ function CheckboxInput({ property, value, onCommit, onCancel }: PropertyInputPro
       </button>
       <button
         type="button"
-        className="text-[11px] text-faint hover:text-ink"
+        className="text-[11px] text-faint hover:text-ink pointer-coarse:min-h-11"
         onClick={onCancel}
       >
         Cancel
@@ -323,10 +323,13 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
           ))
         )}
       </div>
-      <div className="flex items-center gap-1.5 border-t rule pt-1.5">
+      <InlineActions>
+        <Button type="button" variant="ghost" className={inlineAction} onClick={onCancel}>
+          Cancel
+        </Button>
         <Button
           type="button"
-          className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
+          className={inlineAction}
           onClick={() => {
             const label = selected
               .map((key) => property.options?.find((option) => option.key === key)?.name ?? key)
@@ -336,15 +339,7 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
         >
           Apply
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-      </div>
+      </InlineActions>
     </div>
   );
 }
@@ -418,17 +413,20 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
       {!multi && selected.length > 0 ? (
         <button
           type="button"
-          className="border-t rule pt-1 text-left text-[12px] text-faint hover:text-ink"
+          className="border-t rule pt-1 text-right text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]"
           onClick={() => onCommit(null, "")}
         >
           Clear relation
         </button>
       ) : null}
       {multi ? (
-        <div className="flex items-center gap-1.5 border-t rule pt-1.5">
+        <InlineActions>
+          <Button type="button" variant="ghost" className={inlineAction} onClick={onCancel}>
+            Cancel
+          </Button>
           <Button
             type="button"
-            className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
+            className={inlineAction}
             onClick={() => {
               const label = selected.map((id) => titles.get(id) ?? id).join(", ");
               onCommit(selected.length === 0 ? null : selected, label);
@@ -436,15 +434,7 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
           >
             Apply ({selected.length})
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
-        </div>
+        </InlineActions>
       ) : null}
     </div>
   );

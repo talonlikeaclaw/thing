@@ -1,4 +1,4 @@
-import { Keyboard, Plus, Search } from "lucide-react";
+import { Keyboard, LogOut, Plus, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   Link,
@@ -12,6 +12,7 @@ import {
 
 import { useLogout, useMe } from "@/api/queries";
 import { CommandPalette } from "@/components/command-palette";
+import { PaletteProvider } from "@/components/palette-context";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
 import { TableShortcutsProvider } from "@/components/table-shortcuts";
@@ -175,119 +176,125 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <ScrollRestoration />
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-field focus:border focus:border-line-interactive focus:bg-surface focus:px-4 focus:py-2 focus:text-[13px] focus:text-ink"
-      >
-        Skip to content
-      </a>
-      <header className="border-b rule">
-        <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6">
-          <Wordmark />
-          <div className="flex items-center gap-2 sm:gap-4">
-            {capture.available ? (
+    <PaletteProvider open={() => setPaletteOpen(true)}>
+      <div className="flex min-h-dvh flex-col">
+        <ScrollRestoration />
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-field focus:border focus:border-line-interactive focus:bg-surface focus:px-4 focus:py-2 focus:text-[13px] focus:text-ink"
+        >
+          Skip to content
+        </a>
+        <header className="border-b rule">
+          <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6">
+            <Wordmark />
+            <div className="flex items-center gap-2 sm:gap-4">
+              {capture.available ? (
+                <Button
+                  variant="ghost"
+                  aria-label="Capture a record (C)"
+                  aria-keyshortcuts="c"
+                  aria-haspopup="dialog"
+                  className="max-lg:hidden min-h-8 px-3 text-[13px]"
+                  onClick={() => capture.open()}
+                >
+                  <Plus aria-hidden size={15} />
+                  <span>Capture</span>
+                </Button>
+              ) : null}
+              {spaceId && connection !== "live" ? (
+                <span
+                  role="status"
+                  className="hidden font-mono text-[11px] text-warning sm:inline"
+                >
+                  {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
+                </span>
+              ) : null}
               <Button
                 variant="ghost"
-                aria-label="Capture a record (C)"
-                aria-keyshortcuts="c"
+                aria-label={`Search and commands (${shortcutLabel})`}
                 aria-haspopup="dialog"
-                className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-                onClick={() => capture.open()}
+                className="max-lg:hidden min-h-8 px-3 text-[13px]"
+                onClick={() => setPaletteOpen(true)}
               >
-                <Plus aria-hidden size={15} />
-                <span className="hidden sm:inline">Capture</span>
+                <Search aria-hidden size={15} />
+                <span>Search</span>
+                <kbd className="rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint">
+                  {shortcutLabel}
+                </kbd>
               </Button>
-            ) : null}
-            {spaceId && connection !== "live" ? (
-              <span
-                role="status"
-                className="hidden font-mono text-[11px] text-warning sm:inline"
+              <Button
+                variant="ghost"
+                aria-label="Keyboard shortcuts (?)"
+                aria-keyshortcuts="?"
+                aria-haspopup="dialog"
+                className="hidden min-h-11 min-w-11 px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:hidden"
+                onClick={() => setShortcutsOpen(true)}
               >
-                {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
+                <Keyboard aria-hidden size={15} />
+                <span className="hidden sm:inline">Shortcuts</span>
+                <kbd className="hidden rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint md:inline">
+                  ?
+                </kbd>
+              </Button>
+              <span className="hidden font-mono text-[12px] text-muted sm:inline">
+                {me.data?.email}
               </span>
-            ) : null}
-            <Button
-              variant="ghost"
-              aria-label={`Search and commands (${shortcutLabel})`}
-              aria-haspopup="dialog"
-              className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-              onClick={() => setPaletteOpen(true)}
-            >
-              <Search aria-hidden size={15} />
-              <span className="hidden sm:inline">Search</span>
-              <kbd className="hidden rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint sm:inline">
-                {shortcutLabel}
-              </kbd>
-            </Button>
-            <Button
-              variant="ghost"
-              aria-label="Keyboard shortcuts (?)"
-              aria-keyshortcuts="?"
-              aria-haspopup="dialog"
-              className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-              onClick={() => setShortcutsOpen(true)}
-            >
-              <Keyboard aria-hidden size={15} />
-              <span className="hidden sm:inline">Shortcuts</span>
-              <kbd className="hidden rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint md:inline">
-                ?
-              </kbd>
-            </Button>
-            <span className="hidden font-mono text-[12px] text-muted sm:inline">
-              {me.data?.email}
-            </span>
-            <Button
-              variant="ghost"
-              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={logout.isPending}
-              onClick={() => logout.mutate(undefined, { onSuccess: () => navigate("/login") })}
-            >
-              {logout.isPending ? "Signing out…" : "Sign out"}
-            </Button>
+              <Button
+                variant="ghost"
+                aria-label="Sign out"
+                className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
+                disabled={logout.isPending}
+                onClick={() => logout.mutate(undefined, { onSuccess: () => navigate("/login") })}
+              >
+                <LogOut aria-hidden size={15} className="sm:hidden" />
+                <span className="hidden sm:inline">
+                  {logout.isPending ? "Signing out…" : "Sign out"}
+                </span>
+              </Button>
+            </div>
           </div>
-        </div>
-      </header>
-      <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10 focus:outline-none"
-      >
-        <TableShortcutsProvider onChange={setTableShortcuts}>
-          <Outlet />
-        </TableShortcutsProvider>
-      </main>
-      <footer className="mx-auto w-full max-w-[1400px] px-6 py-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t rule pt-4">
-          <p className="font-mono text-[11px] text-faint">
-            Markdown on disk is the source of truth.
-          </p>
-          <div className="flex items-baseline gap-3">
-            <Link
-              to="/changelog"
-              className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
-            >
-              Changelog
-            </Link>
-            <span className="font-mono text-[11px] tnum text-faint">v{__APP_VERSION__}</span>
+        </header>
+        <p role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10 focus:outline-none"
+        >
+          <TableShortcutsProvider onChange={setTableShortcuts}>
+            <Outlet />
+          </TableShortcutsProvider>
+        </main>
+        <footer className="mx-auto w-full max-w-[1400px] px-6 py-6 max-lg:pb-24">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t rule pt-4">
+            <p className="font-mono text-[11px] text-faint">
+              Markdown on disk is the source of truth.
+            </p>
+            <div className="flex items-baseline gap-3">
+              <Link
+                to="/changelog"
+                className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+              >
+                Changelog
+              </Link>
+              <span className="font-mono text-[11px] tnum text-faint">v{__APP_VERSION__}</span>
+            </div>
           </div>
-        </div>
-      </footer>
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        spaceId={spaceId}
-        {...(capture.available ? { onCapture: () => capture.open() } : {})}
-      />
-      <ShortcutSheet
-        open={shortcutsOpen}
-        onOpenChange={setShortcutsOpen}
-        shortcuts={activeShortcuts}
-      />
-    </div>
+        </footer>
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          spaceId={spaceId}
+          {...(capture.available ? { onCapture: () => capture.open() } : {})}
+        />
+        <ShortcutSheet
+          open={shortcutsOpen}
+          onOpenChange={setShortcutsOpen}
+          shortcuts={activeShortcuts}
+        />
+      </div>
+    </PaletteProvider>
   );
 }

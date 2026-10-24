@@ -1,4 +1,15 @@
-import { Columns3, FileSpreadsheet, Search, Settings2, X } from "lucide-react";
+import { Popover } from "@base-ui/react/popover";
+import {
+  ArrowUpDown,
+  Columns3,
+  FileSpreadsheet,
+  ListFilter,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Settings2,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -32,6 +43,7 @@ import { ApiError } from "@/api/client";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterBar } from "@/components/filter-bar";
 import { SortBar } from "@/components/sort-bar";
+import { ThingIcon } from "@/components/thing-icon";
 import { useTableShortcuts } from "@/components/table-shortcuts";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -72,6 +84,8 @@ import {
 /** The layout views ask for the server maximum; only the table pages. */
 const LAYOUT_LIMIT = 500;
 const NO_SHORTCUTS: ShortcutDescriptor[] = [];
+const VIEW_MENU_ITEM =
+  "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
 
 interface TypeTableProps {
   spaceId: string;
@@ -125,6 +139,8 @@ export function TypeTable({
   } | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(() => params.get("settings") === "1");
   const previousView = useRef(view.key);
   const [dataOpen, setDataOpen] = useState(false);
@@ -180,6 +196,8 @@ export function TypeTable({
   // with `?settings=1` keeps the requested panel; only a later switch closes it.
   useEffect(() => {
     setColumnsOpen(false);
+    setFilterOpen(false);
+    setSortOpen(false);
     if (previousView.current === view.key) {
       return;
     }
@@ -298,6 +316,51 @@ export function TypeTable({
       next.delete("filter");
       next.delete("sorts");
     });
+  }
+
+  function closeViews() {
+    setFilterOpen(false);
+    setSortOpen(false);
+    setColumnsOpen(false);
+    setSettingsOpen(false);
+    setDataOpen(false);
+    setSaveAsOpen(false);
+  }
+
+  function toggleFilter() {
+    const next = !filterOpen;
+    closeViews();
+    setFilterOpen(next);
+  }
+
+  function toggleSort() {
+    const next = !sortOpen;
+    closeViews();
+    setSortOpen(next);
+  }
+
+  function toggleColumns() {
+    const next = !columnsOpen;
+    closeViews();
+    setColumnsOpen(next);
+  }
+
+  function toggleSettings() {
+    const next = !settingsOpen;
+    closeViews();
+    setSettingsOpen(next);
+  }
+
+  function toggleData() {
+    const next = !dataOpen;
+    closeViews();
+    setDataOpen(next);
+  }
+
+  function startSaveAs() {
+    closeViews();
+    setSaveAsOpen(true);
+    setSaveAsName(`${view.name} copy`);
   }
 
   function clearFilter() {
@@ -663,11 +726,7 @@ export function TypeTable({
     <div className="settle">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="flex items-baseline gap-3">
-          {type.icon ? (
-            <span aria-hidden className="text-[22px] leading-none">
-              {type.icon}
-            </span>
-          ) : null}
+          <ThingIcon icon={type.icon} size="lg" />
           <h1 className="text-[26px] font-medium tracking-[-0.02em]">{type.name_plural}</h1>
           <span className="label tnum">{type.key}</span>
         </div>
@@ -698,86 +757,96 @@ export function TypeTable({
         onCreated={selectView}
       />
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <SearchBox value={q} inputRef={searchRef} onSubmit={submitSearch} />
         <div className="flex flex-wrap items-center gap-1.5">
-          {canEdit ? (
-            <>
-              {view.kind === "calendar" ? null : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  aria-expanded={columnsOpen}
-                  className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-                  onClick={() => {
-                    setColumnsOpen((open) => !open);
-                    setSettingsOpen(false);
-                    setDataOpen(false);
-                  }}
-                >
-                  <Columns3 aria-hidden size={14} />
-                  Columns
-                </Button>
-              )}
-              <Button
-                type="button"
-                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-                disabled={!dirty || layout.isPending}
-                onClick={saveQuery}
-              >
-                {layout.isPending ? "Saving…" : "Save view"}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                aria-expanded={saveAsOpen}
-                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-                onClick={() => {
-                  setSaveAsOpen((open) => !open);
-                  setSaveAsName(`${view.name} copy`);
-                }}
-              >
-                Save as view
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-                disabled={!hasOverrides}
-                onClick={clearQuery}
-              >
-                Clear filters
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                aria-expanded={settingsOpen}
-                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-                onClick={() => {
-                  setSettingsOpen((open) => !open);
-                  setColumnsOpen(false);
-                  setDataOpen(false);
-                }}
-              >
-                <Settings2 aria-hidden size={14} />
-                View settings
-              </Button>
-            </>
-          ) : null}
           <Button
             type="button"
             variant="ghost"
-            aria-expanded={dataOpen}
+            aria-expanded={filterOpen}
+            aria-controls="type-filters"
             className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-            onClick={() => {
-              setDataOpen((open) => !open);
-              setColumnsOpen(false);
-              setSettingsOpen(false);
-            }}
+            onClick={toggleFilter}
           >
-            <FileSpreadsheet aria-hidden size={14} />
-            Data
+            <ListFilter aria-hidden size={14} />
+            Filter
+            {query.filter.conditions.length > 0 ? (
+              <span className="tnum text-accent">{query.filter.conditions.length}</span>
+            ) : null}
           </Button>
+          {view.kind === "calendar" ? null : (
+            <Button
+              type="button"
+              variant="ghost"
+              aria-expanded={sortOpen}
+              aria-controls="type-sorts"
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              onClick={toggleSort}
+            >
+              <ArrowUpDown aria-hidden size={14} />
+              Sort
+              {query.sorts.length > 0 ? (
+                <span className="tnum text-accent">{query.sorts.length}</span>
+              ) : null}
+            </Button>
+          )}
+          {canEdit && dirty ? (
+            <Button
+              type="button"
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              disabled={layout.isPending}
+              onClick={saveQuery}
+            >
+              {layout.isPending ? "Saving…" : "Save view"}
+            </Button>
+          ) : null}
+          {hasOverrides ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              onClick={clearQuery}
+              title="Clear search, filters and sorts"
+            >
+              Reset
+            </Button>
+          ) : null}
+          <Popover.Root>
+            <Popover.Trigger
+              aria-label="More view actions"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+            >
+              <MoreHorizontal aria-hidden size={16} />
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Positioner sideOffset={4} align="end" className="z-50">
+                <Popover.Popup className="min-w-[12rem] rounded-field border border-line bg-surface p-1">
+                  {canEdit && view.kind !== "calendar" ? (
+                    <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleColumns}>
+                      <Columns3 aria-hidden size={14} />
+                      Columns
+                    </Popover.Close>
+                  ) : null}
+                  {canEdit ? (
+                    <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleSettings}>
+                      <Settings2 aria-hidden size={14} />
+                      View settings
+                    </Popover.Close>
+                  ) : null}
+                  {canEdit ? (
+                    <Popover.Close className={VIEW_MENU_ITEM} onClick={startSaveAs}>
+                      <Plus aria-hidden size={14} />
+                      Save as view…
+                    </Popover.Close>
+                  ) : null}
+                  <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleData}>
+                    <FileSpreadsheet aria-hidden size={14} />
+                    Data — CSV
+                  </Popover.Close>
+                </Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
         </div>
       </div>
 
@@ -855,16 +924,20 @@ export function TypeTable({
         />
       ) : null}
 
-      <div className="mt-4 grid gap-4 border-t rule pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-        <FilterBar
-          spaceId={spaceId}
-          type={type}
-          properties={properties}
-          filter={query.filter}
-          onChange={setFilter}
-        />
+      <div className={filterOpen || sortOpen ? "mt-3 border-t rule pt-3" : ""}>
+        <div id="type-filters" hidden={!filterOpen}>
+          <FilterBar
+            spaceId={spaceId}
+            type={type}
+            properties={properties}
+            filter={query.filter}
+            onChange={setFilter}
+          />
+        </div>
         {view.kind === "calendar" ? null : (
-          <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
+          <div id="type-sorts" hidden={!sortOpen}>
+            <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
+          </div>
         )}
       </div>
 
@@ -933,6 +1006,7 @@ export function TypeTable({
       ) : view.kind === "board" ? (
         <BoardView
           spaceId={spaceId}
+          timeZone={timeZone}
           view={view}
           rows={rows}
           properties={properties}
@@ -948,6 +1022,7 @@ export function TypeTable({
       ) : view.kind === "gallery" ? (
         <GalleryView
           spaceId={spaceId}
+          timeZone={timeZone}
           type={type}
           view={view}
           rows={rows}

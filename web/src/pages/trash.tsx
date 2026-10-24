@@ -61,6 +61,7 @@ export function TrashPage() {
         items={items}
         typeNames={new Map(typesData.map((type) => [type.key, type.name]))}
         canEdit={detail.role !== "viewer"}
+        timeZone={detail.timezone}
       />
     </div>
   );
@@ -68,12 +69,14 @@ export function TrashPage() {
 
 function TrashList({
   spaceId,
+  timeZone,
   spaceName,
   items,
   typeNames,
   canEdit,
 }: {
   spaceId: string;
+  timeZone: string;
   spaceName: string;
   items: TrashItem[];
   typeNames: Map<string, string>;
@@ -409,7 +412,7 @@ function TrashList({
                           </div>
                           <p className="mt-1 font-mono text-[10.5px] text-faint">
                             rev {item.rev} · trashed{" "}
-                            {item.trashed_at ? formatDate(item.trashed_at) : "unknown"}
+                            {item.trashed_at ? formatDate(item.trashed_at, timeZone) : "unknown"}
                             {item.trashed_from ? (
                               <>
                                 {" · "}

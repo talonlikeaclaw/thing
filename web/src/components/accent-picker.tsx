@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ACCENTS, type AccentId } from "@/lib/accent";
@@ -94,9 +95,9 @@ export function AccentPicker({ value, onChange, labelledBy }: AccentPickerProps)
               className="size-11 shrink-0 rounded-[4px] border border-line"
               style={{ backgroundColor: scheme.accent, borderColor: scheme.accent }}
             />
-            <span className="grid gap-0.5">
-              <span className="text-[14px]">{accent.label}</span>
-              <span className="label">{checked ? "selected" : " "}</span>
+            <span className="flex min-w-0 items-center gap-1.5 text-[14px]">
+              <span className="truncate">{accent.label}</span>
+              {checked ? <Check aria-hidden size={13} className="shrink-0 text-accent" /> : null}
             </span>
           </button>
         );

@@ -14,6 +14,8 @@ interface CellCommit {
 }
 
 interface PropertyCellProps {
+  /** The space's calendar zone for timestamp values. */
+  timeZone?: string;
   spaceId: string;
   property: PropertyDef;
   cell: ValueJson | undefined;
@@ -27,6 +29,7 @@ interface PropertyCellProps {
 /** A table cell: the label until clicked, then the format's own input. */
 export function PropertyCell({
   spaceId,
+  timeZone,
   property,
   cell,
   schedule,
@@ -73,7 +76,9 @@ export function PropertyCell({
 
   if (editing && canEdit) {
     return (
-      <div className="grid gap-1">
+      // Above the sticky action column: a compact editor is wider than its
+      // cell and must not disappear under that column's background.
+      <div className="relative z-10 grid gap-1">
         <PropertyInput
           key={edition}
           spaceId={spaceId}
@@ -129,6 +134,7 @@ export function PropertyCell({
         label={label}
         schedule={schedule}
         missing={cell?.missing}
+        timeZone={timeZone}
       />
     </button>
   );
@@ -239,12 +245,14 @@ export function PropertyValue({
   label,
   schedule,
   missing,
+  timeZone,
 }: {
   property: PropertyDef;
   value: unknown;
   label: string;
   schedule?: ScheduleState;
   missing?: boolean;
+  timeZone?: string;
 }) {
   const due = property.key === "due_date" ? schedule : undefined;
 
@@ -294,7 +302,7 @@ export function PropertyValue({
 
   const text =
     property.format === "datetime" && typeof value === "string"
-      ? formatDateTime(value)
+      ? formatDateTime(value, timeZone)
       : label;
   return (
     <span

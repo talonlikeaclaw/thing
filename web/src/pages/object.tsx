@@ -77,6 +77,7 @@ export function ObjectPage() {
         memberName={(userId) =>
           detail.members.find((member) => member.user === userId)?.name ?? shortId(userId)
         }
+        timeZone={detail.timezone}
       />
     </div>
   );

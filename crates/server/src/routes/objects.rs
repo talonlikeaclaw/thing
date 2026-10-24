@@ -218,6 +218,13 @@ async fn create(
         .filter_map(|(key, value)| value.map(|value| (key, value)))
         .collect();
     let now = OffsetDateTime::now_utc();
+    // A new record opens with its own name as a heading, so the body starts as
+    // recognizable markdown instead of an empty box with no context.
+    let body_text = if body.body.trim().is_empty() {
+        format!("# {title}\n")
+    } else {
+        body.body.clone()
+    };
     let doc = ObjectDoc {
         id: Uuid::now_v7(),
         type_key: body.type_key.clone(),
@@ -230,7 +237,7 @@ async fn create(
         trashed_at: None,
         trashed_from: None,
         properties,
-        body: body.body.clone(),
+        body: body_text,
     };
 
     let _guard = handle.write.lock().await;

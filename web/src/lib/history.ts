@@ -38,10 +38,11 @@ export function revisionDiff(
     });
 }
 
-/** A revision's timestamp with its clock time, for a history line. */
-export function formatMoment(iso: string): string {
+/** A revision's timestamp with its clock time, in the space's zone. */
+export function formatMoment(iso: string, timeZone?: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
+    ...(timeZone ? { timeZone } : {}),
   }).format(new Date(iso));
 }

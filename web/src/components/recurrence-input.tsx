@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { RecurrenceKind, RecurrenceValue } from "@/api/types";
-import { Button } from "@/components/ui/controls";
+import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import {
   normalizeRecurrence,
@@ -20,7 +20,7 @@ interface RecurrenceInputProps {
 }
 
 const control =
-  "h-8 rounded-[4px] border border-accent bg-ground px-2 text-[13px] text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-8 rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] text-ink outline-none transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 const KIND_LABELS: Record<RecurrenceKind, string> = {
   days: "Days",
@@ -60,7 +60,7 @@ export function RecurrenceInput({
   }
 
   return (
-    <div className="grid min-w-[13rem] gap-1.5 rounded-field border border-accent bg-ground p-2">
+    <div className="grid min-w-[13rem] gap-1.5 rounded-field border border-line bg-surface p-2">
       <div className="flex items-center gap-1.5">
         <span className="text-[12px] text-muted">Every</span>
         <input
@@ -156,35 +156,26 @@ export function RecurrenceInput({
         </p>
       ) : null}
 
-      <div className="flex items-center gap-1.5 border-t rule pt-1.5">
-        <Button
-          type="button"
-          className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
-          onClick={apply}
-        >
-          Apply
-        </Button>
+      <InlineActions>
         {value !== null && value !== undefined ? (
           <Button
             type="button"
             variant="ghost"
-            className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
+            className={inlineAction}
             onClick={() => onApply(null)}
           >
             Clear
           </Button>
         ) : null}
         {onCancel ? (
-          <Button
-            type="button"
-            variant="ghost"
-            className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
-            onClick={onCancel}
-          >
+          <Button type="button" variant="ghost" className={inlineAction} onClick={onCancel}>
             Cancel
           </Button>
         ) : null}
-      </div>
+        <Button type="button" className={inlineAction} onClick={apply}>
+          Apply
+        </Button>
+      </InlineActions>
     </div>
   );
 }

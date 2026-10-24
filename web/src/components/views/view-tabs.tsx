@@ -212,12 +212,13 @@ export function ViewTabs({
         {canEdit ? (
           <button
             type="button"
+            aria-label="New view"
             aria-expanded={open}
             className="label flex shrink-0 items-center gap-1 px-2.5 py-2 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
             onClick={() => (open ? setOpen(false) : start())}
           >
             <Plus aria-hidden size={13} />
-            New view
+            <span className="hidden sm:inline">New view</span>
           </button>
         ) : null}
       </div>
