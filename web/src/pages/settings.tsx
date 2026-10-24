@@ -10,16 +10,21 @@ import {
 } from "@/api/queries";
 import { AccentPicker } from "@/components/accent-picker";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ThingIcon } from "@/components/thing-icon";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import {
   DEFAULT_ACCENT,
   accentKey,
   applyAccent,
-  readAccent,
+  clearStoredAccent,
+  hasStoredAccent,
+  readDefaultAccent,
+  readSpaceAccent,
   writeAccent,
   type AccentId,
 } from "@/lib/accent";
@@ -37,27 +42,44 @@ export function SettingsPage() {
   const remove = useDeleteSpace(spaceId ?? "");
   const navigate = useNavigate();
   const toast = useToast();
+  const { handedness } = useHandedness();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [zone, setZone] = useState("UTC");
   const [confirm, setConfirm] = useState("");
   const [accent, setAccent] = useState<AccentId>(DEFAULT_ACCENT);
+  const [accentOverridden, setAccentOverridden] = useState(false);
   const userId = me.data?.id;
 
   useEffect(() => {
     if (!userId || !spaceId) {
       return;
     }
-    setAccent(readAccent(window.localStorage, accentKey(userId, spaceId)));
+    const key = accentKey(userId, spaceId);
+    setAccent(readSpaceAccent(window.localStorage, userId, spaceId));
+    setAccentOverridden(hasStoredAccent(window.localStorage, key));
   }, [userId, spaceId]);
 
   /** Immediate apply and best-effort persist; a refusal never shows an error. */
   const chooseAccent = (next: AccentId) => {
     setAccent(next);
+    setAccentOverridden(true);
     if (userId && spaceId) {
       writeAccent(window.localStorage, accentKey(userId, spaceId), next);
     }
     applyAccent(document.documentElement, next);
+  };
+
+  /** Drop this space's override and follow the account default again. */
+  const useDefaultAccent = () => {
+    if (!userId || !spaceId) {
+      return;
+    }
+    clearStoredAccent(window.localStorage, accentKey(userId, spaceId));
+    setAccentOverridden(false);
+    const fallback = readDefaultAccent(window.localStorage, userId);
+    setAccent(fallback);
+    applyAccent(document.documentElement, fallback);
   };
 
   useEffect(() => {
@@ -78,6 +100,22 @@ export function SettingsPage() {
   const owner = detail.role === "owner";
   const trimmedName = name.trim();
   const nextIcon = icon.trim() ? icon.trim() : null;
+
+  const appearanceTitle = (
+    <h2 key="title" id="space-appearance" className="text-[17px] font-medium">
+      Appearance
+    </h2>
+  );
+  const accentReset = accentOverridden ? (
+    <Button
+      key="reset"
+      variant="ghost"
+      className="min-h-8 px-2 py-0 text-[12px]"
+      onClick={useDefaultAccent}
+    >
+      Use my default
+    </Button>
+  ) : null;
 
   // Only send what changed, so saving one field never rewrites another.
   const changes: UpdateSpace = {};
@@ -182,12 +220,12 @@ export function SettingsPage() {
               Due and overdue are calendar days in this zone.
             </p>
             <FormError message={update.error ? readError(update.error) : null} />
-            <div className="flex items-baseline gap-3">
+            <ThumbRow className="flex-wrap items-baseline gap-3">
+              {dirty ? <span className="label">unsaved changes</span> : null}
               <Button type="submit" disabled={!dirty || invalid || update.isPending}>
                 {update.isPending ? "Saving…" : "Save changes"}
               </Button>
-              {dirty ? <span className="label">unsaved changes</span> : null}
-            </div>
+            </ThumbRow>
           </form>
         ) : (
           <div className="mt-4 grid gap-2">
@@ -204,23 +242,27 @@ export function SettingsPage() {
       </section>
 
       <section aria-labelledby="space-appearance" className="mt-10">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h2 id="space-appearance" className="text-[17px] font-medium">
-            Appearance
-          </h2>
-          {accent !== DEFAULT_ACCENT ? (
-            <Button
-              variant="ghost"
-              className="min-h-8 px-2 py-0 text-[12px]"
-              onClick={() => chooseAccent(DEFAULT_ACCENT)}
-            >
-              Reset to Lichen
-            </Button>
-          ) : null}
+        <div
+          className={cn(
+            "flex items-baseline gap-3 border-b rule pb-2",
+            handedness === "left" ? "justify-start" : "justify-between",
+          )}
+        >
+          {handedness === "left" ? (
+            <>
+              {accentReset}
+              {appearanceTitle}
+            </>
+          ) : (
+            <>
+              {appearanceTitle}
+              {accentReset}
+            </>
+          )}
         </div>
         <p className="mt-4 text-[13px] text-muted">
-          Highlight is saved in this browser for this space. It changes focus, selection and the
-          primary action; nobody else sees it.
+          This space's highlight overrides your account default. It is saved in this browser and
+          changes focus, selection and the primary action; nobody else sees it.
         </p>
         <AccentPicker value={accent} onChange={chooseAccent} labelledBy="space-appearance" />
       </section>
@@ -252,14 +294,16 @@ export function SettingsPage() {
               onChange={(event) => setConfirm(event.target.value)}
             />
             <FormError message={remove.error ? readError(remove.error) : null} />
-            <Button
-              variant="danger"
-              className="w-fit"
-              disabled={confirm.trim() !== detail.name || remove.isPending}
-              onClick={onDelete}
-            >
-              {remove.isPending ? "Deleting…" : "Delete this space"}
-            </Button>
+            <ThumbRow className="flex-wrap items-center gap-3">
+              <Button
+                variant="danger"
+                className="w-fit"
+                disabled={confirm.trim() !== detail.name || remove.isPending}
+                onClick={onDelete}
+              >
+                {remove.isPending ? "Deleting…" : "Delete this space"}
+              </Button>
+            </ThumbRow>
           </div>
         </section>
       ) : null}

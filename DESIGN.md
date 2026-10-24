@@ -123,10 +123,12 @@ The palette is functional: no color appears without a job.
 - **Amber** (`{colors.warning}`): degraded state, never decoration.
 
 ### Highlight accent
-The accent is Lichen by default, and a person may choose one of six palettes in **Settings >
-Appearance**. The choice is **browser-local, per user and per space**: it never syncs, never reaches
-the server and is never a shared space brand. Only space routes are themed; `/`, auth and
-`/changelog` render Lichen.
+Lichen is the baseline. A person chooses one of six palettes as their **account default** in
+**Account settings > Appearance**; every space without its own choice inherits it, including new
+spaces. A space can override the default in **Space settings > Appearance**, and **Use my default**
+drops that override. All choices are **browser-local**: they never sync, never reach the server and
+are never a shared space brand. The signed-in shell, space list and `/changelog` use the account
+default; signed-out auth screens render Lichen.
 
 | id | label | dark accent | dark ink | light accent | light ink |
 |---|---|---|---|---|---|
@@ -212,11 +214,13 @@ space icons, never as interface iconography.
   `{colors.line-strong}` and fills `{colors.raised}`.
 - **Disabled:** 50% opacity, no hover change, not-allowed cursor.
 - **Inline editor actions:** the bar under a compact editor — cadence, multi-select, relation,
-  date shortcuts — puts the primary action last at the **right** edge, with Clear and Cancel before
-  it. Mouse-dense 28px buttons grow to 44px minimum targets on a coarse pointer or a phone-width
-  window. The same right edge applies to text actions under a field (date Clear/Today, Clear
-  relation). The action belongs where a right thumb already rests; do not left-align a commit
-  inside a cell or sheet.
+  date shortcuts — puts the primary action at the **thumb edge**: last in the DOM at the right edge
+  by default, and first in the DOM at the left edge in Left-handed mode. Clear and Cancel precede
+  it in right-handed mode and follow it on the left; the row reverses in the DOM so paint, Tab and
+  screen-reader order agree. Mouse-dense 28px buttons grow to 44px minimum targets on a coarse
+  pointer or a phone-width window. The same thumb edge applies to text actions under a field (date
+  Clear/Today, Clear relation). Do not left-align a commit inside a cell or sheet on a right-handed
+  layout.
 
 ### Inputs / Fields
 - **Style:** 40px height, 1px `{colors.line}` border, `{colors.ground}` ground, 6px radius, 15px text.
@@ -232,9 +236,10 @@ space icons, never as interface iconography.
   control is keyboard-only and does not render below `sm` or on a coarse pointer, and neither does
   the palette's key-hint footer. No sidebar in the signed-out surface; the space list is the
   navigation.
-- **Mobile space drawer:** below `lg` the rail is a fixed bottom bar — space icon and name, role
-  and an up chevron on the left, then 44px Capture and Search actions — within thumb reach, above
-  the safe area. The left area opens a bottom sheet
+- **Mobile space drawer:** below `lg` the rail is a fixed bottom bar. Right-handed: space icon
+  and name, role and an up chevron leading, then 44px Capture and Search trailing. Left-handed:
+  Search and Capture lead (Search on the outer edge) and the space trigger trails with the chevron
+  inward and the icon/name pinned to the right. The left area opens a bottom sheet
   with the same space switcher, types, Overview and utility links, a close control, focus trapped
   and returned to the bar, closing on selection or Escape. It is portaled to `body` so the page's
   settle transform cannot trap it.

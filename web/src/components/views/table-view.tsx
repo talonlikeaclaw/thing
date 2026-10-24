@@ -28,6 +28,7 @@ import type {
   ViewDef,
   WriteResult,
 } from "@/api/types";
+import { useHandedness } from "@/components/handedness";
 import { PropertyField } from "@/components/property-field";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
@@ -776,6 +777,7 @@ function RowActionsMenu({
   onTrash: () => void;
 }) {
   const canComplete = row.schedule !== undefined && row.schedule.status !== "done";
+  const { handedness } = useHandedness();
   const item =
     "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
   return (
@@ -790,7 +792,11 @@ function RowActionsMenu({
         <MoreHorizontal aria-hidden size={16} />
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Positioner sideOffset={4} align="end" className="z-50">
+        <Popover.Positioner
+          sideOffset={4}
+          align={handedness === "left" ? "start" : "end"}
+          className="z-50"
+        >
           <Popover.Popup className="min-w-[11rem] rounded-field border border-line bg-surface p-1">
             {canComplete ? (
               <Popover.Close

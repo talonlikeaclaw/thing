@@ -4,6 +4,7 @@ import { Select } from "@base-ui/react/select";
 import { ChevronDown } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
+import { ThumbRow } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 
 type ButtonVariant = "primary" | "ghost" | "danger";
@@ -41,15 +42,15 @@ export const inlineAction =
   "min-h-7 px-2 text-[12px] pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:min-w-11 max-sm:text-[13px]";
 
 /**
- * The action row of a compact editor. Right-aligned, because the primary action
- * belongs under the right thumb; dismissive actions come first so the primary
- * button sits closest to that corner.
+ * The action row of a compact editor. The primary action sits at the thumb
+ * edge: call sites put dismissive actions first and the primary last, and
+ * `ThumbRow` reverses the DOM in left-handed mode.
  */
 export function InlineActions({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5 border-t rule pt-1.5">
+    <ThumbRow className="flex-wrap items-center gap-1.5 border-t rule pt-1.5">
       {children}
-    </div>
+    </ThumbRow>
   );
 }
 
@@ -57,12 +58,13 @@ export function InlineActions({ children }: { children: ReactNode }) {
  * The save row of a long editor. It floats at the bottom of the viewport while
  * the editor is on screen, clearing the mobile tab bar, so a save is never a
  * scroll away; the translucent surface keeps the content beneath it readable.
+ * The primary action follows the thumb edge like every other action row.
  */
 export function StickyActionBar({ children }: { children: ReactNode }) {
   return (
-    <div className="sticky bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] z-20 mt-8 flex flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur lg:bottom-0">
+    <ThumbRow className="sticky bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] z-20 mt-8 flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur lg:bottom-0">
       {children}
-    </div>
+    </ThumbRow>
   );
 }
 

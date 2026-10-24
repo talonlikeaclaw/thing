@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import type { ObjectSummary } from "@/api/types";
+import { useHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 
 interface CardActionsProps {
@@ -53,16 +54,23 @@ export function CardActions({
   const container = useRef<HTMLDivElement | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const menu = useRef<HTMLDivElement | null>(null);
+  const { handedness } = useHandedness();
+
+  /** The trigger's leading edge in left mode, trailing edge in right mode. */
+  function anchorLeft(rect: DOMRect): number {
+    const preferred = handedness === "left" ? rect.left : rect.right - MENU_WIDTH;
+    return Math.min(
+      Math.max(VIEWPORT_MARGIN, preferred),
+      window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN,
+    );
+  }
 
   function place() {
     const rect = trigger.current?.getBoundingClientRect();
     if (!rect) {
       return;
     }
-    const left = Math.min(
-      Math.max(VIEWPORT_MARGIN, rect.right - MENU_WIDTH),
-      window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN,
-    );
+    const left = anchorLeft(rect);
     const below = rect.bottom + MENU_GAP;
     const menuHeight = menu.current?.offsetHeight ?? 0;
     const preferred =
@@ -88,10 +96,7 @@ export function CardActions({
     if (rect) {
       setPosition({
         top: rect.bottom + MENU_GAP,
-        left: Math.min(
-          Math.max(VIEWPORT_MARGIN, rect.right - MENU_WIDTH),
-          window.innerWidth - MENU_WIDTH - VIEWPORT_MARGIN,
-        ),
+        left: anchorLeft(rect),
       });
     }
     setOpen(true);
@@ -105,7 +110,6 @@ export function CardActions({
     place();
     menu.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open]);
-
   useEffect(() => {
     if (!open) {
       return;

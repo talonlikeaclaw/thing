@@ -16,6 +16,7 @@ import { SpacePage } from "@/pages/space";
 import { SpaceListPage } from "@/pages/spaces";
 import { TrashPage } from "@/pages/trash";
 import { TypeTablePage } from "@/pages/type-table";
+import { UserSettingsPage } from "@/pages/user-settings";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <SpaceListPage /> },
+          { path: "settings", element: <UserSettingsPage /> },
           {
             path: "s/:spaceId",
             element: <SpaceLayout />,

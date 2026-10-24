@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
 import { formatDateTime, readError, shortId } from "@/lib/display";
@@ -214,7 +215,7 @@ function TextField({
         </p>
       ) : null}
       {format === "date" || format === "datetime" ? (
-        <div className="flex flex-wrap items-center justify-end gap-3">
+        <ThumbRow className="flex-wrap items-center gap-3">
           <button
             type="button"
             className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-2 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:min-w-11 max-sm:px-2 max-sm:text-[13px]"
@@ -243,7 +244,7 @@ function TextField({
           >
             {format === "date" ? "Today" : "Now"}
           </button>
-        </div>
+        </ThumbRow>
       ) : null}
     </div>
   );
@@ -467,6 +468,7 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
 /** Single and multi relations: search the space's objects and pick targets. */
 function RelationField({ spaceId, property, value, onChange }: PropertyFieldProps) {
   const { choices, loading } = useRelationChoices(spaceId, property, true);
+  const { handedness } = useHandedness();
   const [query, setQuery] = useState("");
   const multi = property.multi === true;
   const selected = Array.isArray(value)
@@ -558,7 +560,10 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
       {selected.length > 0 ? (
         <button
           type="button"
-          className="border-t rule pt-1 text-right text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]"
+          className={cn(
+            "border-t rule pt-1 text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]",
+            handedness === "left" ? "text-left" : "text-right",
+          )}
           onClick={() => onChange(null)}
         >
           Clear relation

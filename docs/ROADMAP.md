@@ -49,8 +49,11 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M3 are landed; M1 is
 deployed and M2–M4 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
-The next milestone starts its own `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not need reshaping later; each carries its
-decisions already made.
+The patch after it, v0.4.1, is specified in
+[`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md); it bumps the format to 4 for record
+icons and the shared accent. The next milestone starts its own `docs/plan/mN-*.md`, written the
+way these were. M5–M10 are recorded here so the format does not need reshaping later; each carries
+its decisions already made.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday

@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 
 import { useCreateProperty } from "@/api/queries";
 import type { PropertyDef, PropertyFormat, TypeSummary } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
@@ -168,14 +169,7 @@ export function PropertyList({
                 </div>
               ) : null}
               <FormError message={create.error ? readError(create.error) : null} />
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  className="min-h-9 px-3 text-[13px]"
-                  disabled={create.isPending || !name.trim()}
-                >
-                  {create.isPending ? "Creating…" : "Create property"}
-                </Button>
+              <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -187,17 +181,26 @@ export function PropertyList({
                 >
                   Cancel
                 </Button>
-              </div>
+                <Button
+                  type="submit"
+                  className="min-h-9 px-3 text-[13px]"
+                  disabled={create.isPending || !name.trim()}
+                >
+                  {create.isPending ? "Creating…" : "Create property"}
+                </Button>
+              </ThumbRow>
             </form>
           ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-9 px-3 text-[13px]"
-              onClick={() => setShowCreate(true)}
-            >
-              New property
-            </Button>
+            <ThumbRow>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-9 px-3 text-[13px]"
+                onClick={() => setShowCreate(true)}
+              >
+                New property
+              </Button>
+            </ThumbRow>
           )}
         </div>
       ) : null}

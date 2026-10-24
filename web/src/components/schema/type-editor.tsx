@@ -11,6 +11,7 @@ import type {
   TypeDef,
   TypeProperty,
 } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { SmallButton } from "@/components/schema/small-button";
 import {
@@ -506,14 +507,11 @@ export function TypeEditor({
 
       {canEdit ? (
         <StickyActionBar>
-          <Button
-            type="button"
-            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-            disabled={!dirty || invalid || update.isPending}
-            onClick={() => void saveDraft()}
-          >
-            {update.isPending ? "Saving…" : "Save type"}
-          </Button>
+          <div className="min-w-[12rem] flex-1">
+            <FormError
+              message={update.error && !conflict ? readError(update.error) : null}
+            />
+          </div>
           {dirty ? (
             <span className="label flex items-center gap-1.5 text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
@@ -522,11 +520,14 @@ export function TypeEditor({
           ) : update.isSuccess ? (
             <span className="label">Saved</span>
           ) : null}
-          <div className="min-w-[12rem] flex-1">
-            <FormError
-              message={update.error && !conflict ? readError(update.error) : null}
-            />
-          </div>
+          <Button
+            type="button"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            disabled={!dirty || invalid || update.isPending}
+            onClick={() => void saveDraft()}
+          >
+            {update.isPending ? "Saving…" : "Save type"}
+          </Button>
         </StickyActionBar>
       ) : (
         <p className="mt-5 text-[13px] text-muted">
@@ -585,26 +586,28 @@ export function TypeEditor({
               </label>
             ) : null}
             <FormError message={remove.error ? readError(remove.error) : null} />
-            <Button
-              variant="danger"
-              className="w-fit"
-              disabled={!deleteReady}
-              onClick={async () => {
-                try {
-                  await remove.mutateAsync(recordCount > 0);
-                  toast.showToast(
-                    recordCount > 0
-                      ? `Deleted “${type.name}”; ${recordCount} ${recordCount === 1 ? "record was" : "records were"} moved to Trash.`
-                      : `Deleted “${type.name}”.`,
-                  );
-                  navigate(`/s/${spaceId}/schema`, { replace: true });
-                } catch {
-                  // The error state below names the server's refusal.
-                }
-              }}
-            >
-              {remove.isPending ? "Deleting…" : "Delete this type"}
-            </Button>
+            <ThumbRow className="flex-wrap items-center gap-3">
+              <Button
+                variant="danger"
+                className="w-fit"
+                disabled={!deleteReady}
+                onClick={async () => {
+                  try {
+                    await remove.mutateAsync(recordCount > 0);
+                    toast.showToast(
+                      recordCount > 0
+                        ? `Deleted “${type.name}”; ${recordCount} ${recordCount === 1 ? "record was" : "records were"} moved to Trash.`
+                        : `Deleted “${type.name}”.`,
+                    );
+                    navigate(`/s/${spaceId}/schema`, { replace: true });
+                  } catch {
+                    // The error state below names the server's refusal.
+                  }
+                }}
+              >
+                {remove.isPending ? "Deleting…" : "Delete this type"}
+              </Button>
+            </ThumbRow>
           </div>
         </section>
       ) : null}

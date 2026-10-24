@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useAgenda, useMe, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
+import { useHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
 import { useQuickCapture } from "@/components/quick-capture";
 import { ThingIcon } from "@/components/thing-icon";
@@ -50,6 +51,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const me = useMe();
   const capture = useQuickCapture();
   const openPalette = usePalette();
+  const { handedness } = useHandedness();
   const list: SpaceSummary[] = spaces.data ?? [];
   const overdue = agenda.data?.overdue.length ?? 0;
   const userId = me.data?.id;
@@ -95,6 +97,104 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
 
   const close = () => setMobileOpen(false);
 
+  const spaceLabel = (
+    <span
+      key="label"
+      className={cn(
+        "flex min-w-0 flex-1 items-center gap-3",
+        handedness === "left" && "justify-end",
+      )}
+    >
+      <ThingIcon icon={space.data?.icon} size="md" />
+      <span className={cn("min-w-0", handedness === "left" ? "text-right" : "flex-1")}>
+        <span className="block truncate text-[15px] font-medium">
+          {space.data?.name ?? "This space"}
+        </span>
+        <span className="label">{role}</span>
+      </span>
+    </span>
+  );
+
+  const spaceChevron = (
+    <ChevronUp key="chevron" aria-hidden size={16} className="shrink-0 text-muted" />
+  );
+
+  // The chevron stays on the inner edge, beside Capture/Search, so the title
+  // and icon keep the outer corner: trailing edge in right mode, leading in
+  // left mode.
+  const spaceTrigger = (
+    <Dialog.Trigger
+      key="space"
+      aria-label={`Space menu for ${space.data?.name ?? "this space"}`}
+      className={cn(
+        "flex min-h-14 min-w-0 flex-1 items-center gap-3 text-left",
+        handedness === "left" ? "pl-1" : "pr-1",
+      )}
+    >
+      {handedness === "left" ? (
+        <>
+          {spaceChevron}
+          {spaceLabel}
+        </>
+      ) : (
+        <>
+          {spaceLabel}
+          {spaceChevron}
+        </>
+      )}
+    </Dialog.Trigger>
+  );
+
+  const captureAction = (
+    <BarAction key="capture" label="Capture a record (C)" onClick={() => capture.open()}>
+      <Plus aria-hidden size={17} />
+    </BarAction>
+  );
+
+  const searchAction = (
+    <BarAction key="search" label="Search and commands" onClick={openPalette}>
+      <Search aria-hidden size={17} />
+    </BarAction>
+  );
+
+  // Search stays on the outer edge in both modes: trailing on the right,
+  // leading on the left, so the two actions keep the same relationship to the
+  // screen corner the thumb reaches.
+  const barActions = (
+    <span key="actions" className="flex shrink-0 items-center gap-1">
+      {handedness === "left" ? (
+        <>
+          {searchAction}
+          {capture.available ? captureAction : null}
+        </>
+      ) : (
+        <>
+          {capture.available ? captureAction : null}
+          {searchAction}
+        </>
+      )}
+    </span>
+  );
+
+  const sheetTitle = (
+    <Dialog.Title key="title" className="label">
+      Space navigation
+    </Dialog.Title>
+  );
+
+  const sheetClose = (
+    <Dialog.Close
+      key="close"
+      aria-label="Close space navigation"
+      className={cn(
+        "inline-flex min-h-11 min-w-11 items-center justify-center rounded-field text-faint transition-colors hover:text-ink",
+        handedness === "left" ? "-ml-2" : "-mr-2",
+      )}
+    >
+      <X aria-hidden size={17} />
+    </Dialog.Close>
+  );
+
   return (
     <>
       <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -102,28 +202,18 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
             containing block of a fixed child; the bar lives on the body. */}
         {createPortal(
           <div className="fixed inset-x-0 bottom-0 z-40 border-t rule bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-            <div className="flex items-center gap-1 px-3">
-              <Dialog.Trigger
-                aria-label={`Space menu for ${space.data?.name ?? "this space"}`}
-                className="flex min-h-14 min-w-0 flex-1 items-center gap-3 pr-1 text-left"
-              >
-                <ThingIcon icon={space.data?.icon} size="md" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium">
-                    {space.data?.name ?? "This space"}
-                  </span>
-                  <span className="label">{role}</span>
-                </span>
-                <ChevronUp aria-hidden size={16} className="shrink-0 text-muted" />
-              </Dialog.Trigger>
-              {capture.available ? (
-                <BarAction label="Capture a record (C)" onClick={() => capture.open()}>
-                  <Plus aria-hidden size={17} />
-                </BarAction>
-              ) : null}
-              <BarAction label="Search and commands" onClick={openPalette}>
-                <Search aria-hidden size={17} />
-              </BarAction>
+            <div className="flex items-center gap-1 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
+              {handedness === "left" ? (
+                <>
+                  {barActions}
+                  {spaceTrigger}
+                </>
+              ) : (
+                <>
+                  {spaceTrigger}
+                  {barActions}
+                </>
+              )}
             </div>
           </div>,
           document.body,
@@ -132,15 +222,24 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85 lg:hidden" />
           <Dialog.Viewport className="fixed inset-0 z-50 flex items-end lg:hidden">
-            <Dialog.Popup className="max-h-[85dvh] w-full overflow-y-auto rounded-t-sheet border border-line bg-surface px-6 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-              <div className="flex items-center justify-between gap-3">
-                <Dialog.Title className="label">Space navigation</Dialog.Title>
-                <Dialog.Close
-                  aria-label="Close space navigation"
-                  className="-mr-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-field text-faint transition-colors hover:text-ink"
-                >
-                  <X aria-hidden size={17} />
-                </Dialog.Close>
+            <Dialog.Popup className="max-h-[85dvh] w-full overflow-y-auto rounded-t-sheet border border-line bg-surface pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
+              <div
+                className={cn(
+                  "flex items-center gap-3",
+                  handedness === "left" ? "justify-start" : "justify-between",
+                )}
+              >
+                {handedness === "left" ? (
+                  <>
+                    {sheetClose}
+                    {sheetTitle}
+                  </>
+                ) : (
+                  <>
+                    {sheetTitle}
+                    {sheetClose}
+                  </>
+                )}
               </div>
               <Dialog.Description className="sr-only">
                 Switch spaces, open a type, or reach a space page.
@@ -392,6 +491,7 @@ function UtilityLinks({
   onToggleReorder: () => void;
   onNavigate?: () => void;
 }) {
+  const { handedness } = useHandedness();
   return (
     <>
       <ul className="flex flex-col">
@@ -446,7 +546,12 @@ function UtilityLinks({
           );
         })}
       </ul>
-      <div className="mt-2 flex justify-end">
+      <div
+        className={cn(
+          "mt-2 flex",
+          handedness === "left" ? "justify-start" : "justify-end",
+        )}
+      >
         <button
           type="button"
           aria-pressed={reordering}

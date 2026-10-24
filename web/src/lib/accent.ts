@@ -1,10 +1,12 @@
 /**
- * The highlight accent: a browser-local, per-user, per-space preference.
+ * The highlight accent: a browser-local, per-user preference with a per-space
+ * override.
  *
  * One accent marks state — focus, selection, the primary action, the active
- * rail and view tabs, the `DEFAULT` marker. It is not a theme skin or a shared
- * space brand, so it lives in `localStorage` and never reaches the server.
- * Components keep using the `accent` / `accent-ink` tokens; only the root's
+ * rail and view tabs, the `DEFAULT` marker. The account default covers the
+ * signed-in shell, including new spaces; an explicit per-space choice wins.
+ * Both values live in `localStorage` and never reach the server. Components
+ * keep using the `accent` / `accent-ink` tokens; only the root's
  * `data-accent` attribute changes.
  */
 export type AccentId = "lichen" | "yellow" | "orange" | "cyan" | "green" | "pink";
@@ -69,10 +71,15 @@ export const DEFAULT_ACCENT: AccentId = "lichen";
 export interface AccentStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
 export function accentKey(userId: string, spaceId: string): string {
   return `thing:accent:${userId}:${spaceId}`;
+}
+
+export function defaultAccentKey(userId: string): string {
+  return `thing:accent-default:${userId}`;
 }
 
 export function isAccentId(value: unknown): value is AccentId {
@@ -102,6 +109,48 @@ export function writeAccent(storage: AccentStorage, key: string, id: AccentId): 
     storage.setItem(key, id);
   } catch {
     // Private mode or quota: the choice still applies for this session.
+  }
+}
+
+/** Writes the account-wide default used by spaces without an override. */
+export function writeDefaultAccent(
+  storage: AccentStorage,
+  userId: string,
+  id: AccentId,
+): void {
+  writeAccent(storage, defaultAccentKey(userId), id);
+}
+
+/** The account-wide default, or Lichen when none was chosen. */
+export function readDefaultAccent(storage: AccentStorage, userId: string): AccentId {
+  return readAccent(storage, defaultAccentKey(userId));
+}
+
+/** Whether this space has its own choice rather than inheriting the default. */
+export function hasStoredAccent(storage: AccentStorage, key: string): boolean {
+  try {
+    return isAccentId(storage.getItem(key));
+  } catch {
+    return false;
+  }
+}
+
+/** The space's effective accent: its own choice, else the account default. */
+export function readSpaceAccent(
+  storage: AccentStorage,
+  userId: string,
+  spaceId: string,
+): AccentId {
+  const key = accentKey(userId, spaceId);
+  return hasStoredAccent(storage, key) ? readAccent(storage, key) : readDefaultAccent(storage, userId);
+}
+
+/** Removes one space's override so it follows the account default again. */
+export function clearStoredAccent(storage: AccentStorage, key: string): void {
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Private mode or quota: the override stays for this session.
   }
 }
 

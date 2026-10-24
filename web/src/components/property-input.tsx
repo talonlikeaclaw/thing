@@ -3,6 +3,7 @@ import { type KeyboardEvent, useRef, useState } from "react";
 
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
+import { useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
@@ -346,6 +347,7 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
 
 function RelationInput({ spaceId, property, value, onCommit, onCancel }: PropertyInputProps) {
   const { choices, loading } = useRelationChoices(spaceId, property, true);
+  const { handedness } = useHandedness();
   const initialIds = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : typeof value === "string"
@@ -413,7 +415,10 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
       {!multi && selected.length > 0 ? (
         <button
           type="button"
-          className="border-t rule pt-1 text-right text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]"
+          className={cn(
+            "border-t rule pt-1 text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]",
+            handedness === "left" ? "text-left" : "text-right",
+          )}
           onClick={() => onCommit(null, "")}
         >
           Clear relation

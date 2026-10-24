@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 
 import { useCreateType } from "@/api/queries";
 import type { TypeSummary } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, TextField } from "@/components/ui/controls";
@@ -131,10 +132,7 @@ export function TypeList({
                 Schedule — due dates, repeats and Complete
               </label>
               <FormError message={create.error ? readError(create.error) : null} />
-              <div className="flex gap-2">
-                <Button type="submit" disabled={create.isPending} className="min-h-9 px-3 text-[13px]">
-                  {create.isPending ? "Creating…" : "Create type"}
-                </Button>
+              <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -143,17 +141,22 @@ export function TypeList({
                 >
                   Cancel
                 </Button>
-              </div>
+                <Button type="submit" disabled={create.isPending} className="min-h-9 px-3 text-[13px]">
+                  {create.isPending ? "Creating…" : "Create type"}
+                </Button>
+              </ThumbRow>
             </form>
           ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-9 px-3 text-[13px]"
-              onClick={() => setShowCreate(true)}
-            >
-              New type
-            </Button>
+            <ThumbRow>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-9 px-3 text-[13px]"
+                onClick={() => setShowCreate(true)}
+              >
+                New type
+              </Button>
+            </ThumbRow>
           )}
         </div>
       ) : null}

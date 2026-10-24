@@ -5,10 +5,16 @@ import {
   DEFAULT_ACCENT,
   accentKey,
   applyAccent,
+  clearStoredAccent,
+  defaultAccentKey,
+  hasStoredAccent,
   isAccentId,
   readAccent,
+  readDefaultAccent,
+  readSpaceAccent,
   resetAccent,
   writeAccent,
+  writeDefaultAccent,
   type AccentStorage,
 } from "@/lib/accent";
 
@@ -25,6 +31,9 @@ function memoryStorage(values: Record<string, string> = {}): AccentStorage & {
     getItem: (key) => store.get(key) ?? null,
     setItem: (key, value) => {
       store.set(key, value);
+    },
+    removeItem: (key) => {
+      store.delete(key);
     },
   };
 }
@@ -96,6 +105,7 @@ describe("readAccent", () => {
         throw new Error("denied");
       },
       setItem: () => undefined,
+      removeItem: () => undefined,
     };
     expect(readAccent(refusing, key)).toBe("lichen");
   });
@@ -118,6 +128,7 @@ describe("writeAccent", () => {
       setItem: () => {
         throw new Error("quota");
       },
+      removeItem: () => undefined,
     };
     expect(() => writeAccent(refusing, key, "green")).not.toThrow();
   });
@@ -138,5 +149,42 @@ describe("applyAccent", () => {
     expect(root.dataset.accent).toBe("yellow");
     resetAccent(root);
     expect(root.dataset.accent).toBeUndefined();
+  });
+});
+
+describe("account default", () => {
+  const user = "user-1";
+  const space = "space-1";
+
+  it("uses the default for a space without an override and when none is set", () => {
+    const storage = memoryStorage();
+    expect(defaultAccentKey(user)).toBe("thing:accent-default:user-1");
+    expect(readDefaultAccent(storage, user)).toBe("lichen");
+    expect(readSpaceAccent(storage, user, space)).toBe("lichen");
+    writeDefaultAccent(storage, user, "cyan");
+    expect(readDefaultAccent(storage, user)).toBe("cyan");
+    expect(readSpaceAccent(storage, user, space)).toBe("cyan");
+  });
+
+  it("lets a space override the default until the override is cleared", () => {
+    const storage = memoryStorage();
+    writeDefaultAccent(storage, user, "green");
+    writeAccent(storage, accentKey(user, space), "pink");
+    expect(hasStoredAccent(storage, accentKey(user, space))).toBe(true);
+    expect(readSpaceAccent(storage, user, space)).toBe("pink");
+    clearStoredAccent(storage, accentKey(user, space));
+    expect(hasStoredAccent(storage, accentKey(user, space))).toBe(false);
+    expect(readSpaceAccent(storage, user, space)).toBe("green");
+  });
+
+  it("swallows a refused clear", () => {
+    const refusing: AccentStorage = {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => {
+        throw new Error("denied");
+      },
+    };
+    expect(() => clearStoredAccent(refusing, accentKey(user, space))).not.toThrow();
   });
 });

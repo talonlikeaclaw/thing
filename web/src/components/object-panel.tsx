@@ -812,23 +812,6 @@ export function ObjectPanel({
 
       {canEdit ? (
         <StickyActionBar>
-          <Button
-            type="button"
-            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-            disabled={!dirty || update.isPending || invalid.size > 0}
-            title="Save (Cmd/Ctrl+S or Cmd/Ctrl+Enter)"
-            onClick={() => void save()}
-          >
-            {update.isPending ? "Saving…" : "Save"}
-          </Button>
-          {dirty ? (
-            <span className="label flex items-center gap-1.5 text-accent">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-              {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
-            </span>
-          ) : (
-            <span className="label">Saved</span>
-          )}
           {saveError ? (
             <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
               <FormError message={saveError} />
@@ -843,6 +826,23 @@ export function ObjectPanel({
               </Button>
             </span>
           ) : null}
+          {dirty ? (
+            <span className="label flex items-center gap-1.5 text-accent">
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+              {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
+            </span>
+          ) : (
+            <span className="label">Saved</span>
+          )}
+          <Button
+            type="button"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            disabled={!dirty || update.isPending || invalid.size > 0}
+            title="Save (Cmd/Ctrl+S or Cmd/Ctrl+Enter)"
+            onClick={() => void save()}
+          >
+            {update.isPending ? "Saving…" : "Save"}
+          </Button>
         </StickyActionBar>
       ) : null}
       {guard}

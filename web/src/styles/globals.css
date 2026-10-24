@@ -227,6 +227,18 @@
   }
 }
 
+/* Toasts sit inside the thumb's safe area; the side follows handedness while
+ * the message, action and dismiss order inside each toast never change. */
+.toast-stack {
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+:root[data-hand="left"] .toast-stack {
+  right: auto;
+  left: max(1rem, env(safe-area-inset-left));
+}
+
 /* Row actions stay quiet on a fine pointer and are always present on touch. */
 .row-actions {
   opacity: 1;

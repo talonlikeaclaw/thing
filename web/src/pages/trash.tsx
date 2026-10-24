@@ -11,10 +11,12 @@ import {
   useTypes,
 } from "@/api/queries";
 import type { TrashItem } from "@/api/types";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
+import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
 import { useRouteMeta } from "@/lib/route";
 
@@ -96,6 +98,7 @@ function TrashList({
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const { handedness } = useHandedness();
 
   const selectedIds = items.filter((item) => selection.has(item.id)).map((item) => item.id);
   const selectionKey = selectedIds.join("\u0000");
@@ -299,18 +302,20 @@ function TrashList({
       ) : (
         <>
           {canEdit ? (
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-y rule py-2.5">
-              <label className="flex min-h-11 items-center gap-2 text-[13px] text-muted">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  aria-label="Select all records"
-                />
-                Select all
-              </label>
-              <span className="label tnum">{selectedIds.length} selected</span>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
+            <ThumbRow className="mt-6 flex-wrap items-center gap-3 border-y rule py-2.5">
+              <span className="flex flex-wrap items-center gap-3">
+                <label className="flex min-h-11 items-center gap-2 text-[13px] text-muted">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all records"
+                  />
+                  Select all
+                </label>
+                <span className="label tnum">{selectedIds.length} selected</span>
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="ghost"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -328,7 +333,7 @@ function TrashList({
                   Purge forever
                 </Button>
               </div>
-            </div>
+            </ThumbRow>
           ) : null}
 
           {bulkError ? (
@@ -359,15 +364,7 @@ function TrashList({
                   onChange={(event) => setBulkConfirmText(event.target.value)}
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="danger"
-                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                  disabled={!purgeConfirmed || bulkPurge.isPending}
-                  onClick={() => void purgeSelected()}
-                >
-                  {bulkPurge.isPending ? "Purging…" : "Purge forever"}
-                </Button>
+              <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
                   variant="ghost"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -379,7 +376,15 @@ function TrashList({
                 >
                   Cancel
                 </Button>
-              </div>
+                <Button
+                  variant="danger"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  disabled={!purgeConfirmed || bulkPurge.isPending}
+                  onClick={() => void purgeSelected()}
+                >
+                  {bulkPurge.isPending ? "Purging…" : "Purge forever"}
+                </Button>
+              </ThumbRow>
             </div>
           ) : null}
 
@@ -402,8 +407,20 @@ function TrashList({
                       </label>
                     ) : null}
                     <div className="grid min-w-0 flex-1 gap-2">
-                      <div className="grid gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-                        <div className="min-w-0">
+                      <div
+                        className={cn(
+                          "grid gap-x-4 gap-y-1 sm:items-start",
+                          handedness === "left"
+                            ? "sm:grid-cols-[auto_minmax(0,1fr)]"
+                            : "sm:grid-cols-[minmax(0,1fr)_auto]",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "min-w-0",
+                            handedness === "left" && "sm:col-start-2 sm:row-start-1",
+                          )}
+                        >
                           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                             <span className="text-[15px] font-medium">{item.title}</span>
                             <span className="font-mono text-[10px] text-faint">
@@ -424,7 +441,14 @@ function TrashList({
                           </p>
                         </div>
                         {canEdit && !isConfirming ? (
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div
+                            className={cn(
+                              "flex flex-wrap items-center gap-2",
+                              handedness === "left"
+                                ? "justify-start sm:col-start-1 sm:row-start-1"
+                                : "justify-end",
+                            )}
+                          >
                             <Button
                               variant="ghost"
                               className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -471,15 +495,7 @@ function TrashList({
                               onChange={(event) => setRowConfirmText(event.target.value)}
                             />
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="danger"
-                              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                              disabled={!rowPurgeConfirmed || isPending}
-                              onClick={() => void purgeOne(item)}
-                            >
-                              {isPending ? "Purging…" : "Purge forever"}
-                            </Button>
+                          <ThumbRow className="flex-wrap items-center gap-2">
                             <Button
                               variant="ghost"
                               className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -491,7 +507,15 @@ function TrashList({
                             >
                               Cancel
                             </Button>
-                          </div>
+                            <Button
+                              variant="danger"
+                              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                              disabled={!rowPurgeConfirmed || isPending}
+                              onClick={() => void purgeOne(item)}
+                            >
+                              {isPending ? "Purging…" : "Purge forever"}
+                            </Button>
+                          </ThumbRow>
                         </div>
                       ) : null}
                     </div>

@@ -52,7 +52,9 @@ home with browser-local recents and rail order (`pages/space.tsx`, `lib/recent.t
 `lib/nav-order.ts`), table paging, selection, bulk edits and row actions
 (`components/type-table.tsx`, `components/views/table-view.tsx`, `components/bulk-bar.tsx`), CSV
 export/import (`crates/core/src/csv.rs`, `routes/csv.rs`, `components/views/data-panel.tsx`), the
-member/type/property lifecycle surfaces, and the browser-local highlight accent
+member/type/property lifecycle surfaces, the account settings page with the browser-local
+default highlight and Left-handed mode (`pages/user-settings.tsx`, `lib/handedness.ts`,
+`components/handedness.tsx`), and the browser-local highlight accent with per-space overrides
 (`lib/accent.ts`, `components/accent-picker.tsx`). Mobile swaps the rail for a portaled bottom
 bar and drawer carrying Capture and Search, and the table for a compact row menu; keyboard-only
 affordances are hidden there, and every timestamp renders in the space's zone.
@@ -66,6 +68,7 @@ affordances are hidden there, and every timestamp renders in the space's zone.
 | `docs/plan/m2-scheduling-recurrence.md` | The M2 execution spec: schema 2, the schedule engine, implicit properties, Complete, agenda, web scheduling surfaces, verification. |
 | `docs/plan/m3-views.md` | The M3 execution spec: schema 3 named views, the four kinds, view CRUD and default, list projection, web view state and renderers, verification. |
 | `docs/plan/m4-everyday-usability.md` | The M4 execution spec: CSV, duplicate, palette, capture, home, table truth, lifecycle, accent, responsive and end-to-end verification. |
+| `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared/custom accent, record icons, table controls and option-order sorting. Not yet implemented. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and

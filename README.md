@@ -31,8 +31,12 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   space drawer, Capture and Search within thumb reach.
 - **CSV in and out.** Export every live record of a type, download a header-only template, and
   import a reviewed file with a dry run that names a broken row before anything is written.
-- **Browser-local accents.** Pick one of six contrast-tested highlight palettes per space; it
-  changes focus, selection and the primary action only, never anyone else's screen.
+- **Browser-local accents.** Choose an account default from six contrast-tested highlight palettes,
+  then override it per space. It changes focus, selection and the primary action only, never anyone
+  else's screen.
+- **Account and handedness.** Account settings holds the default highlight and a Left-handed mode
+  that moves bottom-bar actions, action rows, menus and toasts to the left thumb; both stay in this
+  browser.
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.

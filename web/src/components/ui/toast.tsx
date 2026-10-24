@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext value={{ showToast }}>
       {children}
-      <div className="pointer-events-none fixed right-4 bottom-4 z-50 grid w-[min(24rem,calc(100vw-2rem))] gap-2">
+      <div className="toast-stack pointer-events-none fixed z-50 grid w-[min(24rem,calc(100vw-2rem))] gap-2">
         {toasts.map((toast) => (
           <ToastRow key={toast.id} toast={toast} dismiss={dismiss} />
         ))}

@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { useMe, useSpace, useTrash, useTypes } from "@/api/queries";
 import type { TypeSummary } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { useQuickCapture } from "@/components/quick-capture";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button } from "@/components/ui/controls";
@@ -59,7 +60,13 @@ export function SpacePage() {
         </Link>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
+      <ThumbRow className="mt-6 flex-wrap items-center gap-2">
+        <Link
+          to={`/s/${detail.id}/agenda`}
+          className="inline-flex min-h-10 items-center rounded-field border border-line-interactive px-4 text-[13px] font-medium text-ink transition-colors hover:border-line-strong hover:bg-raised pointer-coarse:min-h-11"
+        >
+          Open schedule
+        </Link>
         {canEdit ? (
           <Button
             className="min-h-10 px-4 text-[13px] pointer-coarse:min-h-11"
@@ -68,13 +75,7 @@ export function SpacePage() {
             Capture a record
           </Button>
         ) : null}
-        <Link
-          to={`/s/${detail.id}/agenda`}
-          className="inline-flex min-h-10 items-center rounded-field border border-line-interactive px-4 text-[13px] font-medium text-ink transition-colors hover:border-line-strong hover:bg-raised pointer-coarse:min-h-11"
-        >
-          Open schedule
-        </Link>
-      </div>
+      </ThumbRow>
 
       <section aria-labelledby="space-recent" className="mt-10">
         <div className="flex items-baseline justify-between border-b rule pb-2">

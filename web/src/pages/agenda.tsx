@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { useAgenda, useCompleteObject, useSpace, useTypes } from "@/api/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { useHandedness } from "@/components/handedness";
 import { ErrorState } from "@/components/error-state";
 import { useRouteMeta } from "@/lib/route";
 import type { AgendaRow } from "@/api/types";
@@ -171,6 +172,7 @@ function AgendaEntry({
 }) {
   const complete = useCompleteObject(spaceId);
   const toast = useToast();
+  const { handedness } = useHandedness();
   const phrase = duePhrase(row.status, row.days_until_due);
 
   function onComplete() {
@@ -218,7 +220,10 @@ function AgendaEntry({
           type="button"
           variant="ghost"
           aria-label={`Complete ${row.title}`}
-          className="min-h-8 justify-self-start px-3 text-[13px] sm:justify-self-end pointer-coarse:min-h-11"
+          className={cn(
+            "min-h-8 px-3 text-[13px] pointer-coarse:min-h-11",
+            handedness === "left" ? "justify-self-start" : "justify-self-end",
+          )}
           disabled={complete.isPending}
           onClick={onComplete}
         >
