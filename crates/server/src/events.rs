@@ -11,7 +11,7 @@ use axum::Router;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
 use axum::http::HeaderMap;
-use axum::http::header::ORIGIN;
+use axum::http::header::{HOST, ORIGIN};
 use axum::response::Response;
 use axum::routing::get;
 use futures_util::{SinkExt, StreamExt};
@@ -105,6 +105,12 @@ async fn upgrade(
 ///
 /// Non-browser clients send no `Origin`; `SameSite=Lax` alone still lets a
 /// same-site sibling page open a socket, so the header is checked when present.
+///
+/// Two authorities are accepted: the configured public URL, and the request's
+/// own `Host`. The second is what makes same-origin development work through
+/// port forwarders, LAN addresses and `127.0.0.1` versus `localhost`: the
+/// browser sends the origin it actually loaded, and a cross-site page cannot
+/// forge `Host`, so a foreign origin still fails.
 fn origin_allowed(headers: &HeaderMap, public_url: &str) -> bool {
     let Some(origin) = headers.get(ORIGIN) else {
         return true;
@@ -112,7 +118,23 @@ fn origin_allowed(headers: &HeaderMap, public_url: &str) -> bool {
     let Ok(origin) = origin.to_str() else {
         return false;
     };
-    origin.trim_end_matches('/') == public_url.trim_end_matches('/')
+    let origin = origin.trim_end_matches('/');
+    if origin.eq_ignore_ascii_case(public_url.trim_end_matches('/')) {
+        return true;
+    }
+    // A sandboxed frame's `null` origin, or anything without a real scheme,
+    // is never this app.
+    let Some((scheme, rest)) = origin.split_once("://") else {
+        return false;
+    };
+    if scheme != "http" && scheme != "https" {
+        return false;
+    }
+    let Some(host) = headers.get(HOST).and_then(|host| host.to_str().ok()) else {
+        return false;
+    };
+    let authority = rest.split('/').next().unwrap_or_default();
+    !authority.is_empty() && authority.eq_ignore_ascii_case(host)
 }
 
 /// The socket's whole life: `hello`, then every event until either side leaves.
@@ -183,5 +205,81 @@ async fn session(
                 Err(RecvError::Closed) => return,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderValue;
+
+    fn headers(origin: Option<&'static str>, host: Option<&'static str>) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        if let Some(origin) = origin {
+            headers.insert(ORIGIN, HeaderValue::from_static(origin));
+        }
+        if let Some(host) = host {
+            headers.insert(HOST, HeaderValue::from_static(host));
+        }
+        headers
+    }
+
+    const PUBLIC: &str = "http://localhost:5173";
+
+    #[test]
+    fn a_client_without_origin_is_allowed() {
+        assert!(origin_allowed(
+            &headers(None, Some("localhost:5173")),
+            PUBLIC
+        ));
+    }
+
+    #[test]
+    fn the_configured_public_url_is_allowed() {
+        assert!(origin_allowed(
+            &headers(Some("http://localhost:5173"), Some("proxy.internal:8080")),
+            PUBLIC
+        ));
+    }
+
+    #[test]
+    fn a_same_host_origin_is_allowed_even_on_another_port_or_name() {
+        for (origin, host) in [
+            ("http://127.0.0.1:5173", "127.0.0.1:5173"),
+            ("http://localhost:5174", "localhost:5174"),
+            ("https://thing.example.com", "thing.example.com"),
+        ] {
+            assert!(
+                origin_allowed(&headers(Some(origin), Some(host)), PUBLIC),
+                "{origin} on {host} should be allowed"
+            );
+        }
+    }
+
+    #[test]
+    fn a_foreign_origin_is_refused() {
+        for origin in [
+            "http://127.0.0.1:5173", // right host, but the Host header differs
+            "https://evil.example",
+            "null",
+            "file://localhost",
+        ] {
+            assert!(
+                !origin_allowed(&headers(Some(origin), Some("localhost:5173")), PUBLIC),
+                "{origin} should be refused"
+            );
+        }
+    }
+
+    #[test]
+    fn a_missing_host_falls_back_to_the_public_url_only() {
+        assert!(!origin_allowed(
+            &headers(Some("http://localhost:5174"), None),
+            PUBLIC
+        ));
+        assert!(origin_allowed(
+            &headers(Some("http://localhost:5173"), None),
+            PUBLIC
+        ));
     }
 }
