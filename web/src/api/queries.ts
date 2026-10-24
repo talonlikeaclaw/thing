@@ -5,16 +5,19 @@ import { useCallback } from "react";
 import { ApiError, downloadFile, isUnauthenticated, request, sendCsv } from "@/api/client";
 import type {
   Agenda,
+  CreateInviteResult,
   CreateView,
   CsvImportResult,
   CsvPreview,
   DuplicateObjectInput,
+  Invite,
   ObjectDetail,
   ObjectList,
   ObjectsQuery,
   PropertyDef,
   PropertyFormat,
   Revision,
+  Role,
   SpaceDetail,
   SpaceSummary,
   Session,
@@ -43,6 +46,7 @@ export const queryKeys = {
   history: (id: string, objectId: string) =>
     ["space", id, "object", objectId, "history"] as const,
   trash: (id: string) => ["space", id, "trash"] as const,
+  invites: (id: string) => ["space", id, "invites"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
   palette: (id: string, typeKey: string) => ["space", id, "palette", typeKey] as const,
 };
@@ -171,6 +175,69 @@ export function useDeleteSpace(spaceId: string) {
     onSuccess: () => {
       client.removeQueries({ queryKey: queryKeys.space(spaceId) });
       void client.invalidateQueries({ queryKey: queryKeys.spaces });
+    },
+  });
+}
+
+/** An owner's pending and used invites; the route itself is owner-only. */
+export function useInvites(spaceId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.invites(spaceId),
+    queryFn: () => request<Invite[]>(`/api/spaces/${spaceId}/invites`),
+    enabled,
+  });
+}
+
+export function useCreateInvite(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (role: Role) =>
+      request<CreateInviteResult>(`/api/spaces/${spaceId}/invites`, {
+        method: "POST",
+        body: { role },
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.invites(spaceId) });
+    },
+  });
+}
+
+export function useRevokeInvite(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) =>
+      request<void>(`/api/spaces/${spaceId}/invites/${code}`, { method: "DELETE" }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.invites(spaceId) });
+    },
+  });
+}
+
+/** The server returns the whole space detail, so the member list updates at once. */
+export function useSetMember(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { user: Uuid; role: Role }) =>
+      request<SpaceDetail>(`/api/spaces/${spaceId}/members/${input.user}`, {
+        method: "POST",
+        body: { role: input.role },
+      }),
+    onSuccess: (space) => {
+      client.setQueryData(queryKeys.space(spaceId), space);
+      void client.invalidateQueries({ queryKey: queryKeys.spaces });
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+    },
+  });
+}
+
+export function useRemoveMember(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (user: Uuid) =>
+      request<void>(`/api/spaces/${spaceId}/members/${user}`, { method: "DELETE" }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.spaces });
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
     },
   });
 }
@@ -334,6 +401,146 @@ export function useUpdateProperty(spaceId: string, key: string) {
       body: input,
     }),
   );
+}
+
+/** Renames a property key everywhere; the display name is untouched. */
+export function useRenameProperty(spaceId: string, key: string) {
+  return useSpaceMutation<string, PropertyDef>(spaceId, (next) =>
+    request<PropertyDef>(`/api/spaces/${spaceId}/properties/${key}/rename`, {
+      method: "POST",
+      body: { key: next },
+    }),
+  );
+}
+
+/** The server trashes a type's records only when the caller says so. */
+export function useDeleteType(spaceId: string, key: string) {
+  return useSpaceMutation<boolean, void>(spaceId, (deleteObjects) =>
+    request<void>(
+      `/api/spaces/${spaceId}/types/${key}?delete_objects=${deleteObjects ? "true" : "false"}`,
+      { method: "DELETE" },
+    ),
+  );
+}
+
+/** Forced deletion strips the key from records and records each drop in history. */
+export function useDeleteProperty(spaceId: string, key: string) {
+  return useSpaceMutation<boolean, void>(spaceId, (force) =>
+    request<void>(
+      `/api/spaces/${spaceId}/properties/${key}?force=${force ? "true" : "false"}`,
+      { method: "DELETE" },
+    ),
+  );
+}
+
+/** Every type definition, sharing the per-type cache the schema page already fills. */
+export function useTypeDetails(
+  spaceId: string,
+  keys: string[],
+  enabled = true,
+): { details: TypeDef[]; isPending: boolean; error: unknown } {
+  const results = useQueries({
+    queries: keys.map((key) => ({
+      queryKey: queryKeys.type(spaceId, key),
+      queryFn: () => request<TypeDef>(`/api/spaces/${spaceId}/types/${key}`),
+      enabled,
+    })),
+  });
+  return {
+    details: results.flatMap((result) => (result.data ? [result.data] : [])),
+    isPending: results.some((result) => result.isPending),
+    error: results.find((result) => result.error)?.error,
+  };
+}
+
+export interface PropertyUsageView {
+  type: string;
+  typeName: string;
+  view: string;
+  viewName: string;
+  field: "group_by" | "date_property";
+}
+
+export interface PropertyUsage {
+  /** Types whose property list names the key. */
+  types: { key: string; name: string }[];
+  /** Live records holding any value for the key. */
+  records: number;
+  /** Views whose structural field would break if the key vanished. */
+  views: PropertyUsageView[];
+  isPending: boolean;
+  error: unknown;
+}
+
+/**
+ * What deleting a property would touch.
+ *
+ * The server's 409 is authoritative; this read only lets the editor state the
+ * usage before the user asks. Counts come from the list endpoint's filtered
+ * total, so a hand-edited object that no type declares is still not counted as
+ * a row of a type that never shows it.
+ */
+export function usePropertyUsage(
+  spaceId: string,
+  propertyKey: string,
+  typeKeys: string[],
+  enabled = true,
+): PropertyUsage {
+  const definitions = useTypeDetails(spaceId, typeKeys, enabled);
+  const owners = definitions.details.filter((def) =>
+    def.properties.some((member) => member.key === propertyKey),
+  );
+  const counts = useQueries({
+    queries: owners.map((def) => ({
+      queryKey: ["space", spaceId, "property-usage", propertyKey, def.key] as const,
+      queryFn: () => {
+        const params = new URLSearchParams({
+          type: def.key,
+          filter: JSON.stringify({
+            op: "and",
+            conditions: [{ property: propertyKey, condition: "is_not_empty" }],
+          }),
+          limit: "1",
+        });
+        return request<ObjectList>(`/api/spaces/${spaceId}/objects?${params}`);
+      },
+      enabled,
+    })),
+  });
+  const views: PropertyUsageView[] = definitions.details.flatMap((def) =>
+    def.views.flatMap<PropertyUsageView>((view) => {
+      if (view.group_by === propertyKey) {
+        return [
+          {
+            type: def.key,
+            typeName: def.name,
+            view: view.key,
+            viewName: view.name,
+            field: "group_by" as const,
+          },
+        ];
+      }
+      if (view.date_property === propertyKey) {
+        return [
+          {
+            type: def.key,
+            typeName: def.name,
+            view: view.key,
+            viewName: view.name,
+            field: "date_property" as const,
+          },
+        ];
+      }
+      return [];
+    }),
+  );
+  return {
+    types: owners.map((def) => ({ key: def.key, name: def.name })),
+    records: counts.reduce((sum, result) => sum + (result.data?.total ?? 0), 0),
+    views,
+    isPending: definitions.isPending || counts.some((result) => result.isPending),
+    error: definitions.error ?? counts.find((result) => result.error)?.error,
+  };
 }
 
 /** The list endpoint always takes its query in the URL; an empty filter is unfiltered. */
@@ -864,6 +1071,20 @@ export function useBulkRestoreObjects(spaceId: string) {
         await request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${id}/restore`, {
           method: "POST",
         });
+        return id;
+      },
+    ),
+  );
+}
+
+/** Purging is permanent; the caller still owes an explicit typed confirmation. */
+export function useBulkPurgeObjects(spaceId: string) {
+  return useBulkMutation<Uuid[]>(spaceId, (ids) =>
+    fanOut(
+      ids,
+      (id) => id,
+      async (id) => {
+        await request<void>(`/api/spaces/${spaceId}/trash/${id}`, { method: "DELETE" });
         return id;
       },
     ),

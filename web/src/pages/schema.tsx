@@ -100,6 +100,9 @@ export function SchemaPage() {
               spaceId={detail.id}
               type={type.data}
               properties={effectiveProperties(type.data, properties.data)}
+              recordCount={
+                types.data.find((summary) => summary.key === type.data?.key)?.object_count ?? 0
+              }
               canEdit={canEdit}
             />
           ) : (
@@ -126,7 +129,9 @@ export function SchemaPage() {
               key={selectedProperty.key}
               spaceId={detail.id}
               property={selectedProperty}
+              types={types.data}
               canEdit={canEdit}
+              onRenamed={selectProperty}
             />
           ) : (
             <p className="max-w-[48ch] border-t rule pt-4 text-muted">

@@ -27,6 +27,7 @@ export function TypeList({
   const [showCreate, setShowCreate] = useState(false);
   const [schedule, setSchedule] = useState(false);
   const [icon, setIcon] = useState("");
+  const [createdKey, setCreatedKey] = useState("");
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,6 +50,7 @@ export function TypeList({
           setIcon("");
           setSchedule(false);
           setShowCreate(false);
+          setCreatedKey(created.key);
           onCreated(created.key);
         },
       },
@@ -63,6 +65,13 @@ export function TypeList({
         </h2>
         <span className="label tnum">{types.length}</span>
       </div>
+
+      {createdKey ? (
+        <p role="status" className="border-b rule py-2 text-[12px] text-muted">
+          Created with key <span className="font-mono text-ink">{createdKey}</span>. The display
+          name can change; the key cannot.
+        </p>
+      ) : null}
 
       {types.length === 0 ? (
         <p className="border-b rule py-4 text-[13px] text-muted">
@@ -101,6 +110,10 @@ export function TypeList({
         <div className="mt-3">
           {showCreate ? (
             <form className="grid gap-3" onSubmit={onCreate}>
+              <p className="border-l border-line-interactive pl-3 text-[12px] text-muted">
+                The key is derived from the name, permanent, and used in file paths and CSV
+                headers.
+              </p>
               <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3">
                 <IconPicker label="Icon" value={icon} onChange={setIcon} />
                 <TextField label="Name" name="name" required maxLength={200} autoFocus />

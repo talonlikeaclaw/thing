@@ -187,7 +187,11 @@ export function SettingsPage() {
           </p>
           <div className="mt-4 grid gap-3">
             <TextField
-              label={`Type “${detail.name}” to confirm`}
+              label={
+                <>
+                  Type <span className="normal-case">{detail.name}</span> to confirm
+                </>
+              }
               name="space-confirm"
               value={confirm}
               autoComplete="off"

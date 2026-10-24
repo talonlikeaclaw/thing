@@ -1,9 +1,9 @@
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
-import { useUpdateType } from "@/api/queries";
+import { useDeleteType, useUpdateType } from "@/api/queries";
 import type {
   Filter,
   PropertyDef,
@@ -14,6 +14,7 @@ import type {
 import { IconPicker } from "@/components/icon-picker";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, FormError, SelectField, TextAreaField, TextField } from "@/components/ui/controls";
+import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { filterParam } from "@/lib/filter";
@@ -80,11 +81,21 @@ interface TypeEditorProps {
   spaceId: string;
   type: TypeDef;
   properties: PropertyDef[];
+  recordCount: number;
   canEdit: boolean;
 }
 
-export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorProps) {
+export function TypeEditor({
+  spaceId,
+  type,
+  properties,
+  recordCount,
+  canEdit,
+}: TypeEditorProps) {
   const update = useUpdateType(spaceId, type.key);
+  const remove = useDeleteType(spaceId, type.key);
+  const navigate = useNavigate();
+  const toast = useToast();
   const [name, setName] = useState(type.name);
   const [plural, setPlural] = useState(type.name_plural);
   const [icon, setIcon] = useState(type.icon ?? "");
@@ -93,6 +104,8 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
   const [labels, setLabels] = useState<ScheduleLabels>(type.schedule_labels ?? {});
   const [members, setMembers] = useState<TypeProperty[]>(type.properties);
   const [pendingKey, setPendingKey] = useState("");
+  const [confirmKey, setConfirmKey] = useState("");
+  const [moveRecords, setMoveRecords] = useState(false);
 
   // Adopt the saved definition, including any trimming the server applied.
   useEffect(() => {
@@ -170,7 +183,12 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     });
   }
 
-  const guard = useDirtyGuard(dirty, saveDraft);
+  const guard = useDirtyGuard(dirty && !remove.isSuccess, saveDraft);
+
+  const deleteReady =
+    confirmKey.trim().toLowerCase() === type.key.toLowerCase() &&
+    (recordCount === 0 || moveRecords) &&
+    !remove.isPending;
 
   const conflict = disableConflict(update.error);
   const scheduleKeyFilter: Filter = {
@@ -503,6 +521,82 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
           Viewers can read the schema but not change it.
         </p>
       )}
+
+      {canEdit ? (
+        <section
+          aria-labelledby={`type-${type.key}-danger`}
+          className="mt-10 border-t border-danger/60 pt-4"
+        >
+          <h3
+            id={`type-${type.key}-danger`}
+            className="border-b border-danger/40 pb-2 text-[15px] font-medium text-danger"
+          >
+            Delete type
+          </h3>
+          <p className="mt-3 max-w-[62ch] text-[13px] text-muted">
+            Deletes <span className="font-mono">types/{type.key}.yml</span>.
+            {recordCount > 0 ? (
+              <>
+                {" "}
+                Its {recordCount} live {recordCount === 1 ? "record moves" : "records move"} to
+                Trash, not purge, so they can be restored.
+              </>
+            ) : (
+              " It has no live records."
+            )}{" "}
+            This cannot be undone.
+          </p>
+          <div className="mt-3 grid max-w-[34rem] gap-3">
+            <TextField
+              label={
+                <>
+                  Type <span className="normal-case">{type.key}</span> to confirm
+                </>
+              }
+              name={`type-${type.key}-delete-confirm`}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={confirmKey}
+              disabled={remove.isPending}
+              onChange={(event) => setConfirmKey(event.target.value)}
+            />
+            {recordCount > 0 ? (
+              <label className="flex min-h-10 items-center gap-2 text-[14px] pointer-coarse:min-h-11">
+                <input
+                  type="checkbox"
+                  checked={moveRecords}
+                  disabled={remove.isPending}
+                  onChange={(event) => setMoveRecords(event.target.checked)}
+                />
+                Move these {recordCount} {recordCount === 1 ? "record" : "records"} to trash
+              </label>
+            ) : null}
+            <FormError message={remove.error ? readError(remove.error) : null} />
+            <Button
+              variant="danger"
+              className="w-fit"
+              disabled={!deleteReady}
+              onClick={async () => {
+                try {
+                  await remove.mutateAsync(recordCount > 0);
+                  toast.showToast(
+                    recordCount > 0
+                      ? `Deleted “${type.name}”; ${recordCount} ${recordCount === 1 ? "record was" : "records were"} moved to Trash.`
+                      : `Deleted “${type.name}”.`,
+                  );
+                  navigate(`/s/${spaceId}/schema`, { replace: true });
+                } catch {
+                  // The error state below names the server's refusal.
+                }
+              }}
+            >
+              {remove.isPending ? "Deleting…" : "Delete this type"}
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
       {guard}
     </section>
   );

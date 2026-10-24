@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { Outlet, useParams } from "react-router";
 
-import { useSpace, useTypes } from "@/api/queries";
+import { useMe, useSpace, useTypes } from "@/api/queries";
 import { ErrorState } from "@/components/error-state";
 import { SpaceNav } from "@/components/space-nav";
+import { recordVisit, visitsKey } from "@/lib/visits";
 
 /**
  * One owner for the space's rail, its pending state and its refusals.
@@ -15,7 +16,17 @@ export function SpaceLayout() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
   const types = useTypes(spaceId);
+  const me = useMe();
   const error = space.error ?? types.error;
+  const userId = me.data?.id;
+
+  // The spaces list orders by the last space opened, browser-local.
+  useEffect(() => {
+    if (!userId || !spaceId) {
+      return;
+    }
+    recordVisit(window.localStorage, visitsKey(userId), spaceId, Date.now());
+  }, [userId, spaceId]);
 
   // The layout owns the title while no page is rendered; a loaded space lets
   // the page set its own, and this effect stays out of the way.

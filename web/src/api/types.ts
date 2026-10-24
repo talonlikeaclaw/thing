@@ -370,6 +370,22 @@ export interface DuplicateObjectInput {
   title?: string;
 }
 
+/** An invite code and its redemption state; the code is the join URL's tail. */
+export interface Invite {
+  code: string;
+  role: Role;
+  created_at: IsoDate;
+  expires_at: IsoDate | null;
+  used_at: IsoDate | null;
+}
+
+/** What creating an invite returns; the URL is absolute from the server config. */
+export interface CreateInviteResult {
+  code: string;
+  url: string;
+  expires_at: IsoDate | null;
+}
+
 /** One trashed record; the file and its history survive until purged. */
 export interface TrashItem {
   id: Uuid;

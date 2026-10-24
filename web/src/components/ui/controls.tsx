@@ -33,7 +33,7 @@ export function Button({ variant = "primary", className, ...props }: ButtonProps
 }
 
 interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "className"> {
-  label: string;
+  label: ReactNode;
   error?: string;
   hint?: ReactNode;
 }

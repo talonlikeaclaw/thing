@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 
 import { useLogout, useMe } from "@/api/queries";
 import { AuthScaffold, AuthUnavailable, AuthWaiting } from "@/components/auth-scaffold";
@@ -9,7 +9,6 @@ export function JoinPage() {
   const { code = "" } = useParams();
   const me = useMe();
   const logout = useLogout();
-  const navigate = useNavigate();
 
   if (me.isPending) {
     return <AuthWaiting title="Join this space" />;
@@ -29,7 +28,7 @@ export function JoinPage() {
     return (
       <AuthScaffold
         title="You're already signed in"
-        subtitle="An invite is redeemed while creating a new account. Sign out first if this invite is for you."
+        subtitle="An invite is redeemed while creating a new account. Sign out first if this invite is for you; the code stays in this page."
         footer={
           <Link to="/" className="text-ink underline decoration-line-strong">
             Go to your spaces
@@ -44,9 +43,16 @@ export function JoinPage() {
           <Button
             variant="ghost"
             disabled={logout.isPending}
-            onClick={() => logout.mutate(undefined, { onSuccess: () => navigate("/login") })}
+            onClick={() =>
+              logout.mutate(undefined, {
+                // Staying on this URL is the point: redemption needs the code,
+                // and a redirect to /login would drop it. A reload also lets
+                // the cleared session cache resolve as signed out.
+                onSuccess: () => window.location.reload(),
+              })
+            }
           >
-            {logout.isPending ? "Signing out…" : "Sign out"}
+            {logout.isPending ? "Signing out…" : "Sign out and use this invite"}
           </Button>
         </div>
       </AuthScaffold>
@@ -56,7 +62,7 @@ export function JoinPage() {
   return (
     <AuthScaffold
       title="Join this space"
-      subtitle="You were invited. Create an account and you'll land in the space this link belongs to."
+      subtitle="You were invited. Create an account and you'll join the space this link belongs to; registration returns you to your spaces."
       footer={
         <>
           Wrong link?{" "}

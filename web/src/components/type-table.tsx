@@ -125,7 +125,8 @@ export function TypeTable({
   } | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => params.get("settings") === "1");
+  const previousView = useRef(view.key);
   const [dataOpen, setDataOpen] = useState(false);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [pendingRows, setPendingRows] = useState<ReadonlySet<string>>(new Set());
@@ -175,9 +176,14 @@ export function TypeTable({
     }
   }, [params, selected.unknown, setParams, view.key]);
 
-  // Panels belong to the view they were opened on, not to the next one.
+  // Panels belong to the view they were opened on, not to the next one. A mount
+  // with `?settings=1` keeps the requested panel; only a later switch closes it.
   useEffect(() => {
     setColumnsOpen(false);
+    if (previousView.current === view.key) {
+      return;
+    }
+    previousView.current = view.key;
     setSettingsOpen(false);
   }, [view.key]);
 

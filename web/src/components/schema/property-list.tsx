@@ -39,6 +39,7 @@ export function PropertyList({
   const [targetType, setTargetType] = useState("");
   const [multi, setMulti] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
+  const [createdKey, setCreatedKey] = useState("");
 
   function reset() {
     setName("");
@@ -63,6 +64,7 @@ export function PropertyList({
         onSuccess: (created) => {
           reset();
           setShowCreate(false);
+          setCreatedKey(created.key);
           onCreated(created.key);
         },
       },
@@ -77,6 +79,13 @@ export function PropertyList({
         </h2>
         <span className="label tnum">{properties.length}</span>
       </div>
+
+      {createdKey ? (
+        <p role="status" className="border-b rule py-2 text-[12px] text-muted">
+          Created with key <span className="font-mono text-ink">{createdKey}</span>. The display
+          name can change; the key cannot.
+        </p>
+      ) : null}
 
       {properties.length === 0 ? (
         <p className="border-b rule py-4 text-[13px] text-muted">
@@ -107,6 +116,10 @@ export function PropertyList({
         <div className="mt-3">
           {showCreate ? (
             <form className="grid gap-3" onSubmit={onCreate}>
+              <p className="border-l border-line-interactive pl-3 text-[12px] text-muted">
+                The key is derived from the name, permanent, and used in file paths and CSV
+                headers.
+              </p>
               <TextField
                 label="Name"
                 name="property-name"
