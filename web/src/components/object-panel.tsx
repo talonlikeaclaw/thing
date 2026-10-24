@@ -15,8 +15,10 @@ import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
+import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { effectiveMembers, sameJson } from "@/lib/schema";
+import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { useRecordRecent } from "@/lib/use-record-recent";
 
 interface ObjectPanelProps {
@@ -25,6 +27,8 @@ interface ObjectPanelProps {
   object: ObjectDetail;
   properties: PropertyDef[];
   canEdit: boolean;
+  /** The space's calendar zone, used by the date and datetime shortcuts. */
+  timeZone: string;
   /** Refetches the record from the server; the panel replaces its draft on success. */
   reloadObject: () => Promise<ObjectDetail | undefined>;
 }
@@ -78,6 +82,7 @@ export function ObjectPanel({
   object,
   properties,
   canEdit,
+  timeZone,
   reloadObject,
 }: ObjectPanelProps) {
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
@@ -85,10 +90,17 @@ export function ObjectPanel({
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"write" | "preview">("write");
+  const [mode, setMode] = useState<"write" | "preview">(
+    object.body.trim() === "" ? "write" : "preview",
+  );
   const [confirmingTrash, setConfirmingTrash] = useState(false);
-  /** Bumped on reload so every field re-reads the draft it was given. */
-  const [nonce, setNonce] = useState(0);
+  const [confirmComplete, setConfirmComplete] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  /** Bumped only when the draft is replaced from the server, never on save. */
+  const [resetToken, setResetToken] = useState(0);
+  const [revertTokens, setRevertTokens] = useState<Record<string, number>>({});
+  const lastSavedRev = useRef<number | null>(null);
+  const focusBeforeSave = useRef<HTMLElement | null>(null);
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
   const trash = useTrashObject(spaceId);
@@ -113,73 +125,109 @@ export function ObjectPanel({
   );
   const verb = completeLabel(type?.schedule_labels);
 
-  const changes: Record<string, unknown | null> = {};
-  for (const key of keys) {
-    const before = baseline.values[key] ?? null;
-    const after = draft.values[key] ?? null;
-    if (!sameJson(before, after)) {
-      changes[key] = after === "" ? null : after;
+  function changesAgainst(base: Baseline): Record<string, unknown | null> {
+    const changes: Record<string, unknown | null> = {};
+    for (const key of keys) {
+      const before = base.values[key] ?? null;
+      const after = draft.values[key] ?? null;
+      if (!sameJson(before, after)) {
+        changes[key] = after === "" ? null : after;
+      }
     }
+    return changes;
   }
+
   const titleChanged = draft.title.trim() !== baseline.title;
   const bodyChanged = draft.body !== baseline.body;
-  const dirty = titleChanged || bodyChanged || Object.keys(changes).length > 0;
+  const changedFields = keys.filter(
+    (key) => !sameJson(baseline.values[key] ?? null, draft.values[key] ?? null),
+  );
+  const changeCount =
+    changedFields.length + (titleChanged ? 1 : 0) + (bodyChanged ? 1 : 0);
+  const dirty = changeCount > 0 && !leaving;
   const stale = object.rev !== baseline.rev;
 
-  function resetFrom(saved: ObjectDetail) {
+  function resetFrom(saved: ObjectDetail, remount = false) {
     setBaseline(baselineOf(saved));
     setDraft(draftOf(saved));
     setInvalid(new Set());
-    setNonce((current) => current + 1);
+    lastSavedRev.current = saved.rev;
+    if (remount) {
+      setResetToken((current) => current + 1);
+      setMode(saved.body.trim() === "" ? "write" : "preview");
+    }
   }
 
-  function save() {
+  function save(revOverride?: number, baseOverride?: Baseline): Promise<boolean> {
     if (!canEdit || update.isPending || invalid.size > 0) {
-      return;
+      return Promise.resolve(false);
     }
-    update.mutate(
-      {
-        id: objectId,
-        rev: baseline.rev,
-        title: draft.title.trim(),
-        body: draft.body,
-        ...(Object.keys(changes).length === 0 ? {} : { properties: changes }),
-      },
-      {
-        onSuccess: (saved) => {
-          resetFrom(saved);
-          setConflict(null);
-          setSaveError(null);
+    const base = baseOverride ?? baseline;
+    const nextChanges = changesAgainst(base);
+    focusBeforeSave.current =
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement.closest("[data-record-panel]") !== null
+        ? document.activeElement
+        : null;
+    return new Promise((resolve) => {
+      update.mutate(
+        {
+          id: objectId,
+          rev: revOverride ?? base.rev,
+          title: draft.title.trim(),
+          body: draft.body,
+          ...(Object.keys(nextChanges).length === 0 ? {} : { properties: nextChanges }),
         },
-        onError: (error) => {
-          if (error instanceof ApiError && error.status === 409) {
-            setConflict(
-              error.message ||
-                "This record changed since you loaded it. Reload it to see the current version.",
-            );
+        {
+          onSuccess: (saved) => {
+            resetFrom(saved);
+            setConflict(null);
             setSaveError(null);
-            return;
-          }
-          setSaveError(readError(error));
+            restoreFocus();
+            resolve(true);
+          },
+          onError: (error) => {
+            if (error instanceof ApiError && error.status === 409) {
+              setConflict(
+                error.message ||
+                  "This record changed since you loaded it. Reload it to see the current version.",
+              );
+              setSaveError(null);
+              resolve(false);
+              return;
+            }
+            setSaveError(readError(error));
+            restoreFocus();
+            resolve(false);
+          },
         },
-      },
-    );
+      );
+    });
+  }
+
+  /** A disabled frozen field blurred itself; return focus when it is enabled. */
+  function restoreFocus() {
+    const target = focusBeforeSave.current;
+    if (target?.isConnected) {
+      window.requestAnimationFrame(() => target.focus());
+    }
   }
 
   const saveRef = useRef(save);
   saveRef.current = save;
 
-  function onComplete() {
+  function runComplete(revOverride?: number) {
     if (!canEdit || complete.isPending) {
       return;
     }
     complete.mutate(
-      { id: objectId, rev: object.rev, previous: object },
+      { id: objectId, rev: revOverride ?? lastSavedRev.current ?? object.rev },
       {
         onSuccess: ({ object: saved, previous }) => {
-          resetFrom(saved);
+          resetFrom(saved, true);
           setConflict(null);
           setSaveError(null);
+          setConfirmComplete(false);
           const nextDue = saved.schedule?.due_date;
           toast.showToast(
             nextDue ? `Next due ${nextDue}.` : "Marked done.",
@@ -190,7 +238,7 @@ export function ObjectPanel({
                 void complete
                   .undo(saved, previous)
                   .then((undone) => {
-                    resetFrom(undone);
+                    resetFrom(undone, true);
                     toast.showToast("Completion undone.");
                   })
                   .catch((error) => {
@@ -203,7 +251,7 @@ export function ObjectPanel({
         onError: (error) => {
           if (error instanceof ApiError && error.status === 409) {
             toast.showToast(`Conflict — ${readError(error)}`, "danger");
-            void reload();
+            void reload("theirs");
             return;
           }
           setSaveError(readError(error));
@@ -212,39 +260,79 @@ export function ObjectPanel({
     );
   }
 
+  function onComplete() {
+    if (dirty) {
+      setConfirmComplete(true);
+      return;
+    }
+    runComplete();
+  }
+
+  async function saveThenComplete() {
+    const ok = await save();
+    if (ok) {
+      setConfirmComplete(false);
+      runComplete();
+    }
+  }
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+      if (
+        event.defaultPrevented ||
+        document.querySelector('[role="dialog"], [role="alertdialog"]')
+      ) {
+        return;
+      }
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        saveRef.current();
+        void saveRef.current();
+        return;
+      }
+      if (mod && event.key === "Enter") {
+        event.preventDefault();
+        void saveRef.current();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        navigate(`/s/${spaceId}/t/${object.type}`);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [navigate, object.type, spaceId]);
 
+  // A refused write must stay visible until the next attempt edits something.
   useEffect(() => {
-    if (!dirty) {
-      return;
-    }
-    function onBeforeUnload(event: BeforeUnloadEvent) {
-      event.preventDefault();
-    }
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
+    setSaveError(null);
+  }, [draft]);
 
-  async function reload() {
+  async function reload(choice: "theirs" | "mine" | "save"): Promise<boolean> {
     update.reset();
     const fresh = await reloadObject();
-    if (fresh) {
-      resetFrom(fresh);
+    if (!fresh) {
+      setSaveError("Could not reload the record. Retry in a moment.");
+      return false;
+    }
+    if (choice === "theirs") {
+      resetFrom(fresh, true);
       setConflict(null);
       setSaveError(null);
-    } else {
-      setSaveError("Could not reload the record. Retry in a moment.");
+      return true;
     }
+    const freshBase = baselineOf(fresh);
+    setBaseline(freshBase);
+    setConflict(null);
+    setSaveError(null);
+    if (choice === "save") {
+      return save(fresh.rev, freshBase);
+    }
+    return true;
   }
+
+  const guard = useDirtyGuard(dirty, () => save());
 
   /** A copy is an ordinary create; Undo trashes exactly the copy. */
   function duplicateRecord() {
@@ -274,7 +362,9 @@ export function ObjectPanel({
     trash.mutate(objectId, {
       onSuccess: () => {
         toast.showToast(`Moved “${draft.title.trim() || object.title}” to the trash.`);
-        navigate(`/s/${spaceId}/t/${object.type}`);
+        setLeaving(true);
+        // The blocker reads the previous render's `dirty`; let the state land.
+        window.setTimeout(() => navigate(`/s/${spaceId}/t/${object.type}`), 0);
       },
       onError: (error) => {
         setConfirmingTrash(false);
@@ -286,13 +376,17 @@ export function ObjectPanel({
   function field(key: string) {
     const property = propertyByKey.get(key);
     const member = members.get(key);
+    const changed = changedFields.includes(key);
     if (!property) {
+      const raw = draft.values[key];
+      const text =
+        raw !== null && typeof raw === "object"
+          ? JSON.stringify(raw)
+          : valueLabel("text", raw, undefined);
       return (
         <div key={key} className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-6">
           <span className="font-mono text-[11px] text-faint">{key}</span>
-          <span className="font-mono text-[12.5px] text-muted">
-            {String(draft.values[key] ?? "—")}
-          </span>
+          <span className="font-mono text-[12.5px] text-muted">{text || "—"}</span>
         </div>
       );
     }
@@ -302,20 +396,49 @@ export function ObjectPanel({
         className="grid gap-1 border-b rule py-3 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start sm:gap-6"
       >
         <div className="pt-1">
-          <span className="label block">{property.name}</span>
+          <span className="label flex items-center gap-1.5">
+            {changed ? (
+              <span
+                aria-label="Unsaved change"
+                title="Unsaved change"
+                className="h-1.5 w-1.5 rounded-full bg-accent"
+              />
+            ) : null}
+            {property.name}
+          </span>
           <span className="font-mono text-[10px] text-faint">
             {key}
             {member?.required ? " · required" : ""}
           </span>
+          {changed ? (
+            <button
+              type="button"
+              className="mt-0.5 block text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+              onClick={() => {
+                setDraft((current) => ({
+                  ...current,
+                  values: { ...current.values, [key]: baseline.values[key] ?? null },
+                }));
+                setRevertTokens((current) => ({
+                  ...current,
+                  [key]: (current[key] ?? 0) + 1,
+                }));
+              }}
+            >
+              Revert
+            </button>
+          ) : null}
         </div>
         <div id={`field-frame-${key}`}>
           <PropertyField
-            key={`${nonce}:${key}`}
+            key={`${objectId}:${key}:${resetToken}:${revertTokens[key] ?? 0}`}
             spaceId={spaceId}
             property={property}
             value={draft.values[key] ?? null}
             label={object.properties[key]?.label ?? ""}
             canEdit={canEdit}
+            timeZone={timeZone}
+            missing={object.properties[key]?.missing}
             locked={key === "last_completed_at" ? "Set by Complete" : undefined}
             onChange={(value) =>
               setDraft((current) => ({
@@ -341,7 +464,7 @@ export function ObjectPanel({
   }
 
   return (
-    <div className="settle">
+    <div className="settle" data-record-panel>
       <div className="flex items-center justify-between gap-4">
         <span className="font-mono text-[11px] text-faint">{object.id}</span>
         <span className="label tnum">rev {baseline.rev}</span>
@@ -349,15 +472,29 @@ export function ObjectPanel({
 
       <div className="mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b rule pb-3">
         {canEdit ? (
-          <input
-            aria-label="Title"
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint"
-            maxLength={200}
-            value={draft.title}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, title: event.target.value }))
-            }
-          />
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <input
+              aria-label="Title"
+              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint"
+              maxLength={200}
+              disabled={update.isPending}
+              value={draft.title}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, title: event.target.value }))
+              }
+            />
+            {titleChanged ? (
+              <button
+                type="button"
+                className="label shrink-0 text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                onClick={() =>
+                  setDraft((current) => ({ ...current, title: baseline.title }))
+                }
+              >
+                Revert
+              </button>
+            ) : null}
+          </div>
         ) : (
           <h1 className="min-w-0 flex-1 text-[26px] font-medium tracking-[-0.02em]">
             {draft.title}
@@ -368,7 +505,7 @@ export function ObjectPanel({
             dirty ? (
               <span className="label flex items-center gap-1.5 text-accent">
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-                unsaved
+                {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
               </span>
             ) : (
               <span className="label">saved</span>
@@ -377,27 +514,16 @@ export function ObjectPanel({
             <span className="label">read only</span>
           )}
           {canEdit ? (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                disabled={duplicate.isPending || dirty}
-                title={dirty ? "Save or discard the draft before duplicating" : "Duplicate record"}
-                onClick={duplicateRecord}
-              >
-                {duplicate.isPending ? "Duplicating…" : "Duplicate"}
-              </Button>
-              <Button
-                type="button"
-                className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                disabled={!dirty || update.isPending || invalid.size > 0}
-                title="Save (Cmd/Ctrl+S)"
-                onClick={save}
-              >
-                {update.isPending ? "Saving…" : "Save"}
-              </Button>
-            </>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={duplicate.isPending || dirty}
+              title={dirty ? "Save or discard the draft before duplicating" : "Duplicate record"}
+              onClick={duplicateRecord}
+            >
+              {duplicate.isPending ? "Duplicating…" : "Duplicate"}
+            </Button>
           ) : null}
         </div>
       </div>
@@ -450,7 +576,7 @@ export function ObjectPanel({
             <Button
               type="button"
               className="ml-auto min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={complete.isPending}
+              disabled={complete.isPending || confirmComplete}
               onClick={onComplete}
             >
               {complete.isPending ? "Saving…" : verb}
@@ -459,19 +585,83 @@ export function ObjectPanel({
         </section>
       ) : null}
 
+      {confirmComplete ? (
+        <div
+          role="alertdialog"
+          aria-label="Complete record"
+          className="mt-4 grid max-w-[52ch] gap-2 border-y rule py-3"
+        >
+          <p className="text-[13px]">
+            This record has {changeCount} unsaved{" "}
+            {changeCount === 1 ? "change" : "changes"}.{" "}
+            {changeCount === 1 ? "Save it" : "Save them"} before completing?
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={update.isPending}
+              onClick={() => void saveThenComplete()}
+            >
+              {update.isPending ? "Saving…" : "Save changes and complete"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              onClick={() => {
+                setConfirmComplete(false);
+                runComplete();
+              }}
+            >
+              Discard changes and complete
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              onClick={() => setConfirmComplete(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {conflict ? (
         <div
           role="alert"
           className="mt-4 max-w-[52ch] border-l border-warning pl-3 text-[13px] text-warning"
         >
           <p>{conflict}</p>
-          <button
-            type="button"
-            className="mt-1 text-[13px] text-ink underline decoration-line-strong hover:decoration-accent"
-            onClick={() => void reload()}
-          >
-            Reload the record (discards this draft)
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={update.isPending}
+              onClick={() => void reload("theirs")}
+            >
+              Reload their version
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={update.isPending}
+              onClick={() => void reload("mine")}
+            >
+              Keep my draft
+            </Button>
+            <Button
+              type="button"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={update.isPending}
+              onClick={() => void reload("save")}
+            >
+              Save anyway
+            </Button>
+          </div>
         </div>
       ) : stale ? (
         <div
@@ -486,20 +676,18 @@ export function ObjectPanel({
           <button
             type="button"
             className="mt-1 text-[13px] text-ink underline decoration-line-strong hover:decoration-accent"
-            onClick={() => void reload()}
+            onClick={() => void reload("theirs")}
           >
             Reload the record
           </button>
         </div>
       ) : null}
 
-      {saveError ? (
-        <div className="mt-4 max-w-[52ch]">
-          <FormError message={saveError} />
-        </div>
-      ) : null}
-
-      <section aria-label="Properties" className="mt-6">
+      <fieldset
+        aria-label="Properties"
+        disabled={update.isPending}
+        className="mt-6 m-0 min-w-0 border-0 p-0"
+      >
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="label">Properties</h2>
           <span className="label tnum">{keys.length}</span>
@@ -513,13 +701,31 @@ export function ObjectPanel({
             keys.map(field)
           )}
         </div>
-      </section>
+      </fieldset>
 
       <section aria-label="Body" className="mt-10">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="label">Body</h2>
+          <h2 className="label flex items-center gap-1.5">
+            {bodyChanged ? (
+              <span
+                aria-label="Unsaved change"
+                title="Unsaved change"
+                className="h-1.5 w-1.5 rounded-full bg-accent"
+              />
+            ) : null}
+            Body
+          </h2>
           {canEdit ? (
             <div className="flex items-center gap-1" role="group" aria-label="Body mode">
+              {bodyChanged ? (
+                <button
+                  type="button"
+                  className="label px-2 text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                  onClick={() => setDraft((current) => ({ ...current, body: baseline.body }))}
+                >
+                  Revert
+                </button>
+              ) : null}
               {(["write", "preview"] as const).map((choice) => (
                 <button
                   key={choice}
@@ -540,6 +746,7 @@ export function ObjectPanel({
         {canEdit && mode === "write" ? (
           <textarea
             aria-label="Markdown body"
+            disabled={update.isPending}
             className="mt-2 min-h-[22rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:text-[16px]"
             placeholder="Write in markdown. Saves with the rest of the record."
             spellCheck
@@ -597,6 +804,43 @@ export function ObjectPanel({
           )}
         </section>
       ) : null}
+
+      {canEdit ? (
+        <div className="sticky bottom-0 z-20 mt-8 flex flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur">
+          <Button
+            type="button"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            disabled={!dirty || update.isPending || invalid.size > 0}
+            title="Save (Cmd/Ctrl+S or Cmd/Ctrl+Enter)"
+            onClick={() => void save()}
+          >
+            {update.isPending ? "Saving…" : "Save"}
+          </Button>
+          {dirty ? (
+            <span className="label flex items-center gap-1.5 text-accent">
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+              {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
+            </span>
+          ) : (
+            <span className="label">Saved</span>
+          )}
+          {saveError ? (
+            <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
+              <FormError message={saveError} />
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                disabled={update.isPending}
+                onClick={() => void save()}
+              >
+                Retry
+              </Button>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {guard}
     </div>
   );
 }

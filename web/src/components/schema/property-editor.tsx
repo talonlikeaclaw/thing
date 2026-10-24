@@ -5,6 +5,7 @@ import type { PropertyDef } from "@/api/types";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
+import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import {
   formatLabel,
   hasOptions,
@@ -46,6 +47,20 @@ export function PropertyEditor({ spaceId, property, canEdit }: PropertyEditorPro
   const dirty = !sameJson(payload, initial);
   const invalid =
     !payload.name || (showsOptions && options.some((option) => !option.name.trim()));
+
+  function saveDraft(): Promise<boolean> {
+    if (!canEdit || invalid) {
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+      update.mutate(payload, {
+        onSuccess: () => resolve(true),
+        onError: () => resolve(false),
+      });
+    });
+  }
+
+  const guard = useDirtyGuard(dirty, saveDraft);
 
   return (
     <section aria-labelledby="property-editor" className="settle">
@@ -115,7 +130,7 @@ export function PropertyEditor({ spaceId, property, canEdit }: PropertyEditorPro
             type="button"
             className="min-h-9 px-3 text-[13px]"
             disabled={!dirty || invalid || update.isPending}
-            onClick={() => update.mutate(payload)}
+            onClick={() => void saveDraft()}
           >
             {update.isPending ? "Saving…" : "Save property"}
           </Button>
@@ -131,6 +146,7 @@ export function PropertyEditor({ spaceId, property, canEdit }: PropertyEditorPro
           Viewers can read the schema but not change it.
         </p>
       )}
+      {guard}
     </section>
   );
 }

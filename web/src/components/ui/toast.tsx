@@ -22,11 +22,15 @@ interface Toast {
   id: number;
   message: string;
   tone: ToastTone;
-  action?: ToastAction;
+  actions: ToastAction[];
 }
 
 interface ToastApi {
-  showToast: (message: string, tone?: ToastTone, action?: ToastAction) => void;
+  showToast: (
+    message: string,
+    tone?: ToastTone,
+    action?: ToastAction | ToastAction[],
+  ) => void;
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -44,15 +48,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const showToast = useCallback(
-    (message: string, tone: ToastTone = "plain", action?: ToastAction) => {
+    (
+      message: string,
+      tone: ToastTone = "plain",
+      action?: ToastAction | ToastAction[],
+    ) => {
       const id = nextId.current++;
+      const actions = action === undefined ? [] : Array.isArray(action) ? action : [action];
       setToasts((current) => {
-        const next = [...current, { id, message, tone, action }];
+        const next = [...current, { id, message, tone, actions }];
         if (next.length <= MAX_VISIBLE) {
           return next;
         }
         // An action toast owns its Undo; only a plain or danger toast may go.
-        const evictable = next.findIndex((toast) => toast.action === undefined);
+        const evictable = next.findIndex((toast) => toast.actions.length === 0);
         if (evictable !== -1) {
           next.splice(evictable, 1);
         }
@@ -112,18 +121,19 @@ function ToastRow({ toast, dismiss }: ToastRowProps) {
       onBlur={() => setPaused(false)}
     >
       <p className="min-w-0 flex-1">{toast.message}</p>
-      {toast.action ? (
+      {toast.actions.map((action) => (
         <button
+          key={action.label}
           type="button"
           className="shrink-0 text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
           onClick={() => {
-            toast.action?.onAction();
+            action.onAction();
             dismiss(toast.id);
           }}
         >
-          {toast.action.label}
+          {action.label}
         </button>
-      ) : null}
+      ))}
       <button
         type="button"
         aria-label="Dismiss"

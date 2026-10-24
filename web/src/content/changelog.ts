@@ -40,6 +40,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Reorder the space rail's links; the order is kept in this browser.",
       "The footer names the running build and links to these notes, which now lead with highlights and fold the rest away.",
       "The type page's Data panel exports every live record; import is create-only, uses property keys as its header, and is all-or-nothing at validation.",
+      "Leaving a page with an unsaved record, type, property or space setting now asks Save, Discard or Stay.",
+      "A failed cell or record save keeps what you typed with an inline Retry; a concurrent edit offers Reload, Keep my draft or Save anyway.",
+      "Board cards, gallery tiles and calendar chips carry Complete, Duplicate and Move to trash, and a busy calendar day opens every chip.",
+      "Board grouping, gallery covers and calendar date properties are editable in View settings, and the current filter can be saved as a new view.",
     ],
   },
   {

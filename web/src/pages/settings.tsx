@@ -8,6 +8,7 @@ import { Button, FormError, SelectField, TextField } from "@/components/ui/contr
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useRouteMeta } from "@/lib/route";
+import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { timezoneNames } from "@/lib/timezone";
 
 /** `/s/:spaceId/settings` — a space's name, icon, zone and deletion. */
@@ -57,14 +58,29 @@ export function SettingsPage() {
   const dirty = Object.keys(changes).length > 0;
   const invalid = trimmedName === "";
 
+  function saveDraft(): Promise<boolean> {
+    if (!owner || !dirty || invalid || update.isPending) {
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+      update.mutate(changes, {
+        onSuccess: (saved) => {
+          toast.showToast(`Saved “${saved.name}”.`);
+          resolve(true);
+        },
+        onError: () => resolve(false),
+      });
+    });
+  }
+
+  const guard = useDirtyGuard(dirty, saveDraft);
+
   const onSave = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!dirty || invalid || update.isPending) {
       return;
     }
-    update.mutate(changes, {
-      onSuccess: (saved) => toast.showToast(`Saved “${saved.name}”.`),
-    });
+    void saveDraft();
   };
 
   const onDelete = () => {
@@ -155,6 +171,8 @@ export function SettingsPage() {
           </div>
         )}
       </section>
+
+      {guard}
 
       {owner ? (
         <section aria-labelledby="space-danger" className="mt-10">

@@ -5,7 +5,7 @@ import {
   Plus,
   Table2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useCreateView } from "@/api/queries";
 import type {
@@ -75,6 +75,19 @@ export function ViewTabs({
   const [cover, setCover] = useState("");
   const [dateProperty, setDateProperty] = useState("");
 
+  const keyboardNav = useRef(false);
+
+  // A selected tab that is scrolled out of the strip must become visible, and
+  // an arrow-key selection moves focus with it.
+  useEffect(() => {
+    const tab = document.getElementById(`view-tab-${selectedKey}`);
+    tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    if (keyboardNav.current) {
+      keyboardNav.current = false;
+      tab?.focus();
+    }
+  }, [selectedKey]);
+
   function start() {
     setOpen(true);
     setName("");
@@ -137,36 +150,65 @@ export function ViewTabs({
 
   return (
     <div className="mt-5">
-      <div
-        aria-label="Saved views"
-        className="flex items-stretch gap-1 overflow-x-auto border-b rule"
-      >
-        {type.views.map((view) => {
-          const Icon = viewKindIcon(view.kind);
-          const selected = view.key === selectedKey;
-          const isDefault = view.key === type.default_view;
-          return (
-            <button
-              key={view.key}
-              type="button"
-              aria-pressed={selected}
-              title={`${viewKindLabel(view.kind)} view`}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 border-b border-transparent px-2.5 py-2 text-[13px] transition-colors hover:text-ink pointer-coarse:min-h-11",
-                selected ? "border-accent text-accent" : "text-muted",
-              )}
-              onClick={() => onSelect(view.key)}
-            >
-              <Icon aria-hidden size={14} className="shrink-0" />
-              <span className="max-w-[14rem] truncate">{view.name}</span>
-              {isDefault ? (
-                <span className="font-mono text-[9px] tracking-[0.09em] text-faint">
-                  DEFAULT
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+      <div className="flex items-stretch gap-1 border-b rule">
+        <div
+          role="tablist"
+          aria-label="Saved views"
+          className="flex min-w-0 items-stretch gap-1 overflow-x-auto"
+          onKeyDown={(event) => {
+            const index = type.views.findIndex((view) => view.key === selectedKey);
+            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+              event.preventDefault();
+              keyboardNav.current = true;
+              const delta = event.key === "ArrowRight" ? 1 : -1;
+              const next = type.views[(index + delta + type.views.length) % type.views.length];
+              if (next) {
+                onSelect(next.key);
+              }
+            } else if (event.key === "Home" && type.views[0]) {
+              event.preventDefault();
+              keyboardNav.current = true;
+              onSelect(type.views[0].key);
+            } else if (event.key === "End") {
+              const last = type.views[type.views.length - 1];
+              if (last) {
+                event.preventDefault();
+                keyboardNav.current = true;
+                onSelect(last.key);
+              }
+            }
+          }}
+        >
+          {type.views.map((view) => {
+            const Icon = viewKindIcon(view.kind);
+            const selected = view.key === selectedKey;
+            const isDefault = view.key === type.default_view;
+            return (
+              <button
+                key={view.key}
+                id={`view-tab-${view.key}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                title={`${viewKindLabel(view.kind)} view`}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 border-b border-transparent px-2.5 py-2 text-[13px] transition-colors hover:text-ink pointer-coarse:min-h-11",
+                  selected ? "border-accent text-accent" : "text-muted",
+                )}
+                onClick={() => onSelect(view.key)}
+              >
+                <Icon aria-hidden size={14} className="shrink-0" />
+                <span className="max-w-[14rem] truncate">{view.name}</span>
+                {isDefault ? (
+                  <span className="font-mono text-[9px] tracking-[0.09em] text-faint">
+                    DEFAULT
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
         {canEdit ? (
           <button
             type="button"
@@ -191,6 +233,7 @@ export function ViewTabs({
               label="Name"
               name={`new-${type.key}-view-name`}
               required
+              autoFocus
               maxLength={80}
               placeholder="By room"
               value={name}

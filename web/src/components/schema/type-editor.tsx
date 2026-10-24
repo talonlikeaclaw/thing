@@ -15,6 +15,7 @@ import { IconPicker } from "@/components/icon-picker";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, FormError, SelectField, TextAreaField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
+import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { filterParam } from "@/lib/filter";
 import {
   isScheduleKey,
@@ -157,9 +158,19 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
     setMembers(removeProperty(members, key));
   }
 
-  function onSave() {
-    update.mutate(payload);
+  function saveDraft(): Promise<boolean> {
+    if (!canEdit || invalid) {
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+      update.mutate(payload, {
+        onSuccess: () => resolve(true),
+        onError: () => resolve(false),
+      });
+    });
   }
+
+  const guard = useDirtyGuard(dirty, saveDraft);
 
   const conflict = disableConflict(update.error);
   const scheduleKeyFilter: Filter = {
@@ -474,7 +485,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
             type="button"
             className="min-h-9 px-3 text-[13px]"
             disabled={!dirty || invalid || update.isPending}
-            onClick={onSave}
+            onClick={() => void saveDraft()}
           >
             {update.isPending ? "Saving…" : "Save type"}
           </Button>
@@ -492,6 +503,7 @@ export function TypeEditor({ spaceId, type, properties, canEdit }: TypeEditorPro
           Viewers can read the schema but not change it.
         </p>
       )}
+      {guard}
     </section>
   );
 }

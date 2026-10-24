@@ -6,8 +6,8 @@ import {
   useSetDefaultView,
   useUpdateView,
 } from "@/api/queries";
-import type { TypeDef, ViewDef } from "@/api/types";
-import { Button, FormError, TextField } from "@/components/ui/controls";
+import type { PropertyDef, TypeDef, ViewDef } from "@/api/types";
+import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 import { viewKindLabel } from "@/components/views/view-tabs";
 
@@ -15,6 +15,7 @@ interface ViewSettingsProps {
   spaceId: string;
   type: TypeDef;
   view: ViewDef;
+  properties: PropertyDef[];
   onClose: () => void;
   onDeleted: (nextViewKey: string) => void;
 }
@@ -24,6 +25,7 @@ export function ViewSettings({
   spaceId,
   type,
   view,
+  properties,
   onClose,
   onDeleted,
 }: ViewSettingsProps) {
@@ -41,6 +43,20 @@ export function ViewSettings({
   const isDefault = view.key === type.default_view;
   const canDelete = type.views.length > 1;
   const nameDirty = name.trim() !== view.name && name.trim() !== "";
+  const selectProperties = properties.filter((property) => property.format === "select");
+  const dateProperties = properties.filter((property) => property.format === "date");
+  const groupMissing =
+    view.kind === "board" &&
+    view.group_by !== undefined &&
+    !properties.some((property) => property.key === view.group_by);
+  const dateMissing =
+    view.kind === "calendar" &&
+    view.date_property !== undefined &&
+    !properties.some((property) => property.key === view.date_property);
+  const coverMissing =
+    view.kind === "gallery" &&
+    view.cover !== undefined &&
+    !properties.some((property) => property.key === view.cover);
 
   function rename() {
     if (!nameDirty) {
@@ -118,6 +134,97 @@ export function ViewSettings({
       <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
         Kind is fixed; create a view to show these records another way.
       </p>
+
+      {view.kind === "board" ? (
+        <div className="mt-3 grid max-w-[28rem] gap-2">
+          <SelectField
+            label="Group by"
+            value={view.group_by ?? ""}
+            options={[
+              { value: "", label: "Choose a select property" },
+              ...selectProperties.map((property) => ({
+                value: property.key,
+                label: property.name,
+              })),
+            ]}
+            onValueChange={(next) => {
+              if (next) {
+                update.mutate({ group_by: next });
+              }
+            }}
+            disabled={update.isPending}
+            hint={
+              selectProperties.length === 0
+                ? "Add a select property in the schema first."
+                : undefined
+            }
+          />
+          {groupMissing ? (
+            <p className="border-l border-warning pl-3 text-[12px] text-warning">
+              The saved group property <span className="font-mono">{view.group_by}</span>{" "}
+              no longer exists. Choose another one here.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {view.kind === "gallery" ? (
+        <div className="mt-3 grid max-w-[28rem] gap-2">
+          <SelectField
+            label="Cover property"
+            value={view.cover ?? ""}
+            options={[
+              { value: "", label: "No cover (type icon)" },
+              ...properties.map((property) => ({
+                value: property.key,
+                label: property.name,
+              })),
+            ]}
+            onValueChange={(next) => update.mutate({ cover: next || null })}
+            disabled={update.isPending}
+          />
+          {coverMissing ? (
+            <p className="border-l border-warning pl-3 text-[12px] text-warning">
+              The saved cover property <span className="font-mono">{view.cover}</span> no
+              longer exists. Choose another one here.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {view.kind === "calendar" ? (
+        <div className="mt-3 grid max-w-[28rem] gap-2">
+          <SelectField
+            label="Date property"
+            value={view.date_property ?? ""}
+            options={[
+              { value: "", label: "Choose a date property" },
+              ...dateProperties.map((property) => ({
+                value: property.key,
+                label: property.name,
+              })),
+            ]}
+            onValueChange={(next) => {
+              if (next) {
+                update.mutate({ date_property: next });
+              }
+            }}
+            disabled={update.isPending}
+            hint={
+              dateProperties.length === 0
+                ? "Add a date property in the schema first."
+                : undefined
+            }
+          />
+          {dateMissing ? (
+            <p className="border-l border-warning pl-3 text-[12px] text-warning">
+              The saved date property{" "}
+              <span className="font-mono">{view.date_property}</span> no longer exists.
+              Choose another one here.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-4 border-t rule pt-3">
         {!canDelete ? (

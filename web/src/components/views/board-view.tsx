@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { ObjectSummary, PropertyDef, ViewDef } from "@/api/types";
 import { PropertyValue } from "@/components/property-cell";
 import { Button } from "@/components/ui/controls";
+import { CardActions } from "@/components/views/card-actions";
 import { groupRows } from "@/lib/views";
 
 interface BoardViewProps {
@@ -11,7 +12,13 @@ interface BoardViewProps {
   rows: ObjectSummary[];
   properties: PropertyDef[];
   canEdit: boolean;
+  completing: boolean;
+  pendingRows: ReadonlySet<string>;
+  verb: string;
   onOpenSettings: () => void;
+  onComplete: (row: ObjectSummary) => void;
+  onDuplicate: (row: ObjectSummary) => void;
+  onTrash: (row: ObjectSummary) => void;
 }
 
 /** A board: one lane per select option, cards carrying the view's columns. */
@@ -21,7 +28,13 @@ export function BoardView({
   rows,
   properties,
   canEdit,
+  completing,
+  pendingRows,
+  verb,
   onOpenSettings,
+  onComplete,
+  onDuplicate,
+  onTrash,
 }: BoardViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const group = view.group_by ? propertyByKey.get(view.group_by) : undefined;
@@ -71,12 +84,29 @@ export function BoardView({
             ) : (
               <ul className="mt-2 grid gap-1.5">
                 {lane.rows.map((row) => (
-                  <li key={row.id}>
+                  <li key={row.id} className="relative">
+                    <div className="absolute top-1 right-1 z-10">
+                      <CardActions
+                        spaceId={spaceId}
+                        row={row}
+                        canEdit={canEdit}
+                        completing={completing}
+                        pending={pendingRows.has(row.id)}
+                        showComplete={row.schedule !== undefined && row.schedule.status !== "done"}
+                        verb={verb}
+                        onComplete={() => onComplete(row)}
+                        onDuplicate={() => onDuplicate(row)}
+                        onTrash={() => onTrash(row)}
+                      />
+                    </div>
                     <Link
                       to={`/s/${spaceId}/o/${row.id}`}
-                      className="block rounded-field border border-line bg-surface px-2.5 py-2 transition-colors hover:border-line-strong"
+                      className="block rounded-field border border-line bg-surface px-2.5 py-2 pr-16 transition-colors hover:border-line-strong"
                     >
-                      <span className="block truncate text-[14px] font-medium text-ink">
+                      <span
+                        title={row.title}
+                        className="line-clamp-2 text-[14px] font-medium text-ink"
+                      >
                         {row.title}
                       </span>
                       {cards.length > 0 ? (

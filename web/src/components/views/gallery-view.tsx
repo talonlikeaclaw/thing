@@ -2,6 +2,7 @@ import { Link } from "react-router";
 
 import type { ObjectSummary, PropertyDef, TypeDef, ViewDef } from "@/api/types";
 import { PropertyValue } from "@/components/property-cell";
+import { CardActions } from "@/components/views/card-actions";
 
 interface GalleryViewProps {
   spaceId: string;
@@ -9,6 +10,13 @@ interface GalleryViewProps {
   view: ViewDef;
   rows: ObjectSummary[];
   properties: PropertyDef[];
+  canEdit: boolean;
+  completing: boolean;
+  pendingRows: ReadonlySet<string>;
+  verb: string;
+  onComplete: (row: ObjectSummary) => void;
+  onDuplicate: (row: ObjectSummary) => void;
+  onTrash: (row: ObjectSummary) => void;
 }
 
 /** A gallery of typographic tiles: the cover label, then the view's columns. */
@@ -18,6 +26,13 @@ export function GalleryView({
   view,
   rows,
   properties,
+  canEdit,
+  completing,
+  pendingRows,
+  verb,
+  onComplete,
+  onDuplicate,
+  onTrash,
 }: GalleryViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const cover = view.cover ? propertyByKey.get(view.cover) : undefined;
@@ -29,7 +44,21 @@ export function GalleryView({
       {rows.map((row) => {
         const coverLabel = cover ? row.values[cover.key]?.label.trim() : "";
         return (
-          <li key={row.id} className="min-w-0">
+          <li key={row.id} className="relative min-w-0">
+            <div className="absolute top-1 right-1 z-10">
+              <CardActions
+                spaceId={spaceId}
+                row={row}
+                canEdit={canEdit}
+                completing={completing}
+                pending={pendingRows.has(row.id)}
+                showComplete={row.schedule !== undefined && row.schedule.status !== "done"}
+                verb={verb}
+                onComplete={() => onComplete(row)}
+                onDuplicate={() => onDuplicate(row)}
+                onTrash={() => onTrash(row)}
+              />
+            </div>
             <Link
               to={`/s/${spaceId}/o/${row.id}`}
               className="flex h-full flex-col rounded-field border border-line bg-surface transition-colors hover:border-line-strong"
@@ -46,7 +75,10 @@ export function GalleryView({
                 )}
               </span>
               <span className="grid gap-1.5 px-3 py-2.5">
-                <span className="truncate text-[14px] font-medium text-ink">
+                <span
+                  title={row.title}
+                  className="line-clamp-2 text-[14px] font-medium text-ink"
+                >
                   {row.title}
                 </span>
                 {cards.length > 0 ? (

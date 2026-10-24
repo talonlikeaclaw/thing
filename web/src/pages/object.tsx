@@ -67,6 +67,7 @@ export function ObjectPage() {
         object={record}
         properties={effectiveProperties(typeData, propertiesData)}
         canEdit={detail.role !== "viewer"}
+        timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
       />
       <HistoryPanel

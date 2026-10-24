@@ -1,7 +1,7 @@
 import { Check, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { PropertyDef, ScheduleState, ValueJson } from "@/api/types";
+import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
 import { PropertyInput, TitleInput } from "@/components/property-input";
 import { formatDateTime } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
@@ -19,7 +19,9 @@ interface PropertyCellProps {
   cell: ValueJson | undefined;
   schedule: ScheduleState | undefined;
   canEdit: boolean;
-  onCommit: (commit: CellCommit) => void;
+  /** The row's title, so the control names its record to a screen reader. */
+  rowTitle: string;
+  onCommit: (commit: CellCommit) => Promise<WriteResult>;
 }
 
 /** A table cell: the label until clicked, then the format's own input. */
@@ -29,32 +31,91 @@ export function PropertyCell({
   cell,
   schedule,
   canEdit,
+  rowTitle,
   onCommit,
 }: PropertyCellProps) {
   const [editing, setEditing] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [failure, setFailure] = useState<WriteResult | null>(null);
+  const [attempt, setAttempt] = useState<CellCommit | null>(null);
+  const [edition, setEdition] = useState(0);
+  const button = useRef<HTMLButtonElement | null>(null);
+  const returnFocus = useRef(false);
   const value = cell?.value;
   const label = cell?.label ?? "";
 
+  useEffect(() => {
+    if (!editing && returnFocus.current) {
+      returnFocus.current = false;
+      button.current?.focus();
+    }
+  }, [editing]);
+
+  function finish() {
+    returnFocus.current = true;
+    setEditing(false);
+    setAttempt(null);
+    setFailure(null);
+  }
+
+  async function write(next: CellCommit) {
+    setAttempt(next);
+    setWriting(true);
+    setFailure(null);
+    const outcome = await onCommit(next);
+    setWriting(false);
+    if (outcome.ok) {
+      finish();
+    } else {
+      setFailure(outcome);
+    }
+  }
+
   if (editing && canEdit) {
     return (
-      <PropertyInput
-        spaceId={spaceId}
-        property={property}
-        value={value}
-        onCommit={(next, nextLabel) => {
-          setEditing(false);
-          onCommit({ value: next, label: nextLabel });
-        }}
-        onCancel={() => setEditing(false)}
-      />
+      <div className="grid gap-1">
+        <PropertyInput
+          key={edition}
+          spaceId={spaceId}
+          property={property}
+          value={attempt?.value ?? value}
+          onCommit={(next, nextLabel) => void write({ value: next, label: nextLabel })}
+          onCancel={finish}
+        />
+        {writing ? (
+          <span role="status" className="text-[10px] text-muted">
+            Saving…
+          </span>
+        ) : null}
+        {failure && !failure.ok ? (
+          <div role="alert" className="flex flex-wrap items-center gap-2 text-[11px] text-danger">
+            <span>{failure.message ?? "The write was refused."}</span>
+            <button
+              type="button"
+              className="underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11"
+              onClick={() => {
+                if (attempt) {
+                  void write(attempt);
+                } else {
+                  setFailure(null);
+                  setEdition((current) => current + 1);
+                }
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
+      </div>
     );
   }
 
   return (
     <button
+      ref={button}
       type="button"
       disabled={!canEdit}
-      aria-label={`Edit ${property.name}`}
+      aria-label={`Edit ${property.name} for “${rowTitle}”, currently “${label || "empty"}”`}
       className={cn(
         "flex min-h-8 w-full items-center gap-1.5 rounded-[3px] px-1.5 py-1 text-left text-[13px] transition-colors",
         canEdit ? "hover:bg-raised" : "cursor-default",
@@ -77,39 +138,89 @@ export function PropertyCell({
 export function TitleCell({
   title,
   canEdit,
-  startEditing = false,
   onCommit,
-  onCancel,
 }: {
   title: string;
   canEdit: boolean;
-  startEditing?: boolean;
-  onCommit: (title: string) => void;
-  onCancel?: () => void;
+  onCommit: (title: string) => Promise<WriteResult>;
 }) {
-  const [editing, setEditing] = useState(startEditing);
+  const [editing, setEditing] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [failure, setFailure] = useState<WriteResult | null>(null);
+  const [attempt, setAttempt] = useState(title);
+  const [edition, setEdition] = useState(0);
+  const button = useRef<HTMLButtonElement | null>(null);
+  const returnFocus = useRef(false);
+
+  useEffect(() => {
+    if (!editing && returnFocus.current) {
+      returnFocus.current = false;
+      button.current?.focus();
+    }
+  }, [editing]);
+
+  function finish() {
+    returnFocus.current = true;
+    setEditing(false);
+    setFailure(null);
+  }
+
+  async function write(next: string) {
+    setAttempt(next);
+    setWriting(true);
+    setFailure(null);
+    const outcome = await onCommit(next);
+    setWriting(false);
+    if (outcome.ok) {
+      finish();
+    } else {
+      setFailure(outcome);
+    }
+  }
 
   if (editing && canEdit) {
     return (
-      <TitleInput
-        title={title}
-        onCommit={(next) => {
-          setEditing(false);
-          onCommit(next);
-        }}
-        onCancel={() => {
-          setEditing(false);
-          onCancel?.();
-        }}
-      />
+      <div className="grid gap-1">
+        <TitleInput
+          key={edition}
+          title={attempt}
+          onCommit={(next) => void write(next)}
+          onCancel={finish}
+        />
+        {writing ? (
+          <span role="status" className="text-[10px] text-muted">
+            Saving…
+          </span>
+        ) : null}
+        {failure && !failure.ok ? (
+          <div role="alert" className="flex flex-wrap items-center gap-2 text-[11px] text-danger">
+            <span>{failure.message ?? "The write was refused."}</span>
+            <button
+              type="button"
+              className="underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11"
+              onClick={() => {
+                if (attempt) {
+                  void write(attempt);
+                } else {
+                  setFailure(null);
+                  setEdition((current) => current + 1);
+                }
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
+      </div>
     );
   }
 
   return (
     <button
+      ref={button}
       type="button"
       disabled={!canEdit}
-      aria-label="Edit title"
+      aria-label={`Edit title for “${title}”, currently “${title}”`}
       className={cn(
         "flex min-h-8 w-full items-center rounded-[3px] px-1.5 py-1 text-left text-[14px] font-medium transition-colors",
         canEdit ? "hover:bg-raised" : "cursor-default",

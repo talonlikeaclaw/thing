@@ -330,6 +330,12 @@ export interface Revision {
   changed: string[];
 }
 
+/** The outcome of one in-place write; a refusal keeps the editor on screen. */
+export interface WriteResult {
+  ok: boolean;
+  message?: string;
+}
+
 /** One reason a CSV file was refused; `row` 0 means the file or header. */
 export interface CsvProblem {
   row: number;

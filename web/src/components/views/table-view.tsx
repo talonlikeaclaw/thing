@@ -23,7 +23,9 @@ import type {
   TypeDef,
   ValueJson,
   ViewDef,
+  WriteResult,
 } from "@/api/types";
+import { PropertyField } from "@/components/property-field";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
@@ -54,23 +56,31 @@ interface TableViewProps {
   pendingRows: ReadonlySet<string>;
   /** The bulk editor's inline panel is taller than the selection band. */
   bulkOpen: boolean;
-  autoEditId: string | null;
+  /** Required members a new record must carry before the POST. */
+  requiredProperties: PropertyDef[];
+  draft: { title: string; values: Record<string, unknown | null>; error: string | null } | null;
+  /** A just-created record stays highlighted briefly. */
+  highlightId: string | null;
+  timeZone: string;
+  onDraftTitle: (title: string) => void;
+  onDraftValue: (key: string, value: unknown | null) => void;
+  onDraftCommit: () => void;
+  onDraftCancel: () => void;
   onSort: (key: string, additive: boolean) => void;
   onToggleRow: (id: string) => void;
   onToggleAll: () => void;
   onClearSelection: () => void;
-  onTitleCommit: (row: ObjectSummary, title: string) => void;
+  onTitleCommit: (row: ObjectSummary, title: string) => Promise<WriteResult>;
   onCellCommit: (
     row: ObjectSummary,
     property: PropertyDef,
     cell: { value: unknown; label: string },
-  ) => void;
+  ) => Promise<WriteResult>;
   onComplete: (row: ObjectSummary) => void;
   onDuplicate: (row: ObjectSummary) => void;
   onTrash: (row: ObjectSummary) => void;
   onFocusSearch: () => void;
   onResize: (key: string, width: number) => void;
-  onCancelAutoEdit: () => void;
 }
 
 /**
@@ -91,7 +101,14 @@ export function TableView({
   selected,
   pendingRows,
   bulkOpen,
-  autoEditId,
+  requiredProperties,
+  draft,
+  highlightId,
+  timeZone,
+  onDraftTitle,
+  onDraftValue,
+  onDraftCommit,
+  onDraftCancel,
   onSort,
   onToggleRow,
   onToggleAll,
@@ -103,7 +120,6 @@ export function TableView({
   onTrash,
   onFocusSearch,
   onResize,
-  onCancelAutoEdit,
 }: TableViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const columns = view.columns.filter((key) => key !== "title");
@@ -396,6 +412,78 @@ export function TableView({
           </tr>
         </thead>
         <tbody className={busy ? "pointer-events-none opacity-60" : undefined}>
+          {draft ? (
+            <tr className="border-b rule bg-raised/40">
+              {canEdit ? <td className="sticky left-0 z-10 bg-raised/40" /> : null}
+              <th
+                scope="row"
+                className="sticky z-10 border-r rule p-1 text-left font-normal"
+                style={{ left: selectOffset * SELECT_WIDTH }}
+              >
+                <div className="grid gap-1.5">
+                  <input
+                    autoFocus
+                    aria-label="New record title"
+                    className="h-8 w-full rounded-[3px] border border-line-interactive bg-ground px-1.5 text-[14px] font-medium text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                    maxLength={200}
+                    placeholder="Untitled"
+                    value={draft.title}
+                    onChange={(event) => onDraftTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        onDraftCommit();
+                      }
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        onDraftCancel();
+                      }
+                    }}
+                  />
+                  {requiredProperties.map((property) => (
+                    <div key={property.key} className="grid gap-0.5">
+                      <span className="label">{property.name} · required</span>
+                      <PropertyField
+                        spaceId={spaceId}
+                        property={property}
+                        value={draft.values[property.key] ?? null}
+                        label=""
+                        canEdit
+                        timeZone={timeZone}
+                        onChange={(value) => onDraftValue(property.key, value)}
+                        onInvalid={() => undefined}
+                      />
+                    </div>
+                  ))}
+                  {draft.error ? (
+                    <p role="alert" className="text-[11px] text-danger">
+                      {draft.error}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-1">
+                    <button
+                      type="button"
+                      className="rounded-[3px] bg-accent px-2 py-1 text-[11px] text-accent-ink pointer-coarse:min-h-11"
+                      onClick={onDraftCommit}
+                    >
+                      Create
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-[3px] px-2 py-1 text-[11px] text-muted hover:text-ink pointer-coarse:min-h-11"
+                      onClick={onDraftCancel}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </th>
+              {columns.map((key) => (
+                <td key={key} className="py-1 pr-2" />
+              ))}
+              <td className="sticky right-0 border-l rule bg-raised/40" />
+            </tr>
+          ) : null}
           {rows.map((row, rowIndex) => {
             const isSelected = selected.has(row.id);
             const rowActive = active?.row === rowIndex;
@@ -409,6 +497,7 @@ export function TableView({
                 className={cn(
                   "group border-b rule align-top",
                   isSelected && "bg-raised",
+                  row.id === highlightId && "bg-accent/10",
                   rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
                 )}
               >
@@ -451,9 +540,7 @@ export function TableView({
                   <TitleCell
                     title={row.title}
                     canEdit={canEdit}
-                    startEditing={row.id === autoEditId}
                     onCommit={(title) => onTitleCommit(row, title)}
-                    onCancel={onCancelAutoEdit}
                   />
                 </th>
                 {columns.map((key, offset) => {
@@ -487,6 +574,7 @@ export function TableView({
                         cell={row.values[key] as ValueJson | undefined}
                         schedule={row.schedule}
                         canEdit={canEdit}
+                        rowTitle={row.title}
                         onCommit={(cell) => onCellCommit(row, property, cell)}
                       />
                     </td>

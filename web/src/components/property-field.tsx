@@ -5,8 +5,9 @@ import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
-import { formatDateTime, readError } from "@/lib/display";
+import { formatDateTime, readError, shortId } from "@/lib/display";
 import { datetimeLocal, fromDatetimeLocal, inputText, isBlank, isChecked, optionName } from "@/lib/format";
+import { todayIn } from "@/lib/timezone";
 import { optionDrafts, optionInputs } from "@/lib/schema";
 
 interface PropertyFieldProps {
@@ -19,6 +20,10 @@ interface PropertyFieldProps {
   canEdit: boolean;
   /** A reason the field is read-only even for an editor; shown under the value. */
   locked?: string;
+  /** The space's calendar zone, used by the date shortcuts. */
+  timeZone?: string;
+  /** The server says a relation points at a record this reader cannot see. */
+  missing?: boolean;
   onChange: (value: unknown | null) => void;
   /** A field whose text cannot be saved (a half-typed number) disables Save. */
   onInvalid: (invalid: boolean) => void;
@@ -125,6 +130,7 @@ function TextField({
   value,
   onChange,
   onInvalid,
+  timeZone,
 }: PropertyFieldProps) {
   const format = property.format;
   const initial =
@@ -197,6 +203,38 @@ function TextField({
         <p role="alert" className="text-[12px] text-danger">
           Enter a number.
         </p>
+      ) : null}
+      {format === "date" || format === "datetime" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+            onClick={() => {
+              setText("");
+              setInvalid(false);
+              onInvalid(false);
+              onChange(null);
+            }}
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+            onClick={() => {
+              const zone =
+                timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const next =
+                format === "date" ? todayIn(zone) : datetimeLocal(new Date().toISOString());
+              setText(next);
+              setInvalid(false);
+              onInvalid(false);
+              onChange(format === "date" ? next : fromDatetimeLocal(next));
+            }}
+          >
+            {format === "date" ? "Today" : "Now"}
+          </button>
+        </div>
       ) : null}
     </div>
   );
@@ -429,6 +467,17 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
       : [];
   const needle = query.trim().toLowerCase();
   const visible = choices.filter((choice) => choice.title.toLowerCase().includes(needle));
+  const known = new Set(choices.map((choice) => choice.id));
+  const absent = loading ? [] : selected.filter((id) => !known.has(id));
+
+  function remove(id: string) {
+    if (!multi) {
+      onChange(null);
+      return;
+    }
+    const next = selected.filter((item) => item !== id);
+    onChange(next.length === 0 ? null : next);
+  }
 
   function toggle(id: string) {
     if (!multi) {
@@ -450,6 +499,24 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
+      {absent.length > 0 ? (
+        <ul aria-label="Missing targets" className="grid gap-0.5 border-b rule pb-1">
+          {absent.map((id) => (
+            <li key={id} className="flex items-center justify-between gap-2 px-1 py-0.5 text-[12px]">
+              <span className="min-w-0 truncate text-warning">
+                Missing target <span className="font-mono text-[11px]">{shortId(id)}</span>
+              </span>
+              <button
+                type="button"
+                className="shrink-0 text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                onClick={() => remove(id)}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="max-h-48 overflow-auto">
         {loading ? (
           <p className="px-1 py-1 text-[12px] text-muted">Reading targets…</p>

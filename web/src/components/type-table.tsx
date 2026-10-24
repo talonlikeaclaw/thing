@@ -1,6 +1,6 @@
 import { Columns3, FileSpreadsheet, Search, Settings2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -10,6 +10,7 @@ import {
   useBulkTrashObjects,
   useCompleteObject,
   useCreateObject,
+  useCreateView,
   useDuplicateObject,
   useObjects,
   useRestoreObject,
@@ -25,13 +26,14 @@ import type {
   TypeDef,
   UpdateView,
   Uuid,
+  WriteResult,
 } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterBar } from "@/components/filter-bar";
 import { SortBar } from "@/components/sort-bar";
 import { useTableShortcuts } from "@/components/table-shortcuts";
-import { Button, FormError } from "@/components/ui/controls";
+import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { BoardView } from "@/components/views/board-view";
 import { CalendarView } from "@/components/views/calendar-view";
@@ -42,6 +44,7 @@ import { TableView } from "@/components/views/table-view";
 import { ViewSettings } from "@/components/views/view-settings";
 import { ViewTabs } from "@/components/views/view-tabs";
 import { readError } from "@/lib/display";
+import { isBlank } from "@/lib/format";
 import {
   columnChoices,
   cycleSort,
@@ -55,6 +58,7 @@ import {
   type ShortcutDescriptor,
 } from "@/lib/hotkeys";
 import { clampPage, PAGE_SIZE, pageCount, pageFromParam, pageRange } from "@/lib/paging";
+import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
 import {
   effectiveQuery,
@@ -108,16 +112,26 @@ export function TypeTable({
   const bulkTrash = useBulkTrashObjects(spaceId);
   const bulkRestore = useBulkRestoreObjects(spaceId);
   const layout = useUpdateView(spaceId, type.key, view.key);
+  const createView = useCreateView(spaceId, type.key);
   const client = useQueryClient();
   const toast = useToast();
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const [autoEditId, setAutoEditId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
+  const [draft, setDraft] = useState<{
+    title: string;
+    values: Record<string, unknown | null>;
+    error: string | null;
+  } | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
   const [pendingRows, setPendingRows] = useState<ReadonlySet<string>>(new Set());
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsName, setSaveAsName] = useState("");
 
   const tableShortcuts = useMemo(
     () => (isTable ? (canEdit ? TABLE_SHORTCUTS : TABLE_VIEWER_SHORTCUTS) : NO_SHORTCUTS),
@@ -132,6 +146,17 @@ export function TypeTable({
     ) ??
     properties[0]?.key ??
     "";
+
+  const requiredProperties = useMemo(
+    () =>
+      type.properties
+        .filter((member) => member.required)
+        .flatMap((member) => {
+          const property = properties.find((entry) => entry.key === member.key);
+          return property ? [property] : [];
+        }),
+    [properties, type.properties],
+  );
 
   // Generated schedule keys are never required; only declared members can be.
   const requiredKeys = useMemo(
@@ -154,7 +179,6 @@ export function TypeTable({
   useEffect(() => {
     setColumnsOpen(false);
     setSettingsOpen(false);
-    setAutoEditId(null);
   }, [view.key]);
 
   // `page` only means something to the table; leaving it behind would make a
@@ -299,6 +323,36 @@ export function TypeTable({
     );
   }
 
+  function saveAsView() {
+    const name = saveAsName.trim();
+    if (!name || createView.isPending) {
+      return;
+    }
+    createView.mutate(
+      {
+        name,
+        kind: view.kind,
+        filter: query.filter,
+        sorts: query.sorts,
+        columns: view.columns,
+        ...(view.widths ? { widths: view.widths } : {}),
+        ...(view.group_by ? { group_by: view.group_by } : {}),
+        ...(view.cover ? { cover: view.cover } : {}),
+        ...(view.date_property ? { date_property: view.date_property } : {}),
+      },
+      {
+        onSuccess: (detail) => {
+          const created = detail.views.at(-1);
+          setSaveAsOpen(false);
+          setSaveAsName("");
+          if (created) {
+            selectView(created.key);
+          }
+        },
+      },
+    );
+  }
+
   function setFilter(next: Filter) {
     editParams((paramsNext) => {
       paramsNext.set("filter", filterParam(next));
@@ -315,28 +369,71 @@ export function TypeTable({
     setSorts(cycleSort(query.sorts, key, additive));
   }
 
+  /**
+   * Writes to one row are serialized, and the next write uses the revision the
+   * previous one returned. Two quick edits therefore cannot conflict with each
+   * other; a third party's write still can, and that failure belongs to the row.
+   */
+  function enqueueRow<T>(
+    id: string,
+    task: (rev: number | undefined) => Promise<T>,
+  ): Promise<T> {
+    const entry = journal.current.get(id);
+    // The revision is read when the task actually runs, so a queued write sees
+    // the revision its predecessor returned.
+    const run = (entry?.queue ?? Promise.resolve()).then(() =>
+      task(journal.current.get(id)?.rev),
+    );
+    journal.current.set(id, {
+      rev: entry?.rev,
+      queue: run.catch(() => undefined),
+    });
+    return run;
+  }
+
+  async function writeRow(
+    row: ObjectSummary,
+    input: { title?: string; properties?: Record<string, unknown | null>; cells?: Record<string, { value: unknown; label: string } | null> },
+  ): Promise<WriteResult> {
+    try {
+      const saved = await enqueueRow(row.id, (rev) =>
+        update.mutateAsync({
+          id: row.id,
+          rev: rev ?? row.rev,
+          ...input,
+        }),
+      );
+      const entry = journal.current.get(row.id);
+      if (entry) {
+        entry.rev = saved.rev;
+      }
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        // Drop the remembered revision; the refreshed row is the next authority.
+        journal.current.delete(row.id);
+        void client.invalidateQueries({ queryKey: queryKeys.objectsPrefix(spaceId) });
+      }
+      return { ok: false, message: readError(error) };
+    }
+  }
+
   function commitCell(
     row: ObjectSummary,
     property: PropertyDef,
     cell: { value: unknown; label: string },
-  ) {
-    update.mutate(
-      {
-        id: row.id,
-        rev: row.rev,
-        properties: { [property.key]: cell.value },
-        cells: {
-          [property.key]:
-            cell.value === null ? null : { value: cell.value, label: cell.label },
-        },
+  ): Promise<WriteResult> {
+    return writeRow(row, {
+      properties: { [property.key]: cell.value },
+      cells: {
+        [property.key]:
+          cell.value === null ? null : { value: cell.value, label: cell.label },
       },
-      { onError: report },
-    );
+    });
   }
 
-  function commitTitle(row: ObjectSummary, title: string) {
-    setAutoEditId(null);
-    update.mutate({ id: row.id, rev: row.rev, title }, { onError: report });
+  function commitTitle(row: ObjectSummary, title: string): Promise<WriteResult> {
+    return writeRow(row, { title });
   }
 
   function completeRecord(row: ObjectSummary) {
@@ -451,12 +548,75 @@ export function TypeTable({
     });
   }
 
-  function createRecord() {
+  function startDraft() {
+    if (create.isPending) {
+      return;
+    }
+    if (!isTable) {
+      if (!tableView) {
+        toast.showToast("Open a table view to add a record.", "danger");
+        return;
+      }
+      selectView(tableView.key);
+    }
+    setDraft({ title: "", values: {}, error: null });
+  }
+
+  function draftCommit() {
+    if (!draft || create.isPending) {
+      return;
+    }
+    const title = draft.title.trim();
+    if (!title) {
+      setDraft({ ...draft, error: "A title is required." });
+      return;
+    }
+    const missing = requiredProperties.filter((property) =>
+      isBlank(draft.values[property.key]),
+    );
+    if (missing.length > 0) {
+      setDraft({
+        ...draft,
+        error: `Fill ${missing.map((property) => property.name).join(", ")} before creating.`,
+      });
+      return;
+    }
+    const values = Object.fromEntries(
+      Object.entries(draft.values).filter(([, value]) => value !== null && value !== undefined),
+    );
     create.mutate(
-      { type: type.key, title: "Untitled" },
       {
-        onSuccess: (object) => setAutoEditId(object.id),
-        onError: (error) => toast.showToast(readError(error), "danger"),
+        type: type.key,
+        title,
+        ...(Object.keys(values).length === 0 ? {} : { properties: values }),
+      },
+      {
+        onSuccess: (created) => {
+          setDraft(null);
+          toast.showToast(`Created “${created.title}”.`, "plain", [
+            {
+              label: "Open",
+              onAction: () => navigate(`/s/${spaceId}/o/${created.id}`),
+            },
+            {
+              label: "Undo",
+              onAction: () =>
+                trash.mutate(created.id, {
+                  onSuccess: () => toast.showToast("Moved the new record to the trash."),
+                  onError: (error) =>
+                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+                }),
+            },
+          ]);
+          // A filter or search typed on this page must not hide the new row.
+          clearQuery();
+          setHighlightId(created.id);
+          window.setTimeout(() => setHighlightId(null), 1600);
+        },
+        onError: (error) =>
+          setDraft((current) =>
+            current ? { ...current, error: readError(error) } : current,
+          ),
       },
     );
   }
@@ -487,6 +647,7 @@ export function TypeTable({
   const busy = objects.isPlaceholderData || objects.isFetching;
   const selectedRows = rows.filter((row) => selection.has(row.id));
   const range = pageRange(total, page);
+  const verb = completeLabel(type.schedule_labels);
 
   function focusSearch() {
     searchRef.current?.focus();
@@ -513,7 +674,7 @@ export function TypeTable({
               type="button"
               className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
               disabled={create.isPending}
-              onClick={createRecord}
+              onClick={startDraft}
             >
               {create.isPending ? "Creating…" : "New record"}
             </Button>
@@ -563,6 +724,18 @@ export function TypeTable({
               <Button
                 type="button"
                 variant="ghost"
+                aria-expanded={saveAsOpen}
+                className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+                onClick={() => {
+                  setSaveAsOpen((open) => !open);
+                  setSaveAsName(`${view.name} copy`);
+                }}
+              >
+                Save as view
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
                 className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
                 disabled={!hasOverrides}
                 onClick={clearQuery}
@@ -602,6 +775,47 @@ export function TypeTable({
         </div>
       </div>
 
+      {canEdit && saveAsOpen ? (
+        <form
+          aria-label="Save current filter and sort as a view"
+          className="mt-3 flex flex-wrap items-end gap-2 border-y rule py-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            saveAsView();
+          }}
+        >
+          <div className="w-[min(22rem,100%)]">
+            <TextField
+              label="New view name"
+              name="save-as-view-name"
+              required
+              maxLength={80}
+              autoFocus
+              value={saveAsName}
+              onChange={(event) => setSaveAsName(event.target.value)}
+            />
+          </div>
+          <Button
+            type="submit"
+            className="min-h-9 px-3 text-[13px]"
+            disabled={!saveAsName.trim() || createView.isPending}
+          >
+            {createView.isPending ? "Creating…" : "Create view"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-9 px-3 text-[13px]"
+            onClick={() => setSaveAsOpen(false)}
+          >
+            Cancel
+          </Button>
+          <div className="min-w-[12rem] flex-1">
+            <FormError message={createView.error ? readError(createView.error) : null} />
+          </div>
+        </form>
+      ) : null}
+
       {canEdit && columnsOpen ? (
         <ColumnPanel
           view={view}
@@ -616,6 +830,7 @@ export function TypeTable({
           spaceId={spaceId}
           type={type}
           view={view}
+          properties={properties}
           onClose={() => setSettingsOpen(false)}
           onDeleted={selectView}
         />
@@ -656,7 +871,7 @@ export function TypeTable({
         </div>
       ) : objects.isPending ? (
         <p className="mt-6 text-[13px] text-muted">Reading records…</p>
-      ) : total === 0 ? (
+      ) : total === 0 && draft === null ? (
         <div className="mt-6 grid max-w-[52ch] gap-3 border-t rule pt-4">
           <p className="text-muted">
             {hasFilter || q
@@ -687,14 +902,26 @@ export function TypeTable({
               ) : null}
             </div>
           ) : canEdit ? (
-            <Button
-              type="button"
-              className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={create.isPending}
-              onClick={createRecord}
-            >
-              {create.isPending ? "Creating…" : "New record"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                disabled={create.isPending}
+                onClick={startDraft}
+              >
+                {create.isPending ? "Creating…" : "New record"}
+              </Button>
+              {view.kind === "board" || view.kind === "gallery" ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  Open view settings
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : view.kind === "board" ? (
@@ -704,7 +931,13 @@ export function TypeTable({
           rows={rows}
           properties={properties}
           canEdit={canEdit}
+          completing={complete.isPending}
+          pendingRows={pendingRows}
+          verb={verb}
           onOpenSettings={() => setSettingsOpen(true)}
+          onComplete={completeRecord}
+          onDuplicate={duplicateRecord}
+          onTrash={trashRecord}
         />
       ) : view.kind === "gallery" ? (
         <GalleryView
@@ -713,6 +946,13 @@ export function TypeTable({
           view={view}
           rows={rows}
           properties={properties}
+          canEdit={canEdit}
+          completing={complete.isPending}
+          pendingRows={pendingRows}
+          verb={verb}
+          onComplete={completeRecord}
+          onDuplicate={duplicateRecord}
+          onTrash={trashRecord}
         />
       ) : view.kind === "calendar" ? (
         <CalendarView
@@ -725,6 +965,14 @@ export function TypeTable({
           properties={properties}
           month={month}
           today={today}
+          canEdit={canEdit}
+          completing={complete.isPending}
+          pendingRows={pendingRows}
+          verb={verb}
+          onComplete={completeRecord}
+          onDuplicate={duplicateRecord}
+          onTrash={trashRecord}
+          onOpenSettings={() => setSettingsOpen(true)}
           onMonthChange={setMonth}
         />
       ) : (
@@ -746,7 +994,22 @@ export function TypeTable({
             selected={selection}
             pendingRows={pendingRows}
             bulkOpen={bulkPanelOpen && selectedRows.length > 0}
-            autoEditId={autoEditId}
+            requiredProperties={requiredProperties}
+            draft={draft}
+            highlightId={highlightId}
+            timeZone={timeZone}
+            onDraftTitle={(title) =>
+              setDraft((current) => (current ? { ...current, title } : current))
+            }
+            onDraftValue={(key, value) =>
+              setDraft((current) =>
+                current
+                  ? { ...current, values: { ...current.values, [key]: value } }
+                  : current,
+              )
+            }
+            onDraftCommit={draftCommit}
+            onDraftCancel={() => setDraft(null)}
             onSort={sortBy}
             onToggleRow={toggleRow}
             onToggleAll={toggleAll}
@@ -761,7 +1024,6 @@ export function TypeTable({
               const next = withWidth(view, key, width);
               writeLayout({ columns: next.columns, widths: next.widths });
             }}
-            onCancelAutoEdit={() => setAutoEditId(null)}
           />
           {canEdit && selectedRows.length > 0 ? (
             <div className="absolute inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 md:inset-x-3">
