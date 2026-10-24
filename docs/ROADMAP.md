@@ -99,11 +99,65 @@ usability move ahead of search.
   affordances on screen, and a compact table whose row actions fold into a menu so property columns
   stay reachable; timestamps render in the space's zone.
 
-  **Deferred to v0.4.1:** a browser-local **left/right-handed** preference. v0.4.0 assumes a right
-  thumb and puts compact-editor commits at the right edge, which fixes the immediate friction; a
-  real handedness mode must flip every thumb-zone surface together — the mobile bar and its sheet,
-  action rows, toasts, row menus and the record save bar — and be verified in both modes. A partial
-  flip is worse than a right-handed default, so it is not a 0.4.0 patch.
+  **v0.4.1 — everyday-usability follow-ups.** The patch after 0.4.0 collects the friction found in
+  daily use: the handedness work deferred above plus the table, rail and header fixes below.
+
+  - **Left/right-handed mode.** A browser-local preference. v0.4.0 assumes a right thumb and puts
+    compact-editor commits at the right edge, which fixes the immediate friction; a real handedness
+    mode must flip every thumb-zone surface together — the mobile bar and its sheet, action rows,
+    toasts, row menus and the record save bar — and be verified in both modes. A partial flip is
+    worse than a right-handed default, so it is not a 0.4.0 patch.
+  - **Add columns from the table.** The table's trailing column header (and the column panel)
+    offers **Add property**: choose an existing property the type does not yet carry, or create
+    one inline with a name and format. The property is added to the type and to the current view's
+    columns without leaving the table, and its cells are editable in place. Reuses the property
+    and view APIs, writes like any other schema edit, and stays editor-only.
+  - **Advertise `C` on Capture.** The `c` binding already fires on every space surface and the
+    header button carries `aria-keyshortcuts="c"`, but only Search (`⌘K`) and Shortcuts (`?`) show
+    a keycap. Add `C` so the existing binding is discoverable.
+  - **Align the header actions to the rail.** On desktop the Capture / Search / Shortcuts cluster
+    hugs the far right of the header while the page below is a rail-plus-content grid. Left-align
+    the cluster to the rail's right edge so the header and the page share one grid.
+  - **Types below the rail links.** In the desktop rail and the mobile sheet, move the type list
+    under All spaces, Overview and the utility links, so the links stay above the fold as a space
+    accumulates types.
+  - **Dashboard type rows on phones.** The row carries name, key, SCHEDULED and two counts on one
+    line, so the name collapses to about five letters. On narrow screens drop the key and the
+    counts — keep icon, name and SCHEDULED — and give the name the row's width.
+  - **Confirm sign out.** Header Sign out ends the session on the first click. Put a blocking
+    confirmation (Cancel / Sign out) in front of it and say that an unsaved draft will be lost.
+  - **Columns out of the kebab.** Column visibility and order are reachable only from the
+    "More view actions" popover today, so the control reads as overflow plumbing. Give Columns a
+    first-class toolbar button beside Filter and Sort, with the shown-column count, and keep the
+    panel it opens.
+  - **Select options stay on screen.** A select cell's option list is an absolutely positioned
+    panel inside the table's `max-h-[70vh] overflow-auto` scroller, so it is cut off on the last
+    rows. Portal the list and flip it above the cell when the space below is short, keeping
+    type-to-filter, create-option and keyboard selection intact.
+  - **Sort arrows say what they mean.** The column header's arrow does not communicate the active
+    order reliably. Make ascending and descending unmistakable and keep the glyph, `aria-sort` and
+    the Sort panel agreeing with the row order the server returns, checked on text, select and
+    date columns.
+  - **Select columns sort by option order.** A select or multi-select sorts its values as text
+    (`value::compare` compares the keys), so a column of Kitchen, Study, Balcony comes back
+    Balcony, Kitchen, Study. Sort by the option's position in the property definition instead,
+    including multi-select (first differing option), and re-sort when the options are reordered;
+    keep empty placement and direction unchanged.
+  - **Record icons.** Objects carry no icon today; only types and spaces do. Add an optional
+    `icon` to the object frontmatter (object schema 4, absent means none), reuse the type icon
+    picker and emoji catalogue, and show it in the record header, table title cells, space-home
+    recents, search/palette results, board cards, gallery tiles and the trash. Objects without an
+    icon keep the current layout, and the icon write goes through the normal record PATCH.
+  - **A shared space accent.** The accent is browser-local and per user (`lib/accent.ts`, keyed by
+    user and space), so every client has to pick it again. Move the authority into the space
+    (`accent` in `space.yml`, alongside name, icon and timezone), set it through the owner-only
+    space PATCH with the usual `space.updated` broadcast, and have every client apply it. Keep a
+    stored local choice only long enough to seed the shared value once, then stop reading it.
+  - **Custom accent colours.** Keep the six contrast-tested palettes and add a custom option: a
+    `#rrggbb` value stored in the same space field. Derive the ink from WCAG contrast and a
+    light-mode variant that still meets contrast on the light ground, validate the hex in the API,
+    and refuse values that cannot produce a legible pair. The accent still marks state only, never
+    body text or surfaces.
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
   `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph
