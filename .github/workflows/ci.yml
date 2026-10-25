@@ -5,6 +5,9 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  # Manual staging build: publishes `edge` + `sha-<short>` for the dispatched
+  # commit. Releases still come only from `v*` tags; `latest` is never edge.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -59,7 +62,7 @@ jobs:
 
   image:
     name: Container image
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     needs: [rust, web, semgrep]
     runs-on: ubuntu-24.04
     permissions:
@@ -81,7 +84,9 @@ jobs:
           images: ghcr.io/talonlikeaclaw/thing
           tags: |
             type=ref,event=tag
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=edge,enable=${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short,enable=${{ github.event_name == 'workflow_dispatch' }}
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
