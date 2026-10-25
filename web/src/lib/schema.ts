@@ -68,6 +68,28 @@ export function effectiveMembers(type: TypeDef): TypeProperty[] {
   ];
 }
 
+/**
+ * The definitions of the properties this type actually carries, in member order.
+ *
+ * The space library holds every property, including ones a type does not carry.
+ * A table and its view controls may only name members, so they start here.
+ */
+export function memberProperties(
+  type: TypeDef | undefined,
+  declared: PropertyDef[],
+): PropertyDef[] {
+  if (!type) {
+    return [];
+  }
+  const byKey = new Map(
+    effectiveProperties(type, declared).map((property) => [property.key, property]),
+  );
+  return effectiveMembers(type).flatMap((member) => {
+    const property = byKey.get(member.key);
+    return property ? [property] : [];
+  });
+}
+
 /** Compares JSON-shaped values without caring about object key order. */
 export function sameJson(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) {

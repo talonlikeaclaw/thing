@@ -5,6 +5,7 @@ import {
   addProperty,
   effectiveMembers,
   effectiveProperties,
+  memberProperties,
   moveColumn,
   moveItem,
   moveProperty,
@@ -110,6 +111,20 @@ describe("effective scheduling members", () => {
     const plain = { ...scheduled, schedule: false, implicit_properties: undefined };
     expect(effectiveMembers(plain)).toBe(plain.properties);
     expect(effectiveProperties(plain, [])).toEqual([]);
+  });
+
+  it("maps only the type's members, in member order", () => {
+    const library: PropertyDef[] = [
+      { key: "room", name: "Room", format: "text" },
+      { key: "tags", name: "Tags", format: "multi_select" },
+      ...implicit,
+    ];
+    expect(memberProperties(scheduled, library).map((property) => property.key)).toEqual([
+      "room",
+      "due_date",
+      "recurrence",
+    ]);
+    expect(memberProperties({ ...scheduled, properties: [] }, library)).toEqual(implicit);
   });
 });
 

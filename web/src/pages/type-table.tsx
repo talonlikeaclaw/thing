@@ -4,7 +4,7 @@ import { useProperties, useSpace, useType } from "@/api/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
 import { TypeTable } from "@/components/type-table";
-import { effectiveProperties } from "@/lib/schema";
+import { memberProperties } from "@/lib/schema";
 import { useRouteMeta } from "@/lib/route";
 
 /** `/s/:spaceId/t/:typeKey` — one type's live table. */
@@ -53,7 +53,7 @@ export function TypeTablePage() {
         key={`${typeData.key}:${spaceId}`}
         spaceId={detail.id}
         type={typeData}
-        properties={effectiveProperties(typeData, propertiesData)}
+        properties={memberProperties(typeData, propertiesData)}
         canEdit={detail.role !== "viewer"}
         timeZone={detail.timezone}
       />
