@@ -297,6 +297,10 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   `expect` only where the invariant is structurally guaranteed, with the reason in the message.
 - **One implementation per behavior.** If two call sites do the same check or transform, it is a
   helper function; duplicated logic is a bug waiting to diverge.
+- **Every feature, change and fix updates the changelog.** In the same commit as the code, add to
+  or extend the `Unreleased` entry in `web/src/content/changelog.ts`: a headline in `highlights`
+  for user-visible behavior, a `details` line for the long tail, plain language a user understands.
+  Never ship behavior the release notes do not name.
 
 ## Important Files
 

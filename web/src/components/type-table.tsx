@@ -40,6 +40,7 @@ import type {
   WriteResult,
 } from "@/api/types";
 import { ApiError } from "@/api/client";
+import { AddPropertyDialog } from "@/components/add-property";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterBar } from "@/components/filter-bar";
 import { SortBar } from "@/components/sort-bar";
@@ -90,7 +91,10 @@ const VIEW_MENU_ITEM =
 interface TypeTableProps {
   spaceId: string;
   type: TypeDef;
+  /** The type's members, in member order. */
   properties: PropertyDef[];
+  /** The whole space library; adding a property starts here. */
+  library: PropertyDef[];
   canEdit: boolean;
   timeZone: string;
 }
@@ -100,6 +104,7 @@ export function TypeTable({
   spaceId,
   type,
   properties,
+  library,
   canEdit,
   timeZone,
 }: TypeTableProps) {
@@ -139,6 +144,7 @@ export function TypeTable({
   } | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(() => params.get("settings") === "1");
@@ -897,6 +903,17 @@ export function TypeTable({
           properties={properties}
           disabled={layout.isPending}
           onPatch={writeLayout}
+          onAddProperty={() => setAddPropertyOpen(true)}
+        />
+      ) : null}
+
+      {canEdit && addPropertyOpen ? (
+        <AddPropertyDialog
+          spaceId={spaceId}
+          type={type}
+          library={library}
+          view={view}
+          onClose={() => setAddPropertyOpen(false)}
         />
       ) : null}
 
@@ -1101,6 +1118,7 @@ export function TypeTable({
             onDuplicate={duplicateRecord}
             onTrash={trashRecord}
             onFocusSearch={focusSearch}
+            onAddProperty={() => setAddPropertyOpen(true)}
             onResize={(key, width) => {
               const next = withWidth(view, key, width);
               writeLayout({ columns: next.columns, widths: next.widths });

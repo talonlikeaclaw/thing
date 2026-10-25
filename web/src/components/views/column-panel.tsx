@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 
 import type { PropertyDef, ViewDef } from "@/api/types";
 import { SmallButton } from "@/components/schema/small-button";
+import { Button } from "@/components/ui/controls";
 import { moveViewColumn, withColumn, withoutColumn } from "@/lib/views";
 
 interface ColumnPanelProps {
@@ -9,10 +10,18 @@ interface ColumnPanelProps {
   properties: PropertyDef[];
   disabled: boolean;
   onPatch: (change: { columns: string[]; widths: Record<string, number> }) => void;
+  /** Opens the add-property dialog shared with the table header. */
+  onAddProperty: () => void;
 }
 
 /** Column visibility and order for one view; every change writes immediately. */
-export function ColumnPanel({ view, properties, disabled, onPatch }: ColumnPanelProps) {
+export function ColumnPanel({
+  view,
+  properties,
+  disabled,
+  onPatch,
+  onAddProperty,
+}: ColumnPanelProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const nameOf = (key: string) => propertyByKey.get(key)?.name ?? key;
   const shown = view.columns.filter((key) => key !== "title");
@@ -112,6 +121,17 @@ export function ColumnPanel({ view, properties, disabled, onPatch }: ColumnPanel
           </ul>
         </div>
       ) : null}
+
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-3 min-h-9 w-full justify-start px-3 text-[13px] pointer-coarse:min-h-11"
+        disabled={disabled}
+        onClick={onAddProperty}
+      >
+        <Plus aria-hidden size={15} />
+        Add property
+      </Button>
     </section>
   );
 }

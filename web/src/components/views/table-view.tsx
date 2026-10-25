@@ -6,6 +6,7 @@ import {
   Check,
   Copy,
   MoreHorizontal,
+  Plus,
   Trash2,
 } from "lucide-react";
 import {
@@ -44,6 +45,8 @@ const COMPACT_EDITOR_WIDTH_COARSE = 80;
 const COMPACT_VIEWER_WIDTH_FINE = 32;
 const COMPACT_VIEWER_WIDTH_COARSE = 40;
 const SELECT_WIDTH = 44;
+/** The trailing add-property header is a control, not a data column. */
+const ADD_PROPERTY_WIDTH = 132;
 
 function subscribeCoarse(onChange: () => void) {
   const media = window.matchMedia("(pointer: coarse)");
@@ -105,6 +108,8 @@ interface TableViewProps {
   onTrash: (row: ObjectSummary) => void;
   onFocusSearch: () => void;
   onResize: (key: string, width: number) => void;
+  /** Opens the add-property dialog from the trailing header cell. */
+  onAddProperty: () => void;
 }
 
 /**
@@ -144,6 +149,7 @@ export function TableView({
   onTrash,
   onFocusSearch,
   onResize,
+  onAddProperty,
 }: TableViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const columns = view.columns.filter((key) => key !== "title");
@@ -185,7 +191,8 @@ export function TableView({
     : coarse
       ? OPEN_WIDTH_COARSE
       : OPEN_WIDTH_FINE;
-  const fixedWidth = (showSelect ? SELECT_WIDTH : 0) + openWidth;
+  const fixedWidth =
+    (showSelect ? SELECT_WIDTH : 0) + (canEdit ? ADD_PROPERTY_WIDTH : 0) + openWidth;
   const flexTotal =
     widthOf("title") + columns.reduce((sum, key) => sum + widthOf(key), 0);
   const flexKeys = ["title", ...columns];
@@ -412,6 +419,7 @@ export function TableView({
           {columns.map((key) => (
             <col key={key} style={{ width: columnWidth(key) }} />
           ))}
+          {canEdit ? <col style={{ width: ADD_PROPERTY_WIDTH }} /> : null}
           <col style={{ width: openWidth }} />
         </colgroup>
         <thead className="sticky top-0 z-20 bg-ground">
@@ -493,6 +501,19 @@ export function TableView({
                 </th>
               );
             })}
+            {canEdit ? (
+              <th scope="col" className="py-2 pr-2 text-left">
+                <button
+                  type="button"
+                  aria-label="Add property"
+                  className="inline-flex min-h-8 w-full items-center gap-1 rounded-[3px] px-1 text-[12px] whitespace-nowrap text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11"
+                  onClick={onAddProperty}
+                >
+                  <Plus aria-hidden size={13} />
+                  Add property
+                </button>
+              </th>
+            ) : null}
             <th
               scope="col"
               className="sticky right-0 z-30 border-l rule bg-ground py-2"
@@ -571,6 +592,7 @@ export function TableView({
               {columns.map((key) => (
                 <td key={key} className="py-1 pr-2" />
               ))}
+              {canEdit ? <td className="py-1 pr-2" /> : null}
               <td className="sticky right-0 border-l rule bg-raised/40" />
             </tr>
           ) : null}

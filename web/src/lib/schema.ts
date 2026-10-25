@@ -90,6 +90,21 @@ export function memberProperties(
   });
 }
 
+/**
+ * Library properties the type may still add: not already carried, and not a
+ * generated schedule key the type does not own.
+ */
+export function availableProperties(
+  type: TypeDef,
+  library: PropertyDef[],
+): PropertyDef[] {
+  const taken = new Set(type.properties.map((member) => member.key));
+  for (const implicit of type.implicit_properties ?? []) {
+    taken.add(implicit.key);
+  }
+  return library.filter((property) => !taken.has(property.key));
+}
+
 /** Compares JSON-shaped values without caring about object key order. */
 export function sameJson(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) {

@@ -54,6 +54,7 @@ export function TypeTablePage() {
         spaceId={detail.id}
         type={typeData}
         properties={memberProperties(typeData, propertiesData)}
+        library={propertiesData}
         canEdit={detail.role !== "viewer"}
         timeZone={detail.timezone}
       />

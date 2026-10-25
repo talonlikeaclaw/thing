@@ -17,6 +17,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Everyday usability follow-ups",
+    upcoming: true,
+    highlights: [
+      "Choose left- or right-handed layout in Appearance: the phone bar, action rows, save buttons, toasts and row menus all move under your thumb.",
+      "Add a property straight from the table, from its trailing header cell or the Columns panel — an existing library property or a new one with its format.",
+    ],
+    details: [
+      "The handedness choice is per browser and per person; it moves controls, never reading order, columns or text.",
+      "Adding a property attaches it to the type with the record panel featured and appends it to the current view only.",
+      "A failed add names the step that failed and Retry resumes without creating a second property.",
+    ],
+  },
+  {
     version: "0.4.0",
     title: "Everyday usability",
     highlights: [

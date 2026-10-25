@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { OptionDef, PropertyDef, TypeDef, TypeProperty } from "@/api/types";
 import {
   addProperty,
+  availableProperties,
   effectiveMembers,
   effectiveProperties,
   memberProperties,
@@ -125,6 +126,21 @@ describe("effective scheduling members", () => {
       "recurrence",
     ]);
     expect(memberProperties({ ...scheduled, properties: [] }, library)).toEqual(implicit);
+  });
+
+  it("offers only library properties the type does not carry", () => {
+    const library: PropertyDef[] = [
+      { key: "room", name: "Room", format: "text" },
+      { key: "tags", name: "Tags", format: "multi_select" },
+      ...implicit,
+    ];
+    expect(availableProperties(scheduled, library).map((property) => property.key)).toEqual([
+      "tags",
+    ]);
+    expect(
+      availableProperties({ ...scheduled, schedule: false, implicit_properties: undefined }, library)
+        .map((property) => property.key),
+    ).toEqual(["tags", "due_date", "recurrence"]);
   });
 });
 
