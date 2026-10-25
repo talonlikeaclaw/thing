@@ -139,6 +139,7 @@ export function TypeTable({
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
   const [draft, setDraft] = useState<{
     title: string;
+    icon: string;
     values: Record<string, unknown | null>;
     error: string | null;
   } | null>(null);
@@ -635,7 +636,7 @@ export function TypeTable({
       }
       selectView(tableView.key);
     }
-    setDraft({ title: "", values: {}, error: null });
+    setDraft({ title: "", icon: "", values: {}, error: null });
   }
 
   function draftCommit() {
@@ -664,6 +665,7 @@ export function TypeTable({
       {
         type: type.key,
         title,
+        ...(draft.icon.trim() === "" ? {} : { icon: draft.icon.trim() }),
         ...(Object.keys(values).length === 0 ? {} : { properties: values }),
       },
       {
@@ -1107,6 +1109,9 @@ export function TypeTable({
             bulkOpen={bulkPanelOpen && selectedRows.length > 0}
             requiredProperties={requiredProperties}
             draft={draft}
+            onDraftIcon={(icon) =>
+              setDraft((current) => (current === null ? current : { ...current, icon }))
+            }
             highlightId={highlightId}
             timeZone={timeZone}
             onDraftTitle={(title) =>

@@ -10,6 +10,7 @@ import {
   useTrash,
   useTypes,
 } from "@/api/queries";
+import { ThingIcon } from "@/components/thing-icon";
 import { cn } from "@/lib/cn";
 import { relativeTime } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
@@ -19,6 +20,8 @@ interface PaletteItem {
   id: string;
   label: string;
   hint: string;
+  /** A record, type or space glyph; actions carry none. */
+  icon?: string;
   /** A navigation target, or a callback for actions that are not routes. */
   to?: string;
   run?: () => void;
@@ -157,24 +160,28 @@ export function CommandPalette({
       id: `recent:${item.id}`,
       label: item.title,
       hint: `${item.type} · ${relativeTime(item.at)}`,
+      ...(item.icon ? { icon: item.icon } : {}),
       to: `/s/${spaceId}/o/${item.id}`,
     }));
   const typeItems: PaletteItem[] = typeList.map((type) => ({
     id: `type:${type.key}`,
     label: type.name,
     hint: `${type.key} · ${type.object_count} ${type.name_plural.toLowerCase()}`,
+    ...(type.icon ? { icon: type.icon } : {}),
     to: `/s/${spaceId}/t/${type.key}`,
   }));
   const spaceItems: PaletteItem[] = (spaces.data ?? []).map((entry) => ({
     id: `space:${entry.id}`,
     label: entry.name,
     hint: entry.role,
+    ...(entry.icon ? { icon: entry.icon } : {}),
     to: `/s/${entry.id}`,
   }));
   const recordItems: PaletteItem[] = records.map((record) => ({
     id: `record:${record.id}`,
     label: record.title,
     hint: `${record.type} · ${relativeTime(record.updated_at)}`,
+    ...(record.icon ? { icon: record.icon } : {}),
     to: `/s/${spaceId}/o/${record.id}`,
   }));
 
@@ -351,7 +358,12 @@ export function CommandPalette({
                             onMouseEnter={() => setActive(flatIndex)}
                             onClick={() => select(item)}
                           >
-                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                            <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                              {item.icon ? (
+                                <ThingIcon icon={item.icon} size="sm" />
+                              ) : null}
+                              <span className="min-w-0 truncate">{item.label}</span>
+                            </span>
                             <span className="shrink-0 font-mono text-[11px] text-faint">
                               {item.hint}
                             </span>

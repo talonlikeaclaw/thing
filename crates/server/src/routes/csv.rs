@@ -171,6 +171,7 @@ async fn import(
             id: Uuid::now_v7(),
             type_key: type_key.clone(),
             title: record.title,
+            icon: None,
             rev: 1,
             created_at: now,
             updated_at: now,

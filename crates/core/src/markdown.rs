@@ -288,6 +288,7 @@ mod tests {
             id: id(1),
             type_key: "plant".to_owned(),
             title: "Monstera — étude 🪴".to_owned(),
+            icon: None,
             rev: 3,
             created_at: at(),
             updated_at: at(),
@@ -318,7 +319,7 @@ mod tests {
     #[test]
     fn object_uses_the_frontmatter_keys_the_format_documents() {
         let text = serialize_object(&doc());
-        assert!(text.starts_with("---\nschema: 3\n"), "{text}");
+        assert!(text.starts_with("---\nschema: 4\n"), "{text}");
         assert!(text.contains("\ntype: plant\n"), "{text}");
         assert!(
             text.contains("\ncreated_at: 2025-10-09T08:53:20Z\n"),
@@ -392,8 +393,8 @@ mod tests {
         let missing = parse_object("---\ntitle: x\n---\n").expect_err("no schema");
         assert_eq!(missing.to_string(), "invalid schema: missing");
 
-        let future = parse_object("---\nschema: 4\ntitle: x\n---\n").expect_err("future");
-        assert_eq!(future.to_string(), "unsupported format version 4");
+        let future = parse_object("---\nschema: 5\ntitle: x\n---\n").expect_err("future");
+        assert_eq!(future.to_string(), "unsupported format version 5");
 
         let not_a_number = parse_object("---\nschema: \"1\"\ntitle: x\n---\n").expect_err("string");
         assert_eq!(
@@ -402,7 +403,7 @@ mod tests {
         );
 
         // The previous version stays readable; only a future one is refused.
-        let previous = serialize_object(&doc()).replace("schema: 3", "schema: 1");
+        let previous = serialize_object(&doc()).replace("schema: 4", "schema: 1");
         assert_eq!(parse_object(&previous).expect("schema 1 parses"), doc());
     }
 
@@ -458,7 +459,7 @@ Watered today.
             ],
         };
         let text = serialize_space(&meta);
-        assert!(text.starts_with("schema: 3\nid: "), "{text}");
+        assert!(text.starts_with("schema: 4\nid: "), "{text}");
         assert!(text.contains("\ntimezone: Europe/Berlin\n"), "{text}");
         assert!(text.contains("\n  role: owner\n"), "{text}");
         assert_eq!(parse_space(&text).expect("parses back"), meta);
@@ -531,7 +532,7 @@ Watered today.
         };
         let text = serialize_type(&def);
         assert!(
-            text.starts_with("schema: 3\nkey: plant\nname: Plant\nname_plural: Plants\n"),
+            text.starts_with("schema: 4\nkey: plant\nname: Plant\nname_plural: Plants\n"),
             "{text}"
         );
         assert!(text.contains("\n    direction: desc\n"), "{text}");
@@ -549,7 +550,7 @@ Watered today.
 
     fn type_yaml(views: &str, default: &str) -> String {
         format!(
-            "schema: 3\nkey: plant\nname: Plant\nname_plural: Plants\ndescription: ''\nproperties: []\n{views}default_view: {default}\n"
+            "schema: 4\nkey: plant\nname: Plant\nname_plural: Plants\ndescription: ''\nproperties: []\n{views}default_view: {default}\n"
         )
     }
 
@@ -612,10 +613,10 @@ Watered today.
                 .contains("both")
         );
 
-        let future_shape = "schema: 3\nkey: plant\nname: Plant\nname_plural: Plants\ndescription: ''\nproperties: []\nview:\n  sorts: []\n  filter: {op: and, conditions: []}\n  columns: [title]\ndefault_view: all\n";
+        let future_shape = "schema: 4\nkey: plant\nname: Plant\nname_plural: Plants\ndescription: ''\nproperties: []\nview:\n  sorts: []\n  filter: {op: and, conditions: []}\n  columns: [title]\ndefault_view: all\n";
         assert!(
             parse_type(future_shape)
-                .expect_err("schema 3 with a legacy view")
+                .expect_err("schema 4 with a legacy view")
                 .to_string()
                 .contains("unknown field `view`")
         );
@@ -672,7 +673,7 @@ Watered today.
             target_type: None,
             multi: false,
         });
-        assert_eq!(text, "schema: 3\nkey: room\nname: Room\nformat: text\n");
+        assert_eq!(text, "schema: 4\nkey: room\nname: Room\nformat: text\n");
     }
 
     #[test]
@@ -684,6 +685,7 @@ Watered today.
             action: RevisionAction::Create,
             snapshot: Snapshot {
                 title: "Monstera".to_owned(),
+                icon: None,
                 properties: BTreeMap::from([(
                     "room".to_owned(),
                     Value::Text("kitchen".to_owned()),
@@ -713,6 +715,7 @@ Watered today.
             action: RevisionAction::Update,
             snapshot: Snapshot {
                 title: "Monstera".to_owned(),
+                icon: None,
                 properties: BTreeMap::from([("days".to_owned(), Value::Number(7.0))]),
             },
             body: None,
@@ -733,6 +736,7 @@ Watered today.
             action: RevisionAction::Delete,
             snapshot: Snapshot {
                 title: "T".to_owned(),
+                icon: None,
                 properties: BTreeMap::new(),
             },
             body: None,

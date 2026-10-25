@@ -12,6 +12,7 @@ import {
 } from "@/api/queries";
 import type { TrashItem } from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -422,6 +423,9 @@ function TrashList({
                           )}
                         >
                           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                            {item.icon ? (
+                              <ThingIcon icon={item.icon} size="sm" />
+                            ) : null}
                             <span className="text-[15px] font-medium">{item.title}</span>
                             <span className="font-mono text-[10px] text-faint">
                               {typeNames.get(item.type) ?? item.type} · {item.type}

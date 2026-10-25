@@ -706,6 +706,7 @@ mod tests {
             id: Uuid::now_v7(),
             type_key: "chore".to_owned(),
             title: title.to_owned(),
+            icon: None,
             rev: 1,
             created_at: now,
             updated_at: now,

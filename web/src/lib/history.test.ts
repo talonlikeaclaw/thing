@@ -44,6 +44,24 @@ describe("revision diff", () => {
     ]);
   });
 
+  it("carries the icon as a diff row of its own", () => {
+    const before = { ...revision(1, ["title"], "Monstera", {}), snapshot: { title: "Monstera", properties: {} } };
+    const after = {
+      ...revision(2, ["icon"], "Monstera", {}),
+      snapshot: { title: "Monstera", icon: "🪴", properties: {} },
+    };
+    expect(revisionDiff(after, before)).toEqual([
+      { key: "icon", before: null, after: "🪴" },
+    ]);
+    const cleared = {
+      ...revision(3, ["icon"], "Monstera", {}),
+      snapshot: { title: "Monstera", properties: {} },
+    };
+    expect(revisionDiff(cleared, after)).toEqual([
+      { key: "icon", before: "🪴", after: null },
+    ]);
+  });
+
   it("leaves the body out of the property diff", () => {
     const before = revision(1, ["title"], "Monstera", {});
     const after = revision(2, ["body"], "Monstera", {}, "A new paragraph.");

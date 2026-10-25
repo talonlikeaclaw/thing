@@ -1129,7 +1129,7 @@ mod tests {
                     Some(&cookie),
                 )
                 .await;
-            assert!(raw.text().starts_with("---\nschema: 3\n"));
+            assert!(raw.text().starts_with("---\nschema: 4\n"));
 
             let again = server
                 .call_raw("POST", &url, Some("text/csv"), &export.bytes, Some(&cookie))
@@ -1575,6 +1575,188 @@ mod tests {
                 )
                 .await;
             assert_eq!(listed.body["objects"][0]["id"], garden.plant);
+        });
+    }
+
+    #[test]
+    fn an_icon_patches_duplicates_and_reaches_every_projection() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("icon@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let objects = format!("/api/spaces/{}/objects", garden.space);
+
+            let created = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Fern",
+                        "icon": " 🌿 ",
+                        "properties": { "room": "study" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            assert_eq!(created.body["icon"], "🌿", "the glyph is trimmed");
+            let fern = created.body["id"].as_str().expect("an id").to_owned();
+            let fern_path = format!("/api/spaces/{}/objects/{fern}", garden.space);
+
+            // A patch that omits the icon leaves it alone; an icon-only patch is
+            // a write like any other and bumps the revision.
+            let retitled = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 1, "title": "Boston fern" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(retitled.status, StatusCode::OK, "{:?}", retitled.body);
+            assert_eq!(retitled.body["icon"], "🌿");
+
+            let icon_only = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 2, "icon": "🪴" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(icon_only.status, StatusCode::OK, "{:?}", icon_only.body);
+            assert_eq!(icon_only.body["rev"], 3);
+            assert_eq!(icon_only.body["icon"], "🪴");
+
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 3, "icon": null })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK, "{:?}", cleared.body);
+            assert!(
+                cleared.body.get("icon").is_none(),
+                "null clears the key: {:?}",
+                cleared.body
+            );
+
+            // Set it again, so every projection below has something to carry.
+            let reset = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 4, "icon": "🌿" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(reset.status, StatusCode::OK, "{:?}", reset.body);
+            assert_eq!(reset.body["rev"], 5);
+
+            let list = server
+                .call("GET", &format!("{objects}?type=plant"), None, Some(&cookie))
+                .await;
+            let row = list.body["objects"]
+                .as_array()
+                .expect("rows")
+                .iter()
+                .find(|row| row["title"] == "Boston fern")
+                .expect("the renamed row");
+            assert_eq!(row["icon"], "🌿");
+
+            let raw = server
+                .call_raw("GET", &format!("{fern_path}/raw"), None, &[], Some(&cookie))
+                .await;
+            assert!(raw.text().starts_with("---\nschema: 4\n"), "{}", raw.text());
+            assert!(raw.text().contains("\nicon: 🌿\n"), "{}", raw.text());
+
+            let history = server
+                .call("GET", &format!("{fern_path}/history"), None, Some(&cookie))
+                .await;
+            let lines = history.body.as_array().expect("lines");
+            assert_eq!(lines.len(), 5);
+            assert_eq!(lines[0]["snapshot"]["icon"], "🌿");
+            assert!(
+                lines[0]["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .iter()
+                    .any(|key| key == "icon"),
+                "the first revision names its icon: {:?}",
+                lines[0]
+            );
+            // The title write kept the icon and did not report it as changed.
+            assert_eq!(lines[1]["snapshot"]["icon"], "🌿");
+            assert!(
+                !lines[1]["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .iter()
+                    .any(|key| key == "icon")
+            );
+            // The clearing write dropped the key.
+            assert!(lines[3]["snapshot"].get("icon").is_none());
+            assert!(
+                lines[3]["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .iter()
+                    .any(|key| key == "icon")
+            );
+
+            // A duplicate copies the document, icon included.
+            let copy = server
+                .call(
+                    "POST",
+                    &format!("{fern_path}/duplicate"),
+                    Some(json!({})),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(copy.status, StatusCode::CREATED, "{:?}", copy.body);
+            assert_eq!(copy.body["icon"], "🌿");
+
+            // Trash, list and restore all carry it.
+            let trashed = server.call("DELETE", &fern_path, None, Some(&cookie)).await;
+            assert_eq!(trashed.status, StatusCode::OK, "{:?}", trashed.body);
+            assert_eq!(trashed.body["icon"], "🌿");
+            let trash = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/trash", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert!(
+                trash
+                    .body
+                    .as_array()
+                    .expect("trash")
+                    .iter()
+                    .any(|item| item["id"] == fern.as_str() && item["icon"] == "🌿")
+            );
+            let restored = server
+                .call("POST", &format!("{fern_path}/restore"), None, Some(&cookie))
+                .await;
+            assert_eq!(restored.body["icon"], "🌿");
+
+            // `icon` is a frontmatter key, so a property may not take it.
+            let reserved = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/properties", garden.space),
+                    Some(json!({ "name": "Icon", "format": "text" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(reserved.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(reserved.field(), "name");
         });
     }
 

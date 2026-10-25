@@ -156,11 +156,6 @@ usability move ahead of search.
     (`accent` in `space.yml`, alongside name, icon and timezone), set it through the owner-only
     space PATCH with the usual `space.updated` broadcast, and have every client apply it. Keep a
     stored local choice only long enough to seed the shared value once, then stop reading it.
-  - **Custom accent colours.** Keep the six contrast-tested palettes and add a custom option: a
-    `#rrggbb` value stored in the same space field. Derive the ink from WCAG contrast and a
-    light-mode variant that still meets contrast on the light ground, validate the hex in the API,
-    and refuse values that cannot produce a legible pair. The accent still marks state only, never
-    body text or surfaces.
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
   `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph

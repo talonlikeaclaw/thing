@@ -1,5 +1,5 @@
 ---
-schema: 3
+schema: 4
 id: 0199f2c1-ffff-7c2e-9b1d-2a4f6e8c0a1b
 type: chore
 title: Water the monstera

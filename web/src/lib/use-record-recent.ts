@@ -7,6 +7,7 @@ interface RecentObject {
   id: string;
   type: string;
   title: string;
+  icon?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ export function useRecordRecent(
   const id = object?.id;
   const type = object?.type;
   const title = object?.title;
+  const icon = object?.icon;
 
   useEffect(() => {
     if (!userId || !spaceId || !id || !type || !title) {
@@ -34,8 +36,8 @@ export function useRecordRecent(
     recordRecent(
       window.localStorage,
       recentKey(userId, spaceId),
-      { id, type, title },
+      { id, type, title, ...(icon ? { icon } : {}) },
       new Date().toISOString(),
     );
-  }, [userId, spaceId, id, type, title]);
+  }, [userId, spaceId, id, type, title, icon]);
 }

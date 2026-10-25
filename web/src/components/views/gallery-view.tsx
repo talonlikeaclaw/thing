@@ -76,11 +76,16 @@ export function GalleryView({
                 )}
               </span>
               <span className="grid gap-1.5 px-3 py-2.5">
-                <span
-                  title={row.title}
-                  className="line-clamp-2 text-[14px] font-medium text-ink"
-                >
-                  {row.title}
+                <span className="flex items-start gap-1.5">
+                  {row.icon ? (
+                    <ThingIcon icon={row.icon} size="sm" className="mt-0.5" />
+                  ) : null}
+                  <span
+                    title={row.title}
+                    className="line-clamp-2 min-w-0 text-[14px] font-medium text-ink"
+                  >
+                    {row.title}
+                  </span>
                 </span>
                 {cards.length > 0 ? (
                   <dl className="grid gap-0.5">

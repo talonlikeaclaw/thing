@@ -141,7 +141,11 @@ export function HistoryPanel({
                   >
                     <div>
                       <span className="block text-[13px]">
-                        {row.key === "title" ? "Title" : (property?.name ?? row.key)}
+                        {row.key === "title"
+                          ? "Title"
+                          : row.key === "icon"
+                            ? "Icon"
+                            : (property?.name ?? row.key)}
                       </span>
                       <span className="font-mono text-[10px] text-faint">{row.key}</span>
                     </div>
@@ -194,6 +198,26 @@ function DiffValue({
   field: string;
   property: PropertyDef | undefined;
 }) {
+  if (field === "icon") {
+    return (
+      <span
+        className={cn(
+          "flex items-baseline gap-1.5 text-[13px]",
+          marker === "+" ? "text-ink" : "text-muted",
+        )}
+      >
+        <span aria-hidden className="font-mono text-[11px]">
+          {marker}
+        </span>
+        {typeof value === "string" && value ? (
+          <span className="text-[16px] leading-none">{value}</span>
+        ) : (
+          <span className="text-faint">none</span>
+        )}
+      </span>
+    );
+  }
+
   if (value === null || value === undefined) {
     return (
       <span className="flex items-baseline gap-1.5 text-[13px] text-faint">

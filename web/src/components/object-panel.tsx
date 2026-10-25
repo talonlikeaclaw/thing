@@ -9,8 +9,10 @@ import {
   useUpdateObject,
 } from "@/api/queries";
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
+import { IconPicker } from "@/components/icon-picker";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
+import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
@@ -43,6 +45,8 @@ const STATUS_LABELS = {
 
 interface Draft {
   title: string;
+  /** The raw glyph; an empty string means no icon. */
+  icon: string;
   body: string;
   values: Record<string, unknown | null>;
 }
@@ -50,6 +54,7 @@ interface Draft {
 interface Baseline {
   rev: number;
   title: string;
+  icon: string;
   body: string;
   values: Record<string, unknown | null>;
 }
@@ -66,13 +71,19 @@ function baselineOf(object: ObjectDetail): Baseline {
   return {
     rev: object.rev,
     title: object.title,
+    icon: object.icon ?? "",
     body: object.body,
     values: rawValues(object),
   };
 }
 
 function draftOf(object: ObjectDetail): Draft {
-  return { title: object.title, body: object.body, values: rawValues(object) };
+  return {
+    title: object.title,
+    icon: object.icon ?? "",
+    body: object.body,
+    values: rawValues(object),
+  };
 }
 
 /** One record: its title, every property, and the markdown body, saved as one write. */
@@ -138,12 +149,16 @@ export function ObjectPanel({
   }
 
   const titleChanged = draft.title.trim() !== baseline.title;
+  const iconChanged = draft.icon.trim() !== baseline.icon;
   const bodyChanged = draft.body !== baseline.body;
   const changedFields = keys.filter(
     (key) => !sameJson(baseline.values[key] ?? null, draft.values[key] ?? null),
   );
   const changeCount =
-    changedFields.length + (titleChanged ? 1 : 0) + (bodyChanged ? 1 : 0);
+    changedFields.length +
+    (titleChanged ? 1 : 0) +
+    (iconChanged ? 1 : 0) +
+    (bodyChanged ? 1 : 0);
   const dirty = changeCount > 0 && !leaving;
   const stale = object.rev !== baseline.rev;
 
@@ -175,6 +190,7 @@ export function ObjectPanel({
           id: objectId,
           rev: revOverride ?? base.rev,
           title: draft.title.trim(),
+          icon: draft.icon.trim() === "" ? null : draft.icon.trim(),
           body: draft.body,
           ...(Object.keys(nextChanges).length === 0 ? {} : { properties: nextChanges }),
         },
@@ -472,7 +488,14 @@ export function ObjectPanel({
 
       <div className="mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b rule pb-3">
         {canEdit ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <IconPicker
+              variant="compact"
+              label="Record icon"
+              value={draft.icon}
+              onChange={(icon) => setDraft((current) => ({ ...current, icon }))}
+              disabled={update.isPending}
+            />
             <input
               aria-label="Title"
               className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint"
@@ -496,9 +519,12 @@ export function ObjectPanel({
             ) : null}
           </div>
         ) : (
-          <h1 className="min-w-0 flex-1 text-[26px] font-medium tracking-[-0.02em]">
-            {draft.title}
-          </h1>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {draft.icon ? <ThingIcon icon={draft.icon} size="md" /> : null}
+            <h1 className="min-w-0 flex-1 text-[26px] font-medium tracking-[-0.02em]">
+              {draft.title}
+            </h1>
+          </div>
         )}
         <div className="flex items-center gap-3 pb-1">
           {canEdit ? (
@@ -513,6 +539,15 @@ export function ObjectPanel({
           ) : (
             <span className="label">read only</span>
           )}
+          {canEdit && iconChanged ? (
+            <button
+              type="button"
+              className="label text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+              onClick={() => setDraft((current) => ({ ...current, icon: baseline.icon }))}
+            >
+              Revert icon
+            </button>
+          ) : null}
           {canEdit ? (
             <Button
               type="button"

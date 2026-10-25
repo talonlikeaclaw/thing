@@ -345,6 +345,7 @@ mod tests {
             id: Uuid::from_u128(values.len() as u128 + 1),
             type_key: "plant".to_owned(),
             title: title.to_owned(),
+            icon: None,
             rev: 1,
             updated_at: at(),
             properties: values

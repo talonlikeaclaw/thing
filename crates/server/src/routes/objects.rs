@@ -31,7 +31,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::values::{Projection, object_json, space_timezone};
-use super::{ApiJson, ApiQuery, clean_text, space_for, uuid_param};
+use super::{ApiJson, ApiQuery, clean_icon, clean_text, double_option, space_for, uuid_param};
 use crate::auth::Caller;
 use crate::error::ApiError;
 use crate::spaces::SpaceHandle;
@@ -43,6 +43,8 @@ const DEFAULT_LIMIT: usize = 50;
 const MAX_LIMIT: usize = 500;
 /// The name a revision's change list gives the body, next to `title`.
 const BODY_KEY: &str = "body";
+/// The change-list name of an object's icon, next to `title`.
+const ICON_KEY: &str = "icon";
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -196,6 +198,8 @@ struct CreateObjectRequest {
     #[serde(rename = "type")]
     type_key: String,
     title: String,
+    #[serde(default)]
+    icon: Option<String>,
     /// Values by property key; `null` means the key is absent.
     #[serde(default)]
     properties: BTreeMap<String, Value>,
@@ -213,6 +217,7 @@ async fn create(
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Editor)?;
     let title = clean_text("title", &body.title, MAX_TITLE_LEN)?;
+    let icon = clean_icon(body.icon);
     let properties = read_properties(&body.properties)?
         .into_iter()
         .filter_map(|(key, value)| value.map(|value| (key, value)))
@@ -229,6 +234,7 @@ async fn create(
         id: Uuid::now_v7(),
         type_key: body.type_key.clone(),
         title,
+        icon,
         rev: 1,
         created_at: now,
         updated_at: now,
@@ -377,6 +383,9 @@ fn copy_title(title: &str) -> String {
 struct PatchObjectRequest {
     #[serde(default)]
     title: Option<String>,
+    /// `null` clears the icon; leaving it out keeps the current one.
+    #[serde(default, deserialize_with = "double_option")]
+    icon: Option<Option<String>>,
     /// Values to merge by property key; `null` removes the key.
     #[serde(default)]
     properties: Option<BTreeMap<String, Value>>,
@@ -401,6 +410,7 @@ async fn update(
         .as_deref()
         .map(|title| clean_text("title", title, MAX_TITLE_LEN))
         .transpose()?;
+    let icon = body.icon.map(clean_icon);
     let values = body.properties.as_ref().map(read_properties).transpose()?;
     let body_text = body.body;
     let rev = body.rev;
@@ -408,6 +418,9 @@ async fn update(
     commit(&handle, &caller, id, rev, RevisionAction::Update, |next| {
         if let Some(title) = title {
             next.title = title;
+        }
+        if let Some(icon) = icon {
+            next.icon = icon;
         }
         if let Some(values) = &values {
             for (key, value) in values {
@@ -961,6 +974,8 @@ struct TrashItem {
     #[serde(rename = "type")]
     type_key: String,
     title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    icon: Option<String>,
     rev: u64,
     #[serde(with = "time::serde::rfc3339::option")]
     trashed_at: Option<OffsetDateTime>,
@@ -974,6 +989,7 @@ impl TrashItem {
             id: doc.id,
             type_key: doc.type_key.clone(),
             title: doc.title.clone(),
+            icon: doc.icon.clone(),
             rev: doc.rev,
             trashed_at: doc.trashed_at,
             trashed_from: doc.trashed_from.clone(),
@@ -1004,6 +1020,7 @@ pub fn trash_and_record(
             action,
             snapshot: Snapshot {
                 title: summary.title.clone(),
+                icon: summary.icon.clone(),
                 properties: summary.properties.clone(),
             },
             body: None,
@@ -1037,6 +1054,9 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
     let mut keys = Vec::new();
     let Some(previous) = previous else {
         keys.push(TITLE_KEY.to_owned());
+        if revision.snapshot.icon.is_some() {
+            keys.push(ICON_KEY.to_owned());
+        }
         keys.extend(revision.snapshot.properties.keys().cloned());
         if revision.body.is_some() {
             keys.push(BODY_KEY.to_owned());
@@ -1045,6 +1065,9 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
     };
     if previous.snapshot.title != revision.snapshot.title {
         keys.push(TITLE_KEY.to_owned());
+    }
+    if previous.snapshot.icon != revision.snapshot.icon {
+        keys.push(ICON_KEY.to_owned());
     }
     for (key, value) in &revision.snapshot.properties {
         if previous.snapshot.properties.get(key) != Some(value) {
@@ -1103,6 +1126,7 @@ fn names(value: &CoreValue, target: Uuid) -> bool {
 pub(super) fn snapshot_of(doc: &ObjectDoc) -> Snapshot {
     Snapshot {
         title: doc.title.clone(),
+        icon: doc.icon.clone(),
         properties: doc.properties.clone(),
     }
 }
@@ -1147,6 +1171,7 @@ mod tests {
             action: RevisionAction::Update,
             snapshot: Snapshot {
                 title: title.to_owned(),
+                icon: None,
                 properties: values
                     .iter()
                     .map(|(key, value)| ((*key).to_owned(), CoreValue::Text((*value).to_owned())))
@@ -1181,6 +1206,26 @@ mod tests {
         assert_eq!(
             changed_keys(Some(&retitled), &emptied),
             vec!["room".to_owned()]
+        );
+    }
+
+    #[test]
+    fn an_icon_is_reported_like_a_title() {
+        let mut first = revision(1, "Monstera", &[], None);
+        first.snapshot.icon = Some("🪴".to_owned());
+        assert_eq!(
+            changed_keys(None, &first),
+            vec!["title".to_owned(), "icon".to_owned()]
+        );
+
+        let mut second = revision(2, "Monstera", &[], None);
+        second.snapshot.icon = Some("🪴".to_owned());
+        assert!(changed_keys(Some(&first), &second).is_empty());
+
+        let cleared = revision(3, "Monstera", &[], None);
+        assert_eq!(
+            changed_keys(Some(&second), &cleared),
+            vec!["icon".to_owned()]
         );
     }
 
@@ -1220,6 +1265,7 @@ mod tests {
             id: Uuid::now_v7(),
             type_key: "plant".to_owned(),
             title: "Monstera in the study".to_owned(),
+            icon: None,
             rev: 1,
             updated_at: OffsetDateTime::UNIX_EPOCH,
             properties: BTreeMap::new(),

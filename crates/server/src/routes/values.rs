@@ -24,6 +24,9 @@ pub struct SummaryJson {
     #[serde(rename = "type")]
     pub type_key: String,
     pub title: String,
+    /// The record's glyph; absent when it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
@@ -42,6 +45,9 @@ pub struct ObjectJson {
     #[serde(rename = "type")]
     pub type_key: String,
     pub title: String,
+    /// The record's glyph; absent when it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -147,6 +153,7 @@ impl<'a> Projection<'a> {
             id: summary.id,
             type_key: summary.type_key.clone(),
             title: summary.title.clone(),
+            icon: summary.icon.clone(),
             rev: summary.rev,
             updated_at: summary.updated_at,
             values,
@@ -178,6 +185,7 @@ impl<'a> Projection<'a> {
             id: doc.id,
             type_key: doc.type_key.clone(),
             title: doc.title.clone(),
+            icon: doc.icon.clone(),
             rev: doc.rev,
             created_at: doc.created_at,
             updated_at: doc.updated_at,
@@ -443,6 +451,7 @@ mod tests {
             id: Uuid::now_v7(),
             type_key: "plant".to_owned(),
             title: "Monstera".to_owned(),
+            icon: None,
             rev: 1,
             updated_at: OffsetDateTime::UNIX_EPOCH,
             properties: properties.clone(),

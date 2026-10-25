@@ -240,6 +240,8 @@ export interface ObjectSummary {
   id: Uuid;
   type: string;
   title: string;
+  /** A user-authored glyph; absent when the record has none. */
+  icon?: string;
   rev: number;
   updated_at: IsoDate;
   values: Record<string, ValueJson>;
@@ -262,6 +264,8 @@ export interface ObjectDetail {
   id: Uuid;
   type: string;
   title: string;
+  /** A user-authored glyph; absent when the record has none. */
+  icon?: string;
   rev: number;
   created_at: IsoDate;
   updated_at: IsoDate;
@@ -312,9 +316,11 @@ export interface ObjectsQuery {
 
 export type RevisionAction = "create" | "update" | "delete" | "restore" | "complete";
 
-/** The title and every property a write left behind. */
+/** The title, optional icon and every property a write left behind. */
 export interface RevisionSnapshot {
   title: string;
+  /** Absent on lines written before the field existed, and when no icon is set. */
+  icon?: string;
   properties: Record<string, unknown>;
 }
 
@@ -391,6 +397,7 @@ export interface TrashItem {
   id: Uuid;
   type: string;
   title: string;
+  icon?: string;
   rev: number;
   trashed_at: IsoDate | null;
   trashed_from?: string;

@@ -631,6 +631,7 @@ export function usePurgeObject(spaceId: string) {
 export interface CreateObjectInput {
   type: string;
   title: string;
+  icon?: string | null;
   properties?: Record<string, unknown>;
   body?: string;
 }
@@ -652,6 +653,8 @@ export interface UpdateObjectInput {
   id: string;
   rev: number;
   title?: string;
+  /** `null` clears the icon; leaving it out keeps the current one. */
+  icon?: string | null;
   /** `null` removes the key. */
   properties?: Record<string, unknown | null>;
   /** The markdown body, when this write carries one. */
@@ -705,6 +708,7 @@ function applyObject(
       return {
         ...row,
         title: object.title,
+        icon: object.icon,
         rev: object.rev,
         updated_at: object.updated_at,
         values,
@@ -730,6 +734,7 @@ export function useUpdateObject(spaceId: string) {
         body: {
           rev: input.rev,
           ...(input.title === undefined ? {} : { title: input.title }),
+          ...(input.icon === undefined ? {} : { icon: input.icon }),
           ...(input.properties === undefined ? {} : { properties: input.properties }),
           ...(input.body === undefined ? {} : { body: input.body }),
         },
@@ -750,6 +755,11 @@ export function useUpdateObject(spaceId: string) {
               ? {
                   ...row,
                   ...(input.title === undefined ? {} : { title: input.title }),
+                  ...(input.icon === undefined
+                    ? {}
+                    : input.icon === null
+                      ? { icon: undefined }
+                      : { icon: input.icon }),
                   rev: row.rev + 1,
                   updated_at: new Date().toISOString(),
                   values: input.cells ? mergeCells(row.values, input.cells) : row.values,
@@ -917,6 +927,7 @@ export interface PaletteRecord {
   id: Uuid;
   type: string;
   title: string;
+  icon?: string;
   updated_at: string;
 }
 
@@ -953,6 +964,7 @@ export function usePaletteRecords(
         id: object.id,
         type: object.type,
         title: object.title,
+        ...(object.icon ? { icon: object.icon } : {}),
         updated_at: object.updated_at,
       });
     }

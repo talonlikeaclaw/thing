@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import type { ObjectSummary, PropertyDef, ViewDef } from "@/api/types";
 import { PropertyValue } from "@/components/property-cell";
 import { Button } from "@/components/ui/controls";
+import { ThingIcon } from "@/components/thing-icon";
 import { CardActions } from "@/components/views/card-actions";
 import { groupRows } from "@/lib/views";
 
@@ -106,11 +107,16 @@ export function BoardView({
                       to={`/s/${spaceId}/o/${row.id}`}
                       className="block rounded-field border border-line bg-surface px-2.5 py-2 pr-16 transition-colors hover:border-line-strong"
                     >
-                      <span
-                        title={row.title}
-                        className="line-clamp-2 text-[14px] font-medium text-ink"
-                      >
-                        {row.title}
+                      <span className="flex items-start gap-1.5">
+                        {row.icon ? (
+                          <ThingIcon icon={row.icon} size="sm" className="mt-0.5" />
+                        ) : null}
+                        <span
+                          title={row.title}
+                          className="line-clamp-2 min-w-0 text-[14px] font-medium text-ink"
+                        >
+                          {row.title}
+                        </span>
                       </span>
                       {cards.length > 0 ? (
                         <dl className="mt-1 grid gap-0.5">

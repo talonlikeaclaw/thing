@@ -1,8 +1,10 @@
-/** One record the user opened, with the title as it looked at that moment. */
+/** One record the user opened, with the title and icon as they looked then. */
 export interface RecentItem {
   id: string;
   type: string;
   title: string;
+  /** The record's glyph, absent when it had none. Older entries omit it. */
+  icon?: string;
   at: string;
 }
 
@@ -30,6 +32,7 @@ function isRecentItem(value: unknown): value is RecentItem {
     item.type.length > 0 &&
     typeof item.title === "string" &&
     item.title.length > 0 &&
+    (item.icon === undefined || (typeof item.icon === "string" && item.icon.length > 0)) &&
     typeof item.at === "string" &&
     item.at.length > 0
   );

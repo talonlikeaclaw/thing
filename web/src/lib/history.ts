@@ -2,7 +2,7 @@ import type { Revision } from "@/api/types";
 
 /** One property-level line of a revision's diff. */
 export interface RevisionDiffRow {
-  /** A property key, or `title`. */
+  /** A property key, or `title` / `icon`. */
   key: string;
   /** The value before the write; `null` when the key did not exist. */
   before: unknown | null;
@@ -28,6 +28,13 @@ export function revisionDiff(
           key,
           before: previous?.snapshot.title ?? null,
           after: revision.snapshot.title,
+        };
+      }
+      if (key === "icon") {
+        return {
+          key,
+          before: previous?.snapshot.icon ?? null,
+          after: revision.snapshot.icon ?? null,
         };
       }
       return {

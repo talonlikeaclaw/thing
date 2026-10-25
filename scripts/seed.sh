@@ -60,18 +60,21 @@ json() {
     python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$1"
 }
 
-# object TYPE TITLE PROPERTIES_JSON [BODY] — prints the new object's id.
+# object TYPE TITLE PROPERTIES_JSON [BODY] [ICON] — prints the new object's id.
 object() {
     request POST "/api/spaces/$space/objects" "$(
         python3 -c '
 import json, sys
-print(json.dumps({
+doc = {
     "type": sys.argv[1],
     "title": sys.argv[2],
     "properties": json.loads(sys.argv[3]),
     "body": sys.argv[4],
-}))
-' "$1" "$2" "$3" "${4-}"
+}
+if sys.argv[5]:
+    doc["icon"] = sys.argv[5]
+print(json.dumps(doc))
+' "$1" "$2" "$3" "${4-}" "${5-}"
     )" | json id
 }
 
@@ -200,30 +203,30 @@ fiddle="$(object plant "Fiddle-leaf fig" \
     "{\"room\":\"study\",\"due_date\":\"$in_two\",\"recurrence\":{\"kind\":\"days\",\"every\":10},\"last_completed_at\":\"$last_eight\",\"tags\":[\"indoors\"]}" \
     "
 Repotted in spring; leaves wiped every other week.
-")"
+" "🌿")"
 monstera="$(object plant "Monstera in the study" \
     "{\"room\":\"kitchen\",\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":7},\"last_completed_at\":\"$last_eight\",\"tags\":[\"easy\",\"indoors\"],\"related_plant\":\"$fiddle\"}" \
     "
 Watered this week, new leaf unfurling at the top.
-")"
+" "🪴")"
 object plant "Balcony herbs" \
     "{\"room\":\"balcony\",\"due_date\":\"$today\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_three\",\"tags\":[\"easy\"]}" \
     "
 Basil, mint and thyme in one trough.
-" >/dev/null
+" "🌿" >/dev/null
 object plant "Snake plant" \
     "{\"room\":\"study\",\"due_date\":\"$in_fourteen\",\"recurrence\":{\"kind\":\"days\",\"every\":14},\"last_completed_at\":\"$now\",\"tags\":[\"easy\"]}" \
     "
 Nearly impossible to kill; water it when the soil is dry.
-" >/dev/null
+" "🌱" >/dev/null
 object chore "Water the monstera" \
-    "{\"room\":\"kitchen\",\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_four\"}" >/dev/null
+    "{\"room\":\"kitchen\",\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_four\"}" "" "💧" >/dev/null
 object chore "Dust the shelves" \
-    "{\"room\":\"study\",\"due_date\":\"$in_three\",\"recurrence\":{\"kind\":\"weekly\",\"every\":1,\"weekday\":$in_three_weekday},\"last_completed_at\":\"$last_four\"}" >/dev/null
+    "{\"room\":\"study\",\"due_date\":\"$in_three\",\"recurrence\":{\"kind\":\"weekly\",\"every\":1,\"weekday\":$in_three_weekday},\"last_completed_at\":\"$last_four\"}" "" "🧹" >/dev/null
 object chore "Sweep the balcony" \
-    "{\"room\":\"balcony\",\"due_date\":\"$in_two\"}" >/dev/null
+    "{\"room\":\"balcony\",\"due_date\":\"$in_two\"}" "" "🧹" >/dev/null
 object chore "Repot the fiddle-leaf" \
-    "{\"room\":\"study\",\"last_completed_at\":\"$last_six\"}" >/dev/null
+    "{\"room\":\"study\",\"last_completed_at\":\"$last_six\"}" "" "🪴" >/dev/null
 
 echo "seed: 8 objects"
 echo

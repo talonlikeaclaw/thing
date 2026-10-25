@@ -19,6 +19,7 @@ import {
   useType,
   useTypes,
 } from "@/api/queries";
+import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -132,6 +133,7 @@ function QuickCaptureDialog({
 
   const [selected, setSelected] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState("");
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +163,7 @@ function QuickCaptureDialog({
       return;
     }
     setTitle("");
+    setIcon("");
     setValues({});
     setInvalid(new Set());
     setError(null);
@@ -258,6 +261,7 @@ function QuickCaptureDialog({
       {
         type: selected,
         title: trimmed,
+        ...(icon.trim() === "" ? {} : { icon: icon.trim() }),
         ...(Object.keys(payload).length > 0 ? { properties: payload } : {}),
       },
       {
@@ -276,6 +280,7 @@ function QuickCaptureDialog({
             return;
           }
           setTitle("");
+          setIcon("");
           setValues({});
           setInvalid(new Set());
           setEpoch((current) => current + 1);
@@ -413,6 +418,14 @@ function QuickCaptureDialog({
                       onChange={(event) => setTitle(event.target.value)}
                     />
                   </div>
+
+                  <IconPicker
+                    label="Icon"
+                    value={icon}
+                    onChange={setIcon}
+                    disabled={pending}
+                    hint="Optional — shows beside the record’s title."
+                  />
 
                   {selected !== null && type.isPending ? (
                     <p className="text-[13px] text-muted">Reading the type…</p>

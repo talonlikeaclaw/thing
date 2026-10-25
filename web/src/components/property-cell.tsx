@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
 import { PropertyInput, TitleInput } from "@/components/property-input";
+import { ThingIcon } from "@/components/thing-icon";
 import { formatDateTime } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
@@ -143,10 +144,13 @@ export function PropertyCell({
 /** The title column, which is edited as a field of the object rather than a property. */
 export function TitleCell({
   title,
+  icon,
   canEdit,
   onCommit,
 }: {
   title: string;
+  /** The record's glyph; an absent icon adds no slot. */
+  icon?: string;
   canEdit: boolean;
   onCommit: (title: string) => Promise<WriteResult>;
 }) {
@@ -234,6 +238,7 @@ export function TitleCell({
       )}
       onClick={() => setEditing(true)}
     >
+      {icon ? <ThingIcon icon={icon} size="sm" className="mr-1.5" /> : null}
       <span className="truncate">{title}</span>
     </button>
   );

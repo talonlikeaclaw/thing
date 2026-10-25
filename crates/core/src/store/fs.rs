@@ -450,6 +450,7 @@ impl SpaceStore for FsSpaceStore {
                             action: RevisionAction::Update,
                             snapshot: Snapshot {
                                 title: doc.title.clone(),
+                                icon: doc.icon.clone(),
                                 properties: doc.properties.clone(),
                             },
                             body: None,
@@ -505,6 +506,7 @@ impl SpaceStore for FsSpaceStore {
                             action: RevisionAction::Update,
                             snapshot: Snapshot {
                                 title: doc.title.clone(),
+                                icon: doc.icon.clone(),
                                 properties: doc.properties.clone(),
                             },
                             body: None,
@@ -673,6 +675,7 @@ mod tests {
             id: id(9),
             type_key: type_key.to_owned(),
             title: title.to_owned(),
+            icon: None,
             rev: 1,
             created_at: at(1_760_000_000),
             updated_at: at(1_760_000_000),
@@ -693,6 +696,7 @@ mod tests {
             action: crate::model::RevisionAction::Update,
             snapshot: Snapshot {
                 title: "Monstera".to_owned(),
+                icon: None,
                 properties: BTreeMap::new(),
             },
             body: None,
@@ -998,6 +1002,7 @@ mod tests {
             action: RevisionAction::Update,
             snapshot: Snapshot {
                 title: "Monstera".to_owned(),
+                icon: None,
                 properties: BTreeMap::from([(
                     "space".to_owned(),
                     Value::Text("kitchen".to_owned()),

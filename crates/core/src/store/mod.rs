@@ -441,6 +441,7 @@ mod tests {
             id: Uuid::from_u128(9),
             type_key: "plant".to_owned(),
             title: "Monstera".to_owned(),
+            icon: None,
             rev: 1,
             created_at: at(),
             updated_at: at(),

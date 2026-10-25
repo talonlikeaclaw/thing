@@ -32,6 +32,7 @@ import type {
 } from "@/api/types";
 import { useHandedness } from "@/components/handedness";
 import { PropertyField } from "@/components/property-field";
+import { IconPicker } from "@/components/icon-picker";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
@@ -86,11 +87,17 @@ interface TableViewProps {
   bulkOpen: boolean;
   /** Required members a new record must carry before the POST. */
   requiredProperties: PropertyDef[];
-  draft: { title: string; values: Record<string, unknown | null>; error: string | null } | null;
+  draft: {
+    title: string;
+    icon: string;
+    values: Record<string, unknown | null>;
+    error: string | null;
+  } | null;
   /** A just-created record stays highlighted briefly. */
   highlightId: string | null;
   timeZone: string;
   onDraftTitle: (title: string) => void;
+  onDraftIcon: (icon: string) => void;
   onDraftValue: (key: string, value: unknown | null) => void;
   onDraftCommit: () => void;
   onDraftCancel: () => void;
@@ -136,6 +143,7 @@ export function TableView({
   highlightId,
   timeZone,
   onDraftTitle,
+  onDraftIcon,
   onDraftValue,
   onDraftCommit,
   onDraftCancel,
@@ -545,25 +553,33 @@ export function TableView({
                 style={{ left: selectOffset * SELECT_WIDTH }}
               >
                 <div className="grid gap-1.5">
-                  <input
-                    autoFocus
-                    aria-label="New record title"
-                    className="h-8 w-full rounded-[3px] border border-line-interactive bg-ground px-1.5 text-[14px] font-medium text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
-                    maxLength={200}
-                    placeholder="Untitled"
-                    value={draft.title}
-                    onChange={(event) => onDraftTitle(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        onDraftCommit();
-                      }
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        onDraftCancel();
-                      }
-                    }}
-                  />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <IconPicker
+                      variant="compact"
+                      label="New record icon"
+                      value={draft.icon}
+                      onChange={onDraftIcon}
+                    />
+                    <input
+                      autoFocus
+                      aria-label="New record title"
+                      className="h-8 min-w-0 flex-1 rounded-[3px] border border-line-interactive bg-ground px-1.5 text-[14px] font-medium text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                      maxLength={200}
+                      placeholder="Untitled"
+                      value={draft.title}
+                      onChange={(event) => onDraftTitle(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          onDraftCommit();
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          onDraftCancel();
+                        }
+                      }}
+                    />
+                  </div>
                   {requiredProperties.map((property) => (
                     <div key={property.key} className="grid gap-0.5">
                       <span className="label">{property.name} · required</span>
@@ -665,6 +681,7 @@ export function TableView({
                 >
                   <TitleCell
                     title={row.title}
+                    icon={row.icon}
                     canEdit={canEdit}
                     onCommit={(title) => onTitleCommit(row, title)}
                   />

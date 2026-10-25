@@ -1,5 +1,5 @@
 import { Popover } from "@base-ui/react/popover";
-import { Smile, X } from "lucide-react";
+import { Smile, SmilePlus, X } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/cn";
@@ -12,6 +12,8 @@ interface IconPickerProps {
   disabled?: boolean;
   id?: string;
   hint?: string;
+  /** `compact` is the record header's inline trigger; `field` is a form field. */
+  variant?: "field" | "compact";
 }
 
 /**
@@ -20,7 +22,15 @@ interface IconPickerProps {
  * The catalogue is local and small; the custom field accepts any other emoji.
  * The value is the raw string the server already stores as `icon`.
  */
-export function IconPicker({ label, value, onChange, disabled, id, hint }: IconPickerProps) {
+export function IconPicker({
+  label,
+  value,
+  onChange,
+  disabled,
+  id,
+  hint,
+  variant = "field",
+}: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [custom, setCustom] = useState("");
@@ -34,11 +44,15 @@ export function IconPicker({ label, value, onChange, disabled, id, hint }: IconP
     setOpen(false);
   }
 
+  const compact = variant === "compact";
+
   return (
-    <div className="grid gap-1.5">
-      <span id={`${fieldId}-label`} className="label">
-        {label}
-      </span>
+    <div className={compact ? "max-sm:w-full sm:w-auto" : "grid gap-1.5"}>
+      {compact ? null : (
+        <span id={`${fieldId}-label`} className="label">
+          {label}
+        </span>
+      )}
       <Popover.Root
         open={open}
         onOpenChange={(next) => {
@@ -53,22 +67,35 @@ export function IconPicker({ label, value, onChange, disabled, id, hint }: IconP
           id={fieldId}
           type="button"
           disabled={disabled}
-          aria-labelledby={`${fieldId}-label`}
+          aria-label={compact ? `${value ? "Change" : "Add"} ${label.toLowerCase()}` : undefined}
+          aria-labelledby={compact ? undefined : `${fieldId}-label`}
           aria-describedby={hintId}
+          title={compact ? (value ? "Change icon" : "Add icon") : undefined}
           className={cn(
-            "flex h-10 w-full items-center gap-2 rounded-field border border-line-interactive bg-ground px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
+            compact
+              ? value
+                ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-expanded:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
+                : "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[4px] border border-dashed border-line-interactive px-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full sm:justify-start pointer-coarse:h-11 pointer-coarse:px-2"
+              : "flex h-10 w-full items-center gap-2 rounded-field border border-line-interactive bg-ground px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
           )}
         >
           {value ? (
             <span aria-hidden className="text-[20px] leading-none">
               {value}
             </span>
+          ) : compact ? (
+            <>
+              <SmilePlus aria-hidden size={16} className="shrink-0" />
+              <span className="whitespace-nowrap">Add icon</span>
+            </>
           ) : (
-            <Smile aria-hidden size={18} className="text-muted" />
+            <Smile aria-hidden size={18} className="shrink-0 text-muted" />
           )}
-          <span className="truncate text-[13px] text-muted">
-            {value ? "Change icon" : "Choose icon"}
-          </span>
+          {compact ? null : (
+            <span className="truncate text-[13px] text-muted">
+              {value ? "Change icon" : "Choose icon"}
+            </span>
+          )}
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Positioner sideOffset={4} className="z-50">
@@ -149,7 +176,7 @@ export function IconPicker({ label, value, onChange, disabled, id, hint }: IconP
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
-      {hint ? (
+      {hint && !compact ? (
         <p id={hintId} className="text-[13px] text-muted">
           {hint}
         </p>

@@ -94,7 +94,10 @@ export function SpacePage() {
                   to={`/s/${detail.id}/o/${item.id}`}
                   className="flex items-baseline justify-between gap-3 py-2.5 transition-colors hover:text-accent pointer-coarse:min-h-11"
                 >
-                  <span className="min-w-0 truncate text-[15px]">{item.title}</span>
+                  <span className="flex min-w-0 items-baseline gap-1.5 text-[15px]">
+                    {item.icon ? <ThingIcon icon={item.icon} size="sm" /> : null}
+                    <span className="truncate">{item.title}</span>
+                  </span>
                   <span className="flex shrink-0 items-baseline gap-3 font-mono text-[10.5px] text-faint">
                     <span>{item.type}</span>
                     <span>{relativeTime(item.at)}</span>
