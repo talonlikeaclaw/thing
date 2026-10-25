@@ -191,8 +191,11 @@ export function TableView({
     : coarse
       ? OPEN_WIDTH_COARSE
       : OPEN_WIDTH_FINE;
+  // A phone shows the trigger above the scrollport instead: a trailing column
+  // would be a horizontal swipe away and cost the table 132px it does not have.
+  const showAddColumn = canEdit && !compact;
   const fixedWidth =
-    (showSelect ? SELECT_WIDTH : 0) + (canEdit ? ADD_PROPERTY_WIDTH : 0) + openWidth;
+    (showSelect ? SELECT_WIDTH : 0) + (showAddColumn ? ADD_PROPERTY_WIDTH : 0) + openWidth;
   const flexTotal =
     widthOf("title") + columns.reduce((sum, key) => sum + widthOf(key), 0);
   const flexKeys = ["title", ...columns];
@@ -372,7 +375,7 @@ export function TableView({
   return (
     <>
     {compact ? (
-      <div className="mt-3 flex items-center gap-3 sm:hidden">
+      <div className="mt-3 flex items-center gap-3">
         <p
           className="min-w-0 flex-1 truncate text-[11px] text-muted"
           title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
@@ -381,6 +384,17 @@ export function TableView({
             ? "Tap the boxes to select rows"
             : "Swipe sideways for columns · ⋯ for row actions"}
         </p>
+        {canEdit ? (
+          <button
+            type="button"
+            aria-label="Add property"
+            className="label inline-flex shrink-0 items-center gap-1 text-[11px] text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
+            onClick={onAddProperty}
+          >
+            <Plus aria-hidden size={12} />
+            Add property
+          </button>
+        ) : null}
         {canEdit ? (
           <button
             type="button"
@@ -419,7 +433,7 @@ export function TableView({
           {columns.map((key) => (
             <col key={key} style={{ width: columnWidth(key) }} />
           ))}
-          {canEdit ? <col style={{ width: ADD_PROPERTY_WIDTH }} /> : null}
+          {showAddColumn ? <col style={{ width: ADD_PROPERTY_WIDTH }} /> : null}
           <col style={{ width: openWidth }} />
         </colgroup>
         <thead className="sticky top-0 z-20 bg-ground">
@@ -501,7 +515,7 @@ export function TableView({
                 </th>
               );
             })}
-            {canEdit ? (
+            {showAddColumn ? (
               <th scope="col" className="py-2 pr-2 text-left">
                 <button
                   type="button"
@@ -592,7 +606,7 @@ export function TableView({
               {columns.map((key) => (
                 <td key={key} className="py-1 pr-2" />
               ))}
-              {canEdit ? <td className="py-1 pr-2" /> : null}
+              {showAddColumn ? <td className="py-1 pr-2" /> : null}
               <td className="sticky right-0 border-l rule bg-raised/40" />
             </tr>
           ) : null}
