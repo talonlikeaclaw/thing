@@ -59,6 +59,19 @@ impl<'a> Row<'a> {
         }
     }
 
+    /// Compares two non-empty values of a `Select` / `MultiSelect` column by
+    /// their option order instead of their text.
+    pub(crate) fn ordering_by_option(
+        &self,
+        positions: &std::collections::HashMap<&str, usize>,
+        other: &Row<'_>,
+    ) -> Option<Ordering> {
+        match (self.value(), other.value()) {
+            (Some(left), Some(right)) => Some(value::compare_options(positions, left, right)),
+            _ => None,
+        }
+    }
+
     /// Whether the row holds the expected value; an unset cell equals nothing.
     fn equals(&self, format: PropertyFormat, expected: &Value) -> bool {
         match (self, expected) {

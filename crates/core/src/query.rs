@@ -5,6 +5,7 @@
 //! which a table that re-fetches on every edit depends on.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use crate::filter::{self, Row};
 use crate::model::{
@@ -24,18 +25,82 @@ pub fn apply(
         .filter(|row| filter::row_matches(filter, row, schema))
         .cloned()
         .collect();
-    rows.sort_by(|left, right| compare_rows(sorts, left, right, schema));
+    // One option key lookup per sort key, not one per comparison.
+    let keys: Vec<SortKey<'_, '_>> = sorts
+        .iter()
+        .map(|sort| SortKey::new(sort, schema))
+        .collect();
+    rows.sort_by(|left, right| compare_rows(&keys, left, right));
     rows
 }
 
-fn compare_rows(
-    sorts: &[Sort],
-    left: &ObjectSummary,
-    right: &ObjectSummary,
-    schema: &Schema,
-) -> Ordering {
-    for sort in sorts {
-        let ordering = compare_key(sort, left, right, schema);
+/// One sort key resolved against the schema: its format, and the option order
+/// that decides a `Select` / `MultiSelect` column.
+struct SortKey<'s, 'k> {
+    sort: &'s Sort,
+    format: PropertyFormat,
+    options: Option<HashMap<&'k str, usize>>,
+}
+
+impl<'s, 'k> SortKey<'s, 'k> {
+    fn new(sort: &'s Sort, schema: &Schema<'k>) -> Self {
+        let def = schema.property(&sort.property);
+        let format = def.map_or(PropertyFormat::Text, |def| def.format);
+        let options = match def {
+            Some(def)
+                if matches!(
+                    def.format,
+                    PropertyFormat::Select | PropertyFormat::MultiSelect
+                ) && !def.options.is_empty() =>
+            {
+                Some(
+                    def.options
+                        .iter()
+                        .enumerate()
+                        .map(|(position, option)| (option.key.as_str(), position))
+                        .collect(),
+                )
+            }
+            _ => None,
+        };
+        Self {
+            sort,
+            format,
+            options,
+        }
+    }
+
+    fn compare(&self, left: &ObjectSummary, right: &ObjectSummary) -> Ordering {
+        // `updated_at` is a column like `title`, but every row has one, so it
+        // does not go through the empty-value machinery.
+        if self.sort.property == UPDATED_AT_KEY {
+            let ordering = left.updated_at.cmp(&right.updated_at);
+            return match self.sort.direction {
+                Direction::Asc => ordering,
+                Direction::Desc => ordering.reverse(),
+            };
+        }
+        let left_row = Row::of(left, &self.sort.property);
+        let right_row = Row::of(right, &self.sort.property);
+
+        if left_row.is_empty() || right_row.is_empty() {
+            return empty_order(self.sort.empty, left_row.is_empty(), right_row.is_empty());
+        }
+        let ordering = match &self.options {
+            Some(positions) => left_row.ordering_by_option(positions, &right_row),
+            None => left_row.ordering(self.format, &right_row),
+        }
+        .unwrap_or(Ordering::Equal);
+        match self.sort.direction {
+            Direction::Asc => ordering,
+            Direction::Desc => ordering.reverse(),
+        }
+    }
+}
+
+fn compare_rows(keys: &[SortKey<'_, '_>], left: &ObjectSummary, right: &ObjectSummary) -> Ordering {
+    for key in keys {
+        let ordering = key.compare(left, right);
         if ordering != Ordering::Equal {
             return ordering;
         }
@@ -44,39 +109,6 @@ fn compare_rows(
         .updated_at
         .cmp(&left.updated_at)
         .then_with(|| left.id.cmp(&right.id))
-}
-
-fn compare_key(
-    sort: &Sort,
-    left: &ObjectSummary,
-    right: &ObjectSummary,
-    schema: &Schema,
-) -> Ordering {
-    // `updated_at` is a column like `title`, but every row has one, so it does
-    // not go through the empty-value machinery.
-    if sort.property == UPDATED_AT_KEY {
-        let ordering = left.updated_at.cmp(&right.updated_at);
-        return match sort.direction {
-            Direction::Asc => ordering,
-            Direction::Desc => ordering.reverse(),
-        };
-    }
-    let format = schema
-        .property(&sort.property)
-        .map_or(PropertyFormat::Text, |def| def.format);
-    let left_row = Row::of(left, &sort.property);
-    let right_row = Row::of(right, &sort.property);
-
-    if left_row.is_empty() || right_row.is_empty() {
-        return empty_order(sort.empty, left_row.is_empty(), right_row.is_empty());
-    }
-    let ordering = left_row
-        .ordering(format, &right_row)
-        .unwrap_or(Ordering::Equal);
-    match sort.direction {
-        Direction::Asc => ordering,
-        Direction::Desc => ordering.reverse(),
-    }
 }
 
 /// Where an empty value goes. Applied after the direction, so `Start` keeps
@@ -106,7 +138,7 @@ mod tests {
 
     use super::*;
     use crate::model::{
-        CondOp, Condition, Filter, FilterOp, ObjectDoc, PropertyDef, TITLE_KEY, TypeDef,
+        CondOp, Condition, Filter, FilterOp, ObjectDoc, OptionDef, PropertyDef, TITLE_KEY, TypeDef,
         TypeProperty, Value, ViewDef, ViewKind,
     };
 
@@ -199,6 +231,34 @@ mod tests {
 
     fn text(value: &str) -> Value {
         Value::Text(value.to_owned())
+    }
+
+    fn list(values: &[&str]) -> Value {
+        Value::List(values.iter().map(|value| (*value).to_owned()).collect())
+    }
+
+    /// A select or multi-select definition whose options are named by their keys.
+    fn option_property(key: &str, format: PropertyFormat, options: &[&str]) -> PropertyDef {
+        PropertyDef {
+            key: key.to_owned(),
+            name: key.to_owned(),
+            format,
+            options: options
+                .iter()
+                .map(|option| OptionDef {
+                    key: (*option).to_owned(),
+                    name: (*option).to_owned(),
+                    color: "lichen".to_owned(),
+                })
+                .collect(),
+            target_type: None,
+            multi: false,
+        }
+    }
+
+    fn with_property(mut fixture: Fixture, property: PropertyDef) -> Fixture {
+        fixture.properties.insert(property.key.clone(), property);
+        fixture
     }
 
     fn sort(property: &str, direction: Direction) -> Sort {
@@ -334,6 +394,154 @@ mod tests {
         );
         end.direction = Direction::Desc;
         assert_eq!(ids(&apply(&view(vec![end]), &rows, &schema)), vec![2, 1, 3]);
+    }
+
+    #[test]
+    fn a_select_sorts_by_option_order_not_by_text() {
+        let fixture = with_property(
+            Fixture::new(),
+            option_property(
+                "place",
+                PropertyFormat::Select,
+                &["kitchen", "study", "balcony"],
+            ),
+        );
+        let rows = [
+            row(1, "Balcony", 0, &[("place", text("balcony"))]),
+            row(2, "Kitchen", 0, &[("place", text("kitchen"))]),
+            row(3, "Study", 0, &[("place", text("study"))]),
+        ];
+        let schema = fixture.schema();
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("place", Direction::Asc)]),
+                &rows,
+                &schema
+            )),
+            vec![2, 3, 1]
+        );
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("place", Direction::Desc)]),
+                &rows,
+                &schema
+            )),
+            vec![1, 3, 2]
+        );
+    }
+
+    #[test]
+    fn reordering_options_changes_the_next_query() {
+        let fixture = with_property(
+            Fixture::new(),
+            option_property(
+                "place",
+                PropertyFormat::Select,
+                &["balcony", "kitchen", "study"],
+            ),
+        );
+        let rows = [
+            row(1, "Balcony", 0, &[("place", text("balcony"))]),
+            row(2, "Kitchen", 0, &[("place", text("kitchen"))]),
+            row(3, "Study", 0, &[("place", text("study"))]),
+        ];
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("place", Direction::Asc)]),
+                &rows,
+                &fixture.schema()
+            )),
+            vec![1, 2, 3]
+        );
+    }
+
+    #[test]
+    fn an_option_the_property_no_longer_defines_sorts_last_then_by_text() {
+        let fixture = with_property(
+            Fixture::new(),
+            option_property("place", PropertyFormat::Select, &["kitchen", "study"]),
+        );
+        let rows = [
+            row(1, "Balcony", 0, &[("place", text("balcony"))]),
+            row(2, "Cellar", 0, &[("place", text("cellar"))]),
+            row(3, "Kitchen", 0, &[("place", text("kitchen"))]),
+            row(4, "Attic", 0, &[("place", text("attic"))]),
+        ];
+        let schema = fixture.schema();
+        // Known options first in their declared order, then unknown keys by text.
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("place", Direction::Asc)]),
+                &rows,
+                &schema
+            )),
+            vec![3, 4, 1, 2]
+        );
+        // Descending reverses the option order and the unknown tail with it.
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("place", Direction::Desc)]),
+                &rows,
+                &schema
+            )),
+            vec![2, 1, 4, 3]
+        );
+    }
+
+    #[test]
+    fn a_multi_select_compares_element_wise_in_option_order() {
+        let fixture = with_property(
+            Fixture::new(),
+            option_property("tags", PropertyFormat::MultiSelect, &["a", "b", "c"]),
+        );
+        let rows = [
+            row(1, "One", 0, &[("tags", list(&["b"]))]),
+            row(2, "Two", 0, &[("tags", list(&["a", "c"]))]),
+            row(3, "Three", 0, &[("tags", list(&["b", "a"]))]),
+            row(4, "Four", 0, &[("tags", list(&["a"]))]),
+        ];
+        let schema = fixture.schema();
+        // The first differing option decides; an equal prefix loses to a longer list.
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("tags", Direction::Asc)]),
+                &rows,
+                &schema
+            )),
+            vec![4, 2, 1, 3]
+        );
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("tags", Direction::Desc)]),
+                &rows,
+                &schema
+            )),
+            vec![3, 1, 2, 4]
+        );
+    }
+
+    #[test]
+    fn empty_select_values_keep_their_placement_after_the_direction() {
+        let fixture = with_property(
+            Fixture::new(),
+            option_property("place", PropertyFormat::Select, &["kitchen", "study"]),
+        );
+        let rows = [
+            row(1, "Empty", 0, &[]),
+            row(2, "Kitchen", 0, &[("place", text("kitchen"))]),
+        ];
+        let schema = fixture.schema();
+        assert_eq!(
+            ids(&apply(
+                &view(vec![sort("place", Direction::Asc)]),
+                &rows,
+                &schema
+            )),
+            vec![2, 1]
+        );
+        let mut start = sort("place", Direction::Desc);
+        start.empty = EmptyPlacement::Start;
+        assert_eq!(ids(&apply(&view(vec![start]), &rows, &schema)), vec![1, 2]);
     }
 
     #[test]

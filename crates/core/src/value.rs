@@ -146,6 +146,37 @@ pub fn compare(format: PropertyFormat, a: &Value, b: &Value) -> Ordering {
     }
 }
 
+/// Orders a `Select` or `MultiSelect` value by the property's option order.
+///
+/// `positions` is the property's option key to index, built once per sort. A
+/// key the property no longer defines — or a property whose options are gone —
+/// sorts after every known option and then by its text, so a stale value stays
+/// visible rather than disappearing into an arbitrary place. A multi-select
+/// compares element-wise, the first differing option deciding, then by length,
+/// exactly like [`compare`]'s list shape.
+pub fn compare_options(
+    positions: &std::collections::HashMap<&str, usize>,
+    a: &Value,
+    b: &Value,
+) -> Ordering {
+    let by_option = |left: &str, right: &str| match (positions.get(left), positions.get(right)) {
+        (Some(left), Some(right)) => left.cmp(right),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => compare_text(left, right),
+    };
+    match (a, b) {
+        (Value::Text(x), Value::Text(y)) => by_option(x, y),
+        (Value::List(x), Value::List(y)) => x
+            .iter()
+            .zip(y)
+            .map(|(xi, yi)| by_option(xi, yi))
+            .find(|ordering| *ordering != Ordering::Equal)
+            .unwrap_or_else(|| x.len().cmp(&y.len())),
+        _ => rank(a).cmp(&rank(b)),
+    }
+}
+
 /// A recurrence's total order: kind, interval, weekday, then month day.
 fn recurrence_key(recurrence: &Recurrence) -> (u8, u32, Option<u8>, Option<u8>) {
     (

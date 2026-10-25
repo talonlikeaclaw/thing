@@ -25,6 +25,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Add a property straight from the table, from its trailing header cell or the Columns panel — an existing library property or a new one with its format.",
       "Signing out asks first and names the risk: an unsaved draft in this browser is lost.",
       "Columns sits beside Filter and Sort with a live count, a select's option list opens above the table instead of inside it, and every header shows its sort state.",
+      "Select and Multi-select columns now sort by the order their options are listed, not alphabetically, so the table follows the schema you arranged.",
     ],
     details: [
       "The handedness choice is per browser and per person; it moves controls, never reading order, columns or text.",
@@ -38,6 +39,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A Select list is portalled, flips above the cell near the bottom of the window and is never clipped by the table's scroller; filtering, creating an option, Clear and Escape behave as before.",
       "Every table header shows a sort glyph in a fixed slot — faint when unsorted, accent up or down when sorted — and its label names the current state and the next action.",
       "Sorting, filtering, paging and view buttons keep the page where it is instead of scrolling back to the top; the table itself stays scrolled while its order changes.",
+      "A value whose option was deleted sorts after every known option rather than disappearing; reordering options changes the next sorted query without touching any record.",
+      "When the phone space sheet is too short to show the type list, a Types strip at its bottom edge says how many are below and scrolls straight to them.",
+      "Every rail and sheet link carries an icon — All spaces, Overview, Schedule, Schema, Members, Settings, Trash and the Types heading — so the page you want reads at a glance.",
+      "The sheet's Reorder control sits in its pinned header beside the close button, so the fold never cuts it and Done stays reachable while rows move.",
     ],
   },
   {
