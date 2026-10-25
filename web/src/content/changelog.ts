@@ -28,7 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The handedness choice is per browser and per person; it moves controls, never reading order, columns or text.",
       "Adding a property attaches it to the type with the record panel featured and appends it to the current view only.",
       "A failed add names the step that failed and Retry resumes without creating a second property.",
-      "On a phone the Add property control sits above the table, so it is never a sideways swipe away.",
+      "On a phone the Add property control sits above the row action icons, so it is never behind a sideways swipe.",
     ],
   },
   {

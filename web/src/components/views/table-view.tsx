@@ -380,21 +380,8 @@ export function TableView({
           className="min-w-0 flex-1 truncate text-[11px] text-muted"
           title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
         >
-          {selecting
-            ? "Tap the boxes to select rows"
-            : "Swipe sideways for columns · ⋯ for row actions"}
+          {selecting ? "Tap the boxes to select rows" : "Swipe for columns · ⋯ for actions"}
         </p>
-        {canEdit ? (
-          <button
-            type="button"
-            aria-label="Add property"
-            className="label inline-flex shrink-0 items-center gap-1 text-[11px] text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
-            onClick={onAddProperty}
-          >
-            <Plus aria-hidden size={12} />
-            Add property
-          </button>
-        ) : null}
         {canEdit ? (
           <button
             type="button"
@@ -533,6 +520,17 @@ export function TableView({
               className="sticky right-0 z-30 border-l rule bg-ground py-2"
             >
               <span className="sr-only">Actions</span>
+              {compact && canEdit ? (
+                <button
+                  type="button"
+                  aria-label="Add property"
+                  title="Add property"
+                  className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+                  onClick={onAddProperty}
+                >
+                  <Plus aria-hidden size={14} />
+                </button>
+              ) : null}
             </th>
           </tr>
         </thead>
