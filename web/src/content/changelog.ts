@@ -23,12 +23,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     highlights: [
       "Choose left- or right-handed layout in Appearance: the phone bar, action rows, save buttons, toasts and row menus all move under your thumb.",
       "Add a property straight from the table, from its trailing header cell or the Columns panel — an existing library property or a new one with its format.",
+      "Signing out asks first and names the risk: an unsaved draft in this browser is lost.",
     ],
     details: [
       "The handedness choice is per browser and per person; it moves controls, never reading order, columns or text.",
       "Adding a property attaches it to the type with the record panel featured and appends it to the current view only.",
       "A failed add names the step that failed and Retry resumes without creating a second property.",
       "On a phone the Add property control sits above the row action icons, so it is never behind a sideways swipe.",
+      "Capture in the header shows its C key, and a space's header actions line up with the content below the rail.",
+      "The space rail puts All spaces, Overview and the five space pages above Types.",
+      "On a phone a type row keeps its icon and full name, hiding the key and counts until there is room.",
     ],
   },
   {

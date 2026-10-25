@@ -34,6 +34,23 @@ export function Button({ variant = "primary", className, ...props }: ButtonProps
 }
 
 /**
+ * A shortcut cap beside a header action. The keys come from `SHORTCUTS`, so a
+ * cap cannot advertise a binding the app does not register.
+ */
+export function Keycap({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <kbd
+      className={cn(
+        "rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint",
+        className,
+      )}
+    >
+      {children}
+    </kbd>
+  );
+}
+
+/**
  * One button in a compact inline editor (a table cell, the cadence field, a
  * filter value). Dense for a mouse; a full-height target under a finger, even
  * when a narrow window reports a fine pointer.

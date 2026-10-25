@@ -54,7 +54,7 @@ export function UserSettingsPage() {
   const user = me.data;
 
   return (
-    <div className="settle max-w-[52ch]">
+    <div className="settle mx-auto max-w-[52ch]">
       <h1 className="text-[26px] font-medium tracking-[-0.02em]">Account settings</h1>
       <p className="mt-2 text-[13px] text-muted">
         These preferences follow this browser and account. They never reach a space.

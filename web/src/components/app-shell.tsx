@@ -7,17 +7,17 @@ import {
   ScrollRestoration,
   useLocation,
   useMatch,
-  useNavigate,
 } from "react-router";
 
-import { useLogout, useMe } from "@/api/queries";
+import { useMe } from "@/api/queries";
 import { CommandPalette } from "@/components/command-palette";
 import { HandednessProvider } from "@/components/handedness";
 import { PaletteProvider } from "@/components/palette-context";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
+import { SignOutDialog } from "@/components/sign-out-dialog";
 import { TableShortcutsProvider } from "@/components/table-shortcuts";
-import { Button } from "@/components/ui/controls";
+import { Button, Keycap } from "@/components/ui/controls";
 import { Wordmark } from "@/components/wordmark";
 import {
   SHORTCUTS,
@@ -111,12 +111,11 @@ export function AppShell() {
 
 function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   const me = useMe();
-  const logout = useLogout();
-  const navigate = useNavigate();
   const location = useLocation();
   const capture = useQuickCapture();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   // Table bindings are registered by whichever grid is on screen.
   const [tableShortcuts, setTableShortcuts] = useState<ShortcutDescriptor[]>([]);
   const connection = useSpaceEvents(spaceId);
@@ -170,19 +169,23 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
 
   const shortcutActions: Record<string, () => void> = {
     palette: () => {
+      // A confirmation owns the screen until it is answered.
+      if (signOutOpen) {
+        return;
+      }
       capture.close();
       setShortcutsOpen(false);
       setPaletteOpen((open) => !open);
     },
     capture: () => {
-      if (capture.available) {
+      if (capture.available && !signOutOpen) {
         setPaletteOpen(false);
         setShortcutsOpen(false);
         capture.open();
       }
     },
     shortcuts: () => {
-      if (!paletteOpen && !shortcutsOpen && !capture.isOpen) {
+      if (!signOutOpen && !paletteOpen && !shortcutsOpen && !capture.isOpen) {
         setShortcutsOpen(true);
       }
     },
@@ -216,6 +219,9 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
     ];
   });
   const shortcutLabel = useGlobalHotkeys(bindings);
+  // The header's cap and the registered binding read one descriptor, so the
+  // advertised key cannot drift from the one that fires.
+  const captureShortcut = SHORTCUTS.find((shortcut) => shortcut.id === "capture");
 
   // A client navigation moves focus to the new page's heading and announces
   // the document title once. Query-string changes stay where the user is.
@@ -248,80 +254,86 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
             Skip to content
           </a>
           <header className="border-b rule">
-            <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6">
+            {/*
+              At `lg` the header is always the page's rail-and-content grid,
+              inside a space or not, so the action zone keeps one x on every
+              route instead of jumping between the content edge and the right.
+            */}
+            <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
               <Wordmark />
-              <div className="flex items-center gap-2 sm:gap-4">
-                {capture.available ? (
+              <div
+                // Two groups: global chrome at the content edge and the space's
+                // own action after it, the account controls at the container's
+                // trailing edge. Below `lg` both groups sit together at the right.
+                className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4 lg:ml-0 lg:justify-between"
+              >
+                <div className="flex min-w-0 items-center gap-2 sm:gap-4">
                   <Button
                     variant="ghost"
-                    aria-label="Capture a record (C)"
-                    aria-keyshortcuts="c"
+                    aria-label={`Search and commands (${shortcutLabel})`}
                     aria-haspopup="dialog"
-                    className="max-lg:hidden min-h-8 px-3 text-[13px]"
-                    onClick={() => capture.open()}
+                    className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px]"
+                    onClick={() => setPaletteOpen(true)}
                   >
-                    <Plus aria-hidden size={15} />
-                    <span>Capture</span>
+                    <Search aria-hidden size={15} />
+                    <span>Search</span>
+                    <Keycap>{shortcutLabel}</Keycap>
                   </Button>
-                ) : null}
-                {spaceId && connection !== "live" ? (
-                  <span
-                    role="status"
-                    className="hidden font-mono text-[11px] text-warning sm:inline"
+                  <Button
+                    variant="ghost"
+                    aria-label="Keyboard shortcuts (?)"
+                    aria-keyshortcuts="?"
+                    aria-haspopup="dialog"
+                    className="hidden min-h-11 min-w-11 shrink-0 px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:hidden"
+                    onClick={() => setShortcutsOpen(true)}
                   >
-                    {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
+                    <Keyboard aria-hidden size={15} />
+                    <span className="hidden sm:inline">Shortcuts</span>
+                    <Keycap className="hidden md:inline">?</Keycap>
+                  </Button>
+                  {/* Appended after the global pair, which therefore never moves
+                      when a space opens. */}
+                  {spaceId && connection !== "live" ? (
+                    <span
+                      role="status"
+                      title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
+                      className="hidden min-w-0 truncate font-mono text-[11px] text-warning sm:inline"
+                    >
+                      {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
+                    </span>
+                  ) : null}
+                  {capture.available ? (
+                    <Button
+                      variant="ghost"
+                      aria-label={`Capture a record (${captureShortcut?.keys ?? "C"})`}
+                      aria-keyshortcuts={captureShortcut?.key ?? "c"}
+                      aria-haspopup="dialog"
+                      className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px]"
+                      onClick={() => capture.open()}
+                    >
+                      <Plus aria-hidden size={15} />
+                      <span>Capture</span>
+                      <Keycap>{captureShortcut?.keys ?? "C"}</Keycap>
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+                  <span className="hidden min-w-0 truncate font-mono text-[12px] text-muted sm:inline lg:hidden xl:inline">
+                    {me.data?.email}
                   </span>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  aria-label={`Search and commands (${shortcutLabel})`}
-                  aria-haspopup="dialog"
-                  className="max-lg:hidden min-h-8 px-3 text-[13px]"
-                  onClick={() => setPaletteOpen(true)}
-                >
-                  <Search aria-hidden size={15} />
-                  <span>Search</span>
-                  <kbd className="rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint">
-                    {shortcutLabel}
-                  </kbd>
-                </Button>
-                <Button
-                  variant="ghost"
-                  aria-label="Keyboard shortcuts (?)"
-                  aria-keyshortcuts="?"
-                  aria-haspopup="dialog"
-                  className="hidden min-h-11 min-w-11 px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:hidden"
-                  onClick={() => setShortcutsOpen(true)}
-                >
-                  <Keyboard aria-hidden size={15} />
-                  <span className="hidden sm:inline">Shortcuts</span>
-                  <kbd className="hidden rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint md:inline">
-                    ?
-                  </kbd>
-                </Button>
-                <Link
-                  to="/settings"
-                  aria-label="Account settings"
-                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-field border border-line-interactive px-2 text-[13px] font-medium text-ink transition-colors hover:border-line-strong hover:bg-raised sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-                >
-                  <UserRound aria-hidden size={15} />
-                  <span className="hidden sm:inline">Account</span>
-                </Link>
-                <span className="hidden font-mono text-[12px] text-muted sm:inline">
-                  {me.data?.email}
-                </span>
-                <Button
-                  variant="ghost"
-                  aria-label="Sign out"
-                  className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate(undefined, { onSuccess: () => navigate("/login") })}
-                >
-                  <LogOut aria-hidden size={15} className="sm:hidden" />
-                  <span className="hidden sm:inline">
-                    {logout.isPending ? "Signing out…" : "Sign out"}
-                  </span>
-                </Button>
+                  <Link
+                    to="/settings"
+                    aria-label="Account settings"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-field border border-line-interactive px-2 text-[13px] font-medium text-ink transition-colors hover:border-line-strong hover:bg-raised sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
+                  >
+                    <UserRound aria-hidden size={15} />
+                    <span className="hidden sm:inline">Account</span>
+                  </Link>
+                  <SignOutDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+                    <LogOut aria-hidden size={15} className="sm:hidden" />
+                    <span className="hidden sm:inline">Sign out</span>
+                  </SignOutDialog>
+                </div>
               </div>
             </div>
           </header>

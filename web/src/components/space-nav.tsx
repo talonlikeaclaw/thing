@@ -254,14 +254,6 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
                 onNavigate={close}
               />
               <div className="mt-4">
-                <TypesList
-                  spaceId={spaceId}
-                  types={types}
-                  pathname={pathname}
-                  onNavigate={close}
-                />
-              </div>
-              <div className="mt-4 border-t rule pt-3">
                 <AllSpacesLink onNavigate={close} />
                 <OverviewLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
                 <UtilityLinks
@@ -272,6 +264,14 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
                   reordering={reordering}
                   onMove={move}
                   onToggleReorder={() => setReordering((current) => !current)}
+                  onNavigate={close}
+                />
+              </div>
+              <div className="mt-4 border-t rule pt-3">
+                <TypesList
+                  spaceId={spaceId}
+                  types={types}
+                  pathname={pathname}
                   onNavigate={close}
                 />
               </div>
@@ -290,10 +290,6 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         />
 
         <div className="mt-4">
-          <TypesList spaceId={spaceId} types={types} pathname={pathname} />
-        </div>
-
-        <div className="mt-4">
           <AllSpacesLink />
           <OverviewLink spaceId={spaceId} pathname={pathname} />
           <UtilityLinks
@@ -305,6 +301,10 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
             onMove={move}
             onToggleReorder={() => setReordering((current) => !current)}
           />
+        </div>
+
+        <div className="mt-4 border-t rule pt-3">
+          <TypesList spaceId={spaceId} types={types} pathname={pathname} />
         </div>
       </aside>
     </>

@@ -229,13 +229,28 @@ space icons, never as interface iconography.
 - **Labels:** uppercase mono 11px above the field, 6px gap; hints and errors sit below at 13px.
 
 ### Navigation
-- **App header:** 64px tall, hairline bottom rule, wordmark centred in the row at left, a ghost
-  Capture, a ghost Search with the platform shortcut cap, a ghost Shortcuts control, account email
-  and a ghost "Sign out" at right. Below `lg`, Capture and Search live in the bottom bar instead, so
-  the header keeps only the wordmark and a 44px Sign out icon; the email is hidden. The Shortcuts
-  control is keyboard-only and does not render below `sm` or on a coarse pointer, and neither does
-  the palette's key-hint footer. No sidebar in the signed-out surface; the space list is the
-  navigation.
+- **App header:** 64px tall, hairline bottom rule; at `lg` it is the page's rail-and-content grid
+  on every route — a 13rem column holding the wordmark and a content column holding two groups —
+  so an action keeps one x whether or not a space is open. The first group is the global chrome,
+  Search with the platform shortcut cap then the keyboard-only Shortcuts control, followed by the
+  space's own connection status and Capture with its `C` cap, so opening a space appends to the
+  zone instead of pushing the global pair sideways. The second group is the account email, an
+  **Account** link and a ghost **Sign out**, which always closes the row at the container's
+  trailing edge. Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
+  only the wordmark, a 44px Account and a 44px Sign out; the email is hidden and the two groups sit
+  together at the right. The row shapes itself in one order when it runs out of room: the email
+  holds from `sm` to `lg` and again from `xl` up, and the space's connection status truncates
+  rather than pushing the action or account buttons. The Shortcuts control does not render below
+  `sm` or on a coarse pointer, and neither does the palette's key-hint footer. No sidebar in the
+  signed-out surface; the space list is the navigation.
+- **Account page:** a single centred column at a 52ch measure; it holds no rail and no table, so it
+  never runs to the container's trailing edge.
+- **Sign out confirmation:** a dialog titled **Sign out?** whose body names the loss — any unsaved
+  draft in this browser will be lost. Cancel comes before the action and the action reads
+  **Signing out…** while pending; a failed request keeps the dialog open with an inline error and
+  **Retry**. The row follows the thumb edge like every action row: the action is last on the right
+  and first on the left, so the first tab stop matches the paint order. The dialog itself stays
+  centred in both modes.
 - **Mobile space drawer:** below `lg` the rail is a fixed bottom bar. Right-handed: space icon
   and name, role and an up chevron leading, then 44px Capture and Search trailing. Left-handed:
   Search and Capture lead (Search on the outer edge) and the space trigger trails with the chevron
@@ -244,10 +259,12 @@ space icons, never as interface iconography.
   and returned to the bar, closing on selection or Escape. It is portaled to `body` so the page's
   settle transform cannot trap it.
 - **Wordmark:** mono "thing" with a 10px lichen square. It is the only decorative use of the accent.
-- **Space rail:** **All spaces** stays fixed at the top under a hairline; below it, Schema,
-  Schedule, Members, Trash and Settings form one ordered list. A ghost **Reorder links** control
+- **Space rail:** the switcher leads under its own hairline, then **All spaces**, **Overview** and
+  one ordered list — Schema, Schedule, Members, Trash and Settings — and **Types** closes the rail
+  under a separating hairline. A ghost **Reorder links** control
   reveals a 32px up/down pair on each row (44px on coarse pointers), and the order persists per user
-  and space in the browser. The active row is lichen text, never a filled chip.
+  and space in the browser. The active row is lichen text, never a filled chip. The phone sheet
+  keeps the same order.
 - **Footer:** the files sentence, a **Changelog** link and mono `v<version>` on one hairline; the
   version comes from the build, not a hand-typed string.
 

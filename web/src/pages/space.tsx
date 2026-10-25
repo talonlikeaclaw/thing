@@ -149,15 +149,15 @@ function TypeRow({ spaceId, type }: { spaceId: string; type: TypeSummary }) {
     <li className="border-b rule">
       <Link
         to={`/s/${spaceId}/t/${type.key}`}
-        className="flex items-baseline justify-between gap-3 py-3 transition-colors hover:text-accent pointer-coarse:min-h-11"
+        className="flex items-center justify-between gap-3 py-3 transition-colors hover:text-accent pointer-coarse:min-h-11"
       >
-        <span className="flex min-w-0 items-baseline gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2">
           <ThingIcon icon={type.icon} size="sm" />
-          <span className="truncate text-[15px] font-medium">{type.name}</span>
-          <span className="font-mono text-[10.5px] text-faint">{type.key}</span>
+          <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{type.name}</span>
+          <span className="hidden font-mono text-[10.5px] text-faint sm:inline">{type.key}</span>
           {type.schedule ? <span className="label shrink-0 text-accent">SCHEDULED</span> : null}
         </span>
-        <span className="flex shrink-0 items-baseline gap-3 font-mono text-[10.5px] text-faint">
+        <span className="hidden shrink-0 items-baseline gap-3 font-mono text-[10.5px] text-faint sm:flex">
           <span>{records}</span>
           <span>{properties}</span>
         </span>
