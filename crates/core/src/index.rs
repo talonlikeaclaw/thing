@@ -525,6 +525,7 @@ mod tests {
             id: Uuid::from_u128(100),
             name: "Garden".to_owned(),
             icon: None,
+            accent: None,
             timezone: "Europe/Berlin".to_owned(),
             created_at: at(0),
             members: vec![Member {

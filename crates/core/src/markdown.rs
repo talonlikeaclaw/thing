@@ -445,6 +445,7 @@ Watered today.
             id: id(1),
             name: "Garden".to_owned(),
             icon: Some("🪴".to_owned()),
+            accent: None,
             timezone: "Europe/Berlin".to_owned(),
             created_at: at(),
             members: vec![
@@ -471,6 +472,7 @@ Watered today.
             id: id(1),
             name: "Garden".to_owned(),
             icon: None,
+            accent: None,
             timezone: "UTC".to_owned(),
             created_at: at(),
             members: vec![Member {

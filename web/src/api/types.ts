@@ -32,6 +32,8 @@ export interface SpaceDetail {
   id: Uuid;
   name: string;
   icon: string | null;
+  /** One of the six preset ids; null means Lichen. */
+  accent: string | null;
   timezone: string;
   created_at: IsoDate;
   role: Role;

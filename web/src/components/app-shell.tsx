@@ -26,12 +26,6 @@ import {
   type ShortcutDescriptor,
 } from "@/lib/hotkeys";
 import {
-  applyAccent,
-  readDefaultAccent,
-  readSpaceAccent,
-  resetAccent,
-} from "@/lib/accent";
-import {
   DEFAULT_HANDEDNESS,
   applyHandedness,
   handednessKey,
@@ -152,20 +146,6 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
     () => ({ handedness, setHandedness: changeHandedness }),
     [handedness, changeHandedness],
   );
-
-  // One owner for the highlight: the space's own choice, else the account
-  // default. The signed-out shell keeps the stylesheet's Lichen.
-  useLayoutEffect(() => {
-    if (!userId) {
-      resetAccent(document.documentElement);
-      return;
-    }
-    const accent = spaceId
-      ? readSpaceAccent(window.localStorage, userId, spaceId)
-      : readDefaultAccent(window.localStorage, userId);
-    applyAccent(document.documentElement, accent);
-    return () => resetAccent(document.documentElement);
-  }, [userId, spaceId]);
 
   const shortcutActions: Record<string, () => void> = {
     palette: () => {

@@ -149,10 +149,12 @@ export function useCreateSpace() {
 export interface UpdateSpace {
   name?: string;
   icon?: string | null;
+  /** A preset id, or `null` for Lichen; omitted leaves it alone. */
+  accent?: string | null;
   timezone?: string;
 }
 
-/** Space settings: name, icon and the zone that makes a due day a calendar day. */
+/** Space settings: name, icon, the shared accent and the calendar-day zone. */
 export function useUpdateSpace(spaceId: string) {
   const client = useQueryClient();
   return useMutation({

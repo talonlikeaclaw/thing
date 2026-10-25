@@ -1,13 +1,11 @@
 /**
- * The highlight accent: a browser-local, per-user preference with a per-space
- * override.
+ * The highlight accent: one preset per space, stored in `space.yml`.
  *
  * One accent marks state — focus, selection, the primary action, the active
- * rail and view tabs, the `DEFAULT` marker. The account default covers the
- * signed-in shell, including new spaces; an explicit per-space choice wins.
- * Both values live in `localStorage` and never reach the server. Components
- * keep using the `accent` / `accent-ink` tokens; only the root's
- * `data-accent` attribute changes.
+ * rail and view tabs, the `DEFAULT` marker. The space owns it, so every member
+ * sees the same highlight; `SpaceLayout` is the only applier, reading the
+ * space detail and setting `data-accent` on the root. The browser-local key
+ * from v0.4 is read once to seed an owner's shared value, then deleted.
  */
 export type AccentId = "lichen" | "yellow" | "orange" | "cyan" | "green" | "pink";
 
@@ -74,12 +72,9 @@ export interface AccentStorage {
   removeItem(key: string): void;
 }
 
-export function accentKey(userId: string, spaceId: string): string {
+/** The v0.4 browser-local key; read once to seed a space, then deleted. */
+export function storedAccentKey(userId: string, spaceId: string): string {
   return `thing:accent:${userId}:${spaceId}`;
-}
-
-export function defaultAccentKey(userId: string): string {
-  return `thing:accent-default:${userId}`;
 }
 
 export function isAccentId(value: unknown): value is AccentId {
@@ -87,10 +82,11 @@ export function isAccentId(value: unknown): value is AccentId {
 }
 
 /**
- * An absent key, malformed value or unknown id yields the default. A refused
- * read is swallowed: the accent never blocks a space from loading.
+ * The old local choice, or the default when it is absent, malformed or
+ * unreadable. Used only for the one-time seed; a refused read never blocks a
+ * space from loading.
  */
-export function readAccent(storage: AccentStorage, key: string): AccentId {
+export function readStoredAccent(storage: AccentStorage, key: string): AccentId {
   let raw: string | null;
   try {
     raw = storage.getItem(key);
@@ -100,57 +96,12 @@ export function readAccent(storage: AccentStorage, key: string): AccentId {
   return isAccentId(raw) ? raw : DEFAULT_ACCENT;
 }
 
-/**
- * Persists one user's accent for one space. A refused write is swallowed; the
- * in-memory choice still applies for the session and the UI stays quiet.
- */
-export function writeAccent(storage: AccentStorage, key: string, id: AccentId): void {
-  try {
-    storage.setItem(key, id);
-  } catch {
-    // Private mode or quota: the choice still applies for this session.
-  }
-}
-
-/** Writes the account-wide default used by spaces without an override. */
-export function writeDefaultAccent(
-  storage: AccentStorage,
-  userId: string,
-  id: AccentId,
-): void {
-  writeAccent(storage, defaultAccentKey(userId), id);
-}
-
-/** The account-wide default, or Lichen when none was chosen. */
-export function readDefaultAccent(storage: AccentStorage, userId: string): AccentId {
-  return readAccent(storage, defaultAccentKey(userId));
-}
-
-/** Whether this space has its own choice rather than inheriting the default. */
-export function hasStoredAccent(storage: AccentStorage, key: string): boolean {
-  try {
-    return isAccentId(storage.getItem(key));
-  } catch {
-    return false;
-  }
-}
-
-/** The space's effective accent: its own choice, else the account default. */
-export function readSpaceAccent(
-  storage: AccentStorage,
-  userId: string,
-  spaceId: string,
-): AccentId {
-  const key = accentKey(userId, spaceId);
-  return hasStoredAccent(storage, key) ? readAccent(storage, key) : readDefaultAccent(storage, userId);
-}
-
-/** Removes one space's override so it follows the account default again. */
+/** Removes the old local choice; a refusal is swallowed. */
 export function clearStoredAccent(storage: AccentStorage, key: string): void {
   try {
     storage.removeItem(key);
   } catch {
-    // Private mode or quota: the override stays for this session.
+    // Private mode or quota: the key stays, and the next load retries.
   }
 }
 

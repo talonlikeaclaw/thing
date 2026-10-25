@@ -655,6 +655,7 @@ mod tests {
             id: id(1),
             name: "Garden".to_owned(),
             icon: Some("🪴".to_owned()),
+            accent: None,
             timezone: "Europe/Berlin".to_owned(),
             created_at: at(1_760_000_000),
             members: vec![Member {

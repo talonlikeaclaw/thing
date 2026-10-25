@@ -4,7 +4,6 @@ import { useNavigate, useParams } from "react-router";
 import {
   type UpdateSpace,
   useDeleteSpace,
-  useMe,
   useSpace,
   useUpdateSpace,
 } from "@/api/queries";
@@ -19,13 +18,7 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import {
   DEFAULT_ACCENT,
-  accentKey,
-  applyAccent,
-  clearStoredAccent,
-  hasStoredAccent,
-  readDefaultAccent,
-  readSpaceAccent,
-  writeAccent,
+  isAccentId,
   type AccentId,
 } from "@/lib/accent";
 import { readError } from "@/lib/display";
@@ -37,8 +30,8 @@ import { timezoneNames } from "@/lib/timezone";
 export function SettingsPage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
-  const me = useMe();
   const update = useUpdateSpace(spaceId ?? "");
+  const accentUpdate = useUpdateSpace(spaceId ?? "");
   const remove = useDeleteSpace(spaceId ?? "");
   const navigate = useNavigate();
   const toast = useToast();
@@ -47,40 +40,6 @@ export function SettingsPage() {
   const [icon, setIcon] = useState("");
   const [zone, setZone] = useState("UTC");
   const [confirm, setConfirm] = useState("");
-  const [accent, setAccent] = useState<AccentId>(DEFAULT_ACCENT);
-  const [accentOverridden, setAccentOverridden] = useState(false);
-  const userId = me.data?.id;
-
-  useEffect(() => {
-    if (!userId || !spaceId) {
-      return;
-    }
-    const key = accentKey(userId, spaceId);
-    setAccent(readSpaceAccent(window.localStorage, userId, spaceId));
-    setAccentOverridden(hasStoredAccent(window.localStorage, key));
-  }, [userId, spaceId]);
-
-  /** Immediate apply and best-effort persist; a refusal never shows an error. */
-  const chooseAccent = (next: AccentId) => {
-    setAccent(next);
-    setAccentOverridden(true);
-    if (userId && spaceId) {
-      writeAccent(window.localStorage, accentKey(userId, spaceId), next);
-    }
-    applyAccent(document.documentElement, next);
-  };
-
-  /** Drop this space's override and follow the account default again. */
-  const useDefaultAccent = () => {
-    if (!userId || !spaceId) {
-      return;
-    }
-    clearStoredAccent(window.localStorage, accentKey(userId, spaceId));
-    setAccentOverridden(false);
-    const fallback = readDefaultAccent(window.localStorage, userId);
-    setAccent(fallback);
-    applyAccent(document.documentElement, fallback);
-  };
 
   useEffect(() => {
     if (!space.data) {
@@ -100,22 +59,40 @@ export function SettingsPage() {
   const owner = detail.role === "owner";
   const trimmedName = name.trim();
   const nextIcon = icon.trim() ? icon.trim() : null;
+  const accent: AccentId = isAccentId(detail.accent) ? detail.accent : DEFAULT_ACCENT;
+  const accentPending = accentUpdate.isPending;
+
+  /** Owners write the shared preset; everyone else sees it read-only. */
+  const chooseAccent = (next: AccentId) => {
+    if (!owner || accentPending) {
+      return;
+    }
+    accentUpdate.mutate({ accent: next });
+  };
+  const resetAccent = () => {
+    if (!owner || accentPending) {
+      return;
+    }
+    accentUpdate.mutate({ accent: null });
+  };
 
   const appearanceTitle = (
     <h2 key="title" id="space-appearance" className="text-[17px] font-medium">
       Appearance
     </h2>
   );
-  const accentReset = accentOverridden ? (
-    <Button
-      key="reset"
-      variant="ghost"
-      className="min-h-8 px-2 py-0 text-[12px]"
-      onClick={useDefaultAccent}
-    >
-      Use my default
-    </Button>
-  ) : null;
+  const accentReset =
+    owner && detail.accent ? (
+      <Button
+        key="reset"
+        variant="ghost"
+        className="min-h-8 px-2 py-0 text-[12px]"
+        disabled={accentPending}
+        onClick={resetAccent}
+      >
+        Use Lichen
+      </Button>
+    ) : null;
 
   // Only send what changed, so saving one field never rewrites another.
   const changes: UpdateSpace = {};
@@ -261,10 +238,17 @@ export function SettingsPage() {
           )}
         </div>
         <p className="mt-4 text-[13px] text-muted">
-          This space's highlight overrides your account default. It is saved in this browser and
-          changes focus, selection and the primary action; nobody else sees it.
+          The highlight is shared with everyone in this space and marks focus, selection and the
+          primary action.{" "}
+          {owner ? "Choose one and every open client follows." : "Only an owner can change it."}
         </p>
-        <AccentPicker value={accent} onChange={chooseAccent} labelledBy="space-appearance" />
+        <AccentPicker
+          value={accent}
+          onChange={chooseAccent}
+          labelledBy="space-appearance"
+          disabled={!owner || accentPending}
+        />
+        <FormError message={accentUpdate.error ? readError(accentUpdate.error) : null} />
       </section>
 
       {guard}

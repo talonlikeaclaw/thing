@@ -45,6 +45,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Every rail and sheet link carries an icon — All spaces, Overview, Schedule, Schema, Members, Settings, Trash and the Types heading — so the page you want reads at a glance.",
       "The sheet's Reorder control sits in its pinned header beside the close button, so the fold never cuts it and Done stays reachable while rows move.",
       "A record icon lives in the file's frontmatter like its title, not as a property: an icon-only save is a revision, Duplicate and Trash keep it, history names the change, and a record without one looks exactly as before.",
+      "The highlight accent now belongs to the space: an owner sets Cyan once in Settings and every member's open space changes live, while the old browser-local choice seeds it once and is then forgotten.",
       "The record header labels its icon control “Add icon” until a glyph is set, so the feature is findable without knowing it is there; the demo seed now ships icons on its records.",
       "Space and record files are written as schema 4. A record's icon is the only new key; files from every earlier version still load, and a v0.4.1 install refuses to be read by an older binary, so back up the data directory before upgrading.",
     ],

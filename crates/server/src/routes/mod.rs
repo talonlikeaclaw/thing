@@ -735,6 +735,122 @@ mod tests {
     }
 
     #[test]
+    fn an_owner_sets_the_shared_accent_and_a_non_owner_cannot() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let owner_cookie = cookie_of(&owner).to_owned();
+            let garden = create_space(&server, &owner_cookie, "Garden").await;
+            let work = create_space(&server, &owner_cookie, "Work").await;
+
+            let set = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "accent": "cyan" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(set.status, StatusCode::OK, "{:?}", set.body);
+            assert_eq!(set.body["accent"], "cyan");
+
+            let written = std::fs::read_to_string(
+                server
+                    ._root
+                    .path()
+                    .join("spaces")
+                    .join(&garden)
+                    .join("space.yml"),
+            )
+            .expect("space.yml");
+            assert!(written.starts_with("schema: 4\n"), "{written}");
+            assert!(written.contains("accent: cyan\n"), "{written}");
+
+            // A second space has its own appearance.
+            let other = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{work}"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(other.body["accent"], Value::Null);
+
+            // An uppercase name is normalized rather than refused.
+            let upper = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "accent": "CYAN" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(upper.status, StatusCode::OK);
+            assert_eq!(upper.body["accent"], "cyan");
+
+            // `null` returns the space to Lichen and drops the key.
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "accent": null })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK);
+            assert_eq!(cleared.body["accent"], Value::Null);
+            let written = std::fs::read_to_string(
+                server
+                    ._root
+                    .path()
+                    .join("spaces")
+                    .join(&garden)
+                    .join("space.yml"),
+            )
+            .expect("space.yml");
+            assert!(!written.contains("accent:"), "{written}");
+
+            for raw in [json!("chartreuse"), json!("#c8d96b")] {
+                let refused = server
+                    .call(
+                        "PATCH",
+                        &format!("/api/spaces/{garden}"),
+                        Some(json!({ "accent": raw })),
+                        Some(&owner_cookie),
+                    )
+                    .await;
+                assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+                assert_eq!(refused.field(), "accent");
+            }
+
+            // A viewer cannot change the shared appearance.
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{garden}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server.register("viewer@example.com", Some(&code)).await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let forbidden = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "accent": "green" })),
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(forbidden.status, StatusCode::FORBIDDEN);
+            assert_eq!(forbidden.code(), "forbidden");
+        });
+    }
+
+    #[test]
     fn an_owner_keeps_the_space_owned_and_can_hand_it_over() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

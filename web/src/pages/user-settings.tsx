@@ -1,16 +1,6 @@
-import { useEffect, useState } from "react";
-
 import { useMe } from "@/api/queries";
-import { AccentPicker } from "@/components/accent-picker";
 import { useHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
-import {
-  DEFAULT_ACCENT,
-  applyAccent,
-  readDefaultAccent,
-  writeDefaultAccent,
-  type AccentId,
-} from "@/lib/accent";
 import { useRouteMeta } from "@/lib/route";
 
 // Fixed spatial order: the left option sits on the left edge, the right
@@ -24,32 +14,14 @@ const HANDEDNESS_OPTIONS = [
 /**
  * `/settings` — preferences that belong to the person, not to one space.
  *
- * Both values are browser-local: handedness describes the device in the
- * user's hand, and the highlight is a starting colour a space may override.
+ * Handedness describes the device in the user's hand, so it stays
+ * browser-local; the highlight belongs to a space and is set in its settings.
  */
 export function UserSettingsPage() {
   const me = useMe();
   const { handedness, setHandedness } = useHandedness();
-  const userId = me.data?.id;
-  const [accent, setAccent] = useState<AccentId>(DEFAULT_ACCENT);
-
-  useEffect(() => {
-    if (userId) {
-      setAccent(readDefaultAccent(window.localStorage, userId));
-    }
-  }, [userId]);
 
   useRouteMeta("Account settings");
-
-  /** Immediate apply and best-effort persist; a refusal never shows an error. */
-  const chooseAccent = (next: AccentId) => {
-    setAccent(next);
-    if (!userId) {
-      return;
-    }
-    writeDefaultAccent(window.localStorage, userId, next);
-    applyAccent(document.documentElement, next);
-  };
 
   const user = me.data;
 
@@ -57,7 +29,7 @@ export function UserSettingsPage() {
     <div className="settle mx-auto max-w-[52ch]">
       <h1 className="text-[26px] font-medium tracking-[-0.02em]">Account settings</h1>
       <p className="mt-2 text-[13px] text-muted">
-        These preferences follow this browser and account. They never reach a space.
+        This preference follows this browser and account. It never reaches a space.
       </p>
 
       <section aria-labelledby="account-identity" className="mt-10">
@@ -71,8 +43,8 @@ export function UserSettingsPage() {
             <p className="text-[17px]">{user.name}</p>
             <p className="font-mono text-[12px] text-muted">{user.email}</p>
             <p className="text-[13px] text-muted">
-              Sign-in details are managed by the server. Appearance below is stored in this
-              browser only.
+              Sign-in details are managed by the server. Handedness below is stored in this
+              browser only; a space's highlight is set in that space's settings.
             </p>
           </div>
         ) : (
@@ -86,17 +58,7 @@ export function UserSettingsPage() {
             Appearance
           </h2>
         </div>
-        <p className="mt-4 text-[13px] text-muted">
-          Default highlight applies to new spaces and to spaces without their own choice. A space
-          can override it in that space's settings.
-        </p>
-        <AccentPicker
-          value={accent}
-          onChange={chooseAccent}
-          labelledBy="account-appearance"
-        />
-
-        <fieldset className="mt-6 border-t rule pt-4">
+        <fieldset className="mt-4">
           <legend className="label">Handedness</legend>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {HANDEDNESS_OPTIONS.map((option) => {

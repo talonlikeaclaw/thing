@@ -358,6 +358,9 @@ pub struct SpaceMeta {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// One of [`crate::accent::ACCENT_IDS`]; absent means the default palette.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accent: Option<String>,
     pub timezone: String,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -586,6 +589,7 @@ mod tests {
             id: Uuid::now_v7(),
             name: "Garden".to_owned(),
             icon: None,
+            accent: None,
             timezone: "UTC".to_owned(),
             created_at: OffsetDateTime::UNIX_EPOCH,
             members: Vec::new(),

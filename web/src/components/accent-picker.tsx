@@ -9,6 +9,8 @@ interface AccentPickerProps {
   onChange: (id: AccentId) => void;
   /** Id of the heading that names this group. */
   labelledBy: string;
+  /** Non-owners see the shared preset without being able to change it. */
+  disabled?: boolean;
 }
 
 /** `prefers-color-scheme`, so a swatch shows the hue this screen will use. */
@@ -28,17 +30,20 @@ function useLightScheme(): boolean {
 }
 
 /**
- * A six-option radio group for the browser-local highlight accent.
+ * A six-option radio group for the space's shared highlight accent.
  *
  * The colour name is always visible: the swatch is an aid, never the only
  * signal. Arrow keys move and select, and the selected option keeps the roving
- * tab stop. Immediate apply — there is no Save button here.
+ * tab stop. A change writes immediately — there is no Save button here.
  */
-export function AccentPicker({ value, onChange, labelledBy }: AccentPickerProps) {
+export function AccentPicker({ value, onChange, labelledBy, disabled = false }: AccentPickerProps) {
   const light = useLightScheme();
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
 
   function move(from: number, delta: number) {
+    if (disabled) {
+      return;
+    }
     const next = (from + delta + ACCENTS.length) % ACCENTS.length;
     const accent = ACCENTS[next];
     if (!accent) {
@@ -52,6 +57,7 @@ export function AccentPicker({ value, onChange, labelledBy }: AccentPickerProps)
     <div
       role="radiogroup"
       aria-labelledby={labelledBy}
+      aria-disabled={disabled}
       className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
     >
       {ACCENTS.map((accent, index) => {
@@ -66,7 +72,8 @@ export function AccentPicker({ value, onChange, labelledBy }: AccentPickerProps)
             type="button"
             role="radio"
             aria-checked={checked}
-            tabIndex={checked ? 0 : -1}
+            disabled={disabled}
+            tabIndex={disabled ? -1 : checked ? 0 : -1}
             onClick={() => onChange(accent.id)}
             onKeyDown={(event) => {
               if (event.key === "ArrowRight" || event.key === "ArrowDown") {
@@ -88,6 +95,7 @@ export function AccentPicker({ value, onChange, labelledBy }: AccentPickerProps)
               checked
                 ? "border-accent bg-raised"
                 : "border-line hover:border-line-strong",
+              disabled && "cursor-default opacity-70 hover:border-line",
             )}
           >
             <span

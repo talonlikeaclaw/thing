@@ -8,6 +8,7 @@ use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use thing_core::accent::is_accent;
 use thing_core::error::CoreError;
 use thing_core::model::{Member, Role, SpaceMeta};
 use thing_core::schedule;
@@ -99,6 +100,7 @@ pub struct SpaceDetail {
     pub id: Uuid,
     pub name: String,
     pub icon: Option<String>,
+    pub accent: Option<String>,
     pub timezone: String,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -154,6 +156,7 @@ async fn create(
         id: Uuid::now_v7(),
         name: clean_name(&body.name)?,
         icon: clean_icon(body.icon),
+        accent: None,
         timezone: clean_timezone(body.timezone.as_deref().unwrap_or(DEFAULT_TIMEZONE))?,
         created_at: OffsetDateTime::now_utc(),
         members: vec![Member {
@@ -205,6 +208,9 @@ struct PatchSpaceRequest {
     /// `null` clears the icon; leaving the field out leaves it alone.
     #[serde(default, deserialize_with = "double_option")]
     icon: Option<Option<String>>,
+    /// `null` clears the accent back to Lichen; leaving it out leaves it alone.
+    #[serde(default, deserialize_with = "double_option")]
+    accent: Option<Option<String>>,
     #[serde(default)]
     timezone: Option<String>,
 }
@@ -218,10 +224,19 @@ async fn update(
 ) -> Result<Json<Value>, ApiError> {
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Owner)?;
-    if body.name.is_none() && body.icon.is_none() && body.timezone.is_none() {
+    if body.name.is_none()
+        && body.icon.is_none()
+        && body.accent.is_none()
+        && body.timezone.is_none()
+    {
         return Err(ApiError::validation("body", "nothing to change"));
     }
     let name = body.name.as_deref().map(clean_name).transpose()?;
+    let accent = body
+        .accent
+        .as_ref()
+        .map(|raw| clean_accent(raw.clone()))
+        .transpose()?;
     let timezone = body.timezone.as_deref().map(clean_timezone).transpose()?;
 
     let _guard = handle.write.lock().await;
@@ -231,6 +246,9 @@ async fn update(
         }
         if let Some(icon) = body.icon {
             meta.icon = clean_icon(icon);
+        }
+        if let Some(accent) = accent {
+            meta.accent = accent;
         }
         if let Some(timezone) = &timezone {
             meta.timezone = timezone.clone();
@@ -438,6 +456,7 @@ fn detail_of(
         id: meta.id,
         name: meta.name,
         icon: meta.icon,
+        accent: meta.accent,
         timezone: meta.timezone,
         created_at: meta.created_at,
         role,
@@ -470,6 +489,28 @@ fn invite_view(invite: Invite) -> InviteView {
     }
 }
 
+/// Trims a preset name, normalizes it to lowercase and refuses anything the
+/// six-palette catalogue does not name. Empty means the default.
+fn clean_accent(raw: Option<String>) -> Result<Option<String>, ApiError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let raw = raw.trim().to_ascii_lowercase();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    if !is_accent(&raw) {
+        return Err(ApiError::validation(
+            "accent",
+            format!(
+                "unknown accent {raw}; choose one of {}",
+                thing_core::accent::ACCENT_IDS.join(", ")
+            ),
+        ));
+    }
+    Ok(Some(raw))
+}
+
 /// A space name is a display string like any other, one limit long.
 fn clean_name(name: &str) -> Result<String, ApiError> {
     clean_text("name", name, MAX_SPACE_NAME_LEN)
@@ -494,6 +535,25 @@ mod tests {
     fn an_unknown_zone_is_a_validation_failure() {
         let err = clean_timezone("Mars/Olympus_Mons").expect_err("unknown zone");
         assert_eq!(err.message(), "unknown time zone Mars/Olympus_Mons");
+    }
+
+    #[test]
+    fn an_accent_is_trimmed_normalized_and_refused_when_unknown() {
+        assert_eq!(
+            clean_accent(Some("  CYAN ".to_owned())).expect("a preset"),
+            Some("cyan".to_owned())
+        );
+        assert_eq!(clean_accent(Some("   ".to_owned())).expect("empty"), None);
+        assert_eq!(clean_accent(None).expect("absent"), None);
+        for raw in ["chartreuse", "#c8d96b"] {
+            let err = clean_accent(Some(raw.to_owned())).expect_err("refused");
+            assert_eq!(
+                err.message(),
+                format!(
+                    "unknown accent {raw}; choose one of lichen, yellow, orange, cyan, green, pink"
+                )
+            );
+        }
     }
 
     #[test]

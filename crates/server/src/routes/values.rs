@@ -394,6 +394,7 @@ mod tests {
             id: Uuid::now_v7(),
             name: "Garden".to_owned(),
             icon: None,
+            accent: None,
             timezone: "UTC".to_owned(),
             created_at: OffsetDateTime::now_utc(),
             members: Vec::new(),

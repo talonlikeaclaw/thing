@@ -28,10 +28,11 @@
 }
 
 /*
- * Highlight accent: a browser-local, per-user, per-space preference. Only the
- * two accent tokens move; every component keeps reading `accent` /
- * `accent-ink`. Values mirror `web/src/lib/accent.ts`, and
- * `lib/accent.test.ts` enforces the 4.5:1 contrast floor in both schemes.
+ * Highlight accent: one preset shared by every member of a space, applied by
+ * `SpaceLayout` from `space.yml`. Only the two accent tokens move; every
+ * component keeps reading `accent` / `accent-ink`. Values mirror
+ * `web/src/lib/accent.ts`, and `lib/accent.test.ts` enforces the 4.5:1
+ * contrast floor in both schemes.
  */
 :root[data-accent="lichen"] {
   --color-accent: #c8d96b;
