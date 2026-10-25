@@ -28,13 +28,13 @@ export function SchemaPage() {
     const next = new URLSearchParams(params);
     next.set("type", key);
     next.delete("property");
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, preventScrollReset: true });
   }
 
   function selectProperty(key: string) {
     const next = new URLSearchParams(params);
     next.set("property", key);
-    setParams(next, { replace: true });
+    setParams(next, { replace: true, preventScrollReset: true });
   }
 
   useRouteMeta("Schema");

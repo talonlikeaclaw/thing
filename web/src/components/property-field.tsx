@@ -1,3 +1,4 @@
+import { Popover } from "@base-ui/react/popover";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
 import { useState } from "react";
 
@@ -307,120 +308,117 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
   }
 
   return (
-    <div
-      className="relative max-w-[22rem]"
-      onBlur={(event) => {
-        if (
-          !(
-            event.relatedTarget instanceof Node &&
-            event.currentTarget.contains(event.relatedTarget)
-          )
-        ) {
-          setOpen(false);
-          setQuery("");
-        }
-      }}
-    >
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={property.name}
-        className={cn(control, "flex items-center justify-between gap-2 text-left")}
-        onClick={() => setOpen((current) => !current)}
+    <div className="max-w-[22rem]">
+      <Popover.Root
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) {
+            setQuery("");
+          }
+        }}
       >
-        {selected ? (
-          <span className="inline-flex min-w-0 items-center gap-1.5">
-            <span
-              aria-hidden
-              className="h-2 w-2 shrink-0 rounded-full border border-line-strong"
-              style={{ backgroundColor: selected.color }}
-            />
-            <span className="truncate">{selected.name}</span>
-          </span>
-        ) : (
-          <span className="text-faint">Choose or type</span>
-        )}
-        <ChevronDown aria-hidden size={15} className="shrink-0 text-muted" />
-      </button>
+        <Popover.Trigger
+          type="button"
+          aria-haspopup="listbox"
+          aria-label={property.name}
+          className={cn(control, "flex items-center justify-between gap-2 text-left")}
+        >
+          {selected ? (
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <span
+                aria-hidden
+                className="h-2 w-2 shrink-0 rounded-full border border-line-strong"
+                style={{ backgroundColor: selected.color }}
+              />
+              <span className="truncate">{selected.name}</span>
+            </span>
+          ) : (
+            <span className="text-faint">Choose or type</span>
+          )}
+          <ChevronDown aria-hidden size={15} className="shrink-0 text-muted" />
+        </Popover.Trigger>
 
-      {open ? (
-        <div className="absolute top-full left-0 z-30 mt-1 w-full min-w-[15rem] rounded-field border border-line bg-surface p-1 text-[13px]">
-          <input
-            autoFocus
-            aria-label={`Filter ${property.name} options`}
-            className="mb-1 h-8 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
-            placeholder="Filter or type a new option"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setOpen(false);
-                setQuery("");
-              }
-              if (event.key === "Enter") {
-                event.preventDefault();
-                const match = options[0];
-                if (match) {
-                  choose(match.key);
-                } else if (query.trim()) {
-                  createOption();
-                }
-              }
-            }}
-          />
-          <div className="max-h-56 overflow-auto">
-            {value !== null && value !== undefined ? (
-              <button
-                type="button"
-                className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => choose("")}
-              >
-                <X aria-hidden size={12} />
-                Clear
-              </button>
-            ) : null}
-            {options.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className="flex w-full items-center justify-between gap-2 rounded-[3px] px-2 py-1.5 text-left hover:bg-raised"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => choose(option.key)}
-              >
-                <span className="inline-flex min-w-0 items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className="h-2 w-2 shrink-0 rounded-full border border-line-strong"
-                    style={{ backgroundColor: option.color }}
-                  />
-                  <span className="truncate">{option.name}</span>
-                </span>
-                <span className="font-mono text-[10px] text-faint">{option.key}</span>
-              </button>
-            ))}
-            {query.trim() && !exact ? (
-              <button
-                type="button"
-                disabled={create.isPending}
-                className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={createOption}
-              >
-                <Plus aria-hidden size={12} />
-                {create.isPending ? "Creating…" : `Create “${query.trim()}”`}
-              </button>
-            ) : null}
-          </div>
-          {create.error ? (
-            <p role="alert" className="px-2 py-1 text-[12px] text-danger">
-              {readError(create.error)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+        <Popover.Portal>
+          <Popover.Positioner sideOffset={4} collisionPadding={8} className="z-50">
+            <Popover.Popup
+              aria-label={`${property.name} options`}
+              className="w-[var(--anchor-width)] min-w-[15rem] max-w-[calc(100vw-1rem)] rounded-field border border-line bg-surface p-1 text-[13px]"
+            >
+              <input
+                autoFocus
+                aria-label={`Filter ${property.name} options`}
+                className="mb-1 h-8 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                placeholder="Filter or type a new option"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setOpen(false);
+                    setQuery("");
+                  }
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    const match = options[0];
+                    if (match) {
+                      choose(match.key);
+                    } else if (query.trim()) {
+                      createOption();
+                    }
+                  }
+                }}
+              />
+              <div className="max-h-56 overflow-auto">
+                {value !== null && value !== undefined ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
+                    onClick={() => choose("")}
+                  >
+                    <X aria-hidden size={12} />
+                    Clear
+                  </button>
+                ) : null}
+                {options.map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 rounded-[3px] px-2 py-1.5 text-left hover:bg-raised"
+                    onClick={() => choose(option.key)}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full border border-line-strong"
+                        style={{ backgroundColor: option.color }}
+                      />
+                      <span className="truncate">{option.name}</span>
+                    </span>
+                    <span className="font-mono text-[10px] text-faint">{option.key}</span>
+                  </button>
+                ))}
+                {query.trim() && !exact ? (
+                  <button
+                    type="button"
+                    disabled={create.isPending}
+                    className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
+                    onClick={createOption}
+                  >
+                    <Plus aria-hidden size={12} />
+                    {create.isPending ? "Creating…" : `Create “${query.trim()}”`}
+                  </button>
+                ) : null}
+              </div>
+              {create.error ? (
+                <p role="alert" className="px-2 py-1 text-[12px] text-danger">
+                  {readError(create.error)}
+                </p>
+              ) : null}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
     </div>
   );
 }

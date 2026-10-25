@@ -24,6 +24,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Choose left- or right-handed layout in Appearance: the phone bar, action rows, save buttons, toasts and row menus all move under your thumb.",
       "Add a property straight from the table, from its trailing header cell or the Columns panel — an existing library property or a new one with its format.",
       "Signing out asks first and names the risk: an unsaved draft in this browser is lost.",
+      "Columns sits beside Filter and Sort with a live count, a select's option list opens above the table instead of inside it, and every header shows its sort state.",
     ],
     details: [
       "The handedness choice is per browser and per person; it moves controls, never reading order, columns or text.",
@@ -33,6 +34,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Capture in the header shows its C key, and a space's header actions line up with the content below the rail.",
       "The space rail puts All spaces, Overview and the five space pages above Types.",
       "On a phone a type row keeps its icon and full name, hiding the key and counts until there is room.",
+      "The Columns button counts the property columns this view shows and opens the same panel the kebab used to; the kebab keeps View settings, Save as view and Data.",
+      "A Select list is portalled, flips above the cell near the bottom of the window and is never clipped by the table's scroller; filtering, creating an option, Clear and Escape behave as before.",
+      "Every table header shows a sort glyph in a fixed slot — faint when unsorted, accent up or down when sorted — and its label names the current state and the next action.",
+      "Sorting, filtering, paging and view buttons keep the page where it is instead of scrolling back to the top; the table itself stays scrolled while its order changes.",
     ],
   },
   {

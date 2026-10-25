@@ -2,6 +2,7 @@ import { Popover } from "@base-ui/react/popover";
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   ArrowUpRight,
   Check,
   Copy,
@@ -967,25 +968,38 @@ function HeaderSort({
   sort: Sort | undefined;
   onSort: (key: string, additive: boolean) => void;
 }) {
+  const state = sort
+    ? sort.direction === "asc"
+      ? "currently ascending"
+      : "currently descending"
+    : "not sorted";
+  const next = !sort
+    ? "sort ascending"
+    : sort.direction === "asc"
+      ? "sort descending"
+      : "clear the sort";
+
   return (
     <button
       type="button"
       className="flex w-full min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink"
-      title={label}
-      aria-label={`Sort by ${label}${
-        sort ? `, currently ${sort.direction === "asc" ? "ascending" : "descending"}` : ""
-      }`}
+      title={`${label} — ${state}; activate to ${next}`}
+      aria-label={`Sort by ${label}, ${state}, activate to ${next}`}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
       <span className="flex w-full min-w-0 items-center gap-1">
         <span className="truncate">{label}</span>
-        {sort ? (
-          sort.direction === "asc" ? (
-            <ArrowUp aria-hidden size={11} className="shrink-0 text-accent" />
+        <span className="flex w-[11px] shrink-0 items-center">
+          {sort ? (
+            sort.direction === "asc" ? (
+              <ArrowUp aria-hidden size={11} className="text-accent" />
+            ) : (
+              <ArrowDown aria-hidden size={11} className="text-accent" />
+            )
           ) : (
-            <ArrowDown aria-hidden size={11} className="shrink-0 text-accent" />
-          )
-        ) : null}
+            <ArrowUpDown aria-hidden size={11} className="text-faint opacity-60" />
+          )}
+        </span>
       </span>
       <span className="w-full truncate font-mono text-[9px] text-faint normal-case tracking-normal">
         {columnKey}

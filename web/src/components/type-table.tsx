@@ -194,7 +194,7 @@ export function TypeTable({
 
   useEffect(() => {
     if (selected.unknown) {
-      setParams(withParam(params, "view", view.key), { replace: true });
+      setParams(withParam(params, "view", view.key), { replace: true, preventScrollReset: true });
     }
   }, [params, selected.unknown, setParams, view.key]);
 
@@ -215,7 +215,7 @@ export function TypeTable({
   // later view switch inherit a stale page number.
   useEffect(() => {
     if (!isTable && params.has("page")) {
-      setParams(withParam(params, "page", null), { replace: true });
+      setParams(withParam(params, "page", null), { replace: true, preventScrollReset: true });
     }
   }, [isTable, params, setParams]);
 
@@ -241,6 +241,7 @@ export function TypeTable({
     const clamped = clampPage(page, total);
     setParams(withParam(params, "page", clamped === 1 ? null : String(clamped)), {
       replace: true,
+      preventScrollReset: true,
     });
   }, [isTable, objects.data, page, params, setParams, total]);
 
@@ -297,13 +298,13 @@ export function TypeTable({
   function editParams(edit: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(params);
     edit(next);
-    setParams(withoutPage(next), { replace: true });
+    setParams(withoutPage(next), { replace: true, preventScrollReset: true });
   }
 
   function goPage(next: number) {
     setParams(
       withParam(params, "page", next === 1 ? null : String(clampPage(next, total))),
-      { replace: true },
+      { replace: true, preventScrollReset: true },
     );
   }
 
@@ -370,19 +371,19 @@ export function TypeTable({
   }
 
   function clearFilter() {
-    setParams(withParam(withoutPage(params), "filter", ""), { replace: true });
+    setParams(withParam(withoutPage(params), "filter", ""), { replace: true, preventScrollReset: true });
   }
 
   function clearSearch() {
-    setParams(withParam(withoutPage(params), "q", ""), { replace: true });
+    setParams(withParam(withoutPage(params), "q", ""), { replace: true, preventScrollReset: true });
   }
 
   function setMonth(next: string) {
-    setParams(withParam(params, "month", next), { replace: true });
+    setParams(withParam(params, "month", next), { replace: true, preventScrollReset: true });
   }
 
   function submitSearch(next: string) {
-    setParams(withParam(withoutPage(params), "q", next), { replace: true });
+    setParams(withParam(withoutPage(params), "q", next), { replace: true, preventScrollReset: true });
   }
 
   function saveQuery() {
@@ -390,7 +391,7 @@ export function TypeTable({
       { filter: query.filter, sorts: query.sorts },
       {
         onSuccess: () => {
-          setParams(resetParams(params), { replace: true });
+          setParams(resetParams(params), { replace: true, preventScrollReset: true });
           toast.showToast("View saved.");
         },
         onError: report,
@@ -796,6 +797,22 @@ export function TypeTable({
               ) : null}
             </Button>
           )}
+          {canEdit && view.kind !== "calendar" ? (
+            <Button
+              type="button"
+              variant="ghost"
+              aria-expanded={columnsOpen}
+              aria-controls="type-columns"
+              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
+              onClick={toggleColumns}
+            >
+              <Columns3 aria-hidden size={14} />
+              Columns
+              <span className="tnum text-accent">
+                {Math.max(0, view.columns.length - 1)}
+              </span>
+            </Button>
+          ) : null}
           {canEdit && dirty ? (
             <Button
               type="button"
@@ -827,12 +844,6 @@ export function TypeTable({
             <Popover.Portal>
               <Popover.Positioner sideOffset={4} align="end" className="z-50">
                 <Popover.Popup className="min-w-[12rem] rounded-field border border-line bg-surface p-1">
-                  {canEdit && view.kind !== "calendar" ? (
-                    <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleColumns}>
-                      <Columns3 aria-hidden size={14} />
-                      Columns
-                    </Popover.Close>
-                  ) : null}
                   {canEdit ? (
                     <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleSettings}>
                       <Settings2 aria-hidden size={14} />
@@ -897,14 +908,16 @@ export function TypeTable({
         </form>
       ) : null}
 
-      {canEdit && columnsOpen ? (
-        <ColumnPanel
-          view={view}
-          properties={properties}
-          disabled={layout.isPending}
-          onPatch={writeLayout}
-          onAddProperty={() => setAddPropertyOpen(true)}
-        />
+      {canEdit && view.kind !== "calendar" ? (
+        <div id="type-columns" hidden={!columnsOpen}>
+          <ColumnPanel
+            view={view}
+            properties={properties}
+            disabled={layout.isPending}
+            onPatch={writeLayout}
+            onAddProperty={() => setAddPropertyOpen(true)}
+          />
+        </div>
       ) : null}
 
       {canEdit && addPropertyOpen ? (

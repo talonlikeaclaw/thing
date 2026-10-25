@@ -1,3 +1,4 @@
+import { Popover } from "@base-ui/react/popover";
 import { Check, X } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
@@ -212,83 +213,125 @@ function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyI
     );
   }
 
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+
   return (
-    <div
-      className="relative min-w-[11rem]"
-      onBlur={(event) => {
-        if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) {
-          onCancel();
-        }
-      }}
-    >
-      <input
-        autoFocus
-        aria-label={property.name}
-        className={field}
-        placeholder={value ? valueLabel("select", value, property) : "Choose or type"}
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
+    <div className="relative min-w-[11rem]">
+      <Popover.Root
+        open
+        onOpenChange={(next, details) => {
+          if (next) {
+            return;
+          }
+          // The input is the anchor, not a trigger, so a press on it counts as
+          // "outside" and must not cancel the edit. Any other outside press
+          // does, matching the old blur-to-close behaviour.
+          if (details.reason === "outside-press") {
+            const target = details.event.target;
+            if (target instanceof Node && inputRef.current?.contains(target)) {
+              return;
+            }
             onCancel();
           }
-          if (event.key === "Enter") {
-            event.preventDefault();
-            const match =
-              options.find(
-                (option) => option.name.toLowerCase() === query.trim().toLowerCase(),
-              ) ?? options[0];
-            if (match) {
-              onCommit(match.key, match.name);
-            } else if (query.trim()) {
-              createOption(query);
-            }
-          }
+          // Escape is handled by the input itself; no focus-out handling is
+          // needed because the popup's options never take focus.
         }}
-      />
-      <div className="absolute top-full left-0 z-30 mt-1 max-h-56 w-full min-w-[13rem] overflow-auto rounded-field border border-line bg-surface p-1 text-[13px] shadow-none">
-        {value !== null && value !== undefined ? (
-          <button
-            type="button"
-            className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => onCommit(null, "")}
+      >
+        <input
+          ref={inputRef}
+          autoFocus
+          aria-label={property.name}
+          className={field}
+          placeholder={value ? valueLabel("select", value, property) : "Choose or type"}
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onBlur={(event) => {
+            if (
+              event.relatedTarget instanceof Node &&
+              popupRef.current?.contains(event.relatedTarget)
+            ) {
+              return;
+            }
+            onCancel();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onCancel();
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const match =
+                options.find(
+                  (option) => option.name.toLowerCase() === query.trim().toLowerCase(),
+                ) ?? options[0];
+              if (match) {
+                onCommit(match.key, match.name);
+              } else if (query.trim()) {
+                createOption(query);
+              }
+            }
+          }}
+        />
+        <Popover.Portal>
+          <Popover.Positioner
+            anchor={inputRef}
+            sideOffset={4}
+            collisionPadding={8}
+            className="z-50"
           >
-            <X aria-hidden size={12} />
-            Clear
-          </button>
-        ) : null}
-        {options.map((option) => (
-          <button
-            key={option.key}
-            type="button"
-            className="flex w-full items-baseline justify-between gap-2 rounded-[3px] px-2 py-1.5 text-left hover:bg-raised"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => onCommit(option.key, option.name)}
-          >
-            <span>{option.name}</span>
-            <span className="font-mono text-[10px] text-faint">{option.key}</span>
-          </button>
-        ))}
-        {query.trim() && !exact ? (
-          <button
-            type="button"
-            disabled={create.isPending}
-            className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => createOption(query)}
-          >
-            <Check aria-hidden size={12} />
-            {create.isPending ? "Creating…" : `Create “${query.trim()}”`}
-          </button>
-        ) : null}
-        {create.error ? (
-          <p role="alert" className="px-2 py-1 text-[12px] text-danger">
-            {readError(create.error)}
-          </p>
-        ) : null}
-      </div>
+            <Popover.Popup
+              ref={popupRef}
+              aria-label={`${property.name} options`}
+              initialFocus={false}
+              finalFocus={false}
+              className="max-h-56 w-[var(--anchor-width)] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-auto rounded-field border border-line bg-surface p-1 text-[13px] shadow-none"
+            >
+              {value !== null && value !== undefined ? (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => onCommit(null, "")}
+                >
+                  <X aria-hidden size={12} />
+                  Clear
+                </button>
+              ) : null}
+              {options.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className="flex w-full items-baseline justify-between gap-2 rounded-[3px] px-2 py-1.5 text-left hover:bg-raised"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => onCommit(option.key, option.name)}
+                >
+                  <span>{option.name}</span>
+                  <span className="font-mono text-[10px] text-faint">{option.key}</span>
+                </button>
+              ))}
+              {query.trim() && !exact ? (
+                <button
+                  type="button"
+                  disabled={create.isPending}
+                  className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => createOption(query)}
+                >
+                  <Check aria-hidden size={12} />
+                  {create.isPending ? "Creating…" : `Create “${query.trim()}”`}
+                </button>
+              ) : null}
+              {create.error ? (
+                <p role="alert" className="px-2 py-1 text-[12px] text-danger">
+                  {readError(create.error)}
+                </p>
+              ) : null}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
     </div>
   );
 }
