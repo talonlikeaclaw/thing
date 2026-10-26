@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { ViewDef } from "@/api/types";
 import {
+  COMPACT_COLUMN_WIDTH,
+  COMPACT_TITLE_WIDTH,
   DRAG_THRESHOLD,
   dragDelta,
   dragMoved,
@@ -39,6 +41,20 @@ describe("saved widths", () => {
       "due_date",
       "room",
     ]);
+  });
+
+  it("paints phone widths whatever the view saved", () => {
+    const phone = savedWidths(table, ["title", "room", "due_date"], true);
+    expect(phone).toEqual({
+      title: COMPACT_TITLE_WIDTH,
+      room: COMPACT_COLUMN_WIDTH,
+      due_date: COMPACT_COLUMN_WIDTH,
+    });
+    expect(savedWidths(table, ["title", "room", "due_date"], true)).toEqual({
+      title: COMPACT_TITLE_WIDTH,
+      room: COMPACT_COLUMN_WIDTH,
+      due_date: COMPACT_COLUMN_WIDTH,
+    });
   });
 });
 

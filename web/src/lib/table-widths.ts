@@ -5,6 +5,14 @@ import { clampWidth, defaultWidth } from "@/lib/views";
 export const DRAG_THRESHOLD = 3;
 
 /**
+ * Phone widths. A phone paints these regardless of the view's saved desktop
+ * widths: 136 keeps a title readable beside the pinned checkbox rail, and 104
+ * is the narrowest column where a 12 px mono value shows six characters.
+ */
+export const COMPACT_TITLE_WIDTH = 136;
+export const COMPACT_COLUMN_WIDTH = 104;
+
+/**
  * The width one column paints: its saved width, clamped. There is no
  * proportional fit — a wide window gets a filler column instead of narrower
  * data columns, so a drag moves the column under the finger and nothing else.
@@ -13,14 +21,19 @@ export function savedWidth(view: ViewDef, key: string): number {
   return clampWidth(defaultWidth(view, key));
 }
 
-/** Every flex column's saved width, in render order. */
+/** Every flex column's painted width, in render order. */
 export function savedWidths(
   view: ViewDef,
   keys: readonly string[],
+  compact = false,
 ): Record<string, number> {
   const widths: Record<string, number> = {};
   for (const key of keys) {
-    widths[key] = savedWidth(view, key);
+    widths[key] = compact
+      ? key === "title"
+        ? COMPACT_TITLE_WIDTH
+        : COMPACT_COLUMN_WIDTH
+      : savedWidth(view, key);
   }
   return widths;
 }

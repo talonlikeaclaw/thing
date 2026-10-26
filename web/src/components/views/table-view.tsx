@@ -19,7 +19,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import type {
   ObjectSummary,
@@ -47,9 +47,9 @@ import { clampWidth } from "@/lib/views";
 
 const OPEN_WIDTH_FINE = 134;
 const OPEN_WIDTH_COARSE = 182;
-/** Compact rows keep only the ⋯ menu and Open, with no gap between them. */
-const COMPACT_EDITOR_WIDTH_FINE = 64;
-const COMPACT_EDITOR_WIDTH_COARSE = 80;
+/** Compact rows keep only the ⋯ menu (Open lives inside it): one 44 px control. */
+const COMPACT_EDITOR_WIDTH_FINE = 44;
+const COMPACT_EDITOR_WIDTH_COARSE = 56;
 const COMPACT_VIEWER_WIDTH_FINE = 32;
 const COMPACT_VIEWER_WIDTH_COARSE = 40;
 const SELECT_WIDTH = 44;
@@ -174,10 +174,9 @@ export function TableView({
   const columns = view.columns.filter((key) => key !== "title");
   const [preview, setPreview] = useState<Record<string, number>>({});
   const flexKeys = ["title", ...columns];
-  const saved = savedWidths(view, flexKeys);
-  // Literal widths: the saved value is what the column paints. The window's
-  // leftover space becomes one filler column, so a drag moves only the column
-  // under the finger and never reflows its neighbours.
+  // Literal widths: the saved value — or the phone width — is what the column
+  // paints. The window's leftover space becomes one filler column, so a drag
+  // moves only the column under the finger and never reflows its neighbours.
   const portRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
   useLayoutEffect(() => {
@@ -192,10 +191,11 @@ export function TableView({
     return () => observer.disconnect();
   }, []);
 
-  // Below a phone width the action cell keeps only Open and a menu; the title
-  // unpins so a property column has room to be read while swiping.
+  // Below a phone width the title pins to the left edge and every column takes
+  // the fixed phone width, so a swipe reads values instead of a squeezed fit.
   const compact = available > 0 ? available < 640 : window.innerWidth < 640;
   const coarse = useCoarsePointer();
+  const saved = savedWidths(view, flexKeys, compact);
   // On a phone the checkbox column is hidden until the reader asks to select,
   // so the title starts at the left edge and the freed width goes to content.
   const [selecting, setSelecting] = useState(false);
@@ -256,7 +256,23 @@ export function TableView({
     }
   }, [selected.size]);
 
+  // Toggling Select inserts the 44 px checkbox rail, which moves every data
+  // column right by that much. Move the scroll with it so the column under the
+  // finger stays put; the effect lands in the same commit as the new column.
+  const keepScroll = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const keep = keepScroll.current;
+    keepScroll.current = null;
+    if (keep !== null && portRef.current) {
+      portRef.current.scrollLeft = Math.max(0, keep);
+    }
+  }, [showSelect]);
+
   function toggleSelecting() {
+    const port = portRef.current;
+    keepScroll.current = port
+      ? Math.max(0, port.scrollLeft + (selecting ? -SELECT_WIDTH : SELECT_WIDTH))
+      : null;
     if (!selecting) {
       setSelecting(true);
       return;
@@ -414,7 +430,7 @@ export function TableView({
           <button
             type="button"
             aria-pressed={selecting}
-            className="label shrink-0 text-[11px] text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
+            className="label inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[11px] text-faint transition-colors hover:text-accent"
             onClick={toggleSelecting}
           >
             {selecting ? "Done" : "Select"}
@@ -425,8 +441,9 @@ export function TableView({
     <div
       ref={portRef}
       className={cn(
-        compact ? "mt-2" : "mt-6",
-        "max-h-[70vh] overflow-auto overscroll-contain",
+        compact
+          ? "mt-2 overflow-x-auto overscroll-x-contain"
+          : "mt-6 max-h-[70dvh] overflow-auto overscroll-contain",
         bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-16",
       )}
       onKeyDown={onGridKeyDown}
@@ -479,10 +496,10 @@ export function TableView({
             <th
               scope="col"
               className={cn(
-                "relative z-30 border-r rule bg-surface py-2 pr-3 font-medium",
-                !compact && "sticky",
+                "relative sticky z-30 border-r rule py-2 pr-3 font-medium",
+                compact ? "bg-ground" : "bg-surface",
               )}
-              style={compact ? undefined : { left: selectOffset * SELECT_WIDTH }}
+              style={{ left: selectOffset * SELECT_WIDTH }}
               {...sortHeader("title")}
             >
               <HeaderSort
@@ -490,6 +507,7 @@ export function TableView({
                 label="Title"
                 sort={sortOf("title")}
                 onSort={onSort}
+                showKey={!compact}
               />
               {canEdit && !compact ? (
                 <ColumnResizer
@@ -519,6 +537,7 @@ export function TableView({
                     label={label}
                     sort={sortOf(key)}
                     onSort={onSort}
+                    showKey={!compact}
                   />
                   {canEdit && !compact ? (
                     <ColumnResizer
@@ -571,10 +590,13 @@ export function TableView({
         <tbody className={busy ? "pointer-events-none opacity-60" : undefined}>
           {draft ? (
             <tr className="border-b rule bg-raised/40">
-              {showSelect ? <td className="sticky left-0 z-10 bg-raised/40" /> : null}
+              {showSelect ? <td className="sticky left-0 z-10 bg-raised" /> : null}
               <th
                 scope="row"
-                className="sticky z-10 border-r rule p-1 text-left font-normal"
+                className={cn(
+                  "sticky z-20 border-r rule p-1 text-left font-normal",
+                  compact && "bg-ground",
+                )}
                 style={{ left: selectOffset * SELECT_WIDTH }}
               >
                 <div className="grid gap-1.5">
@@ -648,7 +670,7 @@ export function TableView({
               ))}
               {showAddColumn ? <td className="py-1 pr-2" /> : null}
               <td aria-hidden />
-              <td className="sticky right-0 border-l rule bg-raised/40" />
+              <td className="sticky right-0 z-20 border-l rule bg-raised" />
             </tr>
           ) : null}
           {rows.map((row, rowIndex) => {
@@ -699,11 +721,10 @@ export function TableView({
                       : `Title “${row.title}”`
                   }
                   className={cn(
-                    "z-10 border-r rule py-1 pr-2 text-left font-normal outline-none",
-                    !compact && "sticky",
-                    isSelected ? "bg-raised" : "bg-surface",
+                    "sticky z-20 border-r rule py-1 pr-2 text-left font-normal outline-none",
+                    isSelected ? "bg-raised" : compact ? "bg-ground" : "bg-surface",
                   )}
-                  style={compact ? undefined : { left: selectOffset * SELECT_WIDTH }}
+                  style={{ left: selectOffset * SELECT_WIDTH }}
                 >
                   <TitleCell
                     title={row.title}
@@ -756,7 +777,7 @@ export function TableView({
                   {...cellProps(rowIndex, actionCol)}
                   aria-label={`Actions for “${row.title}”`}
                   className={cn(
-                    "sticky right-0 border-l rule py-1 text-right outline-none",
+                    "sticky right-0 z-20 border-l rule py-1 text-right outline-none",
                     isSelected ? "bg-raised" : "bg-ground",
                   )}
                 >
@@ -768,9 +789,9 @@ export function TableView({
                   >
                     {compact && canEdit ? (
                       <RowActionsMenu
+                        spaceId={spaceId}
                         row={row}
                         verb={verb}
-                        tight
                         completing={completing}
                         busy={busy || rowPending}
                         onComplete={() => onComplete(row)}
@@ -812,18 +833,17 @@ export function TableView({
                         </RowAction>
                       </>
                     ) : null}
-                    <Link
-                      to={`/s/${spaceId}/o/${row.id}`}
-                      aria-label={`Open ${row.title}`}
-                      title="Open record"
-                      tabIndex={rowActive ? 0 : -1}
-                      className={cn(
-                        "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11",
-                        compact && "pointer-coarse:w-10",
-                      )}
-                    >
-                      <ArrowUpRight aria-hidden size={14} />
-                    </Link>
+                    {compact && canEdit ? null : (
+                      <Link
+                        to={`/s/${spaceId}/o/${row.id}`}
+                        aria-label={`Open ${row.title}`}
+                        title="Open record"
+                        tabIndex={rowActive ? 0 : -1}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+                      >
+                        <ArrowUpRight aria-hidden size={14} />
+                      </Link>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -838,18 +858,18 @@ export function TableView({
 
 /** The phone-width row menu: the three actions an inline cell would crowd out. */
 function RowActionsMenu({
+  spaceId,
   row,
   verb,
-  tight,
   completing,
   busy,
   onComplete,
   onDuplicate,
   onTrash,
 }: {
+  spaceId: string;
   row: ObjectSummary;
   verb: string;
-  tight?: boolean;
   completing: boolean;
   busy: boolean;
   onComplete: () => void;
@@ -858,16 +878,14 @@ function RowActionsMenu({
 }) {
   const canComplete = row.schedule !== undefined && row.schedule.status !== "done";
   const { handedness } = useHandedness();
+  const navigate = useNavigate();
   const item =
     "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
   return (
     <Popover.Root>
       <Popover.Trigger
         aria-label={`More actions for “${row.title}”`}
-        className={cn(
-          "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11",
-          tight && "pointer-coarse:w-10",
-        )}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
       >
         <MoreHorizontal aria-hidden size={16} />
       </Popover.Trigger>
@@ -878,6 +896,13 @@ function RowActionsMenu({
           className="z-50"
         >
           <Popover.Popup className="min-w-[11rem] rounded-field border border-line bg-surface p-1">
+            <Popover.Close
+              className={item}
+              onClick={() => navigate(`/s/${spaceId}/o/${row.id}`)}
+            >
+              <ArrowUpRight aria-hidden size={14} />
+              Open record
+            </Popover.Close>
             {canComplete ? (
               <Popover.Close
                 className={item}
@@ -1035,12 +1060,16 @@ function HeaderSort({
   label,
   sort,
   onSort,
+  showKey,
 }: {
   columnKey: string;
   label: string;
   sort: Sort | undefined;
   onSort: (key: string, additive: boolean) => void;
+  /** Phones drop the mono key line; the label alone is the header. */
+  showKey: boolean;
 }) {
+  const named = showKey ? label : `${label} (${columnKey})`;
   const state = sort
     ? sort.direction === "asc"
       ? "currently ascending"
@@ -1056,8 +1085,8 @@ function HeaderSort({
     <button
       type="button"
       className="flex w-full min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink"
-      title={`${label} — ${state}; activate to ${next}`}
-      aria-label={`Sort by ${label}, ${state}, activate to ${next}`}
+      title={`${named} — ${state}; activate to ${next}`}
+      aria-label={`Sort by ${named}, ${state}, activate to ${next}`}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
       <span className="flex w-full min-w-0 items-center gap-1">
@@ -1074,9 +1103,11 @@ function HeaderSort({
           )}
         </span>
       </span>
-      <span className="w-full truncate font-mono text-[9px] text-faint normal-case tracking-normal">
-        {columnKey}
-      </span>
+      {showKey ? (
+        <span className="w-full truncate font-mono text-[9px] text-faint normal-case tracking-normal">
+          {columnKey}
+        </span>
+      ) : null}
     </button>
   );
 }
