@@ -161,6 +161,16 @@ usability move ahead of search.
     without a reload. The v0.4 browser-local choice is read once to seed a space for an owner, then
     deleted; a non-owner's old value is never used. The six contrast-tested presets are the whole
     set, and an unknown id is a `422` field `accent`.
+
+  **v0.4.2 — mobile craft.** **Planned**; spec:
+  [`docs/plan/m4.2-mobile-craft.md`](plan/m4.2-mobile-craft.md). A second patch about the phone,
+  written from measure-not-guess evidence on a seeded instance: the palette raises the keyboard on
+  the first tap and stays above it; saved column widths are literal, so a drag moves the column under
+  the finger and no neighbour; the phone table pins its title, reads at 104 px per property column,
+  and scrolls in one scroller; the type and record pages put content before chrome; and every
+  surface meets the 44 px target and 16 px input floor. No route, format, server field or dependency
+  changes.
+
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
   `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph
