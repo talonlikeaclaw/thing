@@ -28,6 +28,7 @@ import {
   useTrashObject,
   useUpdateObject,
   useUpdateView,
+  useUpdateViewLayout,
 } from "@/api/queries";
 import type {
   Filter,
@@ -130,7 +131,8 @@ export function TypeTable({
   const restore = useRestoreObject(spaceId);
   const bulkTrash = useBulkTrashObjects(spaceId);
   const bulkRestore = useBulkRestoreObjects(spaceId);
-  const layout = useUpdateView(spaceId, type.key, view.key);
+  const updateView = useUpdateView(spaceId, type.key, view.key);
+  const layout = useUpdateViewLayout(spaceId, type.key, view.key);
   const createView = useCreateView(spaceId, type.key);
   const client = useQueryClient();
   const toast = useToast();
@@ -295,6 +297,44 @@ export function TypeTable({
     layout.mutate(change, { onError: reportLayout });
   }
 
+  /**
+   * A column resize: seed the new width into the type cache before the PATCH,
+   * so the column under the finger moves on the same frame; revert that cache
+   * and name the column if the write fails. The table keeps its own preview
+   * until this promise settles.
+   */
+  function commitWidth(key: string, width: number): Promise<void> {
+    const label =
+      key === "title"
+        ? "Title"
+        : properties.find((entry) => entry.key === key)?.name ?? key;
+    const next = withWidth(view, key, width);
+    const typeKey = queryKeys.type(spaceId, type.key);
+    const previous = client.getQueryData<TypeDef>(typeKey);
+    client.setQueryData<TypeDef>(typeKey, (current) =>
+      current === undefined
+        ? current
+        : {
+            ...current,
+            views: current.views.map((entry) =>
+              entry.key === view.key ? { ...entry, widths: next.widths } : entry,
+            ),
+          },
+    );
+    return layout
+      .mutateAsync({ columns: next.columns, widths: next.widths })
+      .then(
+        () => undefined,
+        (error: unknown) => {
+          if (previous !== undefined) {
+            client.setQueryData(typeKey, previous);
+          }
+          toast.showToast(`Could not resize ${label} — ${readError(error)}`, "danger");
+          throw error;
+        },
+      );
+  }
+
   /** Every query edit drops `page`; the table starts from its first page. */
   function editParams(edit: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(params);
@@ -388,7 +428,7 @@ export function TypeTable({
   }
 
   function saveQuery() {
-    layout.mutate(
+    updateView.mutate(
       { filter: query.filter, sorts: query.sorts },
       {
         onSuccess: () => {
@@ -722,7 +762,10 @@ export function TypeTable({
   const dirty = queryIsDirty(view, query.filter, query.sorts);
   const hasOverrides = params.has("q") || params.has("filter") || params.has("sorts");
   const hasFilter = query.filter.conditions.length > 0;
-  const busy = objects.isPlaceholderData || objects.isFetching;
+  // Dim only when the visible rows belong to a query the reader has left (a new
+  // filter, page or view). A background refresh of the same rows — a live
+  // change, a layout write's echo — must not grey out the table.
+  const busy = objects.isPlaceholderData;
   const selectedRows = rows.filter((row) => selection.has(row.id));
   const range = pageRange(total, page);
   const verb = completeLabel(type.schedule_labels);
@@ -819,10 +862,10 @@ export function TypeTable({
             <Button
               type="button"
               className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              disabled={layout.isPending}
+              disabled={updateView.isPending}
               onClick={saveQuery}
             >
-              {layout.isPending ? "Saving…" : "Save view"}
+              {updateView.isPending ? "Saving…" : "Save view"}
             </Button>
           ) : null}
           {hasOverrides ? (
@@ -1137,10 +1180,8 @@ export function TypeTable({
             onTrash={trashRecord}
             onFocusSearch={focusSearch}
             onAddProperty={() => setAddPropertyOpen(true)}
-            onResize={(key, width) => {
-              const next = withWidth(view, key, width);
-              writeLayout({ columns: next.columns, widths: next.widths });
-            }}
+            layoutPending={layout.isPending}
+            onResize={commitWidth}
           />
           {canEdit && selectedRows.length > 0 ? (
             <div className="absolute inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 md:inset-x-3">

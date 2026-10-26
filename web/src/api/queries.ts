@@ -329,6 +329,34 @@ function useViewMutation<TInput>(
   });
 }
 
+function patchView(
+  spaceId: string,
+  typeKey: string,
+  viewKey: string,
+  input: UpdateView,
+): Promise<TypeDef> {
+  return request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+/**
+ * A layout-only view write: widths, column order and column visibility change
+ * what the table paints, never which rows it holds. The type cache is seeded
+ * from the response and the objects cache is left alone, so a resize never
+ * refetches or dims the table.
+ */
+export function useUpdateViewLayout(spaceId: string, typeKey: string, viewKey: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateView) => patchView(spaceId, typeKey, viewKey, input),
+    onSuccess: (detail) => {
+      client.setQueryData(queryKeys.type(spaceId, typeKey), detail);
+    },
+  });
+}
+
 /** Creates a view; the returned type detail carries the minted key. */
 export function useCreateView(spaceId: string, typeKey: string) {
   return useViewMutation<CreateView>(spaceId, typeKey, (input) =>
@@ -342,10 +370,7 @@ export function useCreateView(spaceId: string, typeKey: string) {
 /** Renames or reconfigures one view; the key and kind stay fixed. */
 export function useUpdateView(spaceId: string, typeKey: string, viewKey: string) {
   return useViewMutation<UpdateView>(spaceId, typeKey, (input) =>
-    request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${viewKey}`, {
-      method: "PATCH",
-      body: input,
-    }),
+    patchView(spaceId, typeKey, viewKey, input),
   );
 }
 

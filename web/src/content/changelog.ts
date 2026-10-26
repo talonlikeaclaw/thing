@@ -17,6 +17,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Mobile craft",
+    upcoming: true,
+    highlights: [
+      "Every sheet — search, capture, shortcuts, menus — now opens above the on-screen keyboard instead of behind it.",
+      "Search from the phone bar puts the caret in the field on the first tap.",
+      "Resize a table column by exactly the distance you drag.",
+      "No neighbouring column moves while a column is resized.",
+      "A resized column keeps its width after you release it and after a reload.",
+      "Phones no longer show column resize handles.",
+    ],
+    details: [
+      "The results list and footer stay above the keyboard while the search sheet is open.",
+      "The page uses the whole screen on a notched phone.",
+      "The bottom bar, toasts and sheet footers clear the home indicator.",
+      "Sheets and dialogs animate open.",
+      "Motion is turned off when your system asks for reduced motion.",
+      "A drag must travel a few pixels before it resizes anything.",
+      "A tap on a column edge writes no width.",
+      "An empty trailing column fills a wide window.",
+      "On a phone the last data column scrolls clear of the row actions.",
+      "A phone table still swipes sideways for the other columns.",
+      "A failed resize restores the old width.",
+      "A failed resize names the column that did not save.",
+      "Saving a width no longer dims or disables the table.",
+    ],
+  },
+  {
     version: "0.4.1",
     title: "Everyday usability follow-ups",
     highlights: [

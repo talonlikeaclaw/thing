@@ -37,7 +37,13 @@ import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
 import { completeLabel } from "@/lib/schedule";
-import { clampWidth, defaultWidth, MIN_COLUMN_WIDTH } from "@/lib/views";
+import {
+  dragMoved,
+  dragWidth,
+  savedWidths,
+  widthPlan,
+} from "@/lib/table-widths";
+import { clampWidth } from "@/lib/views";
 
 const OPEN_WIDTH_FINE = 134;
 const OPEN_WIDTH_COARSE = 182;
@@ -115,7 +121,10 @@ interface TableViewProps {
   onDuplicate: (row: ObjectSummary) => void;
   onTrash: (row: ObjectSummary) => void;
   onFocusSearch: () => void;
-  onResize: (key: string, width: number) => void;
+  /** Resolves once the width write lands; the preview is dropped either way. */
+  onResize: (key: string, width: number) => Promise<void>;
+  /** A layout PATCH is in flight; a second resize waits for it. */
+  layoutPending: boolean;
   /** Opens the add-property dialog from the trailing header cell. */
   onAddProperty: () => void;
 }
@@ -158,15 +167,17 @@ export function TableView({
   onTrash,
   onFocusSearch,
   onResize,
+  layoutPending,
   onAddProperty,
 }: TableViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const columns = view.columns.filter((key) => key !== "title");
   const [preview, setPreview] = useState<Record<string, number>>({});
-  const widthOf = (key: string) => preview[key] ?? defaultWidth(view, key);
-  // Flexible columns share the space the fixed ones leave, in the proportions
-  // their saved widths describe: a wide window fills instead of scrolling, and
-  // a narrow one stops at the resize floor and lets the scrollport take over.
+  const flexKeys = ["title", ...columns];
+  const saved = savedWidths(view, flexKeys);
+  // Literal widths: the saved value is what the column paints. The window's
+  // leftover space becomes one filler column, so a drag moves only the column
+  // under the finger and never reflows its neighbours.
   const portRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState(0);
   useLayoutEffect(() => {
@@ -205,34 +216,20 @@ export function TableView({
   const showAddColumn = canEdit && !compact;
   const fixedWidth =
     (showSelect ? SELECT_WIDTH : 0) + (showAddColumn ? ADD_PROPERTY_WIDTH : 0) + openWidth;
-  const flexTotal =
-    widthOf("title") + columns.reduce((sum, key) => sum + widthOf(key), 0);
-  const flexKeys = ["title", ...columns];
-  const minFlex = MIN_COLUMN_WIDTH * flexKeys.length;
-  const flexSpace = Math.max(minFlex, available - fixedWidth);
-  const scale = flexTotal === 0 ? 1 : flexSpace / flexTotal;
-  const widths = new Map<string, number>();
-  for (const key of flexKeys) {
-    widths.set(
-      key,
-      preview[key] ?? Math.max(MIN_COLUMN_WIDTH, Math.round(widthOf(key) * scale)),
-    );
-  }
-  // Rounding leaves a pixel or two over; hand the remainder to the last
-  // flexible column so a fitted table never grows a scrollbar.
-  if (Object.keys(preview).length === 0 && flexSpace === available - fixedWidth) {
-    const current = flexKeys.reduce((sum, key) => sum + (widths.get(key) ?? 0), 0);
-    const last = flexKeys[flexKeys.length - 1];
-    if (last) {
-      widths.set(
-        last,
-        Math.max(MIN_COLUMN_WIDTH, (widths.get(last) ?? 0) + (flexSpace - current)),
-      );
-    }
-  }
-  const columnWidth = (key: string) => widths.get(key) ?? widthOf(key);
-  const tableWidth =
-    fixedWidth + flexKeys.reduce((sum, key) => sum + columnWidth(key), 0);
+  // The sticky action rail paints over the scrollport's right edge, so the
+  // table keeps one rail-width of empty tail: the last data column can scroll
+  // clear of it instead of ending underneath. The same tail absorbs whatever
+  // space the saved columns leave, which is why a drag never moves a neighbour.
+  const spacer = openWidth;
+  const widthOf = (key: string): number => preview[key] ?? saved[key] ?? 0;
+  const plan = widthPlan(
+    Object.fromEntries(flexKeys.map((key) => [key, widthOf(key)])),
+    available,
+    fixedWidth + spacer,
+  );
+  const columnWidth = (key: string) => plan.widths[key] ?? widthOf(key);
+  const tailWidth = plan.filler + spacer;
+  const tableWidth = plan.tableWidth;
   const verb = completeLabel(type.schedule_labels);
 
   // Column 0 is the checkbox for editors, then the title, then properties.
@@ -349,13 +346,35 @@ export function TableView({
     }
   }
 
+  // The preview survives the write: the cache already carries the new width,
+  // so dropping it when the PATCH lands is invisible, and dropping it early
+  // would snap the column back for a frame.
   function resize(key: string, width: number) {
+    setPreview((current) => ({ ...current, [key]: width }));
+    void onResize(key, width)
+      .catch(() => undefined)
+      .finally(() => {
+        setPreview((current) => {
+          if (current[key] !== width) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+      });
+  }
+
+  /** A press that never crossed the drag threshold paints nothing. */
+  function cancelResize(key: string) {
     setPreview((current) => {
+      if (!(key in current)) {
+        return current;
+      }
       const next = { ...current };
       delete next[key];
       return next;
     });
-    onResize(key, width);
   }
 
   function sortOf(key: string): Sort | undefined {
@@ -430,6 +449,7 @@ export function TableView({
             <col key={key} style={{ width: columnWidth(key) }} />
           ))}
           {showAddColumn ? <col style={{ width: ADD_PROPERTY_WIDTH }} /> : null}
+          <col style={{ width: tailWidth }} />
           <col style={{ width: openWidth }} />
         </colgroup>
         <thead className="sticky top-0 z-20 bg-ground">
@@ -459,7 +479,7 @@ export function TableView({
             <th
               scope="col"
               className={cn(
-                "z-30 border-r rule bg-surface py-2 pr-3 font-medium",
+                "relative z-30 border-r rule bg-surface py-2 pr-3 font-medium",
                 !compact && "sticky",
               )}
               style={compact ? undefined : { left: selectOffset * SELECT_WIDTH }}
@@ -471,13 +491,15 @@ export function TableView({
                 sort={sortOf("title")}
                 onSort={onSort}
               />
-              {canEdit ? (
+              {canEdit && !compact ? (
                 <ColumnResizer
                   label="Title"
-                  width={widthOf("title")}
+                  width={columnWidth("title")}
+                  disabled={layoutPending}
                   onPreview={(width) =>
                     setPreview((current) => ({ ...current, title: width }))
                   }
+                  onCancel={() => cancelResize("title")}
                   onCommit={(width) => resize("title", width)}
                 />
               ) : null}
@@ -498,13 +520,15 @@ export function TableView({
                     sort={sortOf(key)}
                     onSort={onSort}
                   />
-                  {canEdit ? (
+                  {canEdit && !compact ? (
                     <ColumnResizer
                       label={label}
-                      width={widthOf(key)}
+                      width={columnWidth(key)}
+                      disabled={layoutPending}
                       onPreview={(width) =>
                         setPreview((current) => ({ ...current, [key]: width }))
                       }
+                      onCancel={() => cancelResize(key)}
                       onCommit={(width) => resize(key, width)}
                     />
                   ) : null}
@@ -524,6 +548,7 @@ export function TableView({
                 </button>
               </th>
             ) : null}
+            <th scope="col" aria-hidden className="py-2" />
             <th
               scope="col"
               className="sticky right-0 z-30 border-l rule bg-ground py-2"
@@ -622,6 +647,7 @@ export function TableView({
                 <td key={key} className="py-1 pr-2" />
               ))}
               {showAddColumn ? <td className="py-1 pr-2" /> : null}
+              <td aria-hidden />
               <td className="sticky right-0 border-l rule bg-raised/40" />
             </tr>
           ) : null}
@@ -724,6 +750,8 @@ export function TableView({
                     </td>
                   );
                 })}
+                {showAddColumn ? <td aria-hidden className="py-1" /> : null}
+                <td aria-hidden />
                 <td
                   {...cellProps(rowIndex, actionCol)}
                   aria-label={`Actions for “${row.title}”`}
@@ -917,20 +945,27 @@ function RowAction({
 interface ColumnResizerProps {
   label: string;
   width: number;
+  /** A width write is in flight; a second press waits for it. */
+  disabled: boolean;
   onPreview: (width: number) => void;
+  onCancel: () => void;
   onCommit: (width: number) => void;
 }
 
 /**
- * A keyboard-focusable column edge. Pointer moves preview continuously; the
- * write happens on release. Arrow keys move 16px, Shift 64px.
+ * A keyboard-focusable column edge. A press paints nothing until it travels
+ * `DRAG_THRESHOLD`; moves preview continuously and the write happens on
+ * release. Arrow keys move 16 px, Shift 64 px.
  */
-function ColumnResizer({ label, width, onPreview, onCommit }: ColumnResizerProps) {
+function ColumnResizer({
+  label,
+  width,
+  disabled,
+  onPreview,
+  onCancel,
+  onCommit,
+}: ColumnResizerProps) {
   const [dragging, setDragging] = useState<{ startX: number; startWidth: number } | null>(null);
-
-  function widthFor(delta: number) {
-    return clampWidth((dragging?.startWidth ?? width) + delta);
-  }
 
   return (
     <span
@@ -938,29 +973,50 @@ function ColumnResizer({ label, width, onPreview, onCommit }: ColumnResizerProps
       aria-label={`Resize ${label} column`}
       aria-orientation="vertical"
       aria-valuenow={width}
-      tabIndex={0}
-      className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none border-r border-transparent transition-colors hover:border-line-strong focus-visible:border-accent pointer-coarse:w-4"
+      aria-disabled={disabled || undefined}
+      tabIndex={disabled ? -1 : 0}
+      className={cn(
+        "absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none border-r border-transparent transition-colors hover:border-line-strong focus-visible:border-accent",
+        disabled && "pointer-events-none opacity-50",
+      )}
       onPointerDown={(event) => {
+        if (disabled) {
+          return;
+        }
         event.preventDefault();
         event.currentTarget.setPointerCapture(event.pointerId);
         setDragging({ startX: event.clientX, startWidth: width });
       }}
       onPointerMove={(event) => {
-        if (!dragging) {
+        if (!dragging || !dragMoved(dragging.startX, event.clientX)) {
           return;
         }
-        onPreview(clampWidth(dragging.startWidth + event.clientX - dragging.startX));
+        onPreview(dragWidth(dragging.startWidth, dragging.startX, event.clientX));
       }}
       onPointerUp={(event) => {
         if (!dragging) {
           return;
         }
-        const next = widthFor(event.clientX - dragging.startX);
+        const moved = dragMoved(dragging.startX, event.clientX);
+        const next = dragWidth(dragging.startWidth, dragging.startX, event.clientX);
         setDragging(null);
-        onCommit(next);
+        if (moved) {
+          onCommit(next);
+        } else {
+          onCancel();
+        }
       }}
-      onPointerCancel={() => setDragging(null)}
+      onPointerCancel={() => {
+        if (!dragging) {
+          return;
+        }
+        setDragging(null);
+        onCancel();
+      }}
       onKeyDown={(event) => {
+        if (disabled) {
+          return;
+        }
         const step = event.shiftKey ? 64 : 16;
         if (event.key === "ArrowLeft") {
           event.preventDefault();
