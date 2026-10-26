@@ -1,7 +1,9 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { Popover } from "@base-ui/react/popover";
 import {
   ArrowUpDown,
   Columns3,
+  CopyPlus,
   FileSpreadsheet,
   ListFilter,
   MoreHorizontal,
@@ -10,8 +12,17 @@ import {
   Settings2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -20,7 +31,6 @@ import {
   useBulkRestoreObjects,
   useBulkTrashObjects,
   useCompleteObject,
-  useCreateObject,
   useCreateView,
   useDuplicateObject,
   useObjects,
@@ -42,12 +52,15 @@ import type {
 } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { AddPropertyDialog } from "@/components/add-property";
+import { useHandedness } from "@/components/handedness";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterBar } from "@/components/filter-bar";
 import { SortBar } from "@/components/sort-bar";
 import { ThingIcon } from "@/components/thing-icon";
+import { useQuickCapture } from "@/components/quick-capture";
 import { useTableShortcuts } from "@/components/table-shortcuts";
 import { Button, FormError, TextField } from "@/components/ui/controls";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { BoardView } from "@/components/views/board-view";
 import { CalendarView } from "@/components/views/calendar-view";
@@ -57,8 +70,8 @@ import { GalleryView } from "@/components/views/gallery-view";
 import { TableView } from "@/components/views/table-view";
 import { ViewSettings } from "@/components/views/view-settings";
 import { ViewTabs } from "@/components/views/view-tabs";
+import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
-import { isBlank } from "@/lib/format";
 import {
   columnChoices,
   cycleSort,
@@ -85,7 +98,26 @@ import {
 
 /** The layout views ask for the server maximum; only the table pages. */
 const LAYOUT_LIMIT = 500;
+/** The phone header: one toolbar row, a View sheet and a compact pager. */
+const COMPACT_QUERY = "(max-width: 639px)";
+
+function subscribeCompact(onChange: () => void) {
+  const media = window.matchMedia(COMPACT_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function useCompactWidth() {
+  return useSyncExternalStore(
+    subscribeCompact,
+    () => window.matchMedia(COMPACT_QUERY).matches,
+    () => false,
+  );
+}
+
 const NO_SHORTCUTS: ShortcutDescriptor[] = [];
+const SQUARE_BUTTON =
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink";
 const VIEW_MENU_ITEM =
   "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
 
@@ -125,7 +157,6 @@ export function TypeTable({
   const page = isTable ? pageFromParam(params.get("page")) : 1;
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
-  const create = useCreateObject(spaceId);
   const duplicate = useDuplicateObject(spaceId);
   const trash = useTrashObject(spaceId);
   const restore = useRestoreObject(spaceId);
@@ -136,16 +167,10 @@ export function TypeTable({
   const createView = useCreateView(spaceId, type.key);
   const client = useQueryClient();
   const toast = useToast();
+  const compact = useCompactWidth();
   const searchRef = useRef<HTMLInputElement | null>(null);
-  const navigate = useNavigate();
+  const capture = useQuickCapture();
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
-  const [draft, setDraft] = useState<{
-    title: string;
-    icon: string;
-    values: Record<string, unknown | null>;
-    error: string | null;
-  } | null>(null);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -158,6 +183,12 @@ export function TypeTable({
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [saveAsName, setSaveAsName] = useState("");
+  const [searchExpanded, setSearchExpanded] = useState(
+    () => (params.get("q") ?? "").trim() !== "",
+  );
+  const [viewSheetOpen, setViewSheetOpen] = useState(false);
+  const [viewPanel, setViewPanel] = useState<"settings" | "save" | "data">("settings");
+  const { handedness } = useHandedness();
 
   const tableShortcuts = useMemo(
     () => (isTable ? (canEdit ? TABLE_SHORTCUTS : TABLE_VIEWER_SHORTCUTS) : NO_SHORTCUTS),
@@ -172,17 +203,6 @@ export function TypeTable({
     ) ??
     properties[0]?.key ??
     "";
-
-  const requiredProperties = useMemo(
-    () =>
-      type.properties
-        .filter((member) => member.required)
-        .flatMap((member) => {
-          const property = properties.find((entry) => entry.key === member.key);
-          return property ? [property] : [];
-        }),
-    [properties, type.properties],
-  );
 
   // Generated schedule keys are never required; only declared members can be.
   const requiredKeys = useMemo(
@@ -411,6 +431,22 @@ export function TypeTable({
     setSaveAsName(`${view.name} copy`);
   }
 
+  /** The phone View sheet opens straight into one panel; the row has no menu. */
+  function openViewPanel(panel: "settings" | "save" | "data") {
+    if (panel === "save") {
+      startSaveAs();
+    }
+    setViewPanel(panel);
+    setViewSheetOpen(true);
+  }
+
+  function closeViewSheet() {
+    setViewSheetOpen(false);
+    setSaveAsOpen(false);
+    setSettingsOpen(false);
+    setDataOpen(false);
+  }
+
   function clearFilter() {
     setParams(withParam(withoutPage(params), "filter", ""), { replace: true, preventScrollReset: true });
   }
@@ -460,8 +496,8 @@ export function TypeTable({
       {
         onSuccess: (detail) => {
           const created = detail.views.at(-1);
-          setSaveAsOpen(false);
           setSaveAsName("");
+          closeViewSheet();
           if (created) {
             selectView(created.key);
           }
@@ -469,6 +505,53 @@ export function TypeTable({
       },
     );
   }
+
+  const saveAsForm = canEdit ? (
+    <form
+      aria-label="Save current filter and sort as a view"
+      className="flex flex-wrap items-end gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        saveAsView();
+      }}
+    >
+      <div className="w-[min(22rem,100%)]">
+        <TextField
+          label="New view name"
+          name="save-as-view-name"
+          required
+          maxLength={80}
+          autoFocus
+          value={saveAsName}
+          onChange={(event) => setSaveAsName(event.target.value)}
+        />
+      </div>
+      <Button
+        type="submit"
+        className="min-h-9 px-3 text-[13px]"
+        disabled={!saveAsName.trim() || createView.isPending}
+      >
+        {createView.isPending ? "Creating…" : "Create view"}
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        className="min-h-9 px-3 text-[13px]"
+        onClick={() => {
+          if (compact) {
+            closeViewSheet();
+          } else {
+            setSaveAsOpen(false);
+          }
+        }}
+      >
+        Cancel
+      </Button>
+      <div className="min-w-[12rem] flex-1">
+        <FormError message={createView.error ? readError(createView.error) : null} />
+      </div>
+    </form>
+  ) : null;
 
   function setFilter(next: Filter) {
     editParams((paramsNext) => {
@@ -665,80 +748,6 @@ export function TypeTable({
     });
   }
 
-  function startDraft() {
-    if (create.isPending) {
-      return;
-    }
-    if (!isTable) {
-      if (!tableView) {
-        toast.showToast("Open a table view to add a record.", "danger");
-        return;
-      }
-      selectView(tableView.key);
-    }
-    setDraft({ title: "", icon: "", values: {}, error: null });
-  }
-
-  function draftCommit() {
-    if (!draft || create.isPending) {
-      return;
-    }
-    const title = draft.title.trim();
-    if (!title) {
-      setDraft({ ...draft, error: "A title is required." });
-      return;
-    }
-    const missing = requiredProperties.filter((property) =>
-      isBlank(draft.values[property.key]),
-    );
-    if (missing.length > 0) {
-      setDraft({
-        ...draft,
-        error: `Fill ${missing.map((property) => property.name).join(", ")} before creating.`,
-      });
-      return;
-    }
-    const values = Object.fromEntries(
-      Object.entries(draft.values).filter(([, value]) => value !== null && value !== undefined),
-    );
-    create.mutate(
-      {
-        type: type.key,
-        title,
-        ...(draft.icon.trim() === "" ? {} : { icon: draft.icon.trim() }),
-        ...(Object.keys(values).length === 0 ? {} : { properties: values }),
-      },
-      {
-        onSuccess: (created) => {
-          setDraft(null);
-          toast.showToast(`Created “${created.title}”.`, "plain", [
-            {
-              label: "Open",
-              onAction: () => navigate(`/s/${spaceId}/o/${created.id}`),
-            },
-            {
-              label: "Undo",
-              onAction: () =>
-                trash.mutate(created.id, {
-                  onSuccess: () => toast.showToast("Moved the new record to the trash."),
-                  onError: (error) =>
-                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
-                }),
-            },
-          ]);
-          // A filter or search typed on this page must not hide the new row.
-          clearQuery();
-          setHighlightId(created.id);
-          window.setTimeout(() => setHighlightId(null), 1600);
-        },
-        onError: (error) =>
-          setDraft((current) =>
-            current ? { ...current, error: readError(error) } : current,
-          ),
-      },
-    );
-  }
-
   function toggleRow(id: string) {
     setSelection((current) => {
       const next = new Set(current);
@@ -771,32 +780,286 @@ export function TypeTable({
   const verb = completeLabel(type.schedule_labels);
 
   function focusSearch() {
+    setSearchExpanded(true);
     searchRef.current?.focus();
   }
 
+  const pageTitle = (
+    <div className="flex min-w-0 items-baseline gap-3">
+      <ThingIcon icon={type.icon} size="lg" />
+      <h1 className="truncate text-[26px] font-medium tracking-[-0.02em]">
+        {type.name_plural}
+      </h1>
+      <span className="label tnum max-sm:hidden">{type.key}</span>
+    </div>
+  );
+  const recordCount = (
+    <span className="label tnum max-[359px]:hidden">
+      {compact || shown === total ? `${total}` : `${shown} of ${total}`} records
+    </span>
+  );
+  const newRecordButton = canEdit ? (
+    <Button
+      type="button"
+      className="min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11 max-sm:min-h-11"
+      onClick={() => capture.open(type.key)}
+    >
+      New record
+    </Button>
+  ) : null;
+  // New record is the primary action, so it sits at the thumb edge; the count
+  // takes the far side of that same group.
+  const recordActions = (
+    <div className="flex shrink-0 items-center gap-3">
+      {handedness === "left" ? (
+        <>
+          {newRecordButton}
+          {recordCount}
+        </>
+      ) : (
+        <>
+          {recordCount}
+          {newRecordButton}
+        </>
+      )}
+    </div>
+  );
+
+  const sheetTitle = (
+    <Dialog.Title key="title" className="min-w-0 truncate text-[17px] font-medium">
+      {viewPanel === "settings"
+        ? "View settings"
+        : viewPanel === "save"
+          ? "Save as view"
+          : "Data — CSV"}
+    </Dialog.Title>
+  );
+  const sheetClose = (
+    <Dialog.Close
+      key="close"
+      className={cn(
+        "label shrink-0 py-2 transition-colors hover:text-accent pointer-coarse:min-h-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+      )}
+    >
+      Close
+    </Dialog.Close>
+  );
+
+  // The canonical order runs outward from the thumb: search is the most
+  // important control, so it sits nearest the handed edge and view settings is
+  // farthest. Keys stay stable across the reversal, so React moves nodes
+  // instead of remounting them.
+  const searchNode = (
+    <SearchBox
+      key="search"
+      value={q}
+      inputRef={searchRef}
+      onSubmit={submitSearch}
+      compact={compact}
+      expanded={searchExpanded}
+      onExpandedChange={setSearchExpanded}
+    />
+  );
+  const toolbarTools: ReactNode[] = [];
+  if (canEdit && view.kind !== "calendar") {
+    toolbarTools.push(
+      <Button
+        key="columns"
+        type="button"
+        variant="ghost"
+        aria-label={`Columns, ${Math.max(0, view.columns.length - 1)} property columns`}
+        aria-expanded={columnsOpen}
+        aria-controls="type-columns"
+        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0"
+        onClick={toggleColumns}
+      >
+        <Columns3 aria-hidden size={14} />
+        <span className="max-sm:hidden">Columns</span>
+        <span className="tnum text-accent">
+          {Math.max(0, view.columns.length - 1)}
+        </span>
+      </Button>,
+    );
+  }
+  if (view.kind !== "calendar") {
+    toolbarTools.push(
+      <Button
+        key="sort"
+        type="button"
+        variant="ghost"
+        aria-label={query.sorts.length > 0 ? `Sort, ${query.sorts.length}` : "Sort"}
+        aria-expanded={sortOpen}
+        aria-controls="type-sorts"
+        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0"
+        onClick={toggleSort}
+      >
+        <ArrowUpDown aria-hidden size={14} />
+        <span className="max-sm:hidden">Sort</span>
+        {query.sorts.length > 0 ? (
+          <span className="tnum text-accent">{query.sorts.length}</span>
+        ) : null}
+      </Button>,
+    );
+  }
+  toolbarTools.push(
+    <Button
+      key="filter"
+      type="button"
+      variant="ghost"
+      aria-label={
+        query.filter.conditions.length > 0
+          ? `Filter, ${query.filter.conditions.length} ${
+              query.filter.conditions.length === 1 ? "condition" : "conditions"
+            }`
+          : "Filter"
+      }
+      aria-expanded={filterOpen}
+      aria-controls="type-filters"
+      className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0"
+      onClick={toggleFilter}
+    >
+      <ListFilter aria-hidden size={14} />
+      <span className="max-sm:hidden">Filter</span>
+      {query.filter.conditions.length > 0 ? (
+        <span className="tnum text-accent">{query.filter.conditions.length}</span>
+      ) : null}
+    </Button>,
+  );
+  if (canEdit && dirty) {
+    toolbarTools.push(
+      <Button
+        key="save"
+        type="button"
+        aria-label="Save view"
+        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11"
+        disabled={updateView.isPending}
+        onClick={saveQuery}
+      >
+        {updateView.isPending ? "Saving…" : compact ? "Save" : "Save view"}
+      </Button>,
+    );
+  }
+  if (hasOverrides) {
+    toolbarTools.push(
+      <Button
+        key="reset"
+        type="button"
+        variant="ghost"
+        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11"
+        onClick={clearQuery}
+        title="Clear search, filters and sorts"
+      >
+        Reset
+      </Button>,
+    );
+  }
+  if (compact) {
+    if (canEdit) {
+      toolbarTools.push(
+        <button
+          key="save-as"
+          type="button"
+          aria-label="Save as view"
+          aria-expanded={viewSheetOpen && viewPanel === "save"}
+          className={SQUARE_BUTTON}
+          onClick={() => openViewPanel("save")}
+        >
+          <CopyPlus aria-hidden size={16} />
+        </button>,
+      );
+    }
+    toolbarTools.push(
+      <button
+        key="data"
+        type="button"
+        aria-label="Data — CSV"
+        aria-expanded={viewSheetOpen && viewPanel === "data"}
+        className={SQUARE_BUTTON}
+        onClick={() => openViewPanel("data")}
+      >
+        <FileSpreadsheet aria-hidden size={16} />
+      </button>,
+    );
+    if (canEdit) {
+      toolbarTools.push(
+        <button
+          key="settings"
+          type="button"
+          aria-label="View settings"
+          aria-expanded={viewSheetOpen && viewPanel === "settings"}
+          className={SQUARE_BUTTON}
+          onClick={() => openViewPanel("settings")}
+        >
+          <Settings2 aria-hidden size={16} />
+        </button>,
+      );
+    }
+  } else {
+    toolbarTools.push(
+      <Popover.Root key="more">
+        <Popover.Trigger
+          aria-label="More view actions"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+        >
+          <MoreHorizontal aria-hidden size={16} />
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner
+            sideOffset={4}
+            align={handedness === "left" ? "start" : "end"}
+            className="z-50"
+          >
+            <Popover.Popup className="min-w-[12rem] rounded-field border border-line bg-surface p-1">
+              {canEdit ? (
+                <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleSettings}>
+                  <Settings2 aria-hidden size={14} />
+                  View settings
+                </Popover.Close>
+              ) : null}
+              {canEdit ? (
+                <Popover.Close className={VIEW_MENU_ITEM} onClick={startSaveAs}>
+                  <Plus aria-hidden size={14} />
+                  Save as view…
+                </Popover.Close>
+              ) : null}
+              <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleData}>
+                <FileSpreadsheet aria-hidden size={14} />
+                Data — CSV
+              </Popover.Close>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>,
+    );
+  }
+  const toolbarRow: ReactNode[] = [searchNode, ...toolbarTools];
+  // Right-handed: settings starts at the far left and search ends at the right
+  // edge. Left-handed: search starts at the left edge. Desktop keeps its
+  // established left-to-right reading order.
+  const orderedToolbar =
+    compact && handedness === "right" ? [...toolbarRow].reverse() : toolbarRow;
+
+  useEffect(() => {
+    if (q !== "") {
+      setSearchExpanded(true);
+    }
+  }, [q]);
+
   return (
     <div className="settle">
-      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-        <div className="flex items-baseline gap-3">
-          <ThingIcon icon={type.icon} size="lg" />
-          <h1 className="text-[26px] font-medium tracking-[-0.02em]">{type.name_plural}</h1>
-          <span className="label tnum">{type.key}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="label tnum">
-            {shown === total ? `${total}` : `${shown} of ${total}`} records
-          </span>
-          {canEdit ? (
-            <Button
-              type="button"
-              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={create.isPending}
-              onClick={startDraft}
-            >
-              {create.isPending ? "Creating…" : "New record"}
-            </Button>
-          ) : null}
-        </div>
+      <div className="flex flex-nowrap items-end justify-between gap-x-4">
+        {handedness === "left" ? (
+          <>
+            {recordActions}
+            {pageTitle}
+          </>
+        ) : (
+          <>
+            {pageTitle}
+            {recordActions}
+          </>
+        )}
       </div>
 
       <ViewTabs
@@ -809,148 +1072,22 @@ export function TypeTable({
         onCreated={selectView}
       />
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <SearchBox value={q} inputRef={searchRef} onSubmit={submitSearch} />
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            type="button"
-            variant="ghost"
-            aria-expanded={filterOpen}
-            aria-controls="type-filters"
-            className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-            onClick={toggleFilter}
-          >
-            <ListFilter aria-hidden size={14} />
-            Filter
-            {query.filter.conditions.length > 0 ? (
-              <span className="tnum text-accent">{query.filter.conditions.length}</span>
-            ) : null}
-          </Button>
-          {view.kind === "calendar" ? null : (
-            <Button
-              type="button"
-              variant="ghost"
-              aria-expanded={sortOpen}
-              aria-controls="type-sorts"
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              onClick={toggleSort}
-            >
-              <ArrowUpDown aria-hidden size={14} />
-              Sort
-              {query.sorts.length > 0 ? (
-                <span className="tnum text-accent">{query.sorts.length}</span>
-              ) : null}
-            </Button>
-          )}
-          {canEdit && view.kind !== "calendar" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              aria-expanded={columnsOpen}
-              aria-controls="type-columns"
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              onClick={toggleColumns}
-            >
-              <Columns3 aria-hidden size={14} />
-              Columns
-              <span className="tnum text-accent">
-                {Math.max(0, view.columns.length - 1)}
-              </span>
-            </Button>
-          ) : null}
-          {canEdit && dirty ? (
-            <Button
-              type="button"
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              disabled={updateView.isPending}
-              onClick={saveQuery}
-            >
-              {updateView.isPending ? "Saving…" : "Save view"}
-            </Button>
-          ) : null}
-          {hasOverrides ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              onClick={clearQuery}
-              title="Clear search, filters and sorts"
-            >
-              Reset
-            </Button>
-          ) : null}
-          <Popover.Root>
-            <Popover.Trigger
-              aria-label="More view actions"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
-            >
-              <MoreHorizontal aria-hidden size={16} />
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Positioner sideOffset={4} align="end" className="z-50">
-                <Popover.Popup className="min-w-[12rem] rounded-field border border-line bg-surface p-1">
-                  {canEdit ? (
-                    <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleSettings}>
-                      <Settings2 aria-hidden size={14} />
-                      View settings
-                    </Popover.Close>
-                  ) : null}
-                  {canEdit ? (
-                    <Popover.Close className={VIEW_MENU_ITEM} onClick={startSaveAs}>
-                      <Plus aria-hidden size={14} />
-                      Save as view…
-                    </Popover.Close>
-                  ) : null}
-                  <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleData}>
-                    <FileSpreadsheet aria-hidden size={14} />
-                    Data — CSV
-                  </Popover.Close>
-                </Popover.Popup>
-              </Popover.Positioner>
-            </Popover.Portal>
-          </Popover.Root>
-        </div>
+      <div
+        className={cn(
+          "mt-4 flex items-center",
+          compact && searchExpanded
+            ? "gap-1.5"
+            : cn(
+                "flex-wrap gap-1.5 max-sm:gap-1",
+                compact && (handedness === "left" ? "justify-start" : "justify-end"),
+              ),
+        )}
+      >
+        {compact && searchExpanded ? searchNode : orderedToolbar}
       </div>
 
-      {canEdit && saveAsOpen ? (
-        <form
-          aria-label="Save current filter and sort as a view"
-          className="mt-3 flex flex-wrap items-end gap-2 border-y rule py-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            saveAsView();
-          }}
-        >
-          <div className="w-[min(22rem,100%)]">
-            <TextField
-              label="New view name"
-              name="save-as-view-name"
-              required
-              maxLength={80}
-              autoFocus
-              value={saveAsName}
-              onChange={(event) => setSaveAsName(event.target.value)}
-            />
-          </div>
-          <Button
-            type="submit"
-            className="min-h-9 px-3 text-[13px]"
-            disabled={!saveAsName.trim() || createView.isPending}
-          >
-            {createView.isPending ? "Creating…" : "Create view"}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="min-h-9 px-3 text-[13px]"
-            onClick={() => setSaveAsOpen(false)}
-          >
-            Cancel
-          </Button>
-          <div className="min-w-[12rem] flex-1">
-            <FormError message={createView.error ? readError(createView.error) : null} />
-          </div>
-        </form>
+      {!compact && canEdit && saveAsOpen ? (
+        <div className="mt-3 border-y rule py-3">{saveAsForm}</div>
       ) : null}
 
       {canEdit && view.kind !== "calendar" ? (
@@ -973,6 +1110,72 @@ export function TypeTable({
           view={view}
           onClose={() => setAddPropertyOpen(false)}
         />
+      ) : null}
+
+      {compact ? (
+        <Dialog.Root
+          open={viewSheetOpen}
+          onOpenChange={(open) => (open ? setViewSheetOpen(true) : closeViewSheet())}
+        >
+          <Dialog.Portal>
+            <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+            <SheetViewport>
+              <SheetPopup className="sm:w-[34rem]">
+                <div
+                  className={cn(
+                    "flex items-baseline gap-4 border-b rule px-4 py-3",
+                    handedness === "left" ? "justify-start" : "justify-between",
+                  )}
+                >
+                  {handedness === "left" ? (
+                    <>
+                      {sheetClose}
+                      {sheetTitle}
+                    </>
+                  ) : (
+                    <>
+                      {sheetTitle}
+                      {sheetClose}
+                    </>
+                  )}
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                  {viewPanel === "settings" ? (
+                    <ViewSettings
+                      spaceId={spaceId}
+                      type={type}
+                      view={view}
+                      properties={properties}
+                      embedded
+                      onClose={closeViewSheet}
+                      onDeleted={(key) => {
+                        selectView(key);
+                        closeViewSheet();
+                      }}
+                    />
+                  ) : null}
+
+                  {viewPanel === "save" ? saveAsForm : null}
+
+                  {viewPanel === "data" ? (
+                    <DataPanel
+                      spaceId={spaceId}
+                      type={type}
+                      canEdit={canEdit}
+                      embedded
+                      onClose={closeViewSheet}
+                      onImported={() => {
+                        setSelection(new Set());
+                        closeViewSheet();
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </SheetPopup>
+            </SheetViewport>
+          </Dialog.Portal>
+        </Dialog.Root>
       ) : null}
 
       {canEdit && settingsOpen ? (
@@ -1025,7 +1228,7 @@ export function TypeTable({
         </div>
       ) : objects.isPending ? (
         <p className="mt-6 text-[13px] text-muted">Reading records…</p>
-      ) : total === 0 && draft === null ? (
+      ) : total === 0 ? (
         <div className="mt-6 grid max-w-[52ch] gap-3 border-t rule pt-4">
           <p className="text-muted">
             {hasFilter || q
@@ -1060,10 +1263,9 @@ export function TypeTable({
               <Button
                 type="button"
                 className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
-                disabled={create.isPending}
-                onClick={startDraft}
+                onClick={() => capture.open(type.key)}
               >
-                {create.isPending ? "Creating…" : "New record"}
+                New record
               </Button>
               {view.kind === "board" || view.kind === "gallery" ? (
                 <Button
@@ -1150,25 +1352,7 @@ export function TypeTable({
             selected={selection}
             pendingRows={pendingRows}
             bulkOpen={bulkPanelOpen && selectedRows.length > 0}
-            requiredProperties={requiredProperties}
-            draft={draft}
-            onDraftIcon={(icon) =>
-              setDraft((current) => (current === null ? current : { ...current, icon }))
-            }
-            highlightId={highlightId}
             timeZone={timeZone}
-            onDraftTitle={(title) =>
-              setDraft((current) => (current ? { ...current, title } : current))
-            }
-            onDraftValue={(key, value) =>
-              setDraft((current) =>
-                current
-                  ? { ...current, values: { ...current.values, [key]: value } }
-                  : current,
-              )
-            }
-            onDraftCommit={draftCommit}
-            onDraftCancel={() => setDraft(null)}
             onSort={sortBy}
             onToggleRow={toggleRow}
             onToggleAll={toggleAll}
@@ -1202,7 +1386,7 @@ export function TypeTable({
         </div>
       )}
 
-      {objects.data && isTable ? (
+      {objects.data && isTable && (total > PAGE_SIZE || page > 1) ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3">
           <span className="font-mono text-[11px] tnum text-muted">
             {range.first === 0 ? "0" : `${range.first}–${range.last}`} of {total}
@@ -1238,7 +1422,6 @@ export function TypeTable({
         </p>
       ) : null}
       {update.isPending ? <span className="sr-only">Saving</span> : null}
-      {create.error ? <FormError message={readError(create.error)} /> : null}
     </div>
   );
 }
@@ -1259,10 +1442,17 @@ function SearchBox({
   value,
   inputRef,
   onSubmit,
+  compact,
+  expanded,
+  onExpandedChange,
 }: {
   value: string;
   inputRef?: RefObject<HTMLInputElement | null>;
   onSubmit: (value: string) => void;
+  /** Below 640 px the field is a 44 px icon until it is tapped. */
+  compact: boolean;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
 }) {
   const [text, setText] = useState(value);
   const committed = useRef(value);
@@ -1298,10 +1488,37 @@ function SearchBox({
     submitRef.current("");
   }
 
+  // Expanding mounts the field, so the caret belongs in it now, not after paint.
+  useLayoutEffect(() => {
+    if (compact && expanded) {
+      inputRef?.current?.focus({ preventScroll: true });
+    }
+  }, [compact, expanded, inputRef]);
+
+  if (compact && !expanded) {
+    return (
+      <button
+        type="button"
+        aria-label="Search titles and bodies"
+        aria-expanded={false}
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-field border border-line-interactive bg-ground text-muted transition-colors hover:border-line-strong hover:text-ink"
+        onClick={() => onExpandedChange(true)}
+      >
+        <Search aria-hidden size={15} />
+      </button>
+    );
+  }
+
   return (
+    <div
+      className={cn(
+        "flex min-w-0 items-center gap-1.5",
+        compact ? "flex-1" : "max-w-[26rem] min-w-[12rem] flex-1",
+      )}
+    >
     <form
       role="search"
-      className="relative max-w-[26rem] min-w-[12rem] flex-1"
+      className="relative min-w-0 flex-1"
       onSubmit={(event) => {
         event.preventDefault();
         commit();
@@ -1315,7 +1532,7 @@ function SearchBox({
       <input
         ref={inputRef}
         aria-label="Search titles and bodies"
-        className="h-8 w-full rounded-field border border-line-interactive bg-ground pr-9 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="h-8 w-full rounded-field border border-line-interactive bg-ground pr-9 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px] max-sm:h-11 max-sm:text-[16px]"
         placeholder="Search titles and bodies"
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -1331,5 +1548,15 @@ function SearchBox({
         </button>
       ) : null}
     </form>
+    {compact ? (
+      <button
+        type="button"
+        className="label inline-flex min-h-11 shrink-0 items-center px-1 text-muted transition-colors hover:text-ink"
+        onClick={() => onExpandedChange(false)}
+      >
+        Cancel
+      </button>
+    ) : null}
+    </div>
   );
 }

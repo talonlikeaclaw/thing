@@ -18,6 +18,8 @@ interface ViewSettingsProps {
   properties: PropertyDef[];
   onClose: () => void;
   onDeleted: (nextViewKey: string) => void;
+  /** Rendered inside a sheet that already supplies the title and close. */
+  embedded?: boolean;
 }
 
 /** Rename, promote or delete the selected view; the kind never changes. */
@@ -28,6 +30,7 @@ export function ViewSettings({
   properties,
   onClose,
   onDeleted,
+  embedded = false,
 }: ViewSettingsProps) {
   const update = useUpdateView(spaceId, type.key, view.key);
   const remove = useDeleteView(spaceId, type.key);
@@ -75,18 +78,23 @@ export function ViewSettings({
   }
 
   return (
-    <section aria-label="View settings" className="mt-3 border-y rule py-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="label">View settings</span>
-        <button
-          type="button"
-          aria-label="Close view settings"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
-          onClick={onClose}
-        >
-          <X aria-hidden size={13} />
-        </button>
-      </div>
+    <section
+      aria-label="View settings"
+      className={embedded ? undefined : "mt-3 border-y rule py-3"}
+    >
+      {embedded ? null : (
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="label">View settings</span>
+          <button
+            type="button"
+            aria-label="Close view settings"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+            onClick={onClose}
+          >
+            <X aria-hidden size={13} />
+          </button>
+        </div>
+      )}
 
       <div className="mt-2 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <TextField

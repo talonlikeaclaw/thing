@@ -31,8 +31,6 @@ import type {
   WriteResult,
 } from "@/api/types";
 import { useHandedness } from "@/components/handedness";
-import { PropertyField } from "@/components/property-field";
-import { IconPicker } from "@/components/icon-picker";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
@@ -50,8 +48,8 @@ const OPEN_WIDTH_COARSE = 182;
 /** Compact rows keep only the ⋯ menu (Open lives inside it): one 44 px control. */
 const COMPACT_EDITOR_WIDTH_FINE = 44;
 const COMPACT_EDITOR_WIDTH_COARSE = 56;
-const COMPACT_VIEWER_WIDTH_FINE = 32;
-const COMPACT_VIEWER_WIDTH_COARSE = 40;
+const COMPACT_VIEWER_WIDTH_FINE = 44;
+const COMPACT_VIEWER_WIDTH_COARSE = 56;
 const SELECT_WIDTH = 44;
 /** The trailing add-property header is a control, not a data column. */
 const ADD_PROPERTY_WIDTH = 132;
@@ -91,22 +89,7 @@ interface TableViewProps {
   pendingRows: ReadonlySet<string>;
   /** The bulk editor's inline panel is taller than the selection band. */
   bulkOpen: boolean;
-  /** Required members a new record must carry before the POST. */
-  requiredProperties: PropertyDef[];
-  draft: {
-    title: string;
-    icon: string;
-    values: Record<string, unknown | null>;
-    error: string | null;
-  } | null;
-  /** A just-created record stays highlighted briefly. */
-  highlightId: string | null;
   timeZone: string;
-  onDraftTitle: (title: string) => void;
-  onDraftIcon: (icon: string) => void;
-  onDraftValue: (key: string, value: unknown | null) => void;
-  onDraftCommit: () => void;
-  onDraftCancel: () => void;
   onSort: (key: string, additive: boolean) => void;
   onToggleRow: (id: string) => void;
   onToggleAll: () => void;
@@ -147,15 +130,7 @@ export function TableView({
   selected,
   pendingRows,
   bulkOpen,
-  requiredProperties,
-  draft,
-  highlightId,
   timeZone,
-  onDraftTitle,
-  onDraftIcon,
-  onDraftValue,
-  onDraftCommit,
-  onDraftCancel,
   onSort,
   onToggleRow,
   onToggleAll,
@@ -195,6 +170,10 @@ export function TableView({
   // the fixed phone width, so a swipe reads values instead of a squeezed fit.
   const compact = available > 0 ? available < 640 : window.innerWidth < 640;
   const coarse = useCoarsePointer();
+  // The action rail is a control, not data: it lives at the thumb edge, so the
+  // title and the properties stay in their schema order beside it.
+  const { handedness } = useHandedness();
+  const railBefore = handedness === "left";
   const saved = savedWidths(view, flexKeys, compact);
   // On a phone the checkbox column is hidden until the reader asks to select,
   // so the title starts at the left edge and the freed width goes to content.
@@ -216,11 +195,12 @@ export function TableView({
   const showAddColumn = canEdit && !compact;
   const fixedWidth =
     (showSelect ? SELECT_WIDTH : 0) + (showAddColumn ? ADD_PROPERTY_WIDTH : 0) + openWidth;
-  // The sticky action rail paints over the scrollport's right edge, so the
-  // table keeps one rail-width of empty tail: the last data column can scroll
-  // clear of it instead of ending underneath. The same tail absorbs whatever
-  // space the saved columns leave, which is why a drag never moves a neighbour.
-  const spacer = openWidth;
+  // A trailing rail paints over the scrollport's right edge, so the table keeps
+  // one rail-width of empty tail: the last data column can scroll clear of it
+  // instead of ending underneath. A leading rail already covers the start, so
+  // it needs no spacer. The same tail absorbs leftover space either way, which
+  // is why a drag never moves a neighbour.
+  const spacer = railBefore ? 0 : openWidth;
   const widthOf = (key: string): number => preview[key] ?? saved[key] ?? 0;
   const plan = widthPlan(
     Object.fromEntries(flexKeys.map((key) => [key, widthOf(key)])),
@@ -232,8 +212,15 @@ export function TableView({
   const tableWidth = plan.tableWidth;
   const verb = completeLabel(type.schedule_labels);
 
+  // The rail and the pinned title share the viewport edge on the rail's side.
+  const railEdge = railBefore ? "left-0 border-r" : "right-0 border-l";
+  const railHeaderClass = cn("sticky z-30 rule py-2", railEdge);
+  const railBodyClass = cn("sticky z-20 rule py-1", railEdge);
+
   // Column 0 is the checkbox for editors, then the title, then properties.
   const selectOffset = showSelect ? 1 : 0;
+  // The pinned data columns start after the rail when it leads the row.
+  const pinnedOffset = (railBefore ? openWidth : 0) + selectOffset * SELECT_WIDTH;
   const titleCol = selectOffset;
   const actionCol = selectOffset + columns.length + 1;
   const colCount = actionCol + 1;
@@ -256,9 +243,9 @@ export function TableView({
     }
   }, [selected.size]);
 
-  // Toggling Select inserts the 44 px checkbox rail, which moves every data
-  // column right by that much. Move the scroll with it so the column under the
-  // finger stays put; the effect lands in the same commit as the new column.
+  // Toggling Select inserts the 44 px checkbox rail before the pinned title,
+  // which widens the pinned group. Keep the scroll exactly where it was: adding
+  // the rail to it would slide the first property column under the title.
   const keepScroll = useRef<number | null>(null);
   useLayoutEffect(() => {
     const keep = keepScroll.current;
@@ -269,10 +256,7 @@ export function TableView({
   }, [showSelect]);
 
   function toggleSelecting() {
-    const port = portRef.current;
-    keepScroll.current = port
-      ? Math.max(0, port.scrollLeft + (selecting ? -SELECT_WIDTH : SELECT_WIDTH))
-      : null;
+    keepScroll.current = portRef.current?.scrollLeft ?? null;
     if (!selecting) {
       setSelecting(true);
       return;
@@ -416,26 +400,49 @@ export function TableView({
   const selectedOnPage = rows.filter((row) => selected.has(row.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
 
+  // The rail header travels to whichever edge the rail occupies; the add
+  // control on a phone lives there too.
+  const railHeaderCell = (
+    <th scope="col" className={cn(railHeaderClass, "bg-ground")}>
+      <span className="sr-only">Actions</span>
+      {compact && canEdit ? (
+        <button
+          type="button"
+          aria-label="Add property"
+          title="Add property"
+          className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
+          onClick={onAddProperty}
+        >
+          <Plus aria-hidden size={14} />
+        </button>
+      ) : null}
+    </th>
+  );
+
+  // Select is a control, so it follows the rail to the thumb edge.
+  const selectToggle = canEdit ? (
+    <button
+      type="button"
+      aria-pressed={selecting}
+      className="label inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[11px] text-faint transition-colors hover:text-accent"
+      onClick={toggleSelecting}
+    >
+      {selecting ? "Done" : "Select"}
+    </button>
+  ) : null;
+
   return (
     <>
     {compact ? (
       <div className="mt-3 flex items-center gap-3">
+        {railBefore ? selectToggle : null}
         <p
           className="min-w-0 flex-1 truncate text-[11px] text-muted"
           title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
         >
           {selecting ? "Tap the boxes to select rows" : "Swipe for columns · ⋯ for actions"}
         </p>
-        {canEdit ? (
-          <button
-            type="button"
-            aria-pressed={selecting}
-            className="label inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[11px] text-faint transition-colors hover:text-accent"
-            onClick={toggleSelecting}
-          >
-            {selecting ? "Done" : "Select"}
-          </button>
-        ) : null}
+        {railBefore ? null : selectToggle}
       </div>
     ) : null}
     <div
@@ -460,6 +467,7 @@ export function TableView({
         style={{ width: tableWidth }}
       >
         <colgroup>
+          {railBefore ? <col style={{ width: openWidth }} /> : null}
           {showSelect ? <col style={{ width: SELECT_WIDTH }} /> : null}
           <col style={{ width: columnWidth("title") }} />
           {columns.map((key) => (
@@ -467,14 +475,16 @@ export function TableView({
           ))}
           {showAddColumn ? <col style={{ width: ADD_PROPERTY_WIDTH }} /> : null}
           <col style={{ width: tailWidth }} />
-          <col style={{ width: openWidth }} />
+          {railBefore ? null : <col style={{ width: openWidth }} />}
         </colgroup>
         <thead className="sticky top-0 z-20 bg-ground">
           <tr className="border-b rule">
+            {railBefore ? railHeaderCell : null}
             {showSelect ? (
               <th
                 scope="col"
-                className="sticky left-0 z-30 bg-ground py-2 text-center"
+                className="sticky z-30 bg-ground py-2 text-center"
+                style={{ left: railBefore ? openWidth : 0 }}
               >
                 <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                   <input
@@ -499,7 +509,7 @@ export function TableView({
                 "relative sticky z-30 border-r rule py-2 pr-3 font-medium",
                 compact ? "bg-ground" : "bg-surface",
               )}
-              style={{ left: selectOffset * SELECT_WIDTH }}
+              style={{ left: pinnedOffset }}
               {...sortHeader("title")}
             >
               <HeaderSort
@@ -568,222 +578,29 @@ export function TableView({
               </th>
             ) : null}
             <th scope="col" aria-hidden className="py-2" />
-            <th
-              scope="col"
-              className="sticky right-0 z-30 border-l rule bg-ground py-2"
-            >
-              <span className="sr-only">Actions</span>
-              {compact && canEdit ? (
-                <button
-                  type="button"
-                  aria-label="Add property"
-                  title="Add property"
-                  className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
-                  onClick={onAddProperty}
-                >
-                  <Plus aria-hidden size={14} />
-                </button>
-              ) : null}
-            </th>
+            {railBefore ? null : railHeaderCell}
           </tr>
         </thead>
         <tbody className={busy ? "pointer-events-none opacity-60" : undefined}>
-          {draft ? (
-            <tr className="border-b rule bg-raised/40">
-              {showSelect ? <td className="sticky left-0 z-10 bg-raised" /> : null}
-              <th
-                scope="row"
-                className={cn(
-                  "sticky z-20 border-r rule p-1 text-left font-normal",
-                  compact && "bg-ground",
-                )}
-                style={{ left: selectOffset * SELECT_WIDTH }}
-              >
-                <div className="grid gap-1.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <IconPicker
-                      variant="compact"
-                      label="New record icon"
-                      value={draft.icon}
-                      onChange={onDraftIcon}
-                    />
-                    <input
-                      autoFocus
-                      aria-label="New record title"
-                      className="h-8 min-w-0 flex-1 rounded-[3px] border border-line-interactive bg-ground px-1.5 text-[14px] font-medium text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
-                      maxLength={200}
-                      placeholder="Untitled"
-                      value={draft.title}
-                      onChange={(event) => onDraftTitle(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          onDraftCommit();
-                        }
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          onDraftCancel();
-                        }
-                      }}
-                    />
-                  </div>
-                  {requiredProperties.map((property) => (
-                    <div key={property.key} className="grid gap-0.5">
-                      <span className="label">{property.name} · required</span>
-                      <PropertyField
-                        spaceId={spaceId}
-                        property={property}
-                        value={draft.values[property.key] ?? null}
-                        label=""
-                        canEdit
-                        timeZone={timeZone}
-                        onChange={(value) => onDraftValue(property.key, value)}
-                        onInvalid={() => undefined}
-                      />
-                    </div>
-                  ))}
-                  {draft.error ? (
-                    <p role="alert" className="text-[11px] text-danger">
-                      {draft.error}
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap items-center gap-1">
-                    <button
-                      type="button"
-                      className="rounded-[3px] bg-accent px-2 py-1 text-[11px] text-accent-ink pointer-coarse:min-h-11"
-                      onClick={onDraftCommit}
-                    >
-                      Create
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-[3px] px-2 py-1 text-[11px] text-muted hover:text-ink pointer-coarse:min-h-11"
-                      onClick={onDraftCancel}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </th>
-              {columns.map((key) => (
-                <td key={key} className="py-1 pr-2" />
-              ))}
-              {showAddColumn ? <td className="py-1 pr-2" /> : null}
-              <td aria-hidden />
-              <td className="sticky right-0 z-20 border-l rule bg-raised" />
-            </tr>
-          ) : null}
           {rows.map((row, rowIndex) => {
             const isSelected = selected.has(row.id);
             const rowActive = active?.row === rowIndex;
             const rowPending = pendingRows.has(row.id);
-            return (
-              <tr
-                key={row.id}
-                aria-rowindex={rowIndex + 2}
-                aria-selected={canEdit ? isSelected : undefined}
-                data-active={rowActive ? "true" : undefined}
-                className={cn(
-                  "group border-b rule align-top",
-                  isSelected && "bg-raised",
-                  row.id === highlightId && "bg-accent/10",
-                  rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
-                )}
-              >
-                {showSelect ? (
-                  <td
-                    {...cellProps(rowIndex, 0)}
-                    aria-label={`Select “${row.title}”`}
-                    className={cn(
-                      "sticky left-0 z-10 py-1 text-center outline-none",
-                      isSelected ? "bg-raised" : "bg-ground",
-                    )}
-                  >
-                    <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={busy}
-                        tabIndex={rowActive ? 0 : -1}
-                        aria-label={`Select “${row.title}”`}
-                        className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
-                        onChange={() => onToggleRow(row.id)}
-                      />
-                    </label>
-                  </td>
-                ) : null}
-                <th
-                  {...cellProps(rowIndex, titleCol)}
-                  scope="row"
-                  aria-label={
-                    canEdit
-                      ? `Edit title for “${row.title}”, currently “${row.title}”`
-                      : `Title “${row.title}”`
-                  }
-                  className={cn(
-                    "sticky z-20 border-r rule py-1 pr-2 text-left font-normal outline-none",
-                    isSelected ? "bg-raised" : compact ? "bg-ground" : "bg-surface",
-                  )}
-                  style={{ left: selectOffset * SELECT_WIDTH }}
-                >
-                  <TitleCell
-                    title={row.title}
-                    icon={row.icon}
-                    canEdit={canEdit}
-                    onCommit={(title) => onTitleCommit(row, title)}
-                  />
-                </th>
-                {columns.map((key, offset) => {
-                  const property = propertyByKey.get(key);
-                  if (!property) {
-                    return (
-                      <td
-                        key={key}
-                        {...cellProps(rowIndex, titleCol + 1 + offset)}
-                        className="py-1 pr-2 font-mono text-[11px] text-faint outline-none"
-                      >
-                        {key}
-                      </td>
-                    );
-                  }
-                  const label = row.values[key]?.label ?? "";
-                  return (
-                    <td
-                      key={key}
-                      {...cellProps(rowIndex, titleCol + 1 + offset)}
-                      aria-label={
-                        canEdit
-                          ? `Edit ${property.name} for “${row.title}”, currently “${label || "empty"}”`
-                          : `${property.name} for “${row.title}”: ${label || "empty"}`
-                      }
-                      className="py-1 pr-2 outline-none"
-                    >
-                      <PropertyCell
-                        spaceId={spaceId}
-                        timeZone={timeZone}
-                        property={property}
-                        cell={row.values[key] as ValueJson | undefined}
-                        schedule={row.schedule}
-                        canEdit={canEdit}
-                        rowTitle={row.title}
-                        onCommit={(cell) => onCellCommit(row, property, cell)}
-                      />
-                    </td>
-                  );
-                })}
-                {showAddColumn ? <td aria-hidden className="py-1" /> : null}
-                <td aria-hidden />
+            const actionCell = (
                 <td
                   {...cellProps(rowIndex, actionCol)}
                   aria-label={`Actions for “${row.title}”`}
                   className={cn(
-                    "sticky right-0 z-20 border-l rule py-1 text-right outline-none",
+                    railBodyClass,
+                    "outline-none",
                     isSelected ? "bg-raised" : "bg-ground",
+                    railBefore ? "text-left" : "text-right",
                   )}
                 >
                   <div
                     className={cn(
-                      "row-actions flex items-center justify-end",
+                      "row-actions flex items-center",
+                      railBefore ? "justify-start" : "justify-end",
                       compact ? "gap-0" : "gap-0.5",
                     )}
                   >
@@ -839,13 +656,112 @@ export function TableView({
                         aria-label={`Open ${row.title}`}
                         title="Open record"
                         tabIndex={rowActive ? 0 : -1}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
                       >
                         <ArrowUpRight aria-hidden size={14} />
                       </Link>
                     )}
                   </div>
                 </td>
+            );
+            return (
+              <tr
+                key={row.id}
+                aria-rowindex={rowIndex + 2}
+                aria-selected={canEdit ? isSelected : undefined}
+                data-active={rowActive ? "true" : undefined}
+                className={cn(
+                  "group border-b rule align-top",
+                  isSelected && "bg-raised",
+                  rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
+                )}
+              >
+                {railBefore ? actionCell : null}
+                {showSelect ? (
+                  <td
+                    {...cellProps(rowIndex, 0)}
+                    aria-label={`Select “${row.title}”`}
+                    className={cn(
+                      "sticky z-10 py-1 text-center outline-none",
+                      isSelected ? "bg-raised" : "bg-ground",
+                    )}
+                    style={{ left: railBefore ? openWidth : 0 }}
+                  >
+                    <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={busy}
+                        tabIndex={rowActive ? 0 : -1}
+                        aria-label={`Select “${row.title}”`}
+                        className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
+                        onChange={() => onToggleRow(row.id)}
+                      />
+                    </label>
+                  </td>
+                ) : null}
+                <th
+                  {...cellProps(rowIndex, titleCol)}
+                  scope="row"
+                  aria-label={
+                    canEdit
+                      ? `Edit title for “${row.title}”, currently “${row.title}”`
+                      : `Title “${row.title}”`
+                  }
+                  className={cn(
+                    "sticky z-20 border-r rule py-1 pr-2 text-left font-normal outline-none",
+                    isSelected ? "bg-raised" : compact ? "bg-ground" : "bg-surface",
+                  )}
+                  style={{ left: pinnedOffset }}
+                >
+                  <TitleCell
+                    title={row.title}
+                    icon={row.icon}
+                    canEdit={canEdit}
+                    onCommit={(title) => onTitleCommit(row, title)}
+                  />
+                </th>
+                {columns.map((key, offset) => {
+                  const property = propertyByKey.get(key);
+                  if (!property) {
+                    return (
+                      <td
+                        key={key}
+                        {...cellProps(rowIndex, titleCol + 1 + offset)}
+                        className="py-1 pr-2 font-mono text-[11px] text-faint outline-none"
+                      >
+                        {key}
+                      </td>
+                    );
+                  }
+                  const label = row.values[key]?.label ?? "";
+                  return (
+                    <td
+                      key={key}
+                      {...cellProps(rowIndex, titleCol + 1 + offset)}
+                      aria-label={
+                        canEdit
+                          ? `Edit ${property.name} for “${row.title}”, currently “${label || "empty"}”`
+                          : `${property.name} for “${row.title}”: ${label || "empty"}`
+                      }
+                      className="py-1 pr-2 outline-none"
+                    >
+                      <PropertyCell
+                        spaceId={spaceId}
+                        timeZone={timeZone}
+                        property={property}
+                        cell={row.values[key] as ValueJson | undefined}
+                        schedule={row.schedule}
+                        canEdit={canEdit}
+                        rowTitle={row.title}
+                        onCommit={(cell) => onCellCommit(row, property, cell)}
+                      />
+                    </td>
+                  );
+                })}
+                {showAddColumn ? <td aria-hidden className="py-1" /> : null}
+                <td aria-hidden />
+                {railBefore ? null : actionCell}
               </tr>
             );
           })}
@@ -885,7 +801,7 @@ function RowActionsMenu({
     <Popover.Root>
       <Popover.Trigger
         aria-label={`More actions for “${row.title}”`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
       >
         <MoreHorizontal aria-hidden size={16} />
       </Popover.Trigger>

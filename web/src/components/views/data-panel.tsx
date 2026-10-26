@@ -20,6 +20,8 @@ interface DataPanelProps {
   onClose: () => void;
   /** A committed import closes the panel and drops the page's selection. */
   onImported: () => void;
+  /** Rendered inside a sheet that already supplies the title and close. */
+  embedded?: boolean;
 }
 
 function isAbort(error: unknown): boolean {
@@ -59,6 +61,7 @@ export function DataPanel({
   canEdit,
   onClose,
   onImported,
+  embedded = false,
 }: DataPanelProps) {
   const toast = useToast();
   const preview = useCsvPreview(spaceId, type.key);
@@ -139,20 +142,25 @@ export function DataPanel({
 
   return (
     <section
-      aria-labelledby={`data-panel-${type.key}`}
-      className="mt-3 border-y rule py-3"
+      aria-labelledby={embedded ? undefined : `data-panel-${type.key}`}
+      aria-label={embedded ? "Data — CSV" : undefined}
+      className={embedded ? undefined : "mt-3 border-y rule py-3"}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span id={`data-panel-${type.key}`} className="label">
-          Data — CSV
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="text-[12px] text-faint">One type at a time.</span>
-          <SmallButton label="Close data panel" onClick={onClose}>
-            <X aria-hidden size={15} />
-          </SmallButton>
-        </span>
-      </div>
+      {embedded ? (
+        <p className="text-[12px] text-faint">One type at a time.</p>
+      ) : (
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span id={`data-panel-${type.key}`} className="label">
+            Data — CSV
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="text-[12px] text-faint">One type at a time.</span>
+            <SmallButton label="Close data panel" onClick={onClose}>
+              <X aria-hidden size={15} />
+            </SmallButton>
+          </span>
+        </div>
+      )}
 
       <div className="mt-3 grid gap-6 lg:grid-cols-2">
         <div className="grid content-start gap-3">

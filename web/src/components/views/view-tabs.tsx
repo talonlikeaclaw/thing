@@ -8,6 +8,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { useCreateView } from "@/api/queries";
+import { useHandedness } from "@/components/handedness";
 import type {
   CreateView,
   PropertyDef,
@@ -66,6 +67,7 @@ export function ViewTabs({
   onCreated,
 }: ViewTabsProps) {
   const create = useCreateView(spaceId, type.key);
+  const { handedness } = useHandedness();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<ViewKind>("table");
@@ -148,9 +150,23 @@ export function ViewTabs({
     });
   }
 
+  const newViewButton = canEdit ? (
+    <button
+      type="button"
+      aria-label="New view"
+      aria-expanded={open}
+      className="label inline-flex shrink-0 items-center justify-center gap-1 px-2.5 py-2 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:min-h-11 max-sm:min-w-11"
+      onClick={() => (open ? setOpen(false) : start())}
+    >
+      <Plus aria-hidden size={13} />
+      <span className="hidden sm:inline">New view</span>
+    </button>
+  ) : null;
+
   return (
     <div className="mt-5">
       <div className="flex items-stretch gap-1 border-b rule">
+        {handedness === "left" ? newViewButton : null}
         <div
           role="tablist"
           aria-label="Saved views"
@@ -209,18 +225,7 @@ export function ViewTabs({
             );
           })}
         </div>
-        {canEdit ? (
-          <button
-            type="button"
-            aria-label="New view"
-            aria-expanded={open}
-            className="label flex shrink-0 items-center gap-1 px-2.5 py-2 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
-            onClick={() => (open ? setOpen(false) : start())}
-          >
-            <Plus aria-hidden size={13} />
-            <span className="hidden sm:inline">New view</span>
-          </button>
-        ) : null}
+        {handedness === "left" ? null : newViewButton}
       </div>
 
       {open && canEdit ? (
