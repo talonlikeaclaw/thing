@@ -57,6 +57,14 @@ describe("applyViewportMetrics", () => {
     expect(root.style.getPropertyValue("--vv-top")).toBe("12px");
     expect(root.style.getPropertyValue("--kb-height")).toBe("352px");
   });
+
+  it("flags whether the keyboard is up, for the sheet footer inset", () => {
+    const root = document.createElement("div");
+    applyViewportMetrics(root, { height: 480, top: 0, keyboard: 364 });
+    expect(root.dataset.keyboard).toBe("on");
+    applyViewportMetrics(root, { height: 844, top: 0, keyboard: 0 });
+    expect(root.dataset.keyboard).toBe("off");
+  });
 });
 
 describe("subscribeVisualViewport", () => {

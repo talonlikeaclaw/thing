@@ -416,7 +416,7 @@ export function CommandPalette({
 
             {/* The footer is the sheet's last row, so the home indicator
                 inset belongs here rather than on the popup. */}
-            <div className="flex items-center justify-between gap-3 border-t rule px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-[11px] text-faint">
+            <div className="sheet-footer flex items-center justify-between gap-3 border-t rule px-4 pt-2 text-[11px] text-faint">
               <span className="hidden font-mono sm:inline pointer-coarse:hidden">↑↓ move · Enter open · Esc close</span>
               <span aria-live="polite" className="font-mono tnum">
                 {flat.length} results

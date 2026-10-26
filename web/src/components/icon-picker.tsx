@@ -12,8 +12,13 @@ interface IconPickerProps {
   disabled?: boolean;
   id?: string;
   hint?: string;
-  /** `compact` is the record header's inline trigger; `field` is a form field. */
-  variant?: "field" | "compact";
+  /**
+   * `compact` is the record header's inline trigger (a square once an emoji is
+   * set, a dashed "Add icon" chip before that); `glyph` is the same square
+   * before an emoji exists, for a row where the text would cost the field its
+   * width; `field` is a form field.
+   */
+  variant?: "field" | "compact" | "glyph";
 }
 
 /**
@@ -45,10 +50,12 @@ export function IconPicker({
   }
 
   const compact = variant === "compact";
+  const glyph = variant === "glyph";
+  const square = compact || glyph;
 
   return (
-    <div className={compact ? "max-sm:w-full sm:w-auto" : "grid gap-1.5"}>
-      {compact ? null : (
+    <div className={compact ? "max-sm:w-full sm:w-auto" : glyph ? "" : "grid gap-1.5"}>
+      {square ? null : (
         <span id={`${fieldId}-label`} className="label">
           {label}
         </span>
@@ -67,15 +74,17 @@ export function IconPicker({
           id={fieldId}
           type="button"
           disabled={disabled}
-          aria-label={compact ? `${value ? "Change" : "Add"} ${label.toLowerCase()}` : undefined}
-          aria-labelledby={compact ? undefined : `${fieldId}-label`}
+          aria-label={square ? `${value ? "Change" : "Add"} ${label.toLowerCase()}` : undefined}
+          aria-labelledby={square ? undefined : `${fieldId}-label`}
           aria-describedby={hintId}
-          title={compact ? (value ? "Change icon" : "Add icon") : undefined}
+          title={square ? (value ? "Change icon" : "Add icon") : undefined}
           className={cn(
-            compact
+            square
               ? value
                 ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-expanded:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
-                : "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[4px] border border-dashed border-line-interactive px-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full sm:justify-start pointer-coarse:h-11 pointer-coarse:px-2"
+                : glyph
+                  ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-dashed border-line-interactive text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
+                  : "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[4px] border border-dashed border-line-interactive px-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full sm:justify-start pointer-coarse:h-11 pointer-coarse:px-2"
               : "flex h-10 w-full items-center gap-2 rounded-field border border-line-interactive bg-ground px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
           )}
         >
@@ -91,7 +100,7 @@ export function IconPicker({
           ) : (
             <Smile aria-hidden size={18} className="shrink-0 text-muted" />
           )}
-          {compact ? null : (
+          {square ? null : (
             <span className="truncate text-[13px] text-muted">
               {value ? "Change icon" : "Choose icon"}
             </span>
@@ -176,7 +185,7 @@ export function IconPicker({
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
-      {hint && !compact ? (
+      {hint && !square ? (
         <p id={hintId} className="text-[13px] text-muted">
           {hint}
         </p>

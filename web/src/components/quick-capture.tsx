@@ -21,7 +21,7 @@ import {
   useType,
   useTypes,
 } from "@/api/queries";
-import { useHandedness } from "@/components/handedness";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
@@ -345,7 +345,7 @@ function QuickCaptureDialog({
   const captureTitle = (
     <div>
       <Dialog.Title className="text-[17px] font-medium">Quick capture</Dialog.Title>
-      <Dialog.Description className="mt-1 text-[13px] text-muted">
+      <Dialog.Description className="mt-1 text-[13px] text-muted max-sm:sr-only">
         Required fields first, then every editable field in a compact grid.
       </Dialog.Description>
     </div>
@@ -388,7 +388,7 @@ function QuickCaptureDialog({
           >
             <div
               className={cn(
-                "flex items-baseline gap-4 border-b rule px-4 py-3",
+                "flex items-baseline gap-4 border-b rule px-4 py-1.5 sm:py-3",
                 handedness === "left" ? "justify-start" : "justify-between",
               )}
             >
@@ -405,7 +405,7 @@ function QuickCaptureDialog({
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2.5 sm:py-4">
               {types.isPending ? (
                 <p className="text-[13px] text-muted">Reading types…</p>
               ) : types.isError ? (
@@ -443,14 +443,47 @@ function QuickCaptureDialog({
                   )}
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  <div className="grid gap-1.5">
+                <div className="grid gap-2.5 sm:gap-4">
+                  {/* The title is what the keyboard is for, so it leads and
+                      shares its row with the icon instead of giving the
+                      picker a labelled row of its own. */}
+                  <div className="flex min-w-0 items-end gap-2">
+                    <IconPicker
+                      label="Icon"
+                      value={icon}
+                      onChange={setIcon}
+                      disabled={pending}
+                      variant="glyph"
+                    />
+                    <div className="grid min-w-0 flex-1 gap-1.5">
+                      <label htmlFor="capture-title" className="label max-sm:sr-only">
+                        Title
+                      </label>
+                      <input
+                        id="capture-title"
+                        ref={titleRef}
+                        className={control}
+                        maxLength={200}
+                        required
+                        autoComplete="off"
+                        placeholder="Title"
+                        value={title}
+                        disabled={pending}
+                        onChange={(event) => setTitle(event.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* A keyed row on a phone — the label beside the select
+                      instead of above it — so the fields below get the height
+                      the keyboard leaves. Stacked from `sm` up. */}
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:block">
                     <label htmlFor="capture-type" className="label">
                       Type
                     </label>
                     <select
                       id="capture-type"
-                      className={control}
+                      className={cn(control, "sm:mt-1.5")}
                       value={selected ?? ""}
                       disabled={pending}
                       onChange={(event) => chooseType(event.target.value)}
@@ -463,31 +496,6 @@ function QuickCaptureDialog({
                       ))}
                     </select>
                   </div>
-
-                  <div className="grid gap-1.5">
-                    <label htmlFor="capture-title" className="label">
-                      Title
-                    </label>
-                    <input
-                      id="capture-title"
-                      ref={titleRef}
-                      className={control}
-                      maxLength={200}
-                      required
-                      autoComplete="off"
-                      value={title}
-                      disabled={pending}
-                      onChange={(event) => setTitle(event.target.value)}
-                    />
-                  </div>
-
-                  <IconPicker
-                    label="Icon"
-                    value={icon}
-                    onChange={setIcon}
-                    disabled={pending}
-                    hint="Optional — shows beside the record’s title."
-                  />
 
                   {selected !== null && type.isPending ? (
                     <p className="text-[13px] text-muted">Reading the type…</p>
@@ -624,34 +632,34 @@ function QuickCaptureDialog({
               )}
             </div>
 
-            <div className="grid gap-2 border-t rule px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="sheet-footer grid gap-2 border-t rule px-4 pt-2 sm:pt-3">
               {error ? (
                 <p role="alert" className="text-[13px] text-danger">
                   {error}
                 </p>
               ) : null}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-mono text-[11px] text-faint">
+              <ThumbRow className="flex-wrap items-center gap-3">
+                <p className="hidden font-mono text-[11px] text-faint sm:block pointer-coarse:hidden">
                   {mod}+Enter create · {mod}+Shift+Enter open
                 </p>
-                <div className="flex items-center gap-2">
+                <ThumbRow className="flex-wrap items-center gap-2">
                   <Button
                     variant="ghost"
-                    className="min-h-9 px-3 text-[13px]"
+                    className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                     disabled={disabled || noTypes}
                     onClick={() => submit("open")}
                   >
                     Create and open
                   </Button>
                   <Button
-                    className="min-h-9 px-3 text-[13px]"
+                    className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                     disabled={disabled || noTypes}
                     onClick={() => submit("stay")}
                   >
                     {pending ? "Creating…" : "Create"}
                   </Button>
-                </div>
-              </div>
+                </ThumbRow>
+              </ThumbRow>
             </div>
           </SheetPopup>
         </SheetViewport>

@@ -45,6 +45,10 @@ export function applyViewportMetrics(
   root.style.setProperty("--vv-height", `${metrics.height}px`);
   root.style.setProperty("--vv-top", `${metrics.top}px`);
   root.style.setProperty("--kb-height", `${metrics.keyboard}px`);
+  // A flag, not just a length: a sheet's safe-area padding is only needed while
+  // the keyboard is down — when it is up, that inset sits behind the keyboard
+  // and the pixels belong to the fields. See `.sheet-footer`.
+  root.dataset.keyboard = metrics.keyboard > 0 ? "on" : "off";
 }
 
 /**
