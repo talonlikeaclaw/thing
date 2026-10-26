@@ -4,10 +4,12 @@ import {
   createContext,
   use,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -23,7 +25,12 @@ import { useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
-import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import {
+  focusSheetField,
+  SheetPopup,
+  sheetReturnFocus,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import {
   captureFields,
@@ -65,6 +72,12 @@ export function QuickCaptureProvider({
 }) {
   const [open, setOpen] = useState(false);
   const [requestedType, setRequestedType] = useState<string | undefined>(undefined);
+  /**
+   * The title field. The sheet stays mounted, so the opener can focus it inside
+   * its own tap — the only moment iOS Safari raises the keyboard.
+   */
+  const titleRef = useRef<HTMLInputElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const space = useSpace(spaceId);
   const available = Boolean(spaceId && space.data && space.data.role !== "viewer");
 
@@ -81,7 +94,9 @@ export function QuickCaptureProvider({
           return;
         }
         setRequestedType(typeKey);
+        returnFocusRef.current = sheetReturnFocus();
         setOpen(true);
+        focusSheetField(titleRef.current);
       },
       close: () => setOpen(false),
       isOpen: open,
@@ -96,6 +111,8 @@ export function QuickCaptureProvider({
       <QuickCaptureDialog
         open={open}
         onOpenChange={setOpen}
+        titleRef={titleRef}
+        returnFocusRef={returnFocusRef}
         spaceId={spaceId}
         requestedType={requestedType}
       />
@@ -114,6 +131,9 @@ export function useQuickCapture(): QuickCaptureApi {
 interface QuickCaptureDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  titleRef: RefObject<HTMLInputElement | null>;
+  /** Where focus goes when the sheet closes; see `sheetReturnFocus`. */
+  returnFocusRef: RefObject<HTMLElement | null>;
   spaceId: string | undefined;
   requestedType: string | undefined;
 }
@@ -123,6 +143,8 @@ type SubmitIntent = "stay" | "open";
 function QuickCaptureDialog({
   open,
   onOpenChange,
+  titleRef,
+  returnFocusRef,
   spaceId,
   requestedType,
 }: QuickCaptureDialogProps) {
@@ -132,7 +154,6 @@ function QuickCaptureDialog({
   const navigate = useNavigate();
   const toast = useToast();
   const create = useCreateObject(spaceId ?? "");
-  const titleRef = useRef<HTMLInputElement>(null);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -200,14 +221,22 @@ function QuickCaptureDialog({
     });
   }, [open, typeList, requestedType, me.data?.id, spaceId]);
 
-  useEffect(() => {
+  // The title owns focus from the commit the opening tap triggered, the last
+  // moment iOS still counts as the user's gesture. When the type list is still
+  // loading the field does not exist yet, so the same focus is re-attempted on
+  // the commit that mounts it; either way it happens once per open.
+  const focusedOnOpen = useRef(false);
+  useLayoutEffect(() => {
     if (!open) {
+      focusedOnOpen.current = false;
       return;
     }
-    // The dialog's own focus trap runs first; the title owns focus after it.
-    const frame = window.requestAnimationFrame(() => titleRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, [open]);
+    if (focusedOnOpen.current || titleRef.current === null) {
+      return;
+    }
+    titleRef.current.focus({ preventScroll: true });
+    focusedOnOpen.current = true;
+  }, [open, types.isPending, typeList.length]);
 
   // A created-and-kept-open sheet refocuses once the pending button is enabled
   // again; focusing a still-disabled input would drop focus to the body.
@@ -339,11 +368,16 @@ function QuickCaptureDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
+      {/* Kept mounted: the title exists before the tap so that tap can focus it
+          and raise the keyboard, and sits off-canvas while closed. */}
+      <Dialog.Portal keepMounted>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
         <SheetViewport>
           <SheetPopup
             className="sm:w-[34rem]"
+            inert={!open}
+            initialFocus={() => titleRef.current ?? true}
+            finalFocus={() => returnFocusRef.current ?? false}
             onKeyDown={(event) => {
               if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) {
                 return;

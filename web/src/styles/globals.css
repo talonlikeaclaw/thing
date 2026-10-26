@@ -227,6 +227,23 @@
  * never shrinks. Without JS (or without `visualViewport`) the fallbacks are the
  * dynamic viewport, which is today's behaviour.
  */
+/*
+ * A sheet kept mounted while closed (the palette and capture, so a field
+ * exists before the tap that opens them) gets `hidden`, and Tailwind's
+ * preflight turns that into `display: none !important` — but a `display: none`
+ * field cannot take focus, so iOS Safari would never raise the keyboard. It is
+ * pushed off-canvas instead; `inert` keeps the closed popup out of the tab
+ * order and the accessibility tree, and the opener drops it for the one
+ * `focus()` that matters. This lives in `base` beside the preflight rule it
+ * overrides: important, because preflight is, and specific enough to win.
+ */
+@layer base {
+  .sheet-viewport[hidden],
+  .sheet-popup[hidden] {
+    display: flex !important;
+  }
+}
+
 @layer components {
   .sheet-viewport {
     position: fixed;
@@ -260,7 +277,18 @@
     border: 1px solid var(--color-line);
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
     background: var(--color-surface);
+  }
+
+  .sheet-popup[data-open] {
     animation: sheet-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Off-canvas, not `display: none`: see the `[hidden]` override in `base`. */
+  .sheet-popup[hidden] {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+    animation: none;
   }
 
   @media (min-width: 40rem) {
@@ -312,7 +340,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .settle,
-  .sheet-popup {
+  .sheet-popup[data-open] {
     animation: none;
   }
 }

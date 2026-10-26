@@ -41,6 +41,38 @@ export function SheetPopup({ className, ...props }: ComponentProps<typeof Dialog
 }
 
 /**
+ * Focus a field of a sheet that is kept mounted while closed, from inside the
+ * gesture that opened it. iOS Safari only raises the keyboard for `focus()`
+ * during the tap itself, and only for a field that already exists: by the time
+ * a freshly mounted field's effects run, the gesture is over. `inert` is what
+ * keeps the closed sheet out of the tab order and the accessibility tree, so it
+ * is dropped here, in the same task, before the field takes focus; the open
+ * commit clears it for good. See `.sheet-popup[hidden]` in `globals.css`.
+ */
+/**
+ * The element a sheet should hand focus back to. Captured by the opener before
+ * the open commit: a sheet that focuses a field inside the gesture makes that
+ * field the dialog's "previously focused" element, so the dialog's own restore
+ * would land on an inert sheet and drop focus to the body. Body and anything
+ * inside a sheet are not restore targets.
+ */
+export function sheetReturnFocus(): HTMLElement | null {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || active === document.body) {
+    return null;
+  }
+  return active.closest(".sheet-popup") === null ? active : null;
+}
+
+export function focusSheetField(field: HTMLElement | null) {
+  if (!field) {
+    return;
+  }
+  field.closest<HTMLElement>(".sheet-popup")?.removeAttribute("inert");
+  field.focus({ preventScroll: true });
+}
+
+/**
  * Publish the visual viewport's size where the sheet CSS reads it. Mounted once
  * in `AppFrame`; it subscribes rather than re-rendering, so opening the keyboard
  * costs one style write, not a React commit per frame.

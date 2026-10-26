@@ -25,6 +25,7 @@ import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-captur
 import { ShortcutSheet } from "@/components/shortcut-sheet";
 import { SignOutDialog } from "@/components/sign-out-dialog";
 import { TableShortcutsProvider } from "@/components/table-shortcuts";
+import { focusSheetField, sheetReturnFocus } from "@/components/ui/sheet";
 import { Button, Keycap } from "@/components/ui/controls";
 import { Wordmark } from "@/components/wordmark";
 import {
@@ -159,6 +160,8 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   const location = useLocation();
   const capture = useQuickCapture();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteInputRef = useRef<HTMLInputElement>(null);
+  const paletteReturnFocus = useRef<HTMLElement | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   // Table bindings are registered by whichever grid is on screen.
@@ -166,6 +169,16 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   const connection = useSpaceEvents(spaceId);
   const previousPath = useRef(location.pathname);
   const [announcement, setAnnouncement] = useState("");
+
+  // The sheet stays mounted, so this runs before React commits the open: the
+  // field exists, and the `focus()` lands inside the tap itself — the only
+  // moment iOS Safari raises the keyboard. The return target is recorded first
+  // because the field, once focused, cannot be the dialog's own restore target.
+  const openPalette = useCallback(() => {
+    paletteReturnFocus.current = sheetReturnFocus();
+    focusSheetField(paletteInputRef.current);
+    setPaletteOpen(true);
+  }, []);
 
   const shortcutActions: Record<string, () => void> = {
     palette: () => {
@@ -175,7 +188,11 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
       }
       capture.close();
       setShortcutsOpen(false);
-      setPaletteOpen((open) => !open);
+      if (paletteOpen) {
+        setPaletteOpen(false);
+      } else {
+        openPalette();
+      }
     },
     capture: () => {
       if (capture.available && !signOutOpen) {
@@ -243,7 +260,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   }, [location.pathname]);
 
   return (
-    <PaletteProvider open={() => setPaletteOpen(true)}>
+    <PaletteProvider open={openPalette}>
         <div className="flex min-h-dvh flex-col">
           <ScrollRestoration />
           <a
@@ -272,7 +289,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     aria-label={`Search and commands (${shortcutLabel})`}
                     aria-haspopup="dialog"
                     className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px]"
-                    onClick={() => setPaletteOpen(true)}
+                    onClick={openPalette}
                   >
                     <Search aria-hidden size={15} />
                     <span>Search</span>
@@ -367,8 +384,19 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
           <CommandPalette
             open={paletteOpen}
             onOpenChange={setPaletteOpen}
+            inputRef={paletteInputRef}
+            returnFocusRef={paletteReturnFocus}
             spaceId={spaceId}
-            {...(capture.available ? { onCapture: () => capture.open() } : {})}
+            {...(capture.available
+              ? {
+                  // Capture takes over focus; the closing palette must not pull
+                  // it back to the bar before the capture field keeps the tap.
+                  onCapture: () => {
+                    paletteReturnFocus.current = null;
+                    capture.open();
+                  },
+                }
+              : {})}
           />
           <ShortcutSheet
             open={shortcutsOpen}

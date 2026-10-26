@@ -1,6 +1,12 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Search, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+} from "react";
 import { useNavigate } from "react-router";
 
 import {
@@ -41,6 +47,14 @@ interface PaletteSection {
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * The search field. The shell owns it so the bottom bar can focus the field
+   * from inside the tap that opens the sheet, which is the only moment iOS
+   * Safari raises the keyboard.
+   */
+  inputRef: RefObject<HTMLInputElement | null>;
+  /** Where focus goes when the sheet closes; see `sheetReturnFocus`. */
+  returnFocusRef: RefObject<HTMLElement | null>;
   /** The space in the path, or `undefined` on the spaces list. */
   spaceId: string | undefined;
   /** Present for an owner or editor in a space; opens the capture sheet. */
@@ -56,6 +70,8 @@ interface CommandPaletteProps {
 export function CommandPalette({
   open,
   onOpenChange,
+  inputRef,
+  returnFocusRef,
   spaceId,
   onCapture,
 }: CommandPaletteProps) {
@@ -67,7 +83,6 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [recent, setRecent] = useState<RecentItem[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const trimmed = query.trim();
   const typeList = types.data ?? [];
@@ -91,9 +106,12 @@ export function CommandPalette({
     }
   }, [open, spaceId, me.data?.id]);
 
-  useEffect(() => {
+  // A layout effect runs inside the commit that the opening tap triggered, the
+  // last moment iOS still counts as the user's gesture. A passive effect runs
+  // after paint, too late for the keyboard on a phone.
+  useLayoutEffect(() => {
     if (open) {
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     }
   }, [open]);
 
@@ -293,10 +311,18 @@ export function CommandPalette({
   let offset = 0;
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
+      {/* Kept mounted so the field exists before the tap that opens the sheet
+          (iOS refuses focus on a field mounted by the same tap) and sits
+          off-canvas, not `display: none`, while closed. */}
+      <Dialog.Portal keepMounted>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
         <SheetViewport>
-          <SheetPopup className="sm:w-[40rem]">
+          <SheetPopup
+            className="sm:w-[40rem]"
+            inert={!open}
+            initialFocus={() => inputRef.current ?? true}
+            finalFocus={() => returnFocusRef.current ?? false}
+          >
             <Dialog.Title className="sr-only">Search and commands</Dialog.Title>
             <Dialog.Description className="sr-only">
               Search records, types, spaces and actions.
