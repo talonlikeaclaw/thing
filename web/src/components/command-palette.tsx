@@ -10,6 +10,7 @@ import {
   useTrash,
   useTypes,
 } from "@/api/queries";
+import { useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import { cn } from "@/lib/cn";
 import { relativeTime } from "@/lib/format";
@@ -274,6 +275,20 @@ export function CommandPalette({
     }
   }
 
+  const { handedness } = useHandedness();
+  const close = (
+    <Dialog.Close
+      key="close"
+      aria-label="Close search"
+      className={cn(
+        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+      )}
+    >
+      <X aria-hidden size={15} />
+    </Dialog.Close>
+  );
+
   let offset = 0;
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -287,6 +302,7 @@ export function CommandPalette({
             </Dialog.Description>
 
             <div className="flex items-center gap-3 border-b rule px-4">
+              {handedness === "left" ? close : null}
               <Search aria-hidden size={16} className="shrink-0 text-faint" />
               <input
                 ref={inputRef}
@@ -311,12 +327,7 @@ export function CommandPalette({
               <kbd className="hidden shrink-0 rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint sm:block">
                 Esc
               </kbd>
-              <Dialog.Close
-                aria-label="Close search"
-                className="-mr-1 inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-              >
-                <X aria-hidden size={15} />
-              </Dialog.Close>
+              {handedness === "right" ? close : null}
             </div>
 
             <div

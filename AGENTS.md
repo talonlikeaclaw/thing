@@ -14,13 +14,13 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`) and M4 (`0.4.0`) are
-landed, not yet tagged or deployed; CI is green.**
+**Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`) and the
+v0.4.1 follow-ups (`0.4.1`, schema 4) are landed, not yet tagged or deployed; CI is green.**
 `thing-core` exposes
-`model`, `error`, `slug` (with the type/property key grammar next to the filename slugs), `value`,
-`markdown`, `schedule`, `store` (`SpaceStore` trait + `FsSpaceStore`), `validate` (objects, filters,
-sorts and `validate_views`), `filter`, `query` and `index` (`SpaceIndex`, including
-`view_problems`), with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, schedule
+`model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
+grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
+`FsSpaceStore`), `validate` (objects, filters, sorts and `validate_views`), `filter`, `query` and
+`index` (`SpaceIndex`, including `view_problems`), with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, schedule
 tests over a fixed clock and explicit zone, and table-view tests over a space built on disk.
 `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`, `state`), its auth and
 membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and its schema and object
@@ -52,10 +52,21 @@ home with browser-local recents and rail order (`pages/space.tsx`, `lib/recent.t
 `lib/nav-order.ts`), table paging, selection, bulk edits and row actions
 (`components/type-table.tsx`, `components/views/table-view.tsx`, `components/bulk-bar.tsx`), CSV
 export/import (`crates/core/src/csv.rs`, `routes/csv.rs`, `components/views/data-panel.tsx`), the
-member/type/property lifecycle surfaces, the account settings page with the browser-local
-default highlight and Left-handed mode (`pages/user-settings.tsx`, `lib/handedness.ts`,
-`components/handedness.tsx`), and the browser-local highlight accent with per-space overrides
-(`lib/accent.ts`, `components/accent-picker.tsx`). Mobile swaps the rail for a portaled bottom
+member/type/property lifecycle surfaces, and the browser-local Left-handed mode
+(`pages/user-settings.tsx`, `lib/handedness.ts`, `components/handedness.tsx`).
+
+v0.4.1 carries the follow-ups found in daily use at schema 4: left/right-handed mode moved every
+thumb-zone surface through one `data-hand` attribute and a DOM-reversing `ThumbRow`
+(`lib/handedness.ts`, `components/handedness.tsx`, `styles/globals.css`); **Add property** from the
+table's trailing header or Columns panel with the property/type/view three-stage write and retry
+(`components/add-property.tsx`, `components/views/column-panel.tsx`); record icons stored as the
+`icon` frontmatter key and rendered in the record header, table title, home recents, palette, board,
+gallery and trash (`components/object-panel.tsx`, `components/icon-picker.tsx`, `lib/recent.ts`);
+the shared, owner-set accent in `space.yml` applied only by `SpaceLayout`, with a one-time seed from
+the v0.4 local key (`lib/accent.ts`, `components/space-layout.tsx`, `components/accent-picker.tsx`);
+Select/Multi-select option-order sorting in the core (`value.rs`, `query.rs`); the Columns toolbar
+button; and the shell polish (Capture's `C`, header grid, rail order, phone type rows, confirmed
+sign out). Mobile swaps the rail for a portaled bottom
 bar and drawer carrying Capture and Search, and the table for a compact row menu; keyboard-only
 affordances are hidden there, and every timestamp renders in the space's zone.
 
@@ -68,7 +79,7 @@ affordances are hidden there, and every timestamp renders in the space's zone.
 | `docs/plan/m2-scheduling-recurrence.md` | The M2 execution spec: schema 2, the schedule engine, implicit properties, Complete, agenda, web scheduling surfaces, verification. |
 | `docs/plan/m3-views.md` | The M3 execution spec: schema 3 named views, the four kinds, view CRUD and default, list projection, web view state and renderers, verification. |
 | `docs/plan/m4-everyday-usability.md` | The M4 execution spec: CSV, duplicate, palette, capture, home, table truth, lifecycle, accent, responsive and end-to-end verification. |
-| `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared accent, record icons, table controls and option-order sorting. Not yet implemented. |
+| `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared accent, record icons, table controls and option-order sorting. Landed as `0.4.1`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -81,7 +92,9 @@ and health; server type and view routes; list by view; web data layer and view s
 board, gallery and calendar; seed, docs and end-to-end) and checkpoints 1–13 of M4 (CSV codec and
 routes; duplicate; palette and shortcuts; UX foundation; quick capture; space home; table truth and
 bulk actions; data panel; draft safety; lifecycle; highlight accent; responsive, docs and
-end-to-end) are landed and CI-green.** M1 is deployed; M2–M4 are not deployed.
+end-to-end), and checkpoints 1–8 of M4.1 (handedness; add property; shell and phone polish; table
+controls; option-order sorting; record icons and schema 4; shared accent; version, docs and
+end-to-end) are landed and CI-green.** M1 is deployed; M2–M4.1 are not deployed.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -297,10 +310,16 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   `expect` only where the invariant is structurally guaranteed, with the reason in the message.
 - **One implementation per behavior.** If two call sites do the same check or transform, it is a
   helper function; duplicated logic is a bug waiting to diverge.
-- **Every feature, change and fix updates the changelog.** In the same commit as the code, add to
-  or extend the `Unreleased` entry in `web/src/content/changelog.ts`: a headline in `highlights`
-  for user-visible behavior, a `details` line for the long tail, plain language a user understands.
-  Never ship behavior the release notes do not name.
+- **Every feature, change and fix updates the changelog.** In the same commit as the code, add a new
+  `Unreleased` entry in `web/src/content/changelog.ts` (or extend it while it is open): a headline
+  in `highlights` for user-visible behavior, a `details` line for the long tail, plain language a
+  user understands. Never ship behavior the release notes do not name.
+- **Release-note style.** Follow the entries already in `web/src/content/changelog.ts`: order
+  `highlights` by user impact, most important first. Each bullet is one sentence and one change:
+  never join two unrelated outcomes with "and" or a comma — split them, even if that adds bullets.
+  Avoid implementation nouns such as schema keys, endpoints, component names and file paths. Put
+  the long tail in `details`, in the same feature order, one change per line. A note says what a
+  person can now do, not how it was built.
 
 ## Important Files
 

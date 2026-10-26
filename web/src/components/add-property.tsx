@@ -3,9 +3,11 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { useCreateProperty, useUpdateType, useUpdateView } from "@/api/queries";
+import { useHandedness } from "@/components/handedness";
 import type { PropertyDef, PropertyFormat, TypeDef, ViewDef } from "@/api/types";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { availableProperties, formatLabel, PROPERTY_FORMATS } from "@/lib/schema";
 import { withColumn } from "@/lib/views";
@@ -121,6 +123,27 @@ export function AddPropertyDialog({
     }
   }
 
+  const { handedness } = useHandedness();
+  const title = (
+    <div>
+      <Dialog.Title className="text-[17px] font-medium">Add property</Dialog.Title>
+      <Dialog.Description className="mt-1 text-[13px] text-muted">
+        It joins this type, this view and the record panel. Other views keep their columns.
+      </Dialog.Description>
+    </div>
+  );
+  const close = (
+    <Dialog.Close
+      key="close"
+      aria-label="Close add property"
+      className={cn(
+        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+      )}
+    >
+      <X aria-hidden size={15} />
+    </Dialog.Close>
+  );
   const actionLabel = pending ? "Adding…" : error ? "Retry" : "Add to table";
   const leftover = error !== null && error.stage !== "property" && createdKey !== null;
 
@@ -137,20 +160,23 @@ export function AddPropertyDialog({
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
         <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]">
           <Dialog.Popup className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface sm:w-[32rem] sm:rounded-sheet">
-            <div className="flex items-baseline justify-between gap-4 border-b rule px-4 py-3">
-              <div>
-                <Dialog.Title className="text-[17px] font-medium">Add property</Dialog.Title>
-                <Dialog.Description className="mt-1 text-[13px] text-muted">
-                  It joins this type, this view and the record panel. Other views keep
-                  their columns.
-                </Dialog.Description>
-              </div>
-              <Dialog.Close
-                aria-label="Close add property"
-                className="-mr-1 inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-              >
-                <X aria-hidden size={15} />
-              </Dialog.Close>
+            <div
+              className={cn(
+                "flex items-baseline gap-4 border-b rule px-4 py-3",
+                handedness === "left" ? "justify-start" : "justify-between",
+              )}
+            >
+              {handedness === "left" ? (
+                <>
+                  {close}
+                  {title}
+                </>
+              ) : (
+                <>
+                  {title}
+                  {close}
+                </>
+              )}
             </div>
 
             <form

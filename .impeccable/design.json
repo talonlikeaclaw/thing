@@ -19,7 +19,7 @@
     },
     "accentPalettes": {
       "default": "lichen",
-      "storage": "browser-local, per user and per space; never synced or served",
+      "storage": "one shared preset per space in space.yml, owner-written through PATCH /api/spaces/{space}; the v0.4 browser-local key seeds it once, then is deleted",
       "contrastFloor": "4.5:1 accent-on-ground and ink-on-accent in both schemes, enforced by web/src/lib/accent.test.ts",
       "palettes": [
         { "id": "lichen", "label": "Lichen", "dark": { "accent": "#c8d96b", "ink": "#14180f" }, "light": { "accent": "#5f6f1e", "ink": "#f7f8f0" } },
@@ -36,7 +36,10 @@
       "bulkBar": "Hairline band inside the table scrollport, not a floating card; names count and property, previews the value, keeps failed rows selected, Undo runs from the page.",
       "rowActions": "Line icons at one weight; 32px fine pointer, 44px coarse; phones fold Complete/Duplicate/Trash into one 44px menu and keep Open separate.",
       "mobileSheets": "Palette, capture, space drawer and row menu rise from the bottom; safe-area padding; focus trap; Escape and a close control; content and footer reserve room for the fixed space bar, which carries the space menu plus direct Capture and palette actions.",
-      "tablePhones": "Below 640px the checkbox stays pinned, the title scrolls, and the action cell is Open plus a menu; property columns remain swipeable."
+      "tablePhones": "Below 640px the checkbox stays pinned, the title scrolls, and the action cell is Open plus a menu; property columns remain swipeable.",
+      "addProperty": "A ruled dialog from the trailing table header or the Columns panel: an existing library property or a new name and format; property, type member (featured) and current-view column write in order, staying open with a named stage and Retry on failure. Editor-only, no wizard, one toast on success.",
+      "recordIcons": "One optional user-authored emoji in frontmatter (schema 4), never a property or interface icon. A fixed slot in the record header, table title cell, home recents, palette results, board cards, gallery tiles and Trash; absent means no empty box.",
+      "sheetClose": "Right-handed keeps the platform-standard trailing close; left-handed puts the same control first in the title or search row, with focus order and margin following the DOM."
     },
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "Auth titles and page headings; one per screen." },
@@ -101,16 +104,16 @@
       "Dark ground with near-neutral, slightly green-black surfaces.",
       "Hairline 1px rules instead of shadows or cards.",
       "Mono for keys, ids, timestamps and counts; sans for prose and controls.",
-      "One accent, chosen from six browser-local palettes, used only for state (selection, focus, primary action); Lichen is the default.",
+      "One accent per space, chosen by an owner from six contrast-tested palettes and shared by every member, used only for state (selection, focus, primary action); Lichen is the default.",
       "A keyed index as the recurring structure: a short mono key leads every entry.",
       "On phones, navigation and sheets live at the bottom, within thumb reach; keyboard-only affordances are absent."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "The chosen accent (Lichen by default) marks state: focus, selection, the primary action, the wordmark, the active rail and view tabs. It never fills large areas and never appears twice in one row for two different meanings. Choosing another palette does not add a second accent.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "The chosen accent (Lichen by default) marks state: focus, selection, the primary action, the wordmark, the active rail and view tabs. An owner sets it once for the space; every member sees it. It never fills large areas and never appears twice in one row for two different meanings. Choosing another palette does not add a second accent.", "section": "colors" },
       { "name": "The Light Is Not a Theme Skin Rule", "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or new ornament.", "section": "colors" },
       { "name": "The Keys Are Mono Rule", "body": "Anything the system treats as an identifier or measurement is mono and tabular. Anything a person reads as a sentence is sans.", "section": "typography" },
       { "name": "The Hairline Rule", "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.", "section": "elevation" },
-      { "name": "The Thumb First Rule", "body": "Below lg the rail and every overlay rise from the bottom of the screen, with 44px targets and safe-area padding. A keyboard shortcut that has no keyboard is not rendered. A compact editor's primary action sits last at the right edge, with its clear/cancel actions before it; the same right edge applies to text shortcuts under a field.", "section": "layout" }
+      { "name": "The Thumb First Rule", "body": "Below lg the rail and every overlay rise from the bottom of the screen, with 44px targets and safe-area padding. A keyboard shortcut that has no keyboard is not rendered. A compact editor's primary action sits at the thumb edge: last in the DOM at the right edge by default and first in the DOM at the left edge in left-handed mode, with clear/cancel before it on the right and after it on the left. The row reverses in the DOM so paint, Tab and screen-reader order agree. Dialog and sheet close controls follow the same handedness; the platform-standard trailing close is the right-handed default.", "section": "layout" }
     ],
     "dos": [
       "Do keep the chosen accent to state and the wordmark; if it is not saying selected, focused or primary action, it is the wrong color.",

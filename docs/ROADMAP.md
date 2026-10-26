@@ -47,11 +47,12 @@ Binding for every milestone. Do not re-open any of these during implementation.
 M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md), M2 in
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
-[`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M3 are landed; M1 is
-deployed and M2–M4 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
-The patch after it, v0.4.1, is specified in
-[`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md); it bumps the format to 4 for record
-icons and the shared accent. The next milestone starts its own `docs/plan/mN-*.md`, written the
+[`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M4 are landed; M1 is
+deployed and M2–M4.1 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
+The patch after it, v0.4.1, is implemented in
+[`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md): checkpoints 1–8 are committed at
+workspace `0.4.1`, and the format is schema 4 for record icons, the shared space accent and the
+schema-5 future-version fixture. The next milestone starts its own `docs/plan/mN-*.md`, written the
 way these were. M5–M10 are recorded here so the format does not need reshaping later; each carries
 its decisions already made.
 
@@ -102,8 +103,11 @@ usability move ahead of search.
   affordances on screen, and a compact table whose row actions fold into a menu so property columns
   stay reachable; timestamps render in the space's zone.
 
-  **v0.4.1 — everyday-usability follow-ups.** The patch after 0.4.0 collects the friction found in
-  daily use: the handedness work deferred above plus the table, rail and header fixes below.
+  **v0.4.1 — everyday-usability follow-ups.** **Landed** (workspace `0.4.1`, not yet deployed;
+  checkpoints 1–8 implemented, schema 4); spec:
+  [`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md). The patch after 0.4.0 collects the
+  friction found in daily use: the handedness work deferred above plus the table, rail and header
+  fixes below.
 
   - **Left/right-handed mode.** A browser-local preference. v0.4.0 assumes a right thumb and puts
     compact-editor commits at the right edge, which fixes the immediate friction; a real handedness
@@ -151,11 +155,12 @@ usability move ahead of search.
     picker and emoji catalogue, and show it in the record header, table title cells, space-home
     recents, search/palette results, board cards, gallery tiles and the trash. Objects without an
     icon keep the current layout, and the icon write goes through the normal record PATCH.
-  - **A shared space accent.** The accent is browser-local and per user (`lib/accent.ts`, keyed by
-    user and space), so every client has to pick it again. Move the authority into the space
-    (`accent` in `space.yml`, alongside name, icon and timezone), set it through the owner-only
-    space PATCH with the usual `space.updated` broadcast, and have every client apply it. Keep a
-    stored local choice only long enough to seed the shared value once, then stop reading it.
+  - **A shared space accent.** The accent now lives in the space (`accent` in `space.yml`,
+    alongside name, icon and timezone) and is set through the owner-only space PATCH with the usual
+    `space.updated` broadcast; every client applies it, so one owner's choice reaches every member
+    without a reload. The v0.4 browser-local choice is read once to seed a space for an owner, then
+    deleted; a non-owner's old value is never used. The six contrast-tested presets are the whole
+    set, and an unknown id is a `422` field `accent`.
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
   `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph

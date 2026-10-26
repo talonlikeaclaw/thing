@@ -94,8 +94,8 @@ for contrast.
 - Dark ground with near-neutral, slightly green-black surfaces.
 - Hairline 1px rules instead of shadows or cards.
 - Mono for keys, ids, timestamps and counts; sans for prose and controls.
-- One accent, chosen from six browser-local palettes, used only for state (selection, focus, primary
-  action); Lichen is the default.
+- One accent per space, chosen by an owner from six contrast-tested palettes and shared by every
+  member, used only for state (selection, focus, primary action); Lichen is the default.
 - A keyed index as the recurring structure: a short mono key leads every entry.
 
 ## Colors
@@ -123,12 +123,19 @@ The palette is functional: no color appears without a job.
 - **Amber** (`{colors.warning}`): degraded state, never decoration.
 
 ### Highlight accent
-Lichen is the baseline. A person chooses one of six palettes as their **account default** in
-**Account settings > Appearance**; every space without its own choice inherits it, including new
-spaces. A space can override the default in **Space settings > Appearance**, and **Use my default**
-drops that override. All choices are **browser-local**: they never sync, never reach the server and
-are never a shared space brand. The signed-in shell, space list and `/changelog` use the account
-default; signed-out auth screens render Lichen.
+Lichen is the baseline. The accent is a property of the space: an owner chooses one of six palettes
+in **Space settings > Appearance**, and every member's open client applies it live through the
+existing `space.updated` broadcast. Editors and viewers see the current preset with its radios
+disabled and the sentence that only an owner can change it; **Use Lichen** is owner-only. The value
+lives in `space.yml` under the optional `accent` key (schema 4) and is written through the
+owner-only `PATCH /api/spaces/{space}` with the usual double-option shape — absent leaves it,
+`null` returns to Lichen, and an unknown id or a hex value is a `422` field `accent`. A hand-edited
+unknown value renders as Lichen without breaking the space; the next owner write corrects the file.
+
+The v0.4 browser-local key (`thing:accent:<user>:<space>`) is read once by `SpaceLayout` to seed an
+owner's space, deleted only after that PATCH succeeds, and never read again. A non-owner's old local
+value is ignored — the owner owns the shared appearance. Signed-out routes and every non-space
+route render Lichen.
 
 | id | label | dark accent | dark ink | light accent | light ink |
 |---|---|---|---|---|---|
@@ -139,9 +146,14 @@ default; signed-out auth screens render Lichen.
 | `green` | Green | `#7fe08a` | `#051706` | `#256b33` | `#f0fbf2` |
 | `pink` | Pink | `#f49ac1` | `#1d0711` | `#96325f` | `#fdf1f6` |
 
-`web/src/lib/accent.ts` is the single source for the picker and the contrast test; `globals.css`
-mirrors the values as `:root[data-accent=…]` overrides of `--color-accent` and `--color-accent-ink`.
-Components keep using those two tokens and never branch on the accent id. Every palette clears
+`web/src/lib/accent.ts` is the single source for the picker and the contrast test; the core's
+`accent.rs` owns the ids the API accepts, and `globals.css` mirrors the palettes as
+`:root[data-accent=…]` overrides of `--color-accent` and `--color-accent-ink`. Components keep using
+those two tokens and never branch on the accent id.
+
+**The Shared Accent Rule.** The accent is one shared property of a space, not a per-person skin. An
+owner sets it, every member sees the same state colour, and no client keeps a second local choice
+after the one-time seed. Every palette clears
 4.5:1 for accent text on ground and ink on accent in both schemes, enforced by
 `lib/accent.test.ts`.
 
@@ -202,7 +214,7 @@ stripe, never a shadow standing in for a rule.
 Fields and buttons use a 6px radius; the auth sheet may use 10px. Nothing is pill-shaped except a
 future compact control that carries its own state. Corners are gently rounded, never soft enough to
 read as a card system. Icons are line-drawn at one weight, 16–20px; emoji appear only as user-authored
-space icons, never as interface iconography.
+space, type and record icons, never as interface iconography.
 
 ## Components
 
@@ -217,10 +229,11 @@ space icons, never as interface iconography.
   date shortcuts — puts the primary action at the **thumb edge**: last in the DOM at the right edge
   by default, and first in the DOM at the left edge in Left-handed mode. Clear and Cancel precede
   it in right-handed mode and follow it on the left; the row reverses in the DOM so paint, Tab and
-  screen-reader order agree. Mouse-dense 28px buttons grow to 44px minimum targets on a coarse
-  pointer or a phone-width window. The same thumb edge applies to text actions under a field (date
-  Clear/Today, Clear relation). Do not left-align a commit inside a cell or sheet on a right-handed
-  layout.
+  screen-reader order agree. **The primary action sits at the thumb edge and moves in the DOM in
+  left-handed mode**; it is never pinned to the right edge by CSS alone. Mouse-dense 28px buttons
+  grow to 44px minimum targets on a coarse pointer or a phone-width window. The same thumb edge
+  applies to text actions under a field (date Clear/Today, Clear relation). Do not left-align a
+  commit inside a cell or sheet on a right-handed layout.
 
 ### Inputs / Fields
 - **Style:** 40px height, 1px `{colors.line}` border, `{colors.ground}` ground, 6px radius, 15px text.
@@ -255,9 +268,15 @@ space icons, never as interface iconography.
   and name, role and an up chevron leading, then 44px Capture and Search trailing. Left-handed:
   Search and Capture lead (Search on the outer edge) and the space trigger trails with the chevron
   inward and the icon/name pinned to the right. The left area opens a bottom sheet
-  with the same space switcher, types, Overview and utility links, a close control, focus trapped
-  and returned to the bar, closing on selection or Escape. It is portaled to `body` so the page's
+  with the same space switcher, All spaces, Overview, the five space pages and Types last, a close
+  control, focus trapped and returned to the bar, closing on selection or Escape. It is portaled to `body` so the page's
   settle transform cannot trap it.
+- **Dialog and sheet close:** close controls follow the sheet's handedness. Right-handed keeps the
+  platform-standard trailing close (the title row ends at the right edge, the palette's search row
+  ends with its X); left-handed puts the same close control first in the row, with margin and focus
+  order moving with it. Sheets with no close control — the sign-out confirmation — keep Escape and
+  their Cancel action as the exits in both modes. Dialogs stay centred; only the close position and
+  the action rows move.
 - **Wordmark:** mono "thing" with a 10px lichen square. It is the only decorative use of the accent.
 - **Space rail:** the switcher leads under its own hairline, then **All spaces**, **Overview** and
   one ordered list — Schema, Schedule, Members, Trash and Settings — and **Types** closes the rail
@@ -300,9 +319,12 @@ space icons, never as interface iconography.
 - **New view:** a ghost `+ New view` at the end of the row opens an inline form beneath it — name,
   kind choice, and the kind's required property. It never opens a modal and never asks for a column
   list; the new view copies the current default's layout.
-- **Toolbar:** search, filter and sort sit above the renderer, with `Save view` (only when the URL
-  query differs from the saved view), `Reset`, and `View settings` for editors. Layout edits write
-  as they commit; filter and sort edits wait for the explicit save.
+- **Toolbar:** search, filter, sort and **Columns** sit above the renderer, with `Save view` (only
+  when the URL query differs from the saved view), `Reset`, and `View settings` for editors.
+  Columns is a ghost button beside Filter and Sort that names the visible property count
+  (`view.columns.length - 1`), toggles the one query panel, and is absent on calendar views. Layout
+  edits write as they commit; filter and sort edits wait for the explicit save. The kebab keeps View
+  settings, Save as view and Data only.
 - **View settings:** an inline panel for rename, make-default and delete with an inline confirm. The
   kind is shown read-only with "Kind is fixed; create a view to show these records another way".
 
@@ -312,6 +334,15 @@ space icons, never as interface iconography.
 - **Resize:** each header ends in a focusable vertical separator labelled `Resize <name>`; arrow
   keys move 16px (Shift: 64px), a pointer drag commits on release, and coarse pointers get a larger
   target with the same widths. Narrow screens scroll the table rather than reflowing it.
+- **Sort:** the arrow slot is fixed-width so the label never shifts. Unsorted is a faint
+  `ArrowUpDown`; ascending and descending are accent `ArrowUp` / `ArrowDown`, and `aria-sort`, the
+  button's label ("currently ascending, activate to sort descending"), its `title` and the Sort
+  panel use the same words. The glyph mirrors the `sorts` sent to the server; `cycleSort` keeps
+  asc → desc → clear and Shift-click adds or removes one key.
+- **Add property:** a trailing header cell after the last visible property and before the action
+  cell carries a quiet `+ Add property`; it is a normal tab stop, never a grid cell, hover-only or
+  a fill. On a narrow table it scrolls into view like any column and does not disturb the sticky
+  title offset, the action column or the keyboard grid's `colCount`.
 - **Phones:** below 640px the checkbox column stays pinned, the title scrolls with the row, and the
   right cell carries only Open plus a 44px actions menu (Complete, Duplicate, Move to trash); the
   saved action cell is not 184px of icons over the property columns. The menu is a hairline
@@ -364,9 +395,37 @@ space icons, never as interface iconography.
 - **Row actions:** 32px line icons at one weight on a fine pointer, always present and 44px on
   coarse pointers; on phones they collapse into the actions menu above. Hover turns Duplicate and
   Open to the accent, Move to trash to ember.
-- **Toasts:** bottom-right, 24rem maximum, hairline border on `surface`; danger uses ember text and
-  never auto-dismisses. Hover or focus pauses the timer, an Undo toast is not evicted, and action
-  text is 44px tall on coarse pointers. On phones the stack sits above the bottom space bar.
+- **Toasts:** pinned to the thumb edge — bottom-right by default, bottom-left in left-handed mode —
+  24rem maximum, hairline border on `surface`; danger uses ember text and never auto-dismisses.
+  Hover or focus pauses the timer, an Undo toast is not evicted, and action text is 44px tall on
+  coarse pointers. Safe-area insets keep either edge clear of a notch, and the message, action and
+  dismiss order never reverses. On phones the stack sits above the bottom space bar.
+
+### Add Property
+- **Entry points:** the table's trailing header cell and a ghost **Add property** below the visible
+  and hidden lists in the Columns panel. Editors only; a viewer sees neither.
+- **Shape:** a ruled form, not a wizard — one surface with **Existing property** (a select of what
+  the type does not declare) or **New property** (name and the existing format list), then one
+  action, **Add to table**. Relation defaults to any target and single-valued; Select and
+  Multi-select start with no options.
+- **Write:** property (when new), then the type's whole member list with `featured: true`, then the
+  current view's columns and widths. The dialog stays open until all three succeed; a refusal names
+  the stage, keeps the values, and Retry resumes without repeating a completed stage. A property
+  created before a later failure is left in the library and said so; success closes with one toast
+  naming the property.
+
+### Record Icons
+- **Value:** one optional emoji in the record's frontmatter (`icon`, schema 4), cleaned like a space
+  or type icon — trimmed, empty absent, arbitrary glyph otherwise. It is metadata, not a property:
+  absent from filters, sorts, CSV and the Schedule page, and `icon` is a reserved property key.
+- **Header:** a compact icon-picker trigger for an editor and the bare glyph for a viewer. The draft
+  carries the icon, so picking one marks the record dirty and saves with the normal **Save** / `Rev`
+  PATCH; Revert restores it.
+- **Render sites:** the table's title cell, space-home recents, command-palette results, board
+  cards, gallery tiles and Trash, plus the history panel's **Icon** diff row. The glyph occupies a
+  fixed slot and an absent icon adds no placeholder; the gallery's type-icon cover fallback stays.
+- **Not interface iconography:** these are user-authored glyphs, one per record, never used as
+  controls or status marks.
 
 ### CSV Data Panel
 - **Shape:** an inline panel under the type toolbar, never a modal. Export and template are ghost
@@ -390,7 +449,8 @@ space icons, never as interface iconography.
 ### Don't:
 - **Don't** introduce shadows, glass, gradients, glows or colored side stripes.
 - **Don't** fill large surfaces with the accent or introduce a second accent.
-- **Don't** use emoji as interface icons; they belong only to user-authored space icons.
+- **Don't** use emoji as interface icons; they belong only to user-authored space, type and
+  record icons.
 - **Don't** turn the index into a card grid, add a sidebar before the space exists, or hide the
   create action behind a modal.
 - **Don't** set prose in mono or identifiers in sans.

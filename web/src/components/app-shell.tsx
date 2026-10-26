@@ -1,5 +1,13 @@
 import { Keyboard, LogOut, Plus, Search, UserRound } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Link,
   Navigate,
@@ -97,24 +105,20 @@ export function AppShell() {
   const spaceChild = useMatch("/s/:spaceId/*");
   const spaceId = spaceHome?.params.spaceId ?? spaceChild?.params.spaceId;
   return (
-    <QuickCaptureProvider spaceId={spaceId}>
-      <AppFrame spaceId={spaceId} />
-    </QuickCaptureProvider>
+    <HandednessRoot>
+      <QuickCaptureProvider spaceId={spaceId}>
+        <AppFrame spaceId={spaceId} />
+      </QuickCaptureProvider>
+    </HandednessRoot>
   );
 }
 
-function AppFrame({ spaceId }: { spaceId: string | undefined }) {
+/**
+ * Handedness lives above quick capture, because that sheet renders outside
+ * `AppFrame`'s tree and must move its close control with every other surface.
+ */
+function HandednessRoot({ children }: { children: ReactNode }) {
   const me = useMe();
-  const location = useLocation();
-  const capture = useQuickCapture();
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [signOutOpen, setSignOutOpen] = useState(false);
-  // Table bindings are registered by whichever grid is on screen.
-  const [tableShortcuts, setTableShortcuts] = useState<ShortcutDescriptor[]>([]);
-  const connection = useSpaceEvents(spaceId);
-  const previousPath = useRef(location.pathname);
-  const [announcement, setAnnouncement] = useState("");
   const userId = me.data?.id;
   const [handedness, setHandedness] = useState<Handedness>(DEFAULT_HANDEDNESS);
 
@@ -142,10 +146,26 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
     },
     [userId],
   );
-  const handednessValue = useMemo(
+  const value = useMemo(
     () => ({ handedness, setHandedness: changeHandedness }),
     [handedness, changeHandedness],
   );
+
+  return <HandednessProvider value={value}>{children}</HandednessProvider>;
+}
+
+function AppFrame({ spaceId }: { spaceId: string | undefined }) {
+  const me = useMe();
+  const location = useLocation();
+  const capture = useQuickCapture();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  // Table bindings are registered by whichever grid is on screen.
+  const [tableShortcuts, setTableShortcuts] = useState<ShortcutDescriptor[]>([]);
+  const connection = useSpaceEvents(spaceId);
+  const previousPath = useRef(location.pathname);
+  const [announcement, setAnnouncement] = useState("");
 
   const shortcutActions: Record<string, () => void> = {
     palette: () => {
@@ -223,8 +243,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   }, [location.pathname]);
 
   return (
-    <HandednessProvider value={handednessValue}>
-      <PaletteProvider open={() => setPaletteOpen(true)}>
+    <PaletteProvider open={() => setPaletteOpen(true)}>
         <div className="flex min-h-dvh flex-col">
           <ScrollRestoration />
           <a
@@ -357,7 +376,6 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
             shortcuts={activeShortcuts}
           />
         </div>
-      </PaletteProvider>
-    </HandednessProvider>
+    </PaletteProvider>
   );
 }

@@ -19,6 +19,7 @@ import {
   useType,
   useTypes,
 } from "@/api/queries";
+import { useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
@@ -29,6 +30,7 @@ import {
   readCaptureType,
   writeCaptureType,
 } from "@/lib/capture";
+import { cn } from "@/lib/cn";
 import { readApiProblems, readError } from "@/lib/display";
 import { isBlank, valueLabel } from "@/lib/format";
 import { isApplePlatform } from "@/lib/hotkeys";
@@ -309,6 +311,27 @@ function QuickCaptureDialog({
     title.trim() === "" ||
     missing.length > 0 ||
     invalid.size > 0;
+  const { handedness } = useHandedness();
+  const captureTitle = (
+    <div>
+      <Dialog.Title className="text-[17px] font-medium">Quick capture</Dialog.Title>
+      <Dialog.Description className="mt-1 text-[13px] text-muted">
+        Required fields first, then every editable field in a compact grid.
+      </Dialog.Description>
+    </div>
+  );
+  const captureClose = (
+    <Dialog.Close
+      key="close"
+      aria-label="Close quick capture"
+      className={cn(
+        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+      )}
+    >
+      <X aria-hidden size={15} />
+    </Dialog.Close>
+  );
   const noTypes = types.data !== undefined && typeList.length === 0;
   const canTeachSchema = space.data ? space.data.role !== "viewer" : false;
   const mod = isApplePlatform() ? "⌘" : "Ctrl";
@@ -328,19 +351,23 @@ function QuickCaptureDialog({
               submit(event.shiftKey ? "open" : "stay");
             }}
           >
-            <div className="flex items-baseline justify-between gap-4 border-b rule px-4 py-3">
-              <div>
-                <Dialog.Title className="text-[17px] font-medium">Quick capture</Dialog.Title>
-                <Dialog.Description className="mt-1 text-[13px] text-muted">
-                  Required fields first, then every editable field in a compact grid.
-                </Dialog.Description>
-              </div>
-              <Dialog.Close
-                aria-label="Close quick capture"
-                className="-mr-1 inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-              >
-                <X aria-hidden size={15} />
-              </Dialog.Close>
+            <div
+              className={cn(
+                "flex items-baseline gap-4 border-b rule px-4 py-3",
+                handedness === "left" ? "justify-start" : "justify-between",
+              )}
+            >
+              {handedness === "left" ? (
+                <>
+                  {captureClose}
+                  {captureTitle}
+                </>
+              ) : (
+                <>
+                  {captureTitle}
+                  {captureClose}
+                </>
+              )}
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

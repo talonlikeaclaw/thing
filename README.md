@@ -17,29 +17,37 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   widths, a board grouped by a select property, a gallery with a property as its cover, and a
   calendar on a date property such as a schedule's due date. Column layout saves as you edit
   it; filters and sorts save when you press **Save view**, and the selected view is in the URL.
-- **Editable spaces.** Rename a space, change its timezone, or delete it by typing its name. Icons
-  are picked from a searchable emoji grid rather than pasted in; the same picker serves types. The
-  timezone field filters as you type and offers this device's zone; timestamps render in the
-  space's zone.
+- **Editable spaces.** Rename a space, change its timezone, choose a shared highlight accent, or
+  delete it by typing its name. Icons are picked from a searchable emoji grid rather than pasted in;
+  the same picker serves types and records. The timezone field filters as you type and offers this
+  device's zone; timestamps render in the space's zone.
 - **Capture from anywhere.** `C` opens a minimal capture sheet for the chosen type's required
   properties, with Create and Create-and-open; the last type is remembered in the browser.
   `Cmd/Ctrl+K` opens a palette over spaces, types, records and actions, and `?` lists every
   shortcut on a keyboard-capable screen.
 - **A table that behaves.** Paging, multi-select and bulk property edits, inline duplicate and
-  move-to-trash with Undo, header sorting, a pinned title and dimmed stale rows. On a phone the
-  row actions fold into one menu so property columns stay reachable, and the bottom bar carries the
-  space drawer, Capture and Search within thumb reach.
+  move-to-trash with Undo, header sorting, a pinned title and dimmed stale rows. **Columns** sits
+  beside Filter and Sort with a live count, and **Add property** in the trailing header or that
+  panel adds an existing or new property to the type and the current view without leaving the
+  table. Select and Multi-select columns sort by their option order. On a phone the row actions
+  fold into one menu so property columns stay reachable, and the bottom bar carries the space
+  drawer, Capture and Search within thumb reach.
 - **CSV in and out.** Export every live record of a type, download a header-only template, and
   import a reviewed file with a dry run that names a broken row before anything is written.
-- **Browser-local accents.** Choose an account default from six contrast-tested highlight palettes,
-  then override it per space. It changes focus, selection and the primary action only, never anyone
-  else's screen.
-- **Account and handedness.** Account settings holds the default highlight and a Left-handed mode
-  that moves bottom-bar actions, action rows, menus and toasts to the left thumb; both stay in this
-  browser.
+- **A shared accent.** An owner chooses one of six contrast-tested highlight palettes for the
+  space, and every member's open client changes live without a reload. It marks focus, selection
+  and the primary action; an editor or viewer sees it but cannot change it.
+- **Left- and right-handed mode.** A browser-local preference in Account settings moves the phone
+  bottom bar, action rows, save buttons, row menus and toasts to the chosen thumb, in the DOM so
+  paint, Tab and screen-reader order agree. It never mirrors text, icons, columns or reading order.
+- **Record icons.** Give a record an emoji from its header or at capture; it then appears in the
+  table's title cell, home recents, the command palette, board cards, gallery tiles and Trash. A
+  record without one keeps its previous layout.
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
+  Files are written as schema 4; every schema-1…3 file still loads, and a record's icon and a
+  space's accent are optional frontmatter keys rather than properties.
 - **One Rust core, reused.** `thing-core` holds the domain model, validation, query engine and
   file format. `thing-server` is the I/O shell, and later binaries (CLI, Tauri desktop, MCP
   server) link the same core.
