@@ -407,7 +407,7 @@ export function TableView({
       ref={portRef}
       className={cn(
         compact ? "mt-2" : "mt-6",
-        "max-h-[70vh] overflow-auto",
+        "max-h-[70vh] overflow-auto overscroll-contain",
         bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-16",
       )}
       onKeyDown={onGridKeyDown}

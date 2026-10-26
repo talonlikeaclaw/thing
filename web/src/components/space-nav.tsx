@@ -26,6 +26,7 @@ import { useHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
 import { useQuickCapture } from "@/components/quick-capture";
 import { ThingIcon } from "@/components/thing-icon";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import {
   DEFAULT_NAV_ORDER,
@@ -294,8 +295,8 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
 
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85 lg:hidden" />
-          <Dialog.Viewport className="fixed inset-0 z-50 flex items-end lg:hidden">
-            <Dialog.Popup className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface">
+          <SheetViewport placement="bottom" className="lg:hidden">
+            <SheetPopup>
               <div className="shrink-0 pt-4 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
                 <div
                   className={cn(
@@ -327,7 +328,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
               </div>
               <div
                 ref={sheetRef}
-                className="min-h-0 flex-1 overflow-y-auto pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]"
               >
                 <SpaceSwitcher
                   id="space-switcher-mobile"
@@ -381,8 +382,8 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
                   )}
                 </button>
               ) : null}
-            </Dialog.Popup>
-          </Dialog.Viewport>
+            </SheetPopup>
+          </SheetViewport>
         </Dialog.Portal>
       </Dialog.Root>
 

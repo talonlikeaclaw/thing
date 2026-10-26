@@ -76,7 +76,7 @@ export function TimezonePicker({
               <Combobox.Empty>
                 <p className="px-3 py-3 text-[13px] text-muted">No zone matches that name.</p>
               </Combobox.Empty>
-              <Combobox.List className="max-h-64 overflow-auto p-1">
+              <Combobox.List className="max-h-64 overflow-auto overscroll-contain p-1">
                 {(zone: string) => (
                   <Combobox.Item
                     key={zone}

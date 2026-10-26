@@ -2,9 +2,19 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      `viewport-fit=cover` is what makes `env(safe-area-inset-*)` non-zero on a
+      notched device, and `interactive-widget=resizes-content` makes the layout
+      viewport shrink when Chrome's keyboard opens. iOS ignores the second one,
+      which is why `lib/viewport.ts` tracks the visual viewport as well.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#121512" />
+    <meta name="theme-color" content="#121512" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f3ec" media="(prefers-color-scheme: light)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>thing</title>
   </head>

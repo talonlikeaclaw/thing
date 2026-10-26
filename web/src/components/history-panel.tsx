@@ -82,7 +82,7 @@ export function HistoryPanel({
         <p className="mt-3 text-[13px] text-muted">No revisions yet.</p>
       ) : current ? (
         <div className="mt-2 grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-          <ol className="max-h-[24rem] overflow-auto border-t rule">
+          <ol className="max-h-[24rem] overflow-auto overscroll-contain border-t rule">
             {revisions.map((revision, index) => {
               const active = index === at;
               return (
@@ -171,7 +171,7 @@ export function HistoryPanel({
             {current.body !== undefined ? (
               <div className="mt-4">
                 <span className="label">Body at this revision</span>
-                <div className="mt-1 max-h-[18rem] overflow-auto rounded-field border border-line px-3">
+                <div className="mt-1 max-h-[18rem] overflow-auto overscroll-contain rounded-field border border-line px-3">
                   <MarkdownView text={current.body} />
                 </div>
               </div>

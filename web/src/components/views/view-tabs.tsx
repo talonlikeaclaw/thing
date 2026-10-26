@@ -154,7 +154,7 @@ export function ViewTabs({
         <div
           role="tablist"
           aria-label="Saved views"
-          className="flex min-w-0 items-stretch gap-1 overflow-x-auto"
+          className="flex min-w-0 items-stretch gap-1 overflow-x-auto overscroll-x-contain"
           onKeyDown={(event) => {
             const index = type.views.findIndex((view) => view.key === selectedKey);
             if (event.key === "ArrowRight" || event.key === "ArrowLeft") {

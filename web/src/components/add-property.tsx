@@ -6,6 +6,7 @@ import { useCreateProperty, useUpdateType, useUpdateView } from "@/api/queries";
 import { useHandedness } from "@/components/handedness";
 import type { PropertyDef, PropertyFormat, TypeDef, ViewDef } from "@/api/types";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
@@ -158,8 +159,8 @@ export function AddPropertyDialog({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]">
-          <Dialog.Popup className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface sm:w-[32rem] sm:rounded-sheet">
+        <SheetViewport>
+          <SheetPopup className="sm:w-[32rem]">
             <div
               className={cn(
                 "flex items-baseline gap-4 border-b rule px-4 py-3",
@@ -181,7 +182,7 @@ export function AddPropertyDialog({
 
             <form
               aria-label="Add property"
-              className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
               onSubmit={(event) => {
                 event.preventDefault();
                 void submit();
@@ -294,8 +295,8 @@ export function AddPropertyDialog({
                 </Button>
               </div>
             </form>
-          </Dialog.Popup>
-        </Dialog.Viewport>
+          </SheetPopup>
+        </SheetViewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

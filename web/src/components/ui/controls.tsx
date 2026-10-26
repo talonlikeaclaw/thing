@@ -235,7 +235,7 @@ export function SelectField({
         </Select.Trigger>
         <Select.Portal>
           <Select.Positioner sideOffset={4} className="z-50">
-            <Select.Popup className="max-h-64 min-w-[var(--anchor-width)] overflow-auto rounded-field border border-line bg-surface p-1 text-[14px]">
+            <Select.Popup className="max-h-64 min-w-[var(--anchor-width)] overflow-auto overscroll-contain rounded-field border border-line bg-surface p-1 text-[14px]">
               {options.map((option) => (
                 <Select.Item
                   key={option.value}

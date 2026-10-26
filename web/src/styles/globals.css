@@ -179,6 +179,19 @@
     color: inherit;
   }
 
+  /*
+   * A control is not a zoom target: `manipulation` keeps double-tap zoom off
+   * the buttons and removes the 300ms click delay some Android builds still
+   * apply. Pinch-zoom on the page itself stays available.
+   */
+  button,
+  a[href],
+  summary,
+  label,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
   input::placeholder,
   textarea::placeholder {
     color: var(--color-faint);
@@ -207,6 +220,75 @@
   }
 }
 
+/*
+ * Overlay geometry, shared by every dialog. `--vv-height` / `--vv-top` /
+ * `--kb-height` are written by `lib/viewport.ts` from `visualViewport`, so a
+ * sheet ends above an on-screen keyboard even on iOS, where the layout viewport
+ * never shrinks. Without JS (or without `visualViewport`) the fallbacks are the
+ * dynamic viewport, which is today's behaviour.
+ */
+@layer components {
+  .sheet-viewport {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--vv-top, 0px);
+    height: var(--vv-height, 100dvh);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 50;
+  }
+
+  /* The space drawer is a phone sheet at every width it renders at. */
+  .sheet-viewport[data-placement="bottom"] {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  /* Sign out is a centred dialog, never a sheet. */
+  .sheet-viewport[data-placement="center"] {
+    align-items: center;
+    padding: 0 1rem;
+  }
+
+  .sheet-popup {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: min(85dvh, calc(var(--vv-height, 100dvh) - 1.5rem));
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    background: var(--color-surface);
+    animation: sheet-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @media (min-width: 40rem) {
+    .sheet-viewport {
+      inset: 0;
+      height: auto;
+      align-items: flex-start;
+      padding: 12vh 1rem 0;
+    }
+
+    .sheet-popup {
+      max-height: 85dvh;
+      border-radius: var(--radius-sheet);
+    }
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @keyframes settle {
   from {
     opacity: 0;
@@ -218,12 +300,19 @@
   }
 }
 
+/*
+ * `backwards`, not `both`: the fill mode must not keep the keyframe's transform
+ * applied after the animation ends. A finished animation that still declares a
+ * transform makes the wrapper a containing block for every `position: fixed`
+ * descendant — which is why the bottom bar and every dialog portal to `body`.
+ */
 .settle {
-  animation: settle 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: settle 260ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settle {
+  .settle,
+  .sheet-popup {
     animation: none;
   }
 }

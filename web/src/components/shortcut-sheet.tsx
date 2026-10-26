@@ -1,6 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 
 import { useHandedness } from "@/components/handedness";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import type { ShortcutDescriptor } from "@/lib/hotkeys";
 
@@ -38,8 +39,8 @@ export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetPr
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]">
-          <Dialog.Popup className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface sm:w-[34rem] sm:rounded-sheet">
+        <SheetViewport>
+          <SheetPopup className="sm:w-[34rem]">
             <div
               className={cn(
                 "flex items-baseline gap-4 border-b rule px-4 py-3",
@@ -59,7 +60,7 @@ export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetPr
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <dl>
                 {shortcuts.map((shortcut) => (
                   <div
@@ -79,8 +80,8 @@ export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetPr
                 ))}
               </dl>
             </div>
-          </Dialog.Popup>
-        </Dialog.Viewport>
+          </SheetPopup>
+        </SheetViewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

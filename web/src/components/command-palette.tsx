@@ -12,6 +12,7 @@ import {
 } from "@/api/queries";
 import { useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { relativeTime } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
@@ -294,8 +295,8 @@ export function CommandPalette({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]">
-          <Dialog.Popup className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface sm:w-[40rem] sm:rounded-sheet">
+        <SheetViewport>
+          <SheetPopup className="sm:w-[40rem]">
             <Dialog.Title className="sr-only">Search and commands</Dialog.Title>
             <Dialog.Description className="sr-only">
               Search records, types, spaces and actions.
@@ -334,7 +335,7 @@ export function CommandPalette({
               id="command-palette-list"
               role="listbox"
               aria-label="Results"
-              className="min-h-0 flex-1 overflow-y-auto px-2 py-2"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2"
             >
               {flat.length === 0 ? (
                 <p className="px-3 py-6 text-[13px] text-muted">
@@ -387,14 +388,16 @@ export function CommandPalette({
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t rule px-4 py-2 text-[11px] text-faint">
+            {/* The footer is the sheet's last row, so the home indicator
+                inset belongs here rather than on the popup. */}
+            <div className="flex items-center justify-between gap-3 border-t rule px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-[11px] text-faint">
               <span className="hidden font-mono sm:inline pointer-coarse:hidden">↑↓ move · Enter open · Esc close</span>
               <span aria-live="polite" className="font-mono tnum">
                 {flat.length} results
               </span>
             </div>
-          </Dialog.Popup>
-        </Dialog.Viewport>
+          </SheetPopup>
+        </SheetViewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

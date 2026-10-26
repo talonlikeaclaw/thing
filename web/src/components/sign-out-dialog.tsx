@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { useLogout } from "@/api/queries";
 import { ThumbRow } from "@/components/handedness";
 import { Button, FormError } from "@/components/ui/controls";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { readError } from "@/lib/display";
 
 /**
@@ -62,8 +63,8 @@ export function SignOutDialog({
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <Dialog.Popup className="w-full rounded-sheet border border-line bg-surface px-4 pt-4 pb-3 sm:w-[26rem]">
+        <SheetViewport placement="center">
+          <SheetPopup className="max-w-[26rem] rounded-sheet px-4 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <Dialog.Title className="text-[17px] font-medium">Sign out?</Dialog.Title>
             <Dialog.Description className="mt-1 text-[13px] text-muted">
               Any unsaved draft in this browser will be lost.
@@ -81,8 +82,8 @@ export function SignOutDialog({
                 {logout.isPending ? "Signing out…" : error ? "Retry" : "Sign out"}
               </Button>
             </ThumbRow>
-          </Dialog.Popup>
-        </Dialog.Viewport>
+          </SheetPopup>
+        </SheetViewport>
       </Dialog.Portal>
     </Dialog.Root>
   );

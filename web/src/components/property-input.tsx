@@ -286,7 +286,7 @@ function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyI
               aria-label={`${property.name} options`}
               initialFocus={false}
               finalFocus={false}
-              className="max-h-56 w-[var(--anchor-width)] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-auto rounded-field border border-line bg-surface p-1 text-[13px] shadow-none"
+              className="max-h-56 w-[var(--anchor-width)] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-auto overscroll-contain rounded-field border border-line bg-surface p-1 text-[13px] shadow-none"
             >
               {value !== null && value !== undefined ? (
                 <button

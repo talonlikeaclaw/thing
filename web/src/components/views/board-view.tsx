@@ -71,7 +71,7 @@ export function BoardView({
   const lanes = groupRows(rows, group);
 
   return (
-    <div className="mt-6 overflow-x-auto pb-2">
+    <div className="mt-6 overflow-x-auto overscroll-x-contain pb-2">
       <div className="flex items-start gap-3">
         {lanes.map((lane) => (
           <section

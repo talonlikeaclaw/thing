@@ -23,6 +23,7 @@ import { useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import {
   captureFields,
@@ -340,9 +341,9 @@ function QuickCaptureDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
-        <Dialog.Viewport className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:px-4 sm:pt-[12vh]">
-          <Dialog.Popup
-            className="flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface sm:w-[34rem] sm:rounded-sheet"
+        <SheetViewport>
+          <SheetPopup
+            className="sm:w-[34rem]"
             onKeyDown={(event) => {
               if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) {
                 return;
@@ -370,7 +371,7 @@ function QuickCaptureDialog({
               )}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
               {types.isPending ? (
                 <p className="text-[13px] text-muted">Reading types…</p>
               ) : types.isError ? (
@@ -589,7 +590,7 @@ function QuickCaptureDialog({
               )}
             </div>
 
-            <div className="grid gap-2 border-t rule px-4 py-3">
+            <div className="grid gap-2 border-t rule px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               {error ? (
                 <p role="alert" className="text-[13px] text-danger">
                   {error}
@@ -618,8 +619,8 @@ function QuickCaptureDialog({
                 </div>
               </div>
             </div>
-          </Dialog.Popup>
-        </Dialog.Viewport>
+          </SheetPopup>
+        </SheetViewport>
       </Dialog.Portal>
     </Dialog.Root>
   );
