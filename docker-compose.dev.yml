@@ -1,3 +1,5 @@
+name: thing-dev
+
 services:
   dev:
     build:
