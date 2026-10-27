@@ -1,4 +1,5 @@
-import { useParams, useSearchParams } from "react-router";
+import { useEffect, useRef } from "react";
+import { useLocation, useParams, useSearchParams } from "react-router";
 
 import { useProperties, useSpace, useType, useTypes } from "@/api/queries";
 import { PropertyEditor } from "@/components/schema/property-editor";
@@ -16,6 +17,7 @@ export function SchemaPage() {
   const types = useTypes(spaceId);
   const properties = useProperties(spaceId);
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
 
   const selectedTypeKey = params.get("type") ?? types.data?.[0]?.key;
   const type = useType(spaceId, selectedTypeKey);
@@ -23,6 +25,25 @@ export function SchemaPage() {
   const selectedProperty = properties.data?.find(
     (property) => property.key === selectedPropertyKey,
   );
+  /**
+   * The type page's Edit action deep-links to `#type-editor`. The editor only
+   * exists after the type arrives, so the browser's own anchor jump cannot do
+   * it. Consume the hash once: later type-list selections stay where they are.
+   */
+  const scrollToEditor = useRef(location.hash === "#type-editor");
+
+  useEffect(() => {
+    if (!scrollToEditor.current || !type.data) {
+      return;
+    }
+    scrollToEditor.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById("type-editor")
+        ?.scrollIntoView({ block: "start", inline: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [type.data]);
 
   function selectType(key: string) {
     const next = new URLSearchParams(params);
@@ -87,7 +108,7 @@ export function SchemaPage() {
           onSelect={selectType}
           onCreated={selectType}
         />
-        <div>
+        <div id="type-editor" className="scroll-mt-6">
           {type.isPending && selectedTypeKey ? (
             <p className="text-[13px] text-muted">Reading the type…</p>
           ) : type.isError ? (

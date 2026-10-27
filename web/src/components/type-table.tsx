@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   ListFilter,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   Settings2,
@@ -21,7 +22,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -782,19 +783,22 @@ export function TypeTable({
     searchRef.current?.focus();
   }
 
-  const pageTitle = (
-    <div className="flex min-w-0 items-baseline gap-3">
-      <ThingIcon icon={type.icon} size="lg" />
-      <h1 className="truncate text-[26px] font-medium tracking-[-0.02em]">
-        {type.name_plural}
-      </h1>
-      <span className="label tnum max-sm:hidden">{type.key}</span>
-    </div>
-  );
   const recordCount = (
-    <span className="label tnum max-[359px]:hidden">
+    <span className="label tnum mt-1 block max-[359px]:hidden">
       {compact || shown === total ? `${total}` : `${shown} of ${total}`} records
     </span>
+  );
+  const pageTitle = (
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-baseline gap-3">
+        <ThingIcon icon={type.icon} size="lg" />
+        <h1 className="truncate text-[26px] font-medium tracking-[-0.02em]">
+          {type.name_plural}
+        </h1>
+        <span className="label tnum max-sm:hidden">{type.key}</span>
+      </div>
+      {recordCount}
+    </div>
   );
   const newRecordButton = canEdit ? (
     <Button
@@ -805,18 +809,28 @@ export function TypeTable({
       New record
     </Button>
   ) : null;
-  // New record is the primary action, so it sits at the thumb edge; the count
-  // takes the far side of that same group.
+  const editTypeLink = canEdit ? (
+    <Link
+      to={`/s/${spaceId}/schema?type=${encodeURIComponent(type.key)}#type-editor`}
+      title={`Edit ${type.name} type`}
+      className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-field border border-line-interactive px-2.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0"
+    >
+      <Pencil aria-hidden size={14} />
+      <span className="max-sm:sr-only">Edit type</span>
+    </Link>
+  ) : null;
+  // New record is the primary action, so it sits at the thumb edge; Edit type
+  // sits inward from it. The whole pair follows the handedness flip.
   const recordActions = (
     <div className="flex shrink-0 items-center gap-3">
       {handedness === "left" ? (
         <>
           {newRecordButton}
-          {recordCount}
+          {editTypeLink}
         </>
       ) : (
         <>
-          {recordCount}
+          {editTypeLink}
           {newRecordButton}
         </>
       )}
