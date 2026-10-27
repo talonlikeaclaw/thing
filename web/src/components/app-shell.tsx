@@ -316,17 +316,6 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     <span className="hidden sm:inline">Shortcuts</span>
                     <Keycap className="hidden md:inline">?</Keycap>
                   </Button>
-                  {/* Appended after the global pair, which therefore never moves
-                      when a space opens. */}
-                  {spaceId && connection !== "live" ? (
-                    <span
-                      role="status"
-                      title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
-                      className="hidden min-w-0 truncate font-mono text-[11px] text-warning sm:inline"
-                    >
-                      {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
-                    </span>
-                  ) : null}
                   {capture.available ? (
                     <Button
                       variant="ghost"
@@ -340,6 +329,17 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                       <span>Capture</span>
                       <Keycap>{captureShortcut?.keys ?? "C"}</Keycap>
                     </Button>
+                  ) : null}
+                  {/* The state follows every nav action, so Search and Capture
+                      keep their positions when the connection drops. */}
+                  {spaceId && connection !== "live" ? (
+                    <span
+                      role="status"
+                      title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
+                      className="hidden min-w-0 truncate font-mono text-[11px] text-warning sm:inline"
+                    >
+                      {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
+                    </span>
                   ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-2 sm:gap-4">
