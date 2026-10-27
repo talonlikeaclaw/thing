@@ -3,13 +3,13 @@ import { Popover } from "@base-ui/react/popover";
 import {
   ArrowUpDown,
   Columns3,
-  CopyPlus,
   FileSpreadsheet,
   ListFilter,
   MoreHorizontal,
   Plus,
   Search,
   Settings2,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import {
@@ -104,6 +104,9 @@ const SQUARE_BUTTON =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink";
 const VIEW_MENU_ITEM =
   "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+/** A phone sheet row: 44 px because it is the primary target on a phone. */
+const VIEW_SHEET_ROW =
+  "flex min-h-11 w-full items-center gap-3 rounded-field px-3 text-left text-[14px] text-ink transition-colors hover:bg-raised";
 
 interface TypeTableProps {
   spaceId: string;
@@ -171,7 +174,9 @@ export function TypeTable({
     () => (params.get("q") ?? "").trim() !== "",
   );
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
-  const [viewPanel, setViewPanel] = useState<"settings" | "save" | "data">("settings");
+  const [viewPanel, setViewPanel] = useState<"menu" | "settings" | "save" | "data">(
+    "menu",
+  );
   const { handedness } = useHandedness();
 
   const tableShortcuts = useMemo(
@@ -415,7 +420,15 @@ export function TypeTable({
     setSaveAsName(`${view.name} copy`);
   }
 
-  /** The phone View sheet opens straight into one panel; the row has no menu. */
+  /**
+   * The phone View sheet opens on a menu of three rows; picking one swaps the
+   * body in the same sheet instead of putting three squares in the toolbar.
+   */
+  function openViewMenu() {
+    setViewPanel("menu");
+    setViewSheetOpen(true);
+  }
+
   function openViewPanel(panel: "settings" | "save" | "data") {
     if (panel === "save") {
       startSaveAs();
@@ -426,6 +439,7 @@ export function TypeTable({
 
   function closeViewSheet() {
     setViewSheetOpen(false);
+    setViewPanel("menu");
     setSaveAsOpen(false);
     setSettingsOpen(false);
     setDataOpen(false);
@@ -811,12 +825,27 @@ export function TypeTable({
 
   const sheetTitle = (
     <Dialog.Title key="title" className="min-w-0 truncate text-[17px] font-medium">
-      {viewPanel === "settings"
-        ? "View settings"
-        : viewPanel === "save"
-          ? "Save as view"
-          : "Data — CSV"}
+      {viewPanel === "menu"
+        ? "View"
+        : viewPanel === "settings"
+          ? "View settings"
+          : viewPanel === "save"
+            ? "Save as view"
+            : "Data — CSV"}
     </Dialog.Title>
+  );
+  const sheetBack = (
+    <button
+      key="back"
+      type="button"
+      className={cn(
+        "label shrink-0 py-2 transition-colors hover:text-accent pointer-coarse:min-h-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+      )}
+      onClick={() => setViewPanel("menu")}
+    >
+      Back
+    </button>
   );
   const sheetClose = (
     <Dialog.Close
@@ -910,7 +939,7 @@ export function TypeTable({
       ) : null}
     </Button>,
   );
-  if (canEdit && dirty) {
+  if (!compact && canEdit && dirty) {
     toolbarTools.push(
       <Button
         key="save"
@@ -924,7 +953,7 @@ export function TypeTable({
       </Button>,
     );
   }
-  if (hasOverrides) {
+  if (!compact && hasOverrides) {
     toolbarTools.push(
       <Button
         key="reset"
@@ -939,46 +968,18 @@ export function TypeTable({
     );
   }
   if (compact) {
-    if (canEdit) {
-      toolbarTools.push(
-        <button
-          key="save-as"
-          type="button"
-          aria-label="Save as view"
-          aria-expanded={viewSheetOpen && viewPanel === "save"}
-          className={SQUARE_BUTTON}
-          onClick={() => openViewPanel("save")}
-        >
-          <CopyPlus aria-hidden size={16} />
-        </button>,
-      );
-    }
     toolbarTools.push(
       <button
-        key="data"
+        key="view"
         type="button"
-        aria-label="Data — CSV"
-        aria-expanded={viewSheetOpen && viewPanel === "data"}
+        aria-label="View"
+        aria-expanded={viewSheetOpen}
         className={SQUARE_BUTTON}
-        onClick={() => openViewPanel("data")}
+        onClick={openViewMenu}
       >
-        <FileSpreadsheet aria-hidden size={16} />
+        <SlidersHorizontal aria-hidden size={16} />
       </button>,
     );
-    if (canEdit) {
-      toolbarTools.push(
-        <button
-          key="settings"
-          type="button"
-          aria-label="View settings"
-          aria-expanded={viewSheetOpen && viewPanel === "settings"}
-          className={SQUARE_BUTTON}
-          onClick={() => openViewPanel("settings")}
-        >
-          <Settings2 aria-hidden size={16} />
-        </button>,
-      );
-    }
   } else {
     toolbarTools.push(
       <Popover.Root key="more">
@@ -1070,6 +1071,39 @@ export function TypeTable({
         {compact && searchExpanded ? searchNode : orderedToolbar}
       </div>
 
+      {compact && (dirty || hasOverrides) ? (
+        <div className="mt-1.5 flex min-h-11 items-center justify-between gap-2 border-y rule px-1">
+          <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+            {dirty ? "View changed" : "Search applied"}
+          </span>
+          <span className="flex shrink-0 items-center gap-1">
+            {hasOverrides ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-11 shrink-0 px-2.5 text-[12px]"
+                onClick={clearQuery}
+                title="Clear search, filters and sorts"
+              >
+                Reset
+              </Button>
+            ) : null}
+            {canEdit && dirty ? (
+              <Button
+                type="button"
+                aria-label="Save view"
+                className="h-11 shrink-0 px-3 text-[12px]"
+                disabled={updateView.isPending}
+                onClick={saveQuery}
+              >
+                {updateView.isPending ? "Saving…" : "Save"}
+              </Button>
+            ) : null}
+          </span>
+        </div>
+      ) : null}
+
       {!compact && canEdit && saveAsOpen ? (
         <div className="mt-3 border-y rule py-3">{saveAsForm}</div>
       ) : null}
@@ -1114,17 +1148,52 @@ export function TypeTable({
                   {handedness === "left" ? (
                     <>
                       {sheetClose}
+                      {viewPanel === "menu" ? null : sheetBack}
                       {sheetTitle}
                     </>
                   ) : (
                     <>
                       {sheetTitle}
+                      {viewPanel === "menu" ? null : sheetBack}
                       {sheetClose}
                     </>
                   )}
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                  {viewPanel === "menu" ? (
+                    <div className="flex flex-col gap-1">
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className={VIEW_SHEET_ROW}
+                          onClick={() => openViewPanel("settings")}
+                        >
+                          <Settings2 aria-hidden size={16} />
+                          View settings
+                        </button>
+                      ) : null}
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className={VIEW_SHEET_ROW}
+                          onClick={() => openViewPanel("save")}
+                        >
+                          <Plus aria-hidden size={16} />
+                          Save as view…
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className={VIEW_SHEET_ROW}
+                        onClick={() => openViewPanel("data")}
+                      >
+                        <FileSpreadsheet aria-hidden size={16} />
+                        Data — CSV
+                      </button>
+                    </div>
+                  ) : null}
+
                   {viewPanel === "settings" ? (
                     <ViewSettings
                       spaceId={spaceId}
@@ -1536,7 +1605,10 @@ function SearchBox({
       <button
         type="button"
         className="label inline-flex min-h-11 shrink-0 items-center px-1 text-muted transition-colors hover:text-ink"
-        onClick={() => onExpandedChange(false)}
+        onClick={() => {
+          clear();
+          onExpandedChange(false);
+        }}
       >
         Cancel
       </button>

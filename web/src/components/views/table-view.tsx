@@ -200,6 +200,22 @@ export function TableView({
 
   // The rail and the pinned title share the viewport edge on the rail's side.
   const railEdge = railBefore ? "left-0 border-r" : "right-0 border-l";
+  // A collapsed border lives in the table's paint layer, not the sticky cell's,
+  // so the sub-pixel strip where a leading rail meets the next column can be
+  // left unpainted — page background, or the columns sliding underneath, show
+  // through it while the table scrolls. Paint that strip from the rail, the
+  // higher of the two sticky cells: a 3 px band of the rail's background that
+  // covers its last 2 px and 1 px past its edge, tinted raised on a selected
+  // row. The header keeps its collapsed divider, which is painted.
+  const railSeam = railBefore
+    ? "after:pointer-events-none after:absolute after:inset-y-0 after:-right-[2px] after:w-[3px] after:content-['']"
+    : null;
+  const railSeamTone = railBefore
+    ? !showSelect && !compact
+      ? "after:bg-surface"
+      : "after:bg-ground"
+    : null;
+  const railSeamToneSelected = railBefore ? "after:bg-raised" : null;
   const railHeaderClass = cn("sticky z-30 rule py-2", railEdge);
   const railBodyClass = cn("sticky z-20 rule py-1", railEdge);
 
@@ -579,7 +595,9 @@ export function TableView({
                   className={cn(
                     railBodyClass,
                     "outline-none",
+                    railSeam,
                     isSelected ? "bg-raised" : "bg-ground",
+                    isSelected ? railSeamToneSelected : railSeamTone,
                     railBefore ? "text-left" : "text-right",
                   )}
                 >
