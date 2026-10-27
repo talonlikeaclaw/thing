@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { useAgenda, useCompleteObject, useSpace, useTypes } from "@/api/queries";
+import { useAgenda, useCompleteObject, useSpace, useTypeDetails, useTypes } from "@/api/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useHandedness } from "@/components/handedness";
 import { ErrorState } from "@/components/error-state";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
-import { duePhrase, dueTone } from "@/lib/schedule";
+import { completeLabel, duePhrase, dueTone } from "@/lib/schedule";
 
 const HORIZONS = [7, 14, 30] as const;
 
@@ -22,6 +22,12 @@ export function AgendaPage() {
   const space = useSpace(spaceId);
   const types = useTypes(spaceId);
   const agenda = useAgenda(spaceId, horizon);
+  // Scheduled types carry the completion verb on their definition; one cached
+  // request per type, not one per row.
+  const scheduledKeys = (types.data ?? [])
+    .filter((type) => type.schedule)
+    .map((type) => type.key);
+  const typeDetails = useTypeDetails(spaceId ?? "", scheduledKeys);
 
   useRouteMeta("Schedule");
 
@@ -52,6 +58,9 @@ export function AgendaPage() {
 
   const scheduled = typesData.filter((type) => type.schedule);
   const canEdit = detail.role !== "viewer";
+  const verbs: Record<string, string> = Object.fromEntries(
+    typeDetails.details.map((def) => [def.key, completeLabel(def.schedule_labels)]),
+  );
 
   return (
     <div className="settle">
@@ -102,6 +111,7 @@ export function AgendaPage() {
               empty="Nothing is overdue."
               spaceId={detail.id}
               canEdit={canEdit}
+              verbs={verbs}
             />
             <Bucket
               title="Today"
@@ -109,6 +119,7 @@ export function AgendaPage() {
               empty="Nothing is due today."
               spaceId={detail.id}
               canEdit={canEdit}
+              verbs={verbs}
             />
             <Bucket
               title={`Next ${horizon} days`}
@@ -116,6 +127,7 @@ export function AgendaPage() {
               empty={`Nothing is due in the next ${horizon} days.`}
               spaceId={detail.id}
               canEdit={canEdit}
+              verbs={verbs}
             />
             {schedule.later_count > 0 ? (
               <p className="mt-4 font-mono text-[12px] text-faint">
@@ -135,12 +147,14 @@ function Bucket({
   empty,
   spaceId,
   canEdit,
+  verbs,
 }: {
   title: string;
   rows: AgendaRow[];
   empty: string;
   spaceId: string;
   canEdit: boolean;
+  verbs: Record<string, string>;
 }) {
   return (
     <section aria-label={title} className="mt-8">
@@ -153,7 +167,13 @@ function Bucket({
       ) : (
         <ul>
           {rows.map((row) => (
-            <AgendaEntry key={row.id} spaceId={spaceId} row={row} canEdit={canEdit} />
+            <AgendaEntry
+              key={row.id}
+              spaceId={spaceId}
+              row={row}
+              canEdit={canEdit}
+              verb={verbs[row.type] ?? "Complete"}
+            />
           ))}
         </ul>
       )}
@@ -165,10 +185,13 @@ function AgendaEntry({
   spaceId,
   row,
   canEdit,
+  verb,
 }: {
   spaceId: string;
   row: AgendaRow;
   canEdit: boolean;
+  /** The type's completion verb, from `schedule_labels.complete`. */
+  verb: string;
 }) {
   const complete = useCompleteObject(spaceId);
   const toast = useToast();
@@ -219,7 +242,7 @@ function AgendaEntry({
         <Button
           type="button"
           variant="ghost"
-          aria-label={`Complete ${row.title}`}
+          aria-label={`${verb} ${row.title}`}
           className={cn(
             "min-h-8 px-3 text-[13px] pointer-coarse:min-h-11",
             handedness === "left" ? "justify-self-start" : "justify-self-end",
@@ -227,7 +250,7 @@ function AgendaEntry({
           disabled={complete.isPending}
           onClick={onComplete}
         >
-          {complete.isPending ? "Saving…" : "Complete"}
+          {complete.isPending ? "Saving…" : verb}
         </Button>
       ) : null}
     </li>

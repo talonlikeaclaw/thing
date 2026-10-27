@@ -383,7 +383,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/components/schema/` | Type and property lists, editors, and the shared option editor; columns and grouping are per view on the type page |
 | `web/src/components/views/` | The view tab row, inline new-view form, view settings, column panel, and the four renderers (`table`, `board`, `gallery`, `calendar`) over one `useObjects` result |
 | `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
-| `web/src/pages/agenda.tsx` | The Schedule page: horizon, Overdue/Today/Next N buckets, Complete and the no-scheduled-type state |
+| `web/src/pages/agenda.tsx` | The Schedule page: horizon, Overdue/Today/Next N buckets, each row's completion button labelled with its type's `complete` verb, and the no-scheduled-type state |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
 | `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |

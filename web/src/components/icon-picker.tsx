@@ -1,13 +1,29 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Popover } from "@base-ui/react/popover";
 import { Smile, SmilePlus, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useHandedness } from "@/components/handedness";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { EMOJI_GROUPS, searchEmoji, type EmojiEntry } from "@/lib/emoji";
+import { readEmojiRecent, recordEmojiRecent } from "@/lib/emoji-recent";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
+import type { RecentStorage } from "@/lib/recent";
+
+/** Catalogue names for the recents row; a custom glyph is its own name. */
+const EMOJI_NAMES: Record<string, string> = Object.fromEntries(
+  EMOJI_GROUPS.flatMap((group) => group.entries.map((entry) => [entry.char, entry.name])),
+);
+
+function emojiStorage(): RecentStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    // A sandboxed frame can refuse the property itself; recents are optional.
+    return null;
+  }
+}
 
 interface IconPickerProps {
   label: string;
@@ -48,6 +64,7 @@ export function IconPicker({
   variant = "field",
 }: IconPickerProps) {
   const [open, setOpen] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
   const compact = useCompactWidth();
   const coarse = useCoarsePointer();
   const sheet = compact || coarse;
@@ -59,6 +76,12 @@ export function IconPicker({
   const hintId = hint ? `${fieldId}-hint` : undefined;
 
   function choose(next: string) {
+    if (next) {
+      const storage = emojiStorage();
+      if (storage) {
+        setRecent(recordEmojiRecent(storage, next));
+      }
+    }
     onChange(next);
     setOpen(false);
   }
@@ -68,6 +91,8 @@ export function IconPicker({
       // The sheet's own restore declines elements inside another sheet (the
       // capture trigger is inside one), so the trigger is captured here.
       returnFocusRef.current = triggerRef.current;
+      const storage = emojiStorage();
+      setRecent(storage ? readEmojiRecent(storage) : []);
     }
     setOpen(next);
   }
@@ -125,6 +150,7 @@ export function IconPicker({
       autoFocus={!sheet}
       layout={sheet ? "sheet" : "popover"}
       handedness={handedness}
+      recent={recent}
     />
   );
 
@@ -183,6 +209,8 @@ interface EmojiPanelProps {
   autoFocus: boolean;
   layout: "popover" | "sheet";
   handedness: "left" | "right";
+  /** Most recently chosen glyphs, newest first; empty hides the group. */
+  recent: string[];
 }
 
 /**
@@ -196,12 +224,54 @@ function EmojiPanel({
   autoFocus,
   layout,
   handedness,
+  recent,
 }: EmojiPanelProps) {
   const [query, setQuery] = useState("");
   const [custom, setCustom] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const results = searchEmoji(query, 64);
   const searching = query.trim() !== "";
   const sheet = layout === "sheet";
+
+  // The panel mounts on every open with an empty query, so this is the
+  // open-at-current scroll; a filtered grid stays where it started.
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) {
+      return;
+    }
+    // Recent repeats the current glyph; its catalogue copy is the one worth
+    // centring. A glyph none of the groups carry has only the recent cell.
+    const current =
+      scroll.querySelector<HTMLElement>(
+        'section:not([data-recent]) button[aria-pressed="true"]',
+      ) ?? scroll.querySelector<HTMLElement>('button[aria-pressed="true"]');
+    if (!current) {
+      return;
+    }
+    let frame = 0;
+    const centre = () => {
+      if (!scroll.isConnected) {
+        return;
+      }
+      const box = scroll.getBoundingClientRect();
+      const cell = current.getBoundingClientRect();
+      scroll.scrollTop += cell.top - box.top - (box.height - cell.height) / 2;
+    };
+    frame = requestAnimationFrame(centre);
+    // The web font can swap after the first frame and change the group
+    // heights under the target; one settled re-centre covers the first open.
+    void document.fonts?.ready.then(() => {
+      frame = requestAnimationFrame(centre);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  const recentEntries = recent.map((char) => ({
+    char,
+    name: EMOJI_NAMES[char] ?? char,
+    keywords: "",
+  }));
 
   const search = (
     <input
@@ -245,12 +315,26 @@ function EmojiPanel({
       <Grid entries={results} current={value} onChoose={onChoose} layout={layout} />
     )
   ) : (
-    EMOJI_GROUPS.map((group) => (
-      <section key={group.name} aria-label={group.name}>
-        <p className="label sticky top-0 bg-surface px-1 py-1">{group.name}</p>
-        <Grid entries={group.entries} current={value} onChoose={onChoose} layout={layout} />
-      </section>
-    ))
+    <>
+      {recentEntries.length > 0 ? (
+        <section aria-label="Recent" data-recent>
+          <p className="label sticky top-0 bg-surface px-1 py-1">Recent</p>
+          <Grid
+            entries={recentEntries}
+            current={value}
+            onChoose={onChoose}
+            layout={layout}
+            row
+          />
+        </section>
+      ) : null}
+      {EMOJI_GROUPS.map((group) => (
+        <section key={group.name} aria-label={group.name}>
+          <p className="label sticky top-0 bg-surface px-1 py-1">{group.name}</p>
+          <Grid entries={group.entries} current={value} onChoose={onChoose} layout={layout} />
+        </section>
+      ))}
+    </>
   );
 
   const footer = (
@@ -269,7 +353,7 @@ function EmojiPanel({
           }}
           placeholder="Any other emoji"
           aria-label="Any other emoji"
-          maxLength={8}
+          maxLength={32}
           className="h-9 min-w-0 flex-1 rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
         />
         <button
@@ -297,7 +381,9 @@ function EmojiPanel({
     return (
       <>
         {search}
-        <div className="mt-2 max-h-64 overflow-auto">{groups}</div>
+        <div ref={scrollRef} className="mt-2 max-h-64 overflow-auto">
+          {groups}
+        </div>
         <div className="mt-2 grid gap-2 border-t border-line pt-2">{footer}</div>
       </>
     );
@@ -319,7 +405,12 @@ function EmojiPanel({
           </>
         )}
       </div>
-      <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4">{groups}</div>
+      <div
+        ref={scrollRef}
+        className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4"
+      >
+        {groups}
+      </div>
       <div className="sheet-footer mt-2 grid shrink-0 gap-2 border-t border-line px-4 pt-2">
         {footer}
       </div>
@@ -332,20 +423,34 @@ function Grid({
   current,
   onChoose,
   layout,
+  row = false,
 }: {
   entries: readonly EmojiEntry[];
   current: string;
   onChoose: (char: string) => void;
   layout: "popover" | "sheet";
+  /** Recents: one line at a fixed 44 px, scrolling sideways instead of wrapping. */
+  row?: boolean;
 }) {
   const sheet = layout === "sheet";
+  const cellClass = row
+    ? sheet
+      ? "h-11 w-11 shrink-0"
+      : "h-9 w-9 shrink-0 pointer-coarse:h-11 pointer-coarse:w-11"
+    : sheet
+      ? "h-11 w-full min-w-11"
+      : "h-9 w-full min-w-8 pointer-coarse:h-11 pointer-coarse:min-w-11";
   return (
     <div
       className={cn(
-        "grid gap-0.5",
-        sheet
-          ? "grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))]"
-          : "grid-cols-8 pointer-coarse:grid-cols-7",
+        row
+          ? "flex gap-0 overflow-x-auto overscroll-x-contain"
+          : cn(
+              "grid gap-0.5",
+              sheet
+                ? "grid-cols-[repeat(auto-fill,minmax(2.75rem,1fr))]"
+                : "grid-cols-8 pointer-coarse:grid-cols-7",
+            ),
       )}
     >
       {entries.map((entry) => (
@@ -358,7 +463,7 @@ function Grid({
           onClick={() => onChoose(entry.char)}
           className={cn(
             "flex items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-pressed:bg-raised",
-            sheet ? "h-11 w-full min-w-11" : "h-9 w-full min-w-8 pointer-coarse:h-11 pointer-coarse:min-w-11",
+            cellClass,
           )}
         >
           {entry.char}
