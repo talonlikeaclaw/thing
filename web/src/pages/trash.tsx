@@ -431,7 +431,7 @@ function TrashList({
                               {typeNames.get(item.type) ?? item.type} · {item.type}
                             </span>
                           </div>
-                          <p className="mt-1 font-mono text-[10.5px] text-faint">
+                          <p className="mt-1 font-mono text-[11px] text-faint">
                             rev {item.rev} · trashed{" "}
                             {item.trashed_at ? formatDate(item.trashed_at, timeZone) : "unknown"}
                             {item.trashed_from ? (

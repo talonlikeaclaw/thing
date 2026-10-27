@@ -427,7 +427,7 @@ function InviteRow({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-baseline gap-2">
           <span className="label">{invite.role}</span>
-          <span className="font-mono text-[10.5px] text-faint">
+          <span className="font-mono text-[11px] text-faint">
             {invite.used_at
               ? `used ${formatDate(invite.used_at, timeZone)}`
               : `created ${formatDate(invite.created_at, timeZone)}`}

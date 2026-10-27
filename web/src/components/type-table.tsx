@@ -785,7 +785,9 @@ export function TypeTable({
 
   const recordCount = (
     <span className="label tnum mt-1 block max-[359px]:hidden">
-      {compact || shown === total ? `${total}` : `${shown} of ${total}`} records
+      {objects.isPending
+        ? "— records"
+        : `${compact || shown === total ? total : `${shown} of ${total}`} records`}
     </span>
   );
   const pageTitle = (
