@@ -35,7 +35,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
               ) : (
                 <Link
                   to={item.to}
-                  className="max-w-[46ch] truncate text-[12px] text-muted transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+                  className="inline-flex max-w-[46ch] items-center truncate text-[12px] text-muted transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
                   {item.label}
                 </Link>

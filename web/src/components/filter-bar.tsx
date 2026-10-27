@@ -122,7 +122,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
               >
                 <select
                   aria-label="Filter column"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={condition.property}
                   onChange={(event) => {
                     const next = columnChoice(columns, event.target.value);
@@ -139,7 +139,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                 </select>
                 <select
                   aria-label="Filter condition"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={op}
                   onChange={(event) =>
                     replace(index, withConditionOp(condition, event.target.value as CondOp))
@@ -224,7 +224,7 @@ function ConditionValue({
     return (
       <select
         aria-label="Filter value"
-        className="h-8 min-w-[8rem] rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+        className="h-8 min-w-[8rem] rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={typeof condition.value === "string" ? condition.value : ""}
         onChange={(event) => onChange(event.target.value || null)}
       >
@@ -241,7 +241,7 @@ function ConditionValue({
     return (
       <select
         aria-label="Filter value"
-        className="h-8 min-w-[8rem] rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+        className="h-8 min-w-[8rem] rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={typeof condition.value === "string" ? condition.value : ""}
         onChange={(event) => onChange(event.target.value || null)}
       >
@@ -258,7 +258,7 @@ function ConditionValue({
     return (
       <select
         aria-label="Filter value"
-        className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+        className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={typeof condition.value === "boolean" ? String(condition.value) : ""}
         onChange={(event) =>
           onChange(event.target.value === "" ? null : event.target.value === "true")
@@ -361,7 +361,7 @@ function RelationValue({
   return (
     <select
       aria-label="Filter value"
-      className="h-8 min-w-[9rem] flex-1 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11"
+      className="h-8 min-w-[9rem] flex-1 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
       value={typeof value === "string" ? value : ""}
       onChange={(event) => onChange(event.target.value || null)}
     >

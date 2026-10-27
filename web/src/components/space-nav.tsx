@@ -22,6 +22,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useAgenda, useMe, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
+import { useConnection } from "@/components/connection-context";
 import { useHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
 import { useQuickCapture } from "@/components/quick-capture";
@@ -69,6 +70,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const capture = useQuickCapture();
   const openPalette = usePalette();
   const { handedness } = useHandedness();
+  const connection = useConnection();
   const list: SpaceSummary[] = spaces.data ?? [];
   const overdue = agenda.data?.overdue.length ?? 0;
   const userId = me.data?.id;
@@ -152,6 +154,10 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
 
   const close = () => setMobileOpen(false);
 
+  // The chevron belongs to the name, not to the row's far edge: it shows the
+  // name opens a sheet without detaching from it.
+  const spaceChevron = <ChevronUp aria-hidden size={16} className="shrink-0 text-muted" />;
+
   const spaceLabel = (
     <span
       key="label"
@@ -162,21 +168,22 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
     >
       <ThingIcon icon={space.data?.icon} size="md" />
       <span className={cn("min-w-0", handedness === "left" ? "text-right" : "flex-1")}>
-        <span className="block truncate text-[15px] font-medium">
-          {space.data?.name ?? "This space"}
+        <span
+          className={cn(
+            "flex min-w-0 items-center gap-1",
+            handedness === "left" && "flex-row-reverse",
+          )}
+        >
+          <span className="truncate text-[15px] font-medium">
+            {space.data?.name ?? "This space"}
+          </span>
+          {spaceChevron}
         </span>
         <span className="label">{role}</span>
       </span>
     </span>
   );
 
-  const spaceChevron = (
-    <ChevronUp key="chevron" aria-hidden size={16} className="shrink-0 text-muted" />
-  );
-
-  // The chevron stays on the inner edge, beside Capture/Search, so the title
-  // and icon keep the outer corner: trailing edge in right mode, leading in
-  // left mode.
   const spaceTrigger = (
     <Dialog.Trigger
       key="space"
@@ -186,17 +193,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         handedness === "left" ? "pl-1" : "pr-1",
       )}
     >
-      {handedness === "left" ? (
-        <>
-          {spaceChevron}
-          {spaceLabel}
-        </>
-      ) : (
-        <>
-          {spaceLabel}
-          {spaceChevron}
-        </>
-      )}
+      {spaceLabel}
     </Dialog.Trigger>
   );
 
@@ -217,6 +214,20 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   // screen corner the thumb reaches.
   const barActions = (
     <span key="actions" className="flex shrink-0 items-center gap-1">
+      {/* The header's connection line is hidden below `sm`; the bar keeps the
+          self-hoster's only live signal as a dot. */}
+      {connection === "live" ? null : (
+        <span
+          role="status"
+          title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
+          className="inline-flex w-3 shrink-0 items-center justify-center"
+        >
+          <span aria-hidden className="h-2 w-2 rounded-full bg-warning" />
+          <span className="sr-only">
+            {connection === "connecting" ? "Connecting…" : "Offline, reconnecting…"}
+          </span>
+        </span>
+      )}
       {handedness === "left" ? (
         <>
           {searchAction}
@@ -482,7 +493,7 @@ function SpaceSwitcher({
           </option>
         ))}
       </select>
-      <p className="mt-1 font-mono text-[10px] text-faint">{role}</p>
+      <p className="mt-1 font-mono text-[11px] text-faint">{role}</p>
     </div>
   );
 }
@@ -632,7 +643,7 @@ function UtilityLinks({
                 </span>
                 {key === "schedule" && overdue > 0 ? (
                   <span
-                    className="rounded-full border border-danger px-1.5 text-[10px] tnum text-danger"
+                    className="rounded-full border border-danger px-1.5 text-[11px] tnum text-danger"
                     title={`${overdue} overdue`}
                   >
                     {overdue}

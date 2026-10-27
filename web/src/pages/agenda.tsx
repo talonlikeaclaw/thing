@@ -78,7 +78,7 @@ export function AgendaPage() {
             ))}
           </div>
         </div>
-        <p className="mt-2 font-mono text-[11px] text-faint">
+        <p className="mt-2 font-mono text-[12px] text-faint">
           {schedule.timezone} · today {schedule.today}
         </p>
 
@@ -118,7 +118,7 @@ export function AgendaPage() {
               canEdit={canEdit}
             />
             {schedule.later_count > 0 ? (
-              <p className="mt-4 font-mono text-[11px] text-faint">
+              <p className="mt-4 font-mono text-[12px] text-faint">
                 {schedule.later_count} more due later
               </p>
             ) : null}
@@ -200,7 +200,7 @@ function AgendaEntry({
           >
             {row.title}
           </Link>
-          <span className="font-mono text-[10px] text-faint">
+          <span className="font-mono text-[12px] text-faint">
             {row.type_icon ? (
               <span aria-hidden className="mr-1">
                 {row.type_icon}
@@ -209,7 +209,7 @@ function AgendaEntry({
             {row.type_name} · {row.type}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[11px]">
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[12px]">
           <span className="tnum text-muted">{row.due_date}</span>
           {phrase ? <span className={cn("tnum", dueTone(row.status))}>{phrase}</span> : null}
           {row.recurrence ? <span className="text-faint">{row.recurrence}</span> : null}

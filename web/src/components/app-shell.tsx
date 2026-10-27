@@ -19,6 +19,7 @@ import {
 
 import { useMe } from "@/api/queries";
 import { CommandPalette } from "@/components/command-palette";
+import { ConnectionProvider } from "@/components/connection-context";
 import { HandednessProvider } from "@/components/handedness";
 import { PaletteProvider } from "@/components/palette-context";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
@@ -261,6 +262,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
 
   return (
     <PaletteProvider open={openPalette}>
+      <ConnectionProvider state={connection}>
         <div className="flex min-h-dvh flex-col">
           <ScrollRestoration />
           <a
@@ -377,7 +379,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                 >
                   Changelog
                 </Link>
-                <span className="font-mono text-[11px] tnum text-faint">v{__APP_VERSION__}</span>
+                <span className="font-mono text-[12px] tnum text-faint">v{__APP_VERSION__}</span>
               </div>
             </div>
           </footer>
@@ -404,6 +406,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
             shortcuts={activeShortcuts}
           />
         </div>
+      </ConnectionProvider>
     </PaletteProvider>
   );
 }

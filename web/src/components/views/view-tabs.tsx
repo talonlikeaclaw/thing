@@ -217,7 +217,7 @@ export function ViewTabs({
                 <Icon aria-hidden size={14} className="shrink-0" />
                 <span className="max-w-[14rem] truncate">{view.name}</span>
                 {isDefault ? (
-                  <span className="font-mono text-[9px] tracking-[0.09em] text-faint">
+                  <span className="font-mono text-[11px] tracking-[0.09em] text-faint">
                     DEFAULT
                   </span>
                 ) : null}
@@ -331,7 +331,7 @@ export function ViewTabs({
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="submit"
-              className="min-h-9 px-3 text-[13px]"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
               disabled={invalid || create.isPending}
             >
               {create.isPending ? "Creating…" : "Create view"}
@@ -339,7 +339,7 @@ export function ViewTabs({
             <Button
               type="button"
               variant="ghost"
-              className="min-h-9 px-3 text-[13px]"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
               onClick={() => setOpen(false)}
             >
               Cancel

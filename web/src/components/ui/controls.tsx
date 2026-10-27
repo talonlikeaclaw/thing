@@ -41,7 +41,7 @@ export function Keycap({ children, className }: { children: ReactNode; className
   return (
     <kbd
       className={cn(
-        "rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint",
+        "rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[11px] text-faint",
         className,
       )}
     >

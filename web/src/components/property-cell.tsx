@@ -89,7 +89,7 @@ export function PropertyCell({
           onCancel={finish}
         />
         {writing ? (
-          <span role="status" className="text-[10px] text-muted">
+          <span role="status" className="text-[11px] text-muted">
             Saving…
           </span>
         ) : null}
@@ -198,7 +198,7 @@ export function TitleCell({
           onCancel={finish}
         />
         {writing ? (
-          <span role="status" className="text-[10px] text-muted">
+          <span role="status" className="text-[11px] text-muted">
             Saving…
           </span>
         ) : null}

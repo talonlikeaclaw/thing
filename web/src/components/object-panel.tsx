@@ -562,7 +562,7 @@ export function ObjectPanel({
             ) : null}
             {property.name}
           </span>
-          <span className="font-mono text-[10px] text-faint max-sm:text-[11px]">
+          <span className="font-mono text-[11px] text-faint">
             <span className="max-sm:hidden">{key}</span>
             {member?.required ? (
               <>
@@ -658,7 +658,7 @@ export function ObjectPanel({
         {canEdit ? (
           <input
             aria-label="Title"
-            className="mt-1 block w-full min-w-0 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint"
+            className="mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint pointer-coarse:min-h-11"
             maxLength={200}
             disabled={update.isPending}
             value={draft.title}

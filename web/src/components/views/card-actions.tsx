@@ -18,6 +18,12 @@ interface CardActionsProps {
   onComplete: () => void;
   onDuplicate: () => void;
   onTrash: () => void;
+  /**
+   * A board card gives a phone one kebab instead of two controls: Complete
+   * moves into the menu on a coarse pointer and the card stops reserving the
+   * gutter beside it.
+   */
+  menuCompleteOnCoarse?: boolean;
 }
 
 const button =
@@ -48,6 +54,7 @@ export function CardActions({
   onComplete,
   onDuplicate,
   onTrash,
+  menuCompleteOnCoarse = false,
 }: CardActionsProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -168,7 +175,7 @@ export function CardActions({
           aria-label={`${verb} ${row.title}`}
           title={verb}
           disabled={completing || pending}
-          className={button}
+          className={cn(button, menuCompleteOnCoarse && "pointer-coarse:hidden")}
           onClick={onComplete}
         >
           <Check aria-hidden size={14} />
@@ -210,6 +217,20 @@ export function CardActions({
               >
                 Open
               </Link>
+              {showComplete && menuCompleteOnCoarse ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="hidden w-full rounded-[3px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:block pointer-coarse:min-h-11"
+                  disabled={completing || pending}
+                  onClick={() => {
+                    setOpen(false);
+                    onComplete();
+                  }}
+                >
+                  {verb}
+                </button>
+              ) : null}
               <button
                 type="button"
                 role="menuitem"

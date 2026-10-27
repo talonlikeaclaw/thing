@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import {
   createContext,
   use,
@@ -163,6 +163,8 @@ function QuickCaptureDialog({
   const [error, setError] = useState<string | null>(null);
   /** Bumped after Create stays open; focus returns once the button re-enables. */
   const [refocus, setRefocus] = useState(0);
+  /** The optional fields are a disclosure: a phone capture is the title and the required rows. */
+  const [showOptional, setShowOptional] = useState(false);
   /** Remounts every property editor when the draft is cleared, so no stale text survives. */
   const [epoch, setEpoch] = useState(0);
   /** The field a refusal named; focused once the pending buttons re-enable. */
@@ -195,6 +197,7 @@ function QuickCaptureDialog({
     setEpoch((current) => current + 1);
     setProblemField(null);
     setSelected(null);
+    setShowOptional(false);
   }, [open, spaceId]);
 
   useEffect(() => {
@@ -259,6 +262,7 @@ function QuickCaptureDialog({
     setInvalid(new Set());
     setEpoch((current) => current + 1);
     setError(null);
+    setShowOptional(false);
   }
 
   function focusProblem(field: string | undefined) {
@@ -342,11 +346,15 @@ function QuickCaptureDialog({
     missing.length > 0 ||
     invalid.size > 0;
   const { handedness } = useHandedness();
+  // An optional field that went invalid while the disclosure was open must not
+  // become invisible: the Create guard needs it on screen.
+  const optionalInvalid = optional.some((property) => invalid.has(property.key));
+  const otherOpen = showOptional || optionalInvalid;
   const captureTitle = (
     <div>
       <Dialog.Title className="text-[17px] font-medium">Quick capture</Dialog.Title>
       <Dialog.Description className="mt-1 text-[13px] text-muted max-sm:sr-only">
-        Required fields first, then every editable field in a compact grid.
+        Required fields first; the type's other fields sit behind Other fields.
       </Dialog.Description>
     </div>
   );
@@ -532,7 +540,7 @@ function QuickCaptureDialog({
                         >
                           <div className="flex items-baseline justify-between gap-3">
                             <span className="label">{property.name}</span>
-                            <span className="font-mono text-[10px] text-faint">
+                            <span className="font-mono text-[11px] text-faint">
                               {property.key} · required
                             </span>
                           </div>
@@ -566,16 +574,36 @@ function QuickCaptureDialog({
                       {optional.length > 0 ? (
                         <section
                           aria-labelledby="capture-other-fields"
-                          className="grid gap-3 border-t rule pt-4"
+                          className="border-t rule pt-4"
                         >
-                          <div className="flex items-baseline justify-between gap-2">
-                            <h3 id="capture-other-fields" className="label">
+                          <button
+                            type="button"
+                            aria-expanded={otherOpen}
+                            aria-controls="capture-other-fields-body"
+                            className="flex min-h-9 w-full items-center justify-between gap-2 rounded-[3px] text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
+                            onClick={() => setShowOptional((current) => !current)}
+                          >
+                            <span id="capture-other-fields" className="label">
                               Other fields
-                            </h3>
-                            <span className="label tnum">{optional.length}</span>
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {optional.map((property) => (
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <span className="label tnum">{optional.length}</span>
+                              <ChevronDown
+                                aria-hidden
+                                size={14}
+                                className={cn(
+                                  "shrink-0 text-faint transition-transform",
+                                  otherOpen && "rotate-180",
+                                )}
+                              />
+                            </span>
+                          </button>
+                          {otherOpen ? (
+                            <div
+                              id="capture-other-fields-body"
+                              className="mt-3 grid gap-3 sm:grid-cols-2"
+                            >
+                              {optional.map((property) => (
                               <div
                                 key={`${property.key}:${epoch}`}
                                 id={`capture-field-${property.key}`}
@@ -588,7 +616,7 @@ function QuickCaptureDialog({
                                   >
                                     {property.name}
                                   </span>
-                                  <span className="shrink-0 font-mono text-[10px] text-faint">
+                                  <span className="shrink-0 font-mono text-[11px] text-faint">
                                     {property.key}
                                   </span>
                                 </span>
@@ -622,8 +650,9 @@ function QuickCaptureDialog({
                                   }
                                 />
                               </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+                          ) : null}
                         </section>
                       ) : null}
                     </>

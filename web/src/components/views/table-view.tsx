@@ -437,7 +437,7 @@ export function TableView({
       <div className="mt-3 flex items-center gap-3">
         {railBefore ? selectToggle : null}
         <p
-          className="min-w-0 flex-1 truncate text-[11px] text-muted"
+          className="min-w-0 flex-1 truncate text-[12px] text-muted"
           title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
         >
           {selecting ? "Tap the boxes to select rows" : "Swipe for columns · ⋯ for actions"}
@@ -506,7 +506,7 @@ export function TableView({
             <th
               scope="col"
               className={cn(
-                "relative sticky z-30 border-r rule py-2 pr-3 font-medium",
+                "relative sticky z-30 border-r rule py-2 pr-3 font-medium pointer-coarse:py-0",
                 compact ? "bg-ground" : "bg-surface",
               )}
               style={{ left: pinnedOffset }}
@@ -539,7 +539,7 @@ export function TableView({
                 <th
                   key={key}
                   scope="col"
-                  className="label relative py-2 pr-3 font-medium"
+                  className="label relative py-2 pr-3 font-medium pointer-coarse:py-0"
                   {...sortHeader(key)}
                 >
                   <HeaderSort
@@ -1000,7 +1000,7 @@ function HeaderSort({
   return (
     <button
       type="button"
-      className="flex w-full min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink"
+      className="flex w-full min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
       title={`${named} — ${state}; activate to ${next}`}
       aria-label={`Sort by ${named}, ${state}, activate to ${next}`}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
@@ -1020,7 +1020,7 @@ function HeaderSort({
         </span>
       </span>
       {showKey ? (
-        <span className="w-full truncate font-mono text-[9px] text-faint normal-case tracking-normal">
+        <span className="w-full truncate font-mono text-[10px] text-faint normal-case tracking-normal">
           {columnKey}
         </span>
       ) : null}

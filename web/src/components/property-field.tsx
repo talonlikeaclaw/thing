@@ -403,7 +403,7 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
                       />
                       <span className="truncate">{option.name}</span>
                     </span>
-                    <span className="font-mono text-[10px] text-faint">{option.key}</span>
+                    <span className="font-mono text-[11px] text-faint">{option.key}</span>
                   </button>
                 ))}
                 {query.trim() && !exact ? (
@@ -567,7 +567,7 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
                   {picked ? <Check aria-hidden size={12} /> : null}
                   <span className="truncate">{choice.title}</span>
                 </span>
-                <span className="font-mono text-[10px] text-faint">{choice.type}</span>
+                <span className="font-mono text-[11px] text-faint">{choice.type}</span>
               </button>
             );
           })

@@ -107,7 +107,7 @@ export function ViewSettings({
         <Button
           type="button"
           variant="ghost"
-          className="min-h-10 px-3 text-[13px]"
+          className="min-h-10 px-3 text-[13px] pointer-coarse:min-h-11"
           disabled={!nameDirty || update.isPending}
           onClick={rename}
         >
@@ -122,7 +122,7 @@ export function ViewSettings({
           <Button
             type="button"
             variant="ghost"
-            className="min-h-9 px-3 text-[13px]"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
             disabled={makeDefault.isPending}
             onClick={() =>
               makeDefault.mutate(view.key, {
@@ -245,7 +245,7 @@ export function ViewSettings({
             <Button
               type="button"
               variant="danger"
-              className="min-h-9 px-3 text-[13px]"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
               disabled={remove.isPending}
               onClick={destroy}
             >
@@ -254,7 +254,7 @@ export function ViewSettings({
             <Button
               type="button"
               variant="ghost"
-              className="min-h-9 px-3 text-[13px]"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
               onClick={() => setConfirming(false)}
             >
               Keep view
@@ -264,7 +264,7 @@ export function ViewSettings({
           <Button
             type="button"
             variant="danger"
-            className="min-h-9 px-3 text-[13px]"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
             onClick={() => setConfirming(true)}
           >
             Delete view

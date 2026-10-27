@@ -308,7 +308,7 @@ function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyI
                   onClick={() => onCommit(option.key, option.name)}
                 >
                   <span>{option.name}</span>
-                  <span className="font-mono text-[10px] text-faint">{option.key}</span>
+                  <span className="font-mono text-[11px] text-faint">{option.key}</span>
                 </button>
               ))}
               {query.trim() && !exact ? (
@@ -450,7 +450,7 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
                 ) : null}
                 <span>{choice.title}</span>
               </span>
-              <span className="font-mono text-[10px] text-faint">{choice.type}</span>
+              <span className="font-mono text-[11px] text-faint">{choice.type}</span>
             </button>
           ))
         )}

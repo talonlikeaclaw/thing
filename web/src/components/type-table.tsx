@@ -528,7 +528,7 @@ export function TypeTable({
       </div>
       <Button
         type="submit"
-        className="min-h-9 px-3 text-[13px]"
+        className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
         disabled={!saveAsName.trim() || createView.isPending}
       >
         {createView.isPending ? "Creating…" : "Create view"}
@@ -536,7 +536,7 @@ export function TypeTable({
       <Button
         type="button"
         variant="ghost"
-        className="min-h-9 px-3 text-[13px]"
+        className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
         onClick={() => {
           if (compact) {
             closeViewSheet();

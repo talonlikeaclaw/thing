@@ -100,7 +100,7 @@ export function HistoryPanel({
                     <span className="min-w-0">
                       <span className="flex items-baseline justify-between gap-2">
                         <span className="text-[13px]">{ACTION_LABELS[revision.action]}</span>
-                        <span className="font-mono text-[10px] text-faint">
+                        <span className="font-mono text-[11px] text-faint">
                           {formatMoment(revision.at, timeZone)}
                         </span>
                       </span>
@@ -119,7 +119,7 @@ export function HistoryPanel({
               <span className="label">
                 Revision {current.rev} · {ACTION_LABELS[current.action]}
               </span>
-              <span className="font-mono text-[10px] text-faint">
+              <span className="font-mono text-[11px] text-faint">
                 {formatMoment(current.at, timeZone)} · {memberName(current.by)}
               </span>
             </div>
@@ -147,7 +147,7 @@ export function HistoryPanel({
                             ? "Icon"
                             : (property?.name ?? row.key)}
                       </span>
-                      <span className="font-mono text-[10px] text-faint">{row.key}</span>
+                      <span className="font-mono text-[11px] text-faint">{row.key}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <DiffValue

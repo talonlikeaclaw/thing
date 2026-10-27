@@ -110,7 +110,7 @@ export function IconPicker({
           <Popover.Positioner sideOffset={4} className="z-50">
             <Popover.Popup
               aria-label="Emoji picker"
-              className="w-[20rem] max-w-[calc(100vw-2rem)] rounded-field border border-line bg-surface p-2 shadow-none"
+              className="w-[20rem] max-w-[calc(100vw-2rem)] rounded-field border border-line bg-surface p-2 shadow-none pointer-coarse:w-[min(24rem,calc(100vw-1rem))]"
             >
               <input
                 autoFocus
@@ -124,7 +124,7 @@ export function IconPicker({
                 }}
                 placeholder="Search emoji"
                 aria-label="Search emoji"
-                className="h-9 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent"
+                className="h-9 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
               />
               <div className="mt-2 max-h-64 overflow-auto">
                 {searching ? (
@@ -160,13 +160,13 @@ export function IconPicker({
                     placeholder="Any other emoji"
                     aria-label="Any other emoji"
                     maxLength={8}
-                    className="h-9 min-w-0 flex-1 rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent"
+                    className="h-9 min-w-0 flex-1 rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   />
                   <button
                     type="button"
                     disabled={!custom.trim()}
                     onClick={() => choose(custom.trim())}
-                    className="h-9 rounded-[4px] border border-line px-3 text-[13px] transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-9 rounded-[4px] border border-line px-3 text-[13px] transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
                   >
                     Use
                   </button>
@@ -174,7 +174,7 @@ export function IconPicker({
                 <button
                   type="button"
                   onClick={() => choose("")}
-                  className="flex min-h-8 items-center gap-1.5 px-1 text-[13px] text-muted transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-8 items-center gap-1.5 px-1 text-[13px] text-muted transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11"
                   disabled={!value}
                 >
                   <X aria-hidden size={14} />
@@ -204,7 +204,7 @@ function Grid({
   onChoose: (char: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-8 gap-0.5">
+    <div className="grid grid-cols-8 gap-0.5 pointer-coarse:grid-cols-7">
       {entries.map((entry) => (
         <button
           key={`${entry.name}-${entry.char}`}
@@ -213,7 +213,7 @@ function Grid({
           aria-label={entry.name}
           aria-pressed={entry.char === current}
           onClick={() => onChoose(entry.char)}
-          className="flex h-9 w-full items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-pressed:bg-raised"
+          className="flex h-9 w-full min-w-8 items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-pressed:bg-raised pointer-coarse:h-11 pointer-coarse:min-w-11"
         >
           {entry.char}
         </button>

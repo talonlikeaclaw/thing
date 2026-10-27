@@ -18,7 +18,7 @@ interface OptionEditorProps {
 }
 
 const optionFieldStyles =
-  "h-9 min-w-0 rounded-field border border-line-interactive bg-ground px-2 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11";
+  "h-9 min-w-0 rounded-field border border-line-interactive bg-ground px-2 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 /** Options in display order, with inline creation; nothing is saved until Save. */
 export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEditorProps) {
@@ -85,7 +85,7 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
                 onChange={(event) => rename(draft.id, event.target.value)}
               />
               {draft.key ? (
-                <span className="font-mono text-[10px] text-faint">{draft.key}</span>
+                <span className="font-mono text-[11px] text-faint">{draft.key}</span>
               ) : (
                 <span className="label text-faint">new</span>
               )}
@@ -143,7 +143,7 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
           <Button
             type="button"
             variant="ghost"
-            className="min-h-9 px-3 text-[13px]"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
             disabled={!name.trim()}
             onClick={add}
           >

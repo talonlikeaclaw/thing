@@ -156,7 +156,7 @@ export function RecurrenceInput({
       ) : null}
 
       {showHint ? (
-        <p className="max-w-[26rem] text-[11px] leading-snug text-faint">
+        <p className="max-w-[26rem] text-[12px] leading-snug text-faint">
           Completed late? The next date counts from today. Early completion keeps the planned
           date.
         </p>

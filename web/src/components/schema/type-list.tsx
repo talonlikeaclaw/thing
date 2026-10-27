@@ -136,12 +136,12 @@ export function TypeList({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="min-h-9 px-3 text-[13px]"
+                  className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                   onClick={() => setShowCreate(false)}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={create.isPending} className="min-h-9 px-3 text-[13px]">
+                <Button type="submit" disabled={create.isPending} className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11">
                   {create.isPending ? "Creating…" : "Create type"}
                 </Button>
               </ThumbRow>
@@ -151,7 +151,7 @@ export function TypeList({
               <Button
                 type="button"
                 variant="ghost"
-                className="min-h-9 px-3 text-[13px]"
+                className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                 onClick={() => setShowCreate(true)}
               >
                 New type

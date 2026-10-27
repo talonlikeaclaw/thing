@@ -351,7 +351,7 @@ export function CommandPalette({
                 onKeyDown={onInputKeyDown}
                 className="h-14 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint pointer-coarse:text-base"
               />
-              <kbd className="hidden shrink-0 rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[10px] text-faint sm:block">
+              <kbd className="hidden shrink-0 rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[11px] text-faint sm:block">
                 Esc
               </kbd>
               {handedness === "right" ? close : null}

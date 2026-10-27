@@ -427,7 +427,7 @@ function TrashList({
                               <ThingIcon icon={item.icon} size="sm" />
                             ) : null}
                             <span className="text-[15px] font-medium">{item.title}</span>
-                            <span className="font-mono text-[10px] text-faint">
+                            <span className="font-mono text-[11px] text-faint">
                               {typeNames.get(item.type) ?? item.type} · {item.type}
                             </span>
                           </div>
