@@ -17,7 +17,7 @@ import {
   useMatch,
 } from "react-router";
 
-import { useMe } from "@/api/queries";
+import { useMe, useObject } from "@/api/queries";
 import { CommandPalette } from "@/components/command-palette";
 import { ConnectionProvider } from "@/components/connection-context";
 import { HandednessProvider } from "@/components/handedness";
@@ -106,9 +106,16 @@ export function AppShell() {
   const spaceHome = useMatch("/s/:spaceId");
   const spaceChild = useMatch("/s/:spaceId/*");
   const spaceId = spaceHome?.params.spaceId ?? spaceChild?.params.spaceId;
+  // Capture follows the page: a type route knows its key, a record route reads
+  // the record's type from the same query the page uses, and the space home has
+  // no type to offer. The provider validates the key against this space's types.
+  const typeRoute = useMatch("/s/:spaceId/t/:typeKey");
+  const objectRoute = useMatch("/s/:spaceId/o/:objectId");
+  const object = useObject(spaceId, objectRoute?.params.objectId);
+  const currentType = typeRoute?.params.typeKey ?? object.data?.type;
   return (
     <HandednessRoot>
-      <QuickCaptureProvider spaceId={spaceId}>
+      <QuickCaptureProvider spaceId={spaceId} currentType={currentType}>
         <AppFrame spaceId={spaceId} />
       </QuickCaptureProvider>
     </HandednessRoot>

@@ -65,9 +65,12 @@ const control =
  */
 export function QuickCaptureProvider({
   spaceId,
+  currentType,
   children,
 }: {
   spaceId: string | undefined;
+  /** The type the current route belongs to, used when the opener gives no hint. */
+  currentType?: string | undefined;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -93,7 +96,9 @@ export function QuickCaptureProvider({
         if (!spaceId) {
           return;
         }
-        setRequestedType(typeKey);
+        // An explicit hint (the type page's New record) wins; otherwise the
+        // route's own type is the draft, so `C` on Plants captures a Plant.
+        setRequestedType(typeKey ?? currentType);
         returnFocusRef.current = sheetReturnFocus();
         setOpen(true);
         focusSheetField(titleRef.current);
@@ -102,7 +107,7 @@ export function QuickCaptureProvider({
       isOpen: open,
       available,
     }),
-    [spaceId, open, available],
+    [spaceId, currentType, open, available],
   );
 
   return (
@@ -258,10 +263,12 @@ function QuickCaptureDialog({
 
   function chooseType(next: string) {
     setSelected(next === "" ? null : next);
-    setValues({});
+    // Values survive a switch: a property both types carry keeps its entry, and
+    // `submit` writes only the selected type's keys. A switch back restores it.
     setInvalid(new Set());
     setEpoch((current) => current + 1);
     setError(null);
+    setProblemField(null);
     setShowOptional(false);
   }
 
