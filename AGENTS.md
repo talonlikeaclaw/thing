@@ -115,8 +115,9 @@ table width model; phone table; type page header; record page; touch and text sw
 and the device pass) are landed and CI-green.** M1 is deployed; M2–M4.2 are not deployed. The
 physical iPhone gate in checkpoint 2 of M4.2 is still open — see
 [`docs/plan/m4.2-mobile-craft.md`](docs/plan/m4.2-mobile-craft.md) §8.
-Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
-stop for review. If the plan is silent on something that matters, ask rather than picking silently.
+Work proceeds one numbered checkpoint at a time — finish it, report what was built, verified and how
+to test it by hand (see [Delivery, Git and Manual QA](#delivery-git-and-manual-qa)), then stop for
+review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
 
 The post-M1 roadmap was revised on 2026-10-21: **M2** landed scheduling and recurrence with in-app
@@ -422,6 +423,21 @@ When the UI changes, update them; never let them describe a different world.
   complete backup: the space content is only markdown.
 - Keep `tokio`, `axum`, `rusqlite` and `notify` out of `thing-core`; they belong in the shell or
   the store boundary.
+
+## Delivery, Git and Manual QA
+
+- **The user commits; the agent never does.** Do not run `git add`, `git commit`, `git commit
+  --amend`, `git tag`, `git push`, `git stash`, `git reset`, `git checkout -- .` or any other
+  command that stages, commits or rewrites history. Leave the checkpoint's changes uncommitted in
+  the working tree and end the report with one **Proposed commit** line; the user reviews, stages
+  and commits. Read-only git (`git status`, `git diff`, `git log`) is fine.
+- **Every checkpoint ends with a manual test guide.** The report carries a **Test it** section: a
+  numbered walkthrough the user can follow without reading the diff. Each step names the exact
+  route or URL, the viewport or device mode, the tap/keystroke, and the observable result that
+  proves the behavior. Cover the checkpoint's new paths plus one regression path it could have
+  broken. Say plainly which check this machine cannot perform (a physical device, a real
+  keyboard) and what evidence stands in for it; never describe emulation as a device pass.
+  Keep the automated gate out of the guide — that was already reported under **Verified**.
 
 ## Testing & QA
 

@@ -227,10 +227,15 @@ For each step, in order:
      Anything the plan did fix is not repeated.
    - **Verified** — the exact commands run and their observed output, including the failure cases that
      were exercised. Never claim a check that was not run.
+   - **Test it** — a numbered manual walkthrough of the checkpoint's new behavior for the user:
+     route/URL, viewport or device, the action, and the expected result; plus the one check this
+     machine cannot run, if any. Automated gates stay under **Verified**.
    - **Inspect** — the one or two files worth reading by hand, and the fastest way to see the behavior
      in a browser, a `curl`, or a file on disk.
    - **Proposed commit** — a single imperative one-line message covering the step.
-4. Wait. Do not commit — the user commits manually. Do not begin the next step until told to.
+4. Wait. Do not commit — the user commits manually. No `git add`, `git commit`, `git tag`, `git push`
+   or history rewrite of any kind; only the user stages and commits. Do not begin the next step until
+   told to.
 
 A step whose verification fails is fixed inside that step; do not carry a failure forward and do not
 start the next step to "come back to it". If a step turns out to hide work for more than one sitting,

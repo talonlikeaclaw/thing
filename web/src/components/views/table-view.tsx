@@ -15,7 +15,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -34,6 +33,7 @@ import { useHandedness } from "@/components/handedness";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
+import { useCoarsePointer } from "@/lib/media";
 import { completeLabel } from "@/lib/schedule";
 import {
   dragMoved,
@@ -53,20 +53,6 @@ const COMPACT_VIEWER_WIDTH_COARSE = 56;
 const SELECT_WIDTH = 44;
 /** The trailing add-property header is a control, not a data column. */
 const ADD_PROPERTY_WIDTH = 132;
-
-function subscribeCoarse(onChange: () => void) {
-  const media = window.matchMedia("(pointer: coarse)");
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function coarsePointer() {
-  return window.matchMedia("(pointer: coarse)").matches;
-}
-
-function useCoarsePointer() {
-  return useSyncExternalStore(subscribeCoarse, coarsePointer, () => false);
-}
 
 interface Cell {
   row: number;

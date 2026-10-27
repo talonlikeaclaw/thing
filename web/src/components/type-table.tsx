@@ -18,7 +18,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -84,6 +83,7 @@ import {
   TABLE_VIEWER_SHORTCUTS,
   type ShortcutDescriptor,
 } from "@/lib/hotkeys";
+import { useCompactWidth } from "@/lib/media";
 import { clampPage, PAGE_SIZE, pageCount, pageFromParam, pageRange } from "@/lib/paging";
 import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
@@ -98,22 +98,6 @@ import {
 
 /** The layout views ask for the server maximum; only the table pages. */
 const LAYOUT_LIMIT = 500;
-/** The phone header: one toolbar row, a View sheet and a compact pager. */
-const COMPACT_QUERY = "(max-width: 639px)";
-
-function subscribeCompact(onChange: () => void) {
-  const media = window.matchMedia(COMPACT_QUERY);
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-
-function useCompactWidth() {
-  return useSyncExternalStore(
-    subscribeCompact,
-    () => window.matchMedia(COMPACT_QUERY).matches,
-    () => false,
-  );
-}
 
 const NO_SHORTCUTS: ShortcutDescriptor[] = [];
 const SQUARE_BUTTON =
