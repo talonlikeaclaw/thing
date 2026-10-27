@@ -43,6 +43,11 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 - **Record icons.** Give a record an emoji from its header or at capture; it then appears in the
   table's title cell, home recents, the command palette, board cards, gallery tiles and Trash. A
   record without one keeps its previous layout.
+- **Made for a phone.** Search, capture and every menu rise from the bottom and stay above the
+  on-screen keyboard; the page uses the whole screen on a notched phone. Column widths are literal,
+  so a drag moves the column under the finger, and phones hide the resize handles entirely. A phone
+  table pins the record's name while it swipes sideways, and every control is at least 44 × 44 with
+  fields at 16 px so focusing one does not zoom the page.
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.

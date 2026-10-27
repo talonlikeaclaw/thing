@@ -17,9 +17,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.4.2",
     title: "Mobile craft",
-    upcoming: true,
     highlights: [
       "Every sheet — search, capture, shortcuts, menus — now opens above the on-screen keyboard instead of behind it.",
       "Search from the phone bar puts the caret in the field on the first tap.",

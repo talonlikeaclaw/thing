@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-23T00:00:00Z",
+  "generatedAt": "2026-10-26T00:00:00Z",
   "title": "Design System: thing",
   "extensions": {
     "colorMeta": {
@@ -35,8 +35,10 @@
       "quickCapture": "Two-mode sheet, 34rem wide; type, title, required properties only; Create keeps the sheet, Create and open navigates; refusals stay inline with Retry.",
       "bulkBar": "Hairline band inside the table scrollport, not a floating card; names count and property, previews the value, keeps failed rows selected, Undo runs from the page.",
       "rowActions": "Line icons at one weight; 32px fine pointer, 44px coarse; phones fold Complete/Duplicate/Trash into one 44px menu and keep Open separate.",
-      "mobileSheets": "Palette, capture, space drawer and row menu rise from the bottom; safe-area padding; focus trap; Escape and a close control; content and footer reserve room for the fixed space bar, which carries the space menu plus direct Capture and palette actions.",
-      "tablePhones": "Below 640px the checkbox stays pinned, the title scrolls, and the action cell is Open plus a menu; property columns remain swipeable.",
+      "mobileSheets": "Palette, capture, space drawer and row menu rise from the bottom on one visual-viewport geometry (--vv-top/--vv-height, written from visualViewport): every sheet ends above the on-screen keyboard, even on iOS where the layout viewport does not shrink. The last row carries safe-area padding; 180ms rise and fade in, 120ms fade out, static under reduced motion; focus trap; Escape and a close control; content and footer reserve room for the fixed space bar.",
+      "tablePhones": "Below 640px the checkbox and title are pinned at the left (136px), property columns paint 104px and swipe in one document scroller with the thead stuck to the top, and a trailing spacer lets the last column clear the opaque 56px action rail. No resize handles on a coarse pointer; Select preserves scrollLeft; the header drops the mono key line.",
+      "recordPhone": "The title input owns its line at 26px; the sticky save bar is the only save indicator; the id and revision sit behind one mono disclosure (last six characters, full id plus copy); one UPDATED line; a property's mono key echo is hidden below sm.",
+      "sheetGeometry": ".sheet-viewport is fixed against the visual viewport, bottom-aligned below sm and a 12vh-top centred dialog above; .sheet-popup is capped at --vv-height minus a margin; no overlay uses inset:0 or 100dvh; viewport-fit=cover makes env(safe-area-inset-*) real.",
       "addProperty": "A ruled dialog from the trailing table header or the Columns panel: an existing library property or a new name and format; property, type member (featured) and current-view column write in order, staying open with a named stage and Retry on failure. Editor-only, no wizard, one toast on success.",
       "recordIcons": "One optional user-authored emoji in frontmatter (schema 4), never a property or interface icon. A fixed slot in the record header, table title cell, home recents, palette results, board cards, gallery tiles and Trash; absent means no empty box.",
       "sheetClose": "Right-handed keeps the platform-standard trailing close; left-handed puts the same control first in the title or search row, with focus order and margin following the DOM."
@@ -49,7 +51,8 @@
     },
     "shadows": [],
     "motion": [
-      { "name": "settle", "value": "260ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "One entrance on a page's main content; removed under prefers-reduced-motion." }
+      { "name": "settle", "value": "260ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "One entrance on a page's main content; fill-mode backwards so a fixed descendant is never trapped in a wrapper; removed under prefers-reduced-motion." },
+      { "name": "sheet", "value": "180ms translateY(8px) + opacity in, 120ms fade out", "purpose": "One entrance for every overlay; static under prefers-reduced-motion." }
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
@@ -113,6 +116,8 @@
       { "name": "The Light Is Not a Theme Skin Rule", "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or new ornament.", "section": "colors" },
       { "name": "The Keys Are Mono Rule", "body": "Anything the system treats as an identifier or measurement is mono and tabular. Anything a person reads as a sentence is sans.", "section": "typography" },
       { "name": "The Hairline Rule", "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.", "section": "elevation" },
+      { "name": "The Keyboard Is Part of the Layout Rule", "body": "Every overlay positions against the visual viewport (--vv-height/--vv-top from visualViewport), never against inset:0 or 100dvh, so no sheet, footer or sticky save bar can end under the on-screen keyboard. A focusable field that opens a sheet takes focus in the same commit so a phone raises the keyboard on the first tap.", "section": "layout" },
+      { "name": "The 11px Floor Rule", "body": "No functional text is smaller than 11px; the only 10px step is the mono property-key echo under a fine-pointer table header, and that line is removed on a phone. Coarse pointers get 16px inputs so focusing one never zooms the page, and 44x44 targets.", "section": "typography" },
       { "name": "The Thumb First Rule", "body": "Below lg the rail and every overlay rise from the bottom of the screen, with 44px targets and safe-area padding. A keyboard shortcut that has no keyboard is not rendered. A compact editor's primary action sits at the thumb edge: last in the DOM at the right edge by default and first in the DOM at the left edge in left-handed mode, with clear/cancel before it on the right and after it on the left. The row reverses in the DOM so paint, Tab and screen-reader order agree. Dialog and sheet close controls follow the same handedness; the platform-standard trailing close is the right-handed default.", "section": "layout" }
     ],
     "dos": [

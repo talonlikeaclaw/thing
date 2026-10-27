@@ -185,6 +185,14 @@ measurement, count and label. The pairing reads as a field notebook, not a termi
 **The Keys Are Mono Rule.** Anything the system treats as an identifier or measurement is mono and
 tabular. Anything a person reads as a sentence is sans.
 
+**The 11px Floor.** No functional text renders below 11px. The one smaller step is the mono property
+key echoed under a table header on a fine pointer at 10px; on a phone that line is removed, because
+it repeats the label above it and cannot fit beside it. Detector findings below 11px are defects,
+not style.
+
+Coarse pointers raise every input to at least 16px so focusing one never zooms the page, and every
+control to at least 44 × 44.
+
 ## Layout
 
 A single content column capped at 1080px, with 24px side padding. The signed-out screen splits at
@@ -198,6 +206,18 @@ sits below the index under a 48px gap, so the next action stays visible without 
 
 Spacing rhythm: 6px inside a label group, 16px between fields, 24px between sections, 48px between
 the index and the create form. Use 40px minimum control height; coarse pointers get 44px targets.
+
+### Sheets and the on-screen keyboard
+
+Every overlay — palette, capture, shortcuts, add property, the space drawer, sign-out — shares one
+geometry. The sheet viewport is `position: fixed`, spans the **visual** viewport (`--vv-top` /
+`--vv-height`, published from `visualViewport`), and the popup is capped at that height minus the
+margin. On a phone the sheet rises from the bottom; from `sm` up it is a centred dialog with a
+12vh top offset. No overlay positions itself against `inset: 0` or `100dvh`, so none can end under
+the keyboard. The last row of a sheet (footer or action row) carries
+`padding-bottom: max(<existing>, env(safe-area-inset-bottom))`, and `viewport-fit=cover` makes those
+insets real. Sheets animate in over 180ms (8px rise plus fade), fade out over 120ms, and are static
+under `prefers-reduced-motion: reduce`. Scrollports contain their overscroll.
 
 ## Elevation & Depth
 
@@ -330,23 +350,51 @@ space, type and record icons, never as interface iconography.
 
 ### Table View
 - **Widths:** a `<colgroup>` carries the saved per-view widths; `title` defaults to 240px and other
-  columns to 140px, clamped to 80–800px.
-- **Resize:** each header ends in a focusable vertical separator labelled `Resize <name>`; arrow
-  keys move 16px (Shift: 64px), a pointer drag commits on release, and coarse pointers get a larger
-  target with the same widths. Narrow screens scroll the table rather than reflowing it.
+  columns to 140px, clamped to 80–800px. A saved width is painted literally — there is no
+  proportional fit. A filler column after the last property absorbs the window's leftover space,
+  so a wide window fills exactly and a narrow one scrolls. A drag therefore moves the column under
+  the finger by the distance dragged and never resizes a neighbour.
+- **Resize:** on a fine pointer each header ends in a focusable vertical separator labelled
+  `Resize <name>`; arrow keys move 16px (Shift: 64px), a pointer drag commits on release, a drag
+  under 3px commits nothing, and a cancel reverts the preview. A layout write is optimistic and
+  never dims or disables the table. **Coarse pointers get no resizer at all**: a 16px edge inside a
+  44px target cannot be found by a finger, it steals the horizontal swipe, and an accidental
+  release would write a width. Narrow screens scroll the table rather than reflowing it.
 - **Sort:** the arrow slot is fixed-width so the label never shifts. Unsorted is a faint
   `ArrowUpDown`; ascending and descending are accent `ArrowUp` / `ArrowDown`, and `aria-sort`, the
   button's label ("currently ascending, activate to sort descending"), its `title` and the Sort
   panel use the same words. The glyph mirrors the `sorts` sent to the server; `cycleSort` keeps
-  asc → desc → clear and Shift-click adds or removes one key.
+  asc → desc → clear and Shift-click adds or removes one key. Below `sm` the toolbar is one row:
+  a 44px search icon that expands into the field, Filter, Sort, Columns, and 44px icon buttons for
+  Save as view, Data and View settings that each open their own sheet. `Save view` and `Reset` join
+  that row only while the query differs from the saved view. The pager renders only when there is
+  another page.
 - **Add property:** a trailing header cell after the last visible property and before the action
   cell carries a quiet `+ Add property`; it is a normal tab stop, never a grid cell, hover-only or
   a fill. On a narrow table it scrolls into view like any column and does not disturb the sticky
   title offset, the action column or the keyboard grid's `colCount`.
-- **Phones:** below 640px the checkbox column stays pinned, the title scrolls with the row, and the
-  right cell carries only Open plus a 44px actions menu (Complete, Duplicate, Move to trash); the
-  saved action cell is not 184px of icons over the property columns. The menu is a hairline
-  popover with 44px rows and named actions.
+- **Phones:** below 640px the table has one scroller — the document, with its `thead` stuck to the
+  viewport top — instead of a short nested box. The checkbox and the title are pinned at the left
+  (`z-20` body, `z-30` header) so a row keeps its identity through a sideways swipe; title paints
+  136px and property columns 104px. The header label alone names the column: the mono key line is
+  removed on a phone and stays in the `title` and `aria-label`. A trailing spacer of the action
+  rail's width lets the last column scroll clear of the rail, and the rail itself paints opaque at
+  `z-20` so it never shows data through it. Toggling Select preserves `scrollLeft`. The right cell
+  carries only Open plus a 44px actions menu (Complete, Duplicate, Move to trash); the saved action
+  cell is not 184px of icons over the property columns. The menu is a hairline popover with 44px
+  rows and named actions.
+
+### Record Page
+- **Title:** the title input owns its line at 26px with nothing beside it; the sticky save bar is the
+  only save indicator, and Duplicate and Revert live in the overflow menu.
+- **Identity:** the record id and revision collapse into one mono line. A phone shows the last six
+  characters; the full id, a copy control and `REV n` sit behind the disclosure. History always
+  shows the full id.
+- **Metadata:** one line on a phone — `UPDATED <time> · <type>`; wider screens keep created time too.
+- **Properties:** the label and the value; the mono key echo under the label is hidden below `sm`
+  where it only repeats the label. It stays in the `aria-label` and returns from `sm` up.
+- **Keyboard:** the markdown body and the sticky save bar measure against the visual viewport, so the
+  bar sits above the on-screen keyboard rather than behind it.
 
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a
@@ -375,7 +423,10 @@ space, type and record icons, never as interface iconography.
   the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.
 - **Rows:** title left, mono hint right, a raised ground and accent text for the active row; 44px
   minimum on coarse pointers. The footer states the result count and, on keyboard screens only,
-  the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger.
+  the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger. The
+  search field takes focus inside the commit that opens the sheet, so a phone raises the keyboard
+  on the first tap, and it is the initial focus in both handedness modes regardless of where the
+  close control sits. The same rule applies to Quick capture's title field.
 
 ### Quick Capture
 - **Shape:** the same two-mode sheet as the palette, 34rem wide on desktop; type, title, then only

@@ -14,8 +14,9 @@ Two claims drive design:
 - **One Rust core, reused.** `thing-core` owns domain model, format, validation, query, store.
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
-**Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`) and the
-v0.4.1 follow-ups (`0.4.1`, schema 4) are landed, not yet tagged or deployed; CI is green.**
+**Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
+v0.4.1 follow-ups (`0.4.1`) and v0.4.2 mobile craft (`0.4.2`, schema 4) are landed, not yet tagged
+or deployed; CI is green.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
@@ -70,6 +71,20 @@ sign out). Mobile swaps the rail for a portaled bottom
 bar and drawer carrying Capture and Search, and the table for a compact row menu; keyboard-only
 affordances are hidden there, and every timestamp renders in the space's zone.
 
+v0.4.2 is the phone patch, no server or format change: the viewport meta opts into
+`viewport-fit=cover` and `interactive-widget=resizes-content`, and `lib/viewport.ts` publishes
+`--vv-height` / `--vv-top` / `--kb-height` on `<html>` so the sheet geometry clears the on-screen
+keyboard even on iOS; `components/ui/sheet.tsx` (`SheetViewport` / `SheetPopup`, `useSheetViewport`
+mounted once from `App.tsx`) is now the only overlay geometry, used by the palette, capture,
+shortcuts, add-property, the space drawer and sign-out; the palette focuses its field in the same
+commit that opens it and stays mounted across handedness modes; table widths are literal
+(`lib/table-widths.ts`: `savedWidths`, `widthPlan`, `dragWidth`, a filler column absorbs leftover
+space, `DRAG_THRESHOLD` 3 px), with an optimistic layout write that never invalidates the object
+list, no resizers on coarse pointers, a trailing spacer before the sticky action rail, and a pinned
+title in one phone scroller; the type page collapses to one toolbar row with a **View** sheet, the
+record title owns its line with the id behind a disclosure and no duplicated property key; and the
+coarse-pointer floor is 44 px targets and 16 px inputs.
+
 ## Where the plan lives
 
 | File | Role |
@@ -80,6 +95,7 @@ affordances are hidden there, and every timestamp renders in the space's zone.
 | `docs/plan/m3-views.md` | The M3 execution spec: schema 3 named views, the four kinds, view CRUD and default, list projection, web view state and renderers, verification. |
 | `docs/plan/m4-everyday-usability.md` | The M4 execution spec: CSV, duplicate, palette, capture, home, table truth, lifecycle, accent, responsive and end-to-end verification. |
 | `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared accent, record icons, table controls and option-order sorting. Landed as `0.4.1`, schema 4. |
+| `docs/plan/m4.2-mobile-craft.md` | The v0.4.2 patch spec: viewport and sheet geometry, palette focus, literal table widths, the phone table, type page, record page, touch/text floor, docs and the device pass. Landed as `0.4.2`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -94,7 +110,11 @@ routes; duplicate; palette and shortcuts; UX foundation; quick capture; space ho
 bulk actions; data panel; draft safety; lifecycle; highlight accent; responsive, docs and
 end-to-end), and checkpoints 1–8 of M4.1 (handedness; add property; shell and phone polish; table
 controls; option-order sorting; record icons and schema 4; shared accent; version, docs and
-end-to-end) are landed and CI-green.** M1 is deployed; M2–M4.1 are not deployed.
+end-to-end), and checkpoints 1–8 of M4.2 (viewport and sheet primitive; palette and capture focus;
+table width model; phone table; type page header; record page; touch and text sweep; version, docs
+and the device pass) are landed and CI-green.** M1 is deployed; M2–M4.2 are not deployed. The
+physical iPhone gate in checkpoint 2 of M4.2 is still open — see
+[`docs/plan/m4.2-mobile-craft.md`](docs/plan/m4.2-mobile-craft.md) §8.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built and verified, then
 stop for review. If the plan is silent on something that matters, ask rather than picking silently.
 Later milestones get their own `docs/plan/mN-*.md`.
@@ -354,6 +374,9 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/api/queries.ts` | Every TanStack Query hook and mutation; auth success seeds `me` and `spaces`; schema writes invalidate the space prefix |
 | `web/src/lib/schema.ts` | Pure schema-edit helpers: membership and column order, option drafts, order-insensitive change detection |
 | `web/src/lib/views.ts` | Pure view state: selection and URL fallback, effective query and dirty check, widths and column moves, board lanes, calendar dates and month grid |
+| `web/src/lib/table-widths.ts` | Literal width model: `savedWidths` (compact 136/104), `widthPlan` with the filler column, `dragWidth`, `DRAG_THRESHOLD`; no proportional scaling |
+| `web/src/lib/viewport.ts` | `metricsFor` over `visualViewport`, the rAF-collapsed `subscribeVisualViewport`, and `applyViewportMetrics` writing `--vv-height` / `--vv-top` / `--kb-height` |
+| `web/src/components/ui/sheet.tsx` | `SheetViewport` / `SheetPopup` (the one overlay geometry, motion and safe-area footer) plus `useSheetViewport`, mounted once in `App.tsx` |
 | `web/src/lib/schedule.ts` | Recurrence labels/drafts, schedule property names, due tone and relative due phrases; no date math |
 | `web/src/lib/timezone.ts` | The `Intl` timezone list, always including UTC and the space's current zone |
 | `web/src/components/schema/` | Type and property lists, editors, and the shared option editor; columns and grouping are per view on the type page |
@@ -361,7 +384,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
 | `web/src/pages/agenda.tsx` | The Schedule page: horizon, Overdue/Today/Next N buckets, Complete and the no-scheduled-type state |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
-| `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override |
+| `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
 | `DESIGN.md` | **Normative** visual system: Nocturnal Field Guide; tokens are the frontmatter |
 | `.impeccable/design.json` | Design sidecar: tonal ramps, motion, breakpoints, component snippets, narrative |
