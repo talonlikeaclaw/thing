@@ -219,6 +219,13 @@ the keyboard. The last row of a sheet (footer or action row) carries
 insets real. Sheets animate in over 180ms (8px rise plus fade), fade out over 120ms, and are static
 under `prefers-reduced-motion: reduce`. Scrollports contain their overscroll.
 
+The emoji picker joins the set on a compact width or a coarse pointer: it is a bottom sheet on the
+same geometry, so it opens **in front of** the capture sheet or the record page instead of above the
+trigger, and its footer stays clear of the keyboard. It deliberately does not raise the keyboard on
+open — it focuses its own popup so the grid gets the screen. Tapping its search field raises the
+keyboard and the sheet shrinks above it. Above `sm` with a fine pointer the picker remains the
+anchored popover.
+
 ## Elevation & Depth
 
 The system is flat. There are no shadows. Depth is conveyed by tonal steps (ground → surface →
@@ -364,11 +371,14 @@ space, type and record icons, never as interface iconography.
   `ArrowUpDown`; ascending and descending are accent `ArrowUp` / `ArrowDown`, and `aria-sort`, the
   button's label ("currently ascending, activate to sort descending"), its `title` and the Sort
   panel use the same words. The glyph mirrors the `sorts` sent to the server; `cycleSort` keeps
-  asc → desc → clear and Shift-click adds or removes one key. Below `sm` the toolbar is one row:
-  a 44px search icon that expands into the field, Filter, Sort, Columns, and 44px icon buttons for
-  Save as view, Data and View settings that each open their own sheet. `Save view` and `Reset` join
-  that row only while the query differs from the saved view. The pager renders only when there is
-  another page.
+  asc → desc → clear and Shift-click adds or removes one key. Below `sm` the toolbar is five 44px
+  controls in one row — search (an icon that expands into the field), Filter, Sort, Columns and
+  View; Columns is absent on a calendar view. View opens one sheet whose first screen is a menu of
+  View settings, Save as view…, and Data — CSV, each panel returning through a Back control. When
+  the query or the view has changed, one labelled band under the toolbar carries Save (only when
+  the view differs from the saved one) and Reset (whenever a search, filter or sort is applied);
+  the band never wraps. Cancel in the expanded search clears the query and collapses the field.
+  The pager renders only when there is another page.
 - **Add property:** a trailing header cell after the last visible property and before the action
   cell carries a quiet `+ Add property`; it is a normal tab stop, never a grid cell, hover-only or
   a fill. On a narrow table it scrolls into view like any column and does not disturb the sticky
@@ -450,7 +460,9 @@ space, type and record icons, never as interface iconography.
   24rem maximum, hairline border on `surface`; danger uses ember text and never auto-dismisses.
   Hover or focus pauses the timer, an Undo toast is not evicted, and action text is 44px tall on
   coarse pointers. Safe-area insets keep either edge clear of a notch, and the message, action and
-  dismiss order never reverses. On phones the stack sits above the bottom space bar.
+  dismiss order never reverses. On phones the stack sits above the bottom space bar; with the
+  keyboard up it lifts above the keyboard instead, so a confirmation raised from a sheet stays
+  visible.
 
 ### Add Property
 - **Entry points:** the table's trailing header cell and a ghost **Add property** below the visible
@@ -472,6 +484,11 @@ space, type and record icons, never as interface iconography.
 - **Header:** a compact icon-picker trigger for an editor and the bare glyph for a viewer. The draft
   carries the icon, so picking one marks the record dirty and saves with the normal **Save** / `Rev`
   PATCH; Revert restores it.
+- **Picker:** on a compact width or a coarse pointer the picker is its own bottom sheet in front of
+  the form and opens without the keyboard; on a fine pointer it stays an anchored popover. A row of
+  recently chosen glyphs leads the grid, opening scrolls the current icon into view, and the custom
+  field accepts up to 32 code units so family and flag emoji fit. Recents are a browser-local UI
+  preference of the last eight glyphs, never content.
 - **Render sites:** the table's title cell, space-home recents, command-palette results, board
   cards, gallery tiles and Trash, plus the history panel's **Icon** diff row. The glyph occupies a
   fixed slot and an absent icon adds no placeholder; the gallery's type-icon cover fallback stays.

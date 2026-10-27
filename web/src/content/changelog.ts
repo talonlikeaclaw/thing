@@ -17,6 +17,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "0.4.3",
+    title: "Touch follow-through",
+    highlights: [
+      "On a phone the emoji picker opens in front of the form, drops the keyboard and fills the screen with the grid.",
+      "The picker remembers recent emoji and opens at the current icon.",
+      "Toasts appear above the keyboard, and above the phone bar when the keyboard is down.",
+      "The phone type page's toolbar fits five controls in one row, with one View menu and a single change band.",
+      "Cancel in the phone search clears the query instead of hiding the field.",
+      "Capture opens the type of the page you are on, and switching type keeps the values you entered.",
+      "No text on any page renders below 11px.",
+    ],
+    details: [
+      "Custom emoji accept families, flags and other multi-part characters.",
+      "Tapping the picker's search raises the keyboard, and the sheet shrinks above it.",
+      "A type's header shows — records while its list loads.",
+      "The Complete button on Schedule uses each type's own completion label.",
+      "Edit type opens that type's editor.",
+      "The connection state no longer moves Search and Capture when the signal drops.",
+      "The one exception to the 11px floor is the mono key under a desktop table header.",
+    ],
+  },
+  {
     version: "0.4.2",
     title: "Mobile craft",
     highlights: [

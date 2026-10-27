@@ -19,10 +19,12 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   it; filters and sorts save when you press **Save view**, and the selected view is in the URL.
 - **Editable spaces.** Rename a space, change its timezone, choose a shared highlight accent, or
   delete it by typing its name. Icons are picked from a searchable emoji grid rather than pasted in;
-  the same picker serves types and records. The timezone field filters as you type and offers this
+  the same picker serves types and records, leads with the emoji you used recently, and opens as a
+  sheet on a phone. The timezone field filters as you type and offers this
   device's zone; timestamps render in the space's zone.
-- **Capture from anywhere.** `C` opens a minimal capture sheet for the chosen type's required
-  properties, with Create and Create-and-open; the last type is remembered in the browser.
+- **Capture from anywhere.** `C` opens a minimal capture sheet for the current page's type's
+  required properties, with Create and Create-and-open; switching type keeps what you already
+  typed, and the last type is remembered in the browser.
   `Cmd/Ctrl+K` opens a palette over spaces, types, records and actions, and `?` lists every
   shortcut on a keyboard-capable screen.
 - **A table that behaves.** Paging, multi-select and bulk property edits, inline duplicate and
@@ -44,10 +46,12 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   table's title cell, home recents, the command palette, board cards, gallery tiles and Trash. A
   record without one keeps its previous layout.
 - **Made for a phone.** Search, capture and every menu rise from the bottom and stay above the
-  on-screen keyboard; the page uses the whole screen on a notched phone. Column widths are literal,
-  so a drag moves the column under the finger, and phones hide the resize handles entirely. A phone
-  table pins the record's name while it swipes sideways, and every control is at least 44 × 44 with
-  fields at 16 px so focusing one does not zoom the page.
+  on-screen keyboard; the page uses the whole screen on a notched phone. A toast clears the keyboard
+  and the bottom bar, and the emoji picker opens in front of the form it belongs to. The type
+  toolbar fits five controls in one row with one View menu and a single change band. Column widths
+  are literal, so a drag moves the column under the finger, and phones hide the resize handles
+  entirely. A phone table pins the record's name while it swipes sideways, and every control is at
+  least 44 × 44 with fields at 16 px so focusing one does not zoom the page.
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.

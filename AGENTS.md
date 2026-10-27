@@ -15,8 +15,9 @@ Two claims drive design:
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
-v0.4.1 follow-ups (`0.4.1`) and v0.4.2 mobile craft (`0.4.2`, schema 4) are landed, not yet tagged
-or deployed; CI is green.**
+v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`) and v0.4.3 touch follow-through
+(`0.4.3`, schema 4) are implemented, not yet tagged or deployed; CI is green. The v0.4.3
+physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
@@ -85,6 +86,17 @@ title in one phone scroller; the type page collapses to one toolbar row with a *
 record title owns its line with the id behind a disclosure and no duplicated property key; and the
 coarse-pointer floor is 44 px targets and 16 px inputs.
 
+v0.4.3 finishes the touch interactions v0.4.2 opened, again with no server, format or dependency
+change: `lib/media.ts` publishes `useCompactWidth` / `useCoarsePointer`, and `icon-picker.tsx` splits
+its panel out so the picker is a keyboard-aware bottom sheet in front of the capture sheet or record
+page on a phone, with browser-local recents (`lib/emoji-recent.ts`), open-at-current scrolling and a
+32-unit custom field; toasts clear the keyboard and the phone bar; the phone type page's toolbar is
+five controls with one View sheet (menu, settings, save-as, data) and a labelled "View changed"
+band; capture defaults to the route's type and keeps values across a type switch; the type header
+reads `— records` while its list loads; and every page meets the 11 px text floor. Small fixes:
+Schedule's completion verb, Edit type deep-linking to the editor, the header's connection state no
+longer moving Search and Capture, and the table's leading seam.
+
 ## Where the plan lives
 
 | File | Role |
@@ -96,6 +108,7 @@ coarse-pointer floor is 44 px targets and 16 px inputs.
 | `docs/plan/m4-everyday-usability.md` | The M4 execution spec: CSV, duplicate, palette, capture, home, table truth, lifecycle, accent, responsive and end-to-end verification. |
 | `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared accent, record icons, table controls and option-order sorting. Landed as `0.4.1`, schema 4. |
 | `docs/plan/m4.2-mobile-craft.md` | The v0.4.2 patch spec: viewport and sheet geometry, palette focus, literal table widths, the phone table, type page, record page, touch/text floor, docs and the device pass. Landed as `0.4.2`, schema 4. |
+| `docs/plan/m4.3-touch-follow-through.md` | The v0.4.3 patch spec: the touch emoji picker sheet and recents, toast clearance, the five-control phone toolbar and View band, capture context, the truthful count and text floor, docs and the device pass. Landed as `0.4.3`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -112,9 +125,13 @@ end-to-end), and checkpoints 1–8 of M4.1 (handedness; add property; shell and 
 controls; option-order sorting; record icons and schema 4; shared accent; version, docs and
 end-to-end), and checkpoints 1–8 of M4.2 (viewport and sheet primitive; palette and capture focus;
 table width model; phone table; type page header; record page; touch and text sweep; version, docs
-and the device pass) are landed and CI-green.** M1 is deployed; M2–M4.2 are not deployed. The
-physical iPhone gate in checkpoint 2 of M4.2 is still open — see
-[`docs/plan/m4.2-mobile-craft.md`](docs/plan/m4.2-mobile-craft.md) §8.
+and the device pass), and checkpoints 1–6 of M4.3 (media hooks and the picker sheet; picker content;
+toast placement; phone search and toolbar; capture context; truthful count and text floor) are
+landed and CI-green; checkpoint 7 of M4.3 (version, docs and the device pass) has its version and
+docs written.** M1 is deployed; M2–M4.3 are not deployed. The physical-iPhone gate is still open —
+it is checkpoint 7's device pass in
+[`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
+carries the v0.4.2 keyboard gate.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built, verified and how
 to test it by hand (see [Delivery, Git and Manual QA](#delivery-git-and-manual-qa)), then stop for
 review. If the plan is silent on something that matters, ask rather than picking silently.

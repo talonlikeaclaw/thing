@@ -48,13 +48,18 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M4 are landed; M1 is
-deployed and M2–M4.2 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
+deployed and M2–M4.3 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
 The patch after it, v0.4.1, is implemented in
 [`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md): checkpoints 1–8 are committed at
 workspace `0.4.1`, and the format is schema 4 for record icons, the shared space accent and the
 schema-5 future-version fixture. The phone patch, v0.4.2, is implemented in
 [`docs/plan/m4.2-mobile-craft.md`](plan/m4.2-mobile-craft.md): checkpoints 1–8 are committed at
-workspace `0.4.2` with no route, format, server field or dependency change. The next milestone
+workspace `0.4.2` with no route, format, server field or dependency change. The touch patch after
+it, v0.4.3, is implemented in
+[`docs/plan/m4.3-touch-follow-through.md`](plan/m4.3-touch-follow-through.md): checkpoints 1–6 are
+committed and checkpoint 7's version and docs are written at workspace `0.4.3`, again with no
+route, format, server field or dependency change; its physical-iPhone pass is the only open item.
+The next milestone
 starts its own `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not need reshaping later; each carries
 its decisions already made.
 
@@ -175,6 +180,18 @@ usability move ahead of search.
   put content before chrome; and every surface meets the 44 px target and 16 px input floor. No
   route, format, server field or dependency changes. The physical-iPhone keyboard gate remains
   open; Android has emulation only (§1, §8).
+
+  **v0.4.3 — touch follow-through.** **Implemented** (workspace `0.4.3`, not yet deployed;
+  checkpoints 1–6 landed and checkpoint 7's version and docs written, schema 4); spec:
+  [`docs/plan/m4.3-touch-follow-through.md`](plan/m4.3-touch-follow-through.md). The patch after
+  the phone release finishes the interactions it opened, measured again on a seeded instance at
+  390 × 844: the emoji picker becomes a keyboard-aware bottom sheet in front of the form, remembers
+  the last eight glyphs, opens at the current icon and accepts multi-part emoji; toasts clear the
+  keyboard and the phone bar; the phone type page keeps five controls in one row with a View menu
+  and one labelled **View changed** band, and Cancel clears the search; capture opens the page's
+  type and keeps values across a type switch; a loading type header reads `— records`; and no
+  functional text sits below 11 px. No route, format, server field or dependency changes. The
+  physical-iPhone pass is still open; Android has emulation only (§1, §8).
 
 - **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
   from the command palette, with an on-disk inverted index rebuilt on change; in-body
