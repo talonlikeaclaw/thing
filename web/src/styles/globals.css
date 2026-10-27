@@ -394,6 +394,22 @@
   bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
+/* The phone bar is 3.5rem plus the home inset and sits above a toast that
+ * would otherwise paint over Capture and Search for its whole life. The bar is
+ * hidden from `lg` up, so the rule stops there and desktop keeps 1rem. */
+@media (max-width: 63.99rem) {
+  .toast-stack {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem);
+  }
+}
+
+/* iOS never resizes the layout viewport for the keyboard; a toast raised from
+ * a sheet would sit entirely behind it. Follows the media rule so it wins.
+ * Android resizes the layout viewport instead and keeps `--kb-height` at 0. */
+:root[data-keyboard="on"] .toast-stack {
+  bottom: calc(var(--kb-height, 0px) + 0.5rem);
+}
+
 :root[data-hand="left"] .toast-stack {
   right: auto;
   left: max(1rem, env(safe-area-inset-left));
