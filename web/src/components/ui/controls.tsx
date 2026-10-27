@@ -79,7 +79,7 @@ export function InlineActions({ children }: { children: ReactNode }) {
  */
 export function StickyActionBar({ children }: { children: ReactNode }) {
   return (
-    <ThumbRow className="sticky bottom-[calc(3.5rem_+_env(safe-area-inset-bottom))] z-20 mt-8 flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur lg:bottom-0">
+    <ThumbRow className="record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur">
       {children}
     </ThumbRow>
   );

@@ -252,16 +252,24 @@ function TextField({
 }
 
 function CheckboxField({ property, value, onChange }: PropertyFieldProps) {
+  const { handedness } = useHandedness();
   return (
-    <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 text-[14px] pointer-coarse:min-h-11">
-      <input
-        type="checkbox"
-        aria-label={property.name}
-        className="h-4 w-4 accent-accent"
-        checked={isChecked(value)}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span className="text-muted">{isChecked(value) ? "Checked" : "Not checked"}</span>
+    <label className="block cursor-pointer text-[14px]">
+      <ThumbRow
+        className={cn(
+          "min-h-10 w-full items-center gap-2 pointer-coarse:min-h-11",
+          handedness === "right" && "justify-between",
+        )}
+      >
+        <span className="text-muted">{isChecked(value) ? "Checked" : "Not checked"}</span>
+        <input
+          type="checkbox"
+          aria-label={property.name}
+          className="h-4 w-4 shrink-0 accent-accent"
+          checked={isChecked(value)}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+      </ThumbRow>
     </label>
   );
 }
@@ -424,6 +432,7 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
 }
 
 function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
+  const { handedness } = useHandedness();
   const selected = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
@@ -441,20 +450,27 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
           return (
             <label
               key={option.key}
-              className="flex cursor-pointer items-center gap-2 rounded-[3px] px-1 py-1 text-[13px] hover:bg-raised pointer-coarse:min-h-11"
+              className="block cursor-pointer rounded-[3px] px-1 text-[13px] hover:bg-raised"
             >
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-accent"
-                checked={checked}
-                onChange={() => {
-                  const next = checked
-                    ? selected.filter((key) => key !== option.key)
-                    : [...selected, option.key];
-                  onChange(next.length === 0 ? null : next);
-                }}
-              />
-              {option.name}
+              <ThumbRow
+                className={cn(
+                  "min-h-9 w-full items-center gap-2 pointer-coarse:min-h-11",
+                  handedness === "right" && "justify-between",
+                )}
+              >
+                <span>{option.name}</span>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 shrink-0 accent-accent"
+                  checked={checked}
+                  onChange={() => {
+                    const next = checked
+                      ? selected.filter((key) => key !== option.key)
+                      : [...selected, option.key];
+                    onChange(next.length === 0 ? null : next);
+                  }}
+                />
+              </ThumbRow>
             </label>
           );
         })
@@ -511,17 +527,19 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
       {absent.length > 0 ? (
         <ul aria-label="Missing targets" className="grid gap-0.5 border-b rule pb-1">
           {absent.map((id) => (
-            <li key={id} className="flex items-center justify-between gap-2 px-1 py-0.5 text-[12px]">
-              <span className="min-w-0 truncate text-warning">
-                Missing target <span className="font-mono text-[11px]">{shortId(id)}</span>
-              </span>
-              <button
-                type="button"
-                className="shrink-0 text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
-                onClick={() => remove(id)}
-              >
-                Remove
-              </button>
+            <li key={id} className="px-1 py-0.5 text-[12px]">
+              <ThumbRow className="w-full items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-warning">
+                  Missing target <span className="font-mono text-[11px]">{shortId(id)}</span>
+                </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                  onClick={() => remove(id)}
+                >
+                  Remove
+                </button>
+              </ThumbRow>
             </li>
           ))}
         </ul>

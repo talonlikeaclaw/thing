@@ -1,3 +1,5 @@
+import { Popover } from "@base-ui/react/popover";
+import { ChevronRight, Copy, MoreHorizontal, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -9,6 +11,7 @@ import {
   useUpdateObject,
 } from "@/api/queries";
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
@@ -16,7 +19,7 @@ import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { formatDate, readError } from "@/lib/display";
+import { formatDate, readError, shortId } from "@/lib/display";
 import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { effectiveMembers, sameJson } from "@/lib/schema";
@@ -84,6 +87,125 @@ function draftOf(object: ObjectDetail): Draft {
     body: object.body,
     values: rawValues(object),
   };
+}
+
+/**
+ * The record's identity behind one mono line. The tail of the UUID is enough
+ * to recognise a record; the full value and the revision are one tap away,
+ * where the id can also be copied without selecting it by hand on a phone.
+ */
+function RecordIdentity({ objectId, rev }: { objectId: string; rev: number }) {
+  const toast = useToast();
+  const codeRef = useRef<HTMLElement | null>(null);
+
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(objectId);
+      toast.showToast("Record id copied.");
+    } catch {
+      // A blocked clipboard still leaves the id selectable by hand.
+      const code = codeRef.current;
+      if (!code) {
+        return;
+      }
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      toast.showToast("Select the id and copy it.", "plain");
+    }
+  }
+
+  return (
+    <details className="group min-w-0">
+      <summary
+        aria-label={`Record id ${objectId}, revision ${rev}. Show the full id.`}
+        className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-[3px] font-mono text-[12px] text-faint transition-colors hover:text-ink sm:min-h-7 [&::-webkit-details-marker]:hidden"
+      >
+        <ChevronRight
+          aria-hidden
+          size={12}
+          className="shrink-0 transition-transform group-open:rotate-90"
+        />
+        <span className="truncate">{shortId(objectId)}</span>
+        <span aria-hidden>·</span>
+        <span className="tnum">rev {rev}</span>
+      </summary>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] text-muted">
+        <code ref={codeRef} className="min-w-0 break-all select-all">
+          {objectId}
+        </code>
+        <button
+          type="button"
+          className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+          onClick={() => void copyId()}
+        >
+          Copy id
+        </button>
+        <span className="tnum text-faint">rev {rev}</span>
+      </div>
+    </details>
+  );
+}
+
+const RECORD_MENU_ITEM =
+  "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+
+/** The record header's overflow: Revert and Duplicate no longer crowd the title. */
+function RecordOverflow({
+  revertLabel,
+  onRevert,
+  onDuplicate,
+  duplicating,
+  duplicateDisabled,
+}: {
+  revertLabel: string | null;
+  onRevert: () => void;
+  onDuplicate: () => void;
+  duplicating: boolean;
+  duplicateDisabled: boolean;
+}) {
+  const { handedness } = useHandedness();
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        aria-label="More record actions"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+      >
+        <MoreHorizontal aria-hidden size={16} />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner
+          sideOffset={4}
+          align={handedness === "left" ? "start" : "end"}
+          className="z-50"
+        >
+          <Popover.Popup className="min-w-[11rem] rounded-field border border-line bg-surface p-1">
+            {revertLabel ? (
+              <Popover.Close className={RECORD_MENU_ITEM} onClick={onRevert}>
+                <Undo2 aria-hidden size={14} />
+                {revertLabel}
+              </Popover.Close>
+            ) : null}
+            <Popover.Close
+              className={RECORD_MENU_ITEM}
+              disabled={duplicateDisabled || duplicating}
+              title={
+                duplicateDisabled
+                  ? "Save or discard the draft before duplicating"
+                  : "Duplicate record"
+              }
+              onClick={onDuplicate}
+            >
+              <Copy aria-hidden size={14} />
+              {duplicating ? "Duplicating…" : "Duplicate"}
+            </Popover.Close>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
 }
 
 /** One record: its title, every property, and the markdown body, saved as one write. */
@@ -161,6 +283,22 @@ export function ObjectPanel({
     (bodyChanged ? 1 : 0);
   const dirty = changeCount > 0 && !leaving;
   const stale = object.rev !== baseline.rev;
+  const headerRevertLabel =
+    titleChanged && iconChanged
+      ? "Revert title and icon"
+      : titleChanged
+        ? "Revert title"
+        : iconChanged
+          ? "Revert icon"
+          : null;
+
+  function revertHeader() {
+    setDraft((current) => ({
+      ...current,
+      title: baseline.title,
+      icon: baseline.icon,
+    }));
+  }
 
   function resetFrom(saved: ObjectDetail, remount = false) {
     setBaseline(baselineOf(saved));
@@ -409,6 +547,8 @@ export function ObjectPanel({
     return (
       <div
         key={key}
+        role="group"
+        aria-label={`${property.name} — key ${key}${member?.required ? ", required" : ""}`}
         className="grid gap-1 border-b rule py-3 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start sm:gap-6"
       >
         <div className="pt-1">
@@ -422,27 +562,34 @@ export function ObjectPanel({
             ) : null}
             {property.name}
           </span>
-          <span className="font-mono text-[10px] text-faint">
-            {key}
-            {member?.required ? " · required" : ""}
+          <span className="font-mono text-[10px] text-faint max-sm:text-[11px]">
+            <span className="max-sm:hidden">{key}</span>
+            {member?.required ? (
+              <>
+                <span className="max-sm:hidden"> · </span>
+                required
+              </>
+            ) : null}
           </span>
           {changed ? (
-            <button
-              type="button"
-              className="mt-0.5 block text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
-              onClick={() => {
-                setDraft((current) => ({
-                  ...current,
-                  values: { ...current.values, [key]: baseline.values[key] ?? null },
-                }));
-                setRevertTokens((current) => ({
-                  ...current,
-                  [key]: (current[key] ?? 0) + 1,
-                }));
-              }}
-            >
-              Revert
-            </button>
+            <ThumbRow className="mt-0.5 w-full">
+              <button
+                type="button"
+                className="text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                onClick={() => {
+                  setDraft((current) => ({
+                    ...current,
+                    values: { ...current.values, [key]: baseline.values[key] ?? null },
+                  }));
+                  setRevertTokens((current) => ({
+                    ...current,
+                    [key]: (current[key] ?? 0) + 1,
+                  }));
+                }}
+              >
+                Revert
+              </button>
+            </ThumbRow>
           ) : null}
         </div>
         <div id={`field-frame-${key}`}>
@@ -481,100 +628,60 @@ export function ObjectPanel({
 
   return (
     <div className="settle" data-record-panel>
-      <div className="flex items-center justify-between gap-4">
-        <span className="font-mono text-[11px] text-faint">{object.id}</span>
-        <span className="label tnum">rev {baseline.rev}</span>
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b rule pb-3">
-        {canEdit ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <IconPicker
-              variant="compact"
-              label="Record icon"
-              value={draft.icon}
-              onChange={(icon) => setDraft((current) => ({ ...current, icon }))}
-              disabled={update.isPending}
-            />
-            <input
-              aria-label="Title"
-              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint"
-              maxLength={200}
-              disabled={update.isPending}
-              value={draft.title}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, title: event.target.value }))
-              }
-            />
-            {titleChanged ? (
-              <button
-                type="button"
-                className="label shrink-0 text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
-                onClick={() =>
-                  setDraft((current) => ({ ...current, title: baseline.title }))
-                }
-              >
-                Revert
-              </button>
+      <div className="mt-2 border-b rule pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <RecordIdentity objectId={object.id} rev={baseline.rev} />
+          <ThumbRow className="shrink-0 items-center gap-1">
+            {canEdit ? (
+              <IconPicker
+                variant="glyph"
+                label="Record icon"
+                value={draft.icon}
+                onChange={(icon) => setDraft((current) => ({ ...current, icon }))}
+                disabled={update.isPending}
+              />
+            ) : draft.icon ? (
+              <ThingIcon icon={draft.icon} size="md" />
             ) : null}
-          </div>
-        ) : (
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {draft.icon ? <ThingIcon icon={draft.icon} size="md" /> : null}
-            <h1 className="min-w-0 flex-1 text-[26px] font-medium tracking-[-0.02em]">
-              {draft.title}
-            </h1>
-          </div>
-        )}
-        <div className="flex items-center gap-3 pb-1">
-          {canEdit ? (
-            dirty ? (
-              <span className="label flex items-center gap-1.5 text-accent">
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-                {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
-              </span>
-            ) : (
-              <span className="label">saved</span>
-            )
-          ) : (
-            <span className="label">read only</span>
-          )}
-          {canEdit && iconChanged ? (
-            <button
-              type="button"
-              className="label text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
-              onClick={() => setDraft((current) => ({ ...current, icon: baseline.icon }))}
-            >
-              Revert icon
-            </button>
-          ) : null}
-          {canEdit ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={duplicate.isPending || dirty}
-              title={dirty ? "Save or discard the draft before duplicating" : "Duplicate record"}
-              onClick={duplicateRecord}
-            >
-              {duplicate.isPending ? "Duplicating…" : "Duplicate"}
-            </Button>
-          ) : null}
+            {canEdit ? (
+              <RecordOverflow
+                revertLabel={headerRevertLabel}
+                onRevert={revertHeader}
+                onDuplicate={duplicateRecord}
+                duplicating={duplicate.isPending}
+                duplicateDisabled={dirty}
+              />
+            ) : null}
+          </ThumbRow>
         </div>
-      </div>
 
-      <p className="mt-2 font-mono text-[11px] text-faint">
-        updated {formatDate(object.updated_at, timeZone)} · created{" "}
-        {formatDate(object.created_at, timeZone)}
-        {type ? ` · ${type.key}` : ""}
-      </p>
+        {canEdit ? (
+          <input
+            aria-label="Title"
+            className="mt-1 block w-full min-w-0 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint"
+            maxLength={200}
+            disabled={update.isPending}
+            value={draft.title}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, title: event.target.value }))
+            }
+          />
+        ) : (
+          <h1 className="mt-1 text-[26px] font-medium tracking-[-0.02em]">{draft.title}</h1>
+        )}
+
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-mono text-[11px] text-faint">
+          <span>updated {formatDate(object.updated_at, timeZone)}</span>
+          <span className="max-sm:hidden">· created {formatDate(object.created_at, timeZone)}</span>
+          {type ? <span>· {type.key}</span> : null}
+          {canEdit ? null : <span className="label">read only</span>}
+        </p>
+      </div>
 
       {type?.schedule && object.schedule ? (
-        <section
-          aria-label="Schedule"
-          className="mt-4 flex items-center gap-4 border-y rule py-2.5"
-        >
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
+        <section aria-label="Schedule" className="mt-4 border-y rule py-2.5">
+          <div className="flex items-center gap-4">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
             <span className={cn("label", dueTone(object.schedule.status))}>
               {STATUS_LABELS[object.schedule.status]}
             </span>
@@ -622,6 +729,7 @@ export function ObjectPanel({
               {complete.isPending ? "Saving…" : verb}
             </Button>
           ) : null}
+          </div>
         </section>
       ) : null}
 
@@ -636,14 +744,14 @@ export function ObjectPanel({
             {changeCount === 1 ? "change" : "changes"}.{" "}
             {changeCount === 1 ? "Save it" : "Save them"} before completing?
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <ThumbRow className="flex-wrap items-center gap-2">
             <Button
               type="button"
+              variant="ghost"
               className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-              disabled={update.isPending}
-              onClick={() => void saveThenComplete()}
+              onClick={() => setConfirmComplete(false)}
             >
-              {update.isPending ? "Saving…" : "Save changes and complete"}
+              Cancel
             </Button>
             <Button
               type="button"
@@ -658,13 +766,13 @@ export function ObjectPanel({
             </Button>
             <Button
               type="button"
-              variant="ghost"
               className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-              onClick={() => setConfirmComplete(false)}
+              disabled={update.isPending}
+              onClick={() => void saveThenComplete()}
             >
-              Cancel
+              {update.isPending ? "Saving…" : "Save changes and complete"}
             </Button>
-          </div>
+          </ThumbRow>
         </div>
       ) : null}
 
@@ -674,7 +782,7 @@ export function ObjectPanel({
           className="mt-4 max-w-[52ch] border-l border-warning pl-3 text-[13px] text-warning"
         >
           <p>{conflict}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <ThumbRow className="mt-2 flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="ghost"
@@ -701,7 +809,7 @@ export function ObjectPanel({
             >
               Save anyway
             </Button>
-          </div>
+          </ThumbRow>
         </div>
       ) : stale ? (
         <div
@@ -787,7 +895,7 @@ export function ObjectPanel({
           <textarea
             aria-label="Markdown body"
             disabled={update.isPending}
-            className="mt-2 min-h-[22rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:text-[16px]"
+            className="record-body-input mt-2 min-h-[22rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:text-[16px]"
             placeholder="Write in markdown. Saves with the rest of the record."
             spellCheck
             value={draft.body}
@@ -808,14 +916,21 @@ export function ObjectPanel({
             <div
               role="group"
               aria-label="Move to trash"
-              className="flex flex-wrap items-center gap-3 border-l border-danger pl-3"
+              className="grid gap-2 border-l border-danger pl-3"
             >
               <p className="max-w-[46ch] text-[13px] text-muted">
                 Move “{draft.title.trim() || object.title}” to the trash? The file and its history
                 are kept until purged.
                 {dirty ? " Unsaved changes are discarded." : ""}
               </p>
-              <div className="flex items-center gap-2">
+              <ThumbRow className="flex-wrap items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  onClick={() => setConfirmingTrash(false)}
+                >
+                  Cancel
+                </Button>
                 <Button
                   variant="danger"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -824,23 +939,18 @@ export function ObjectPanel({
                 >
                   {trash.isPending ? "Moving…" : "Move to trash"}
                 </Button>
-                <Button
-                  variant="ghost"
-                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                  onClick={() => setConfirmingTrash(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
+              </ThumbRow>
             </div>
           ) : (
-            <button
-              type="button"
-              className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"
-              onClick={() => setConfirmingTrash(true)}
-            >
-              Move record to trash
-            </button>
+            <ThumbRow>
+              <button
+                type="button"
+                className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"
+                onClick={() => setConfirmingTrash(true)}
+              >
+                Move record to trash
+              </button>
+            </ThumbRow>
           )}
         </section>
       ) : null}

@@ -296,6 +296,35 @@
     padding-bottom: 0.5rem;
   }
 
+  /*
+   * The record save bar is sticky, not fixed, but a sticky `bottom` is still
+   * measured against the layout viewport. On iOS that viewport does not shrink
+   * when the keyboard opens, so the bar would sit behind it; the keyboard's
+   * height moves it back above. With the keyboard down it clears the phone bar,
+   * and from `lg` the page has no bottom bar to clear.
+   */
+  .record-save-bar {
+    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+
+  :root[data-keyboard="on"] .record-save-bar {
+    bottom: calc(var(--kb-height, 0px) + 0.5rem);
+  }
+
+  /*
+   * Focusing the body pans the page. Reserve the keyboard, the save bar and the
+   * focused line so the browser cannot settle the caret behind either.
+   */
+  .record-body-input {
+    scroll-margin-bottom: calc(var(--kb-height, 0px) + 6rem);
+  }
+
+  @media (min-width: 64rem) {
+    .record-save-bar {
+      bottom: 0;
+    }
+  }
+
   /* Off-canvas, not `display: none`: see the `[hidden]` override in `base`. */
   .sheet-popup[hidden] {
     transform: translateY(100%);

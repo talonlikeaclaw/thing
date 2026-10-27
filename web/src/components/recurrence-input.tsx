@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { RecurrenceKind, RecurrenceValue } from "@/api/types";
+import { useHandedness } from "@/components/handedness";
 import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import {
@@ -36,8 +37,11 @@ export function RecurrenceInput({
   autoFocus = false,
   showHint = true,
 }: RecurrenceInputProps) {
+  const { handedness } = useHandedness();
   const [draft, setDraft] = useState(() => recurrenceDraft(value));
   const [error, setError] = useState<string | null>(null);
+  // Labels stay on the left; only the controls move to the thumb edge.
+  const row = cn("flex items-center gap-2", handedness === "right" && "justify-between");
 
   function apply() {
     const result = normalizeRecurrence(draft);
@@ -61,8 +65,9 @@ export function RecurrenceInput({
 
   return (
     <div className="grid min-w-[13rem] gap-1.5 rounded-field border border-line bg-surface p-2">
-      <div className="flex items-center gap-1.5">
+      <div className={row}>
         <span className="text-[12px] text-muted">Every</span>
+        <div className="flex items-center gap-1.5">
         <input
           aria-label="Recurrence interval"
           autoFocus={autoFocus}
@@ -100,14 +105,15 @@ export function RecurrenceInput({
             </option>
           ))}
         </select>
+        </div>
       </div>
 
       {draft.kind === "weekly" ? (
-        <label className="flex items-center gap-1.5 text-[12px] text-muted">
+        <label className={cn(row, "text-[12px] text-muted")}>
           on
           <select
             aria-label="Recurrence weekday"
-            className={cn(control, "flex-1")}
+            className={cn(control, "min-w-0 flex-1")}
             value={draft.weekday}
             onChange={(event) => {
               setError(null);
@@ -124,7 +130,7 @@ export function RecurrenceInput({
       ) : null}
 
       {draft.kind === "monthly" ? (
-        <label className="flex items-center gap-1.5 text-[12px] text-muted">
+        <label className={cn(row, "text-[12px] text-muted")}>
           on day
           <input
             aria-label="Recurrence day of month"
