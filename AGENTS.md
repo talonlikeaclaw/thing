@@ -16,8 +16,9 @@ Two claims drive design:
 
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
 v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`) and v0.4.3 touch follow-through
-(`0.4.3`, schema 4) are implemented, not yet tagged or deployed; CI is green. The v0.4.3
-physical-iPhone pass is still open.**
+(`0.4.3`, schema 4) are implemented, not yet tagged or deployed; CI is green. v0.4.4 (usability
+sweep) is scoped in `docs/plan/m4.4-usability-sweep.md`, not implemented, and v0.4.5 (schedule
+views) is planned. The v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
@@ -109,6 +110,7 @@ longer moving Search and Capture, and the table's leading seam.
 | `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared accent, record icons, table controls and option-order sorting. Landed as `0.4.1`, schema 4. |
 | `docs/plan/m4.2-mobile-craft.md` | The v0.4.2 patch spec: viewport and sheet geometry, palette focus, literal table widths, the phone table, type page, record page, touch/text floor, docs and the device pass. Landed as `0.4.2`, schema 4. |
 | `docs/plan/m4.3-touch-follow-through.md` | The v0.4.3 patch spec: the touch emoji picker sheet and recents, toast clearance, the five-control phone toolbar and View band, capture context, the truthful count and text floor, docs and the device pass. Landed as `0.4.3`, schema 4. |
+| `docs/plan/m4.4-usability-sweep.md` | The v0.4.4 patch spec: undo parity, whole-row Schedule targets, phone saved-view wrapping, labels and cards, the phone column panel and CSV import door, calendar-today, record relation chips and first-run/loose ends. Scoped, not implemented. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and

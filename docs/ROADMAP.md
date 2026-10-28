@@ -59,9 +59,17 @@ it, v0.4.3, is implemented in
 [`docs/plan/m4.3-touch-follow-through.md`](plan/m4.3-touch-follow-through.md): checkpoints 1–6 are
 committed and checkpoint 7's version and docs are written at workspace `0.4.3`, again with no
 route, format, server field or dependency change; its physical-iPhone pass is the only open item.
-The next milestone
-starts its own `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not need reshaping later; each carries
-its decisions already made.
+The next follow-up, v0.4.4, is scoped in
+[`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md): eight work checkpoints plus a
+release checkpoint, again with no route, format, server field or dependency change, and it is not
+implemented. The schedule follow-up, v0.4.5, is planned — list and calendar views, remembered
+horizon/month, type filter and URL state, with no saved space-level views in its first cut — and
+will get `docs/plan/m4.5-schedule-views.md` when it starts. The next milestone starts its own
+`docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not
+need reshaping later; each carries its decisions already made.
+
+**Revised 2026-10-28:** v0.4.4 (usability sweep) and v0.4.5 (schedule views) are recorded after
+v0.4.3; M5 now includes the markdown writing surface and may split the space graph to `0.5.1`.
 
 **Revised 2026-10-21:** scheduling stays first, but email delivery is out; the source-specific
 `plant-tracker`/`chore` importers are dropped in favour of generic CSV, and views plus everyday
@@ -193,10 +201,36 @@ usability move ahead of search.
   functional text sits below 11 px. No route, format, server field or dependency changes. The
   physical-iPhone pass is still open; Android has emulation only (§1, §8).
 
-- **M5 — Search and linking.** Full-text search over titles and bodies within a space, reachable
-  from the command palette, with an on-disk inverted index rebuilt on change; in-body
-  `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; a graph
-  view. Relation properties already exist in M1, so this is UI plus an index.
+  **v0.4.4 — usability sweep.** **Scoped** (not implemented); spec:
+  [`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md). A web-only pass over the
+  surfaces used every day: completion and record-page trash gain the Undo the table already has;
+  Schedule rows become whole-row targets and stop printing `Plant · plant`; the phone's saved-view
+  strip wraps so no view hides under New view; board and gallery cards use property names; the phone
+  column panel loses truncating keys and desktop-only advice; empty types offer CSV import; the
+  calendar opens on today; relation fields collapse to the current value; and a fresh home leads
+  with Types instead of an empty Recent. Eight work checkpoints plus a release checkpoint; no
+  route, format, server field or dependency change. The v0.4.3 physical-iPhone gate is still open
+  and precedes any keyboard claim.
+
+  **v0.4.5 — schedule views.** **Planned**, not scoped; spec to be
+  `docs/plan/m4.5-schedule-views.md`. The Schedule page grows beyond its three buckets: a List view
+  (the current agenda) and a Calendar view over every scheduled type, with the 7d/14d/30d horizon
+  and the calendar month remembered per user and space, a type filter, and URL-backed view state so
+  a view is shareable and survives refresh and back. The first cut does not add saved space-level
+  views, board-by-type or custom filters/sorts; those wait for space-level views. The calendar
+  needs a range read (a new agenda range route or a bounded client query), so its plan settles the
+  API shape; no body-format or schema change is expected.
+
+- **M5 — Search, linking and the writing surface.** Full-text search over titles and bodies within
+  a space, reachable from the command palette, with an on-disk inverted index rebuilt on change;
+  in-body `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; and
+  a graph view. The record body gains a real markdown writing surface — toolbar, keyboard shortcuts,
+  list continuation, live preview and `[[` autocomplete — because it is where links are typed;
+  markdown remains the canonical source, with no WYSIWYG HTML. The graph starts as a local graph
+  (record plus backlinks and relations) and grows to the space graph; if M5 runs long, the space
+  graph can ship as `0.5.1` without changing the format. Relation properties already exist in M1,
+  so this is UI plus an index.
+
 - **M6 — Files and images.** Attachments stored beside the object under `files/`, referenced from
   frontmatter; thumbnails; a `file`/`image` property format; cover images. Bytes stay on disk and in
   the backup chain.
