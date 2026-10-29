@@ -1,7 +1,7 @@
 import { Popover } from "@base-ui/react/popover";
-import { ChevronRight, Copy, MoreHorizontal, Undo2 } from "lucide-react";
+import { ChevronRight, Copy, MoreHorizontal, Pencil, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
 import {
@@ -157,12 +157,17 @@ const RECORD_MENU_ITEM =
 function RecordOverflow({
   revertLabel,
   onRevert,
+  typeHref,
+  typeName,
   onDuplicate,
   duplicating,
   duplicateDisabled,
 }: {
   revertLabel: string | null;
   onRevert: () => void;
+  /** The type editor, opened on the record's own type. */
+  typeHref: string;
+  typeName: string;
   onDuplicate: () => void;
   duplicating: boolean;
   duplicateDisabled: boolean;
@@ -189,6 +194,14 @@ function RecordOverflow({
                 {revertLabel}
               </Popover.Close>
             ) : null}
+            <Popover.Close
+              className={RECORD_MENU_ITEM}
+              title={`Edit ${typeName} type`}
+              render={<Link to={typeHref} />}
+            >
+              <Pencil aria-hidden size={14} />
+              Edit type
+            </Popover.Close>
             <Popover.Close
               className={RECORD_MENU_ITEM}
               disabled={duplicateDisabled || duplicating}
@@ -664,6 +677,8 @@ export function ObjectPanel({
               <RecordOverflow
                 revertLabel={headerRevertLabel}
                 onRevert={revertHeader}
+                typeHref={`/s/${spaceId}/schema?type=${encodeURIComponent(object.type)}#type-editor`}
+                typeName={type?.name ?? object.type}
                 onDuplicate={duplicateRecord}
                 duplicating={duplicate.isPending}
                 duplicateDisabled={dirty}

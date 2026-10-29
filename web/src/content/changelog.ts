@@ -33,6 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The count of records due later is a button that widens the horizon to 30 days.",
       "A long completion label is shortened on Schedule and on a record's schedule line instead of taking the width.",
       "In left-handed mode a record's complete button moves to the thumb side with the rest of the record's actions.",
+      "A record's more menu opens its type's editor directly, above Duplicate.",
     ],
   },
   {
