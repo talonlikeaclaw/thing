@@ -9,6 +9,7 @@ import {
   groupRows,
   monthGrid,
   monthOf,
+  movedViewSlot,
   moveViewColumn,
   queryIsDirty,
   recordsByDate,
@@ -191,6 +192,24 @@ describe("column layout", () => {
     ]);
     expect(moveViewColumn(table, "room", -1)).toEqual(table.columns);
     expect(moveViewColumn(table, "title", 1)).toEqual(table.columns);
+  });
+});
+
+describe("view order", () => {
+  it("names the slot a view moves to, or nothing at an end", () => {
+    const views = [{ key: "all" }, { key: "by_room" }, { key: "gallery" }];
+    expect(movedViewSlot(views, "gallery", -1)).toBe(1);
+    expect(movedViewSlot(views, "gallery", -2)).toBe(0);
+    expect(movedViewSlot(views, "all", 1)).toBe(1);
+    expect(movedViewSlot(views, "all", -1)).toBeNull();
+    expect(movedViewSlot(views, "gallery", 1)).toBeNull();
+    expect(movedViewSlot(views, "gallery", 5)).toBeNull();
+    expect(movedViewSlot(views, "gone", 1)).toBeNull();
+    expect(movedViewSlot([{ key: "only" }], "only", 1)).toBeNull();
+    // The default owns slot 0, so every other view stops at 1.
+    expect(movedViewSlot(views, "by_room", -1, 1)).toBeNull();
+    expect(movedViewSlot(views, "gallery", -1, 1)).toBe(1);
+    expect(movedViewSlot(views, "gallery", -2, 1)).toBeNull();
   });
 });
 

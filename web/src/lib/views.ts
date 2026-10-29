@@ -138,6 +138,30 @@ export function moveViewColumn(view: ViewDef, key: string, delta: number): strin
   return moveColumn(titleFirst(view.columns), key, delta);
 }
 
+/**
+ * The 0-based slot one view moves to, or `null` when it is unknown or already
+ * at an end. The server takes the target slot, so the client never sends a
+ * neighbour key that another writer could have moved. `floor` is the first slot
+ * the view may take — 1 for every non-default view, because the default is
+ * always slot 0.
+ */
+export function movedViewSlot(
+  views: readonly { key: string }[],
+  key: string,
+  delta: number,
+  floor = 0,
+): number | null {
+  const from = views.findIndex((view) => view.key === key);
+  if (from < 0) {
+    return null;
+  }
+  const to = from + delta;
+  if (to < floor || to >= views.length) {
+    return null;
+  }
+  return to;
+}
+
 /** One board lane, in the order the board renders it. */
 export interface BoardLane {
   key: string;

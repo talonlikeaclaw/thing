@@ -41,6 +41,10 @@ pub fn routes() -> Router<SharedState> {
             "/api/spaces/{space}/types/{key}/views/{view}/default",
             post(make_default),
         )
+        .route(
+            "/api/spaces/{space}/types/{key}/views/{view}/move",
+            post(move_view),
+        )
 }
 
 /// The body a new view may carry. Omitted layout and query fields copy the
@@ -306,7 +310,8 @@ async fn remove(
 
 /// `POST /api/spaces/{space}/types/{key}/views/{view}/default` [editor]
 ///
-/// Idempotent: naming the current default writes the same definition again.
+/// The default is the first tab, so naming one moves it there. Idempotent:
+/// naming the current default writes the same definition again.
 async fn make_default(
     State(state): State<SharedState>,
     caller: Caller,
@@ -321,12 +326,74 @@ async fn make_default(
             .type_def(&key)
             .ok_or_else(|| ApiError::not_found(format!("type {key}")))?;
         let mut next = def.clone();
-        if next.view(&view_key).is_none() {
-            return Err(ApiError::not_found(format!(
-                "view {view_key} of type {key}"
-            )));
+        let position = next
+            .views
+            .iter()
+            .position(|view| view.key == view_key)
+            .ok_or_else(|| ApiError::not_found(format!("view {view_key} of type {key}")))?;
+        if position > 0 {
+            let view = next.views.remove(position);
+            next.views.insert(0, view);
         }
         next.default_view = view_key.clone();
+        validated(index, &next)?;
+        Ok(next)
+    })?;
+
+    let detail = commit(&handle, space, &caller, &next, &view_key)?;
+    Ok(detail)
+}
+
+/// The one field a move takes: the 0-based slot the view lands in after the
+/// write, so up is `position - 1` and the client needs no neighbour key.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MoveViewRequest {
+    position: usize,
+}
+
+/// `POST /api/spaces/{space}/types/{key}/views/{view}/move` [editor]
+///
+/// Permutes the type's ordered `views` list. The order is the file's order, so
+/// it is shared space state. The default view is the first tab and stays first:
+/// it cannot move, and no other view may take slot 0 — `make_default` is the
+/// only way a view lands there.
+async fn move_view(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path((space, key, view_key)): Path<(String, String, String)>,
+    ApiJson(body): ApiJson<MoveViewRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Editor)?;
+
+    let _guard = handle.write.lock().await;
+    let next = handle.with_index(|index| -> Result<TypeDef, ApiError> {
+        let def = index
+            .type_def(&key)
+            .ok_or_else(|| ApiError::not_found(format!("type {key}")))?;
+        let mut next = def.clone();
+        let from = next
+            .views
+            .iter()
+            .position(|view| view.key == view_key)
+            .ok_or_else(|| ApiError::not_found(format!("view {view_key} of type {key}")))?;
+        let last = next.views.len() - 1;
+        if body.position > last {
+            return Err(ApiError::validation(
+                "position",
+                format!("position {} is past the last slot ({last})", body.position),
+            ));
+        }
+        let is_default = view_key == next.default_view;
+        if (is_default && body.position != 0) || (!is_default && body.position == 0) {
+            return Err(ApiError::conflict(
+                "the default view stays first",
+                json!({ "reason": "the default view stays first" }),
+            ));
+        }
+        let view = next.views.remove(from);
+        next.views.insert(body.position, view);
         validated(index, &next)?;
         Ok(next)
     })?;

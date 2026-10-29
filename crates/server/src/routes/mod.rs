@@ -3246,6 +3246,16 @@ mod tests {
             .expect("the named view")
     }
 
+    /// The type detail's view keys in file order.
+    fn view_keys(detail: &Value) -> Vec<&str> {
+        detail["views"]
+            .as_array()
+            .expect("views")
+            .iter()
+            .map(|view| view["key"].as_str().expect("a view key"))
+            .collect()
+    }
+
     #[test]
     fn view_routes_mint_keys_rename_and_promote_the_default() {
         let server = server();
@@ -3332,14 +3342,16 @@ mod tests {
                 .await;
             assert_eq!(chosen.status, StatusCode::OK, "{:?}", chosen.body);
             assert_eq!(chosen.body["default_view"], "by_room");
+            // Naming a default also moves it to the front of the list.
+            assert_eq!(view_keys(&chosen.body), ["by_room", "all", "gallery"]);
 
-            // The file order is all, by_room, gallery: deleting the default
-            // promotes the view that followed it.
+            // Deleting the first view promotes whatever is now first.
             let removed = server
                 .call("DELETE", &format!("{views}/by_room"), None, Some(&cookie))
                 .await;
             assert_eq!(removed.status, StatusCode::OK, "{:?}", removed.body);
-            assert_eq!(removed.body["default_view"], "gallery");
+            assert_eq!(removed.body["default_view"], "all");
+            assert_eq!(view_keys(&removed.body), ["all", "gallery"]);
 
             let only = create_space(&server, &cookie, "Only").await;
             server
@@ -3363,6 +3375,113 @@ mod tests {
                 last.body["error"]["details"]["reason"],
                 "a type needs at least one view"
             );
+        });
+    }
+
+    #[test]
+    fn a_view_moves_between_slots_but_the_default_keeps_the_first() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("move-views@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let views = format!("/api/spaces/{}/types/plant/views", garden.space);
+
+            for (name, kind, extra) in [
+                ("By room", "board", json!({ "group_by": "room" })),
+                ("Gallery", "gallery", json!({ "cover": "room" })),
+            ] {
+                let mut body = json!({ "name": name, "kind": kind });
+                for (key, value) in extra.as_object().expect("fields") {
+                    body[key] = value.clone();
+                }
+                let created = server.call("POST", &views, Some(body), Some(&cookie)).await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            }
+
+            // The default owns slot 0, so it cannot move and nothing may take
+            // its place.
+            let before = server
+                .call(
+                    "POST",
+                    &format!("{views}/gallery/move"),
+                    Some(json!({ "position": 0 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(before.status, StatusCode::CONFLICT, "{:?}", before.body);
+            assert_eq!(
+                before.body["error"]["details"]["reason"],
+                "the default view stays first"
+            );
+
+            let off = server
+                .call(
+                    "POST",
+                    &format!("{views}/all/move"),
+                    Some(json!({ "position": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(off.status, StatusCode::CONFLICT, "{:?}", off.body);
+
+            let stayed = server
+                .call(
+                    "POST",
+                    &format!("{views}/all/move"),
+                    Some(json!({ "position": 0 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(stayed.status, StatusCode::OK, "{:?}", stayed.body);
+            assert_eq!(view_keys(&stayed.body), ["all", "by_room", "gallery"]);
+
+            let moved = server
+                .call(
+                    "POST",
+                    &format!("{views}/gallery/move"),
+                    Some(json!({ "position": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(moved.status, StatusCode::OK, "{:?}", moved.body);
+            assert_eq!(view_keys(&moved.body), ["all", "gallery", "by_room"]);
+            assert_eq!(moved.body["default_view"], "all");
+
+            let past = server
+                .call(
+                    "POST",
+                    &format!("{views}/gallery/move"),
+                    Some(json!({ "position": 3 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(past.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(past.field(), "position");
+
+            // Naming another view the default moves it to the front.
+            let promoted = server
+                .call(
+                    "POST",
+                    &format!("{views}/by_room/default"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(promoted.status, StatusCode::OK, "{:?}", promoted.body);
+            assert_eq!(view_keys(&promoted.body), ["by_room", "all", "gallery"]);
+            assert_eq!(promoted.body["default_view"], "by_room");
+
+            let unknown = server
+                .call(
+                    "POST",
+                    &format!("{views}/missing/move"),
+                    Some(json!({ "position": 0 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::NOT_FOUND);
         });
     }
 

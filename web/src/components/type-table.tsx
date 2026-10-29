@@ -10,7 +10,6 @@ import {
   Plus,
   Search,
   Settings2,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
 import {
@@ -848,7 +847,7 @@ export function TypeTable({
   const sheetTitle = (
     <Dialog.Title key="title" className="min-w-0 truncate text-[17px] font-medium">
       {viewPanel === "menu"
-        ? "View"
+        ? "More"
         : viewPanel === "settings"
           ? "View settings"
           : viewPanel === "save"
@@ -994,12 +993,12 @@ export function TypeTable({
       <button
         key="view"
         type="button"
-        aria-label="View"
+        aria-label="More view actions"
         aria-expanded={viewSheetOpen}
         className={SQUARE_BUTTON}
         onClick={openViewMenu}
       >
-        <SlidersHorizontal aria-hidden size={16} />
+        <MoreHorizontal aria-hidden size={16} />
       </button>,
     );
   } else {

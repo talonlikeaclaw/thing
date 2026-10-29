@@ -392,6 +392,25 @@ export function useSetDefaultView(spaceId: string, typeKey: string) {
   );
 }
 
+/**
+ * Moves one view to a 0-based slot in the type's view list. The order lives in
+ * the type file, so it is shared space state; the default stays its own key.
+ */
+export function useMoveView(spaceId: string, typeKey: string) {
+  return useViewMutation<MoveViewInput>(spaceId, typeKey, ({ key, position }) =>
+    request<TypeDef>(`/api/spaces/${spaceId}/types/${typeKey}/views/${key}/move`, {
+      method: "POST",
+      body: { position },
+    }),
+  );
+}
+
+export interface MoveViewInput {
+  key: string;
+  /** The 0-based slot the view lands in after the write. */
+  position: number;
+}
+
 /** One option as a write takes it; the key is absent only for a new option. */
 export interface OptionInput {
   key?: string;

@@ -300,6 +300,10 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   grammar, and never change; display names are unique case-insensitively; the kind is chosen once
   and immutable. Only the field of the current kind exists: a table has no `group_by`, a calendar
   has empty `columns` and a `date_property`.
+- **The default view is first.** `default_view` names `views[0]`, so the view that opens the type
+  is also its first tab. `POST …/views/{view}/default` moves that view to the front, and a move may
+  never put another view in slot 0 or move the default away from it (`409`). A file that writes the
+  default elsewhere is normalized to first on read; the next write persists that order.
 - **View problems are split by what can be known.** Key/name/default structure is enforced in
   `parse_type`, so a broken type file is unparseable like any other. Cross-file meaning (columns are
   members, `group_by` is a `select`, `date_property` is a `date`, widths are `80..=800`, filters and

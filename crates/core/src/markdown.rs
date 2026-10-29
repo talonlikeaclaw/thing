@@ -50,8 +50,26 @@ pub fn parse_type(text: &str) -> Result<TypeDef, CoreError> {
     }
     let def: TypeDef = serde_yaml_ng::from_value(Yaml::Mapping(mapping))
         .map_err(|err| malformed("type", &err.to_string()))?;
+    let def = default_view_first(def);
     check_type_structure(&def)?;
     Ok(def)
+}
+
+/// The default view opens the type, so it is also the first tab. A file that
+/// writes it elsewhere is normalized on read; the next write persists the order.
+fn default_view_first(mut def: TypeDef) -> TypeDef {
+    let Some(position) = def
+        .views
+        .iter()
+        .position(|view| view.key == def.default_view)
+    else {
+        return def;
+    };
+    if position > 0 {
+        let view = def.views.remove(position);
+        def.views.insert(0, view);
+    }
+    def
 }
 
 /// Writes `types/<key>.yml`.
@@ -603,6 +621,30 @@ Watered today.
                 .to_string()
                 .contains("between 1 and")
         );
+    }
+
+    #[test]
+    fn a_default_written_later_reads_first() {
+        let text = type_yaml(
+            &format!(
+                "views:\n{}{}",
+                view_yaml("all", "All"),
+                view_yaml("watering", "Watering")
+            ),
+            "watering",
+        );
+        let def = parse_type(&text).expect("parses");
+        assert_eq!(def.default_view, "watering");
+        assert_eq!(
+            def.views
+                .iter()
+                .map(|view| view.key.as_str())
+                .collect::<Vec<_>>(),
+            ["watering", "all"]
+        );
+        // The normalized order is what the next write persists.
+        let written = serialize_type(&def);
+        assert_eq!(parse_type(&written).expect("parses back"), def);
     }
 
     #[test]
