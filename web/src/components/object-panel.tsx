@@ -697,7 +697,7 @@ export function ObjectPanel({
 
       {type?.schedule && object.schedule ? (
         <section aria-label="Schedule" className="mt-4 border-y rule py-2.5">
-          <div className="flex items-center gap-4">
+          <ThumbRow className="items-center gap-4">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
             <span className={cn("label", dueTone(object.schedule.status))}>
               {STATUS_LABELS[object.schedule.status]}
@@ -739,14 +739,18 @@ export function ObjectPanel({
           {canEdit && object.schedule.status !== "done" ? (
             <Button
               type="button"
-              className="min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
+              title={verb}
+              className="min-h-8 min-w-0 max-w-[45%] shrink-0 px-3 text-[13px] sm:max-w-[12rem] pointer-coarse:min-h-11"
               disabled={complete.isPending || confirmComplete}
               onClick={onComplete}
             >
-              {complete.isPending ? "Saving…" : verb}
+              {/* A user-set verb can be a sentence; the strip keeps its width. */}
+              <span className="min-w-0 truncate">
+                {complete.isPending ? "Saving…" : verb}
+              </span>
             </Button>
           ) : null}
-          </div>
+          </ThumbRow>
         </section>
       ) : null}
 

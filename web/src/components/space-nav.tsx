@@ -163,11 +163,11 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
       key="label"
       className={cn(
         "flex min-w-0 flex-1 items-center gap-3",
-        handedness === "left" && "justify-end",
+        handedness === "left" && "flex-row-reverse",
       )}
     >
       <ThingIcon icon={space.data?.icon} size="md" />
-      <span className={cn("min-w-0", handedness === "left" ? "text-right" : "flex-1")}>
+      <span className={cn("min-w-0 flex-1", handedness === "left" && "text-right")}>
         <span
           className={cn(
             "flex min-w-0 items-center gap-1",

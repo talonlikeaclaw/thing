@@ -76,8 +76,9 @@ export function AgendaPage() {
                 key={days}
                 type="button"
                 aria-pressed={horizon === days}
+                aria-label={`Show items due within ${days} days`}
                 className={cn(
-                  "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11",
+                  "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
                   horizon === days ? "" : "text-faint",
                 )}
                 onClick={() => setHorizon(days)}
@@ -130,9 +131,19 @@ export function AgendaPage() {
               verbs={verbs}
             />
             {schedule.later_count > 0 ? (
-              <p className="mt-4 font-mono text-[12px] text-faint">
-                {schedule.later_count} more due later
-              </p>
+              horizon < 30 ? (
+                <button
+                  type="button"
+                  className="mt-4 font-mono text-[12px] text-faint underline decoration-line-strong underline-offset-2 transition-colors hover:text-ink pointer-coarse:min-h-11"
+                  onClick={() => setHorizon(30)}
+                >
+                  {schedule.later_count} more due later · show 30 days
+                </button>
+              ) : (
+                <p className="mt-4 font-mono text-[12px] text-faint">
+                  {schedule.later_count} more due later
+                </p>
+              )
             ) : null}
           </>
         )}
@@ -227,44 +238,61 @@ function AgendaEntry({
     );
   }
 
+  const leftHanded = handedness === "left";
+
   return (
-    <li className="grid gap-x-4 gap-y-2 border-b rule py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center pointer-coarse:min-h-11">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <Link
-            to={`/s/${spaceId}/o/${row.id}`}
-            className="min-w-0 truncate text-[15px] font-medium hover:underline"
-          >
+    <li
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_fit-content(12rem)] items-center gap-x-4 border-b rule pointer-coarse:min-h-11",
+        leftHanded
+          ? "max-sm:grid-cols-[fit-content(45%)_minmax(0,1fr)]"
+          : "max-sm:grid-cols-[minmax(0,1fr)_fit-content(45%)]",
+      )}
+    >
+      {/* The content block is the link; the verb stays its own target beside it. */}
+      <Link
+        to={`/s/${spaceId}/o/${row.id}`}
+        className={cn(
+          "col-start-1 row-start-1 group block min-w-0 py-3 text-ink",
+          leftHanded && "max-sm:col-start-2",
+        )}
+      >
+        <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className="min-w-0 truncate text-[15px] font-medium group-hover:underline">
             {row.title}
-          </Link>
+          </span>
           <span className="font-mono text-[12px] text-faint">
             {row.type_icon ? (
               <span aria-hidden className="mr-1">
                 {row.type_icon}
               </span>
             ) : null}
-            {row.type_name} · {row.type}
+            {row.type_name || row.type}
           </span>
-        </div>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[12px]">
+        </span>
+        <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[12px]">
           <span className="tnum text-muted">{row.due_date}</span>
           {phrase ? <span className={cn("tnum", dueTone(row.status))}>{phrase}</span> : null}
           {row.recurrence ? <span className="text-faint">{row.recurrence}</span> : null}
-        </div>
-      </div>
+        </span>
+      </Link>
       {canEdit ? (
         <Button
           type="button"
           variant="ghost"
           aria-label={`${verb} ${row.title}`}
+          title={verb}
           className={cn(
-            "min-h-8 px-3 text-[13px] pointer-coarse:min-h-11",
-            handedness === "left" ? "justify-self-start" : "justify-self-end",
+            "row-start-1 min-h-8 min-w-0 px-3 text-[13px] pointer-coarse:min-h-11",
+            leftHanded && "max-sm:col-start-1",
           )}
           disabled={complete.isPending}
           onClick={onComplete}
         >
-          {complete.isPending ? "Saving…" : verb}
+          {/* A user-set verb can be a sentence; the row keeps its width. */}
+          <span className="min-w-0 truncate">
+            {complete.isPending ? "Saving…" : verb}
+          </span>
         </Button>
       ) : null}
     </li>
