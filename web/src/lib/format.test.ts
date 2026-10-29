@@ -8,6 +8,7 @@ import {
   optionName,
   parseCellText,
   relativeTime,
+  typeLabel,
   valueLabel,
 } from "@/lib/format";
 
@@ -88,5 +89,19 @@ describe("relativeTime", () => {
 
   it("returns nothing for an unreadable instant", () => {
     expect(relativeTime("not a date", now)).toBe("");
+  });
+});
+
+describe("typeLabel", () => {
+  const types = [{ key: "plant", name: "Plant" }];
+
+  it("resolves a type key to its display name", () => {
+    expect(typeLabel(types, "plant")).toBe("Plant");
+  });
+
+  it("falls back to the key while the type list is unknown or stale", () => {
+    expect(typeLabel(undefined, "plant")).toBe("plant");
+    expect(typeLabel([], "plant")).toBe("plant");
+    expect(typeLabel(types, "chore")).toBe("chore");
   });
 });

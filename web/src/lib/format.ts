@@ -16,6 +16,17 @@ export function optionName(property: PropertyDef, key: string): string {
   return property.options?.find((option) => option.key === key)?.name ?? key;
 }
 
+/**
+ * A type key resolved to its display name. The key is only the fallback while
+ * the type list is loading or the type is gone; it never stands in for a name.
+ */
+export function typeLabel(
+  types: readonly { key: string; name: string }[] | undefined,
+  key: string,
+): string {
+  return types?.find((type) => type.key === key)?.name ?? key;
+}
+
 function plain(value: unknown): string {
   if (typeof value === "string") {
     return value;

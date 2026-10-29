@@ -411,14 +411,16 @@ space, type and record icons, never as interface iconography.
   final `No value` lane only when records lack the value. Each lane is a 17rem ruled column with a
   hairline top border, its option name and a mono count above the cards.
 - **Cards:** a `surface` panel with a hairline border and no shadow; the title, then the view's card
-  columns as mono key and value. No drag between lanes in M3.
+  columns as a property name and its value. The raw key appears only when the property definition
+  is missing. No drag between lanes in M3.
 
 ### Gallery View
 - **Grid:** 2 columns, 3 from `md`, 4 from `xl`, with a hairline at every tile edge rather than a
   shadow.
-- **Cover:** the cover property's label, bottom-aligned on a `surface` panel with a hairline base;
-  an empty value falls back to the type icon. No invented gradient, image or generated art until
-  file properties exist. The card repeats the title and card columns.
+- **Cover:** a `raised` band with a hairline base, the cover property's label bottom-aligned in it.
+  A select cover whose option matches tints the band with that option at low alpha; with no
+  matching option the band keeps `raised` and shows the type icon. No invented gradient, image or
+  generated art until file properties exist. The card repeats the title and card columns.
 
 ### Calendar View
 - **Grid:** Monday-first weeks in a 7-column ruled table; adjacent-month days are recessed with

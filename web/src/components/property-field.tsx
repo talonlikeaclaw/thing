@@ -2,13 +2,21 @@ import { Popover } from "@base-ui/react/popover";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
 import { useState } from "react";
 
-import { useRelationChoices, useUpdateProperty } from "@/api/queries";
+import { useRelationChoices, useTypes, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
 import { formatDateTime, readError, shortId } from "@/lib/display";
-import { datetimeLocal, fromDatetimeLocal, inputText, isBlank, isChecked, optionName } from "@/lib/format";
+import {
+  datetimeLocal,
+  fromDatetimeLocal,
+  inputText,
+  isBlank,
+  isChecked,
+  optionName,
+  typeLabel,
+} from "@/lib/format";
 import { todayIn } from "@/lib/timezone";
 import { optionDrafts, optionInputs } from "@/lib/schema";
 
@@ -482,6 +490,7 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
 /** Single and multi relations: search the space's objects and pick targets. */
 function RelationField({ spaceId, property, value, onChange }: PropertyFieldProps) {
   const { choices, loading } = useRelationChoices(spaceId, property, true);
+  const types = useTypes(spaceId);
   const { handedness } = useHandedness();
   const [query, setQuery] = useState("");
   const multi = property.multi === true;
@@ -567,7 +576,11 @@ function RelationField({ spaceId, property, value, onChange }: PropertyFieldProp
                   {picked ? <Check aria-hidden size={12} /> : null}
                   <span className="truncate">{choice.title}</span>
                 </span>
-                <span className="font-mono text-[11px] text-faint">{choice.type}</span>
+                {property.target_type ? null : (
+                  <span className="shrink-0 font-mono text-[11px] text-faint">
+                    {typeLabel(types.data, choice.type)}
+                  </span>
+                )}
               </button>
             );
           })

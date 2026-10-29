@@ -135,8 +135,8 @@ export function BoardView({
                                 key={key}
                                 className="flex min-w-0 items-baseline gap-1.5 text-[12px]"
                               >
-                                <dt className="shrink-0 font-mono text-[11px] text-faint">
-                                  {key}
+                                <dt className="shrink-0 text-[11px] text-faint">
+                                  {property.name}
                                 </dt>
                                 <dd className="min-w-0 truncate text-muted">
                                   <PropertyValue

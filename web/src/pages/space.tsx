@@ -7,7 +7,7 @@ import { ThumbRow } from "@/components/handedness";
 import { useQuickCapture } from "@/components/quick-capture";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button } from "@/components/ui/controls";
-import { relativeTime } from "@/lib/format";
+import { relativeTime, typeLabel } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { useRouteMeta } from "@/lib/route";
 
@@ -99,7 +99,7 @@ export function SpacePage() {
                     <span className="truncate">{item.title}</span>
                   </span>
                   <span className="flex shrink-0 items-baseline gap-3 font-mono text-[11px] text-faint">
-                    <span>{item.type}</span>
+                    <span>{typeLabel(typeList, item.type)}</span>
                     <span>{relativeTime(item.at)}</span>
                   </span>
                 </Link>

@@ -705,7 +705,7 @@ export function ObjectPanel({
         <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-mono text-[11px] text-faint">
           <span>updated {formatDate(object.updated_at, timeZone)}</span>
           <span className="max-sm:hidden">· created {formatDate(object.created_at, timeZone)}</span>
-          {type ? <span>· {type.key}</span> : null}
+          {type ? <span>· {type.name}</span> : null}
           {canEdit ? null : <span className="label">read only</span>}
         </p>
       </div>

@@ -46,6 +46,17 @@ export function GalleryView({
     <ul className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
       {rows.map((row) => {
         const coverLabel = cover ? row.values[cover.key]?.label.trim() : "";
+        const coverValue = cover ? row.values[cover.key]?.value : undefined;
+        const coverOption =
+          cover?.format === "select" && typeof coverValue === "string"
+            ? cover.options?.find((option) => option.key === coverValue)
+            : undefined;
+        // Option colours are user data: the editor stores hex, an older space
+        // may name a CSS colour. `color-mix` accepts both; an unreadable colour
+        // drops the declaration and the band keeps its `bg-raised`.
+        const tint = coverOption
+          ? `color-mix(in srgb, ${coverOption.color} 18%, transparent)`
+          : undefined;
         return (
           <li key={row.id} className="relative min-w-0">
             <div className="absolute top-1 right-1 z-10">
@@ -66,14 +77,18 @@ export function GalleryView({
               to={`/s/${spaceId}/o/${row.id}`}
               className="flex h-full flex-col rounded-field border border-line bg-surface transition-colors hover:border-line-strong"
             >
-              <span className="flex min-h-24 items-end border-b rule px-3 py-2">
+              <span
+                className="flex min-h-24 items-end justify-between gap-2 border-b rule bg-raised px-3 py-2"
+                style={tint ? { backgroundColor: tint } : undefined}
+              >
                 {coverLabel ? (
                   <span className="truncate text-[15px] text-ink" title={coverLabel}>
                     {coverLabel}
                   </span>
                 ) : (
-                  <ThingIcon icon={type.icon} size="lg" />
+                  <span />
                 )}
+                {tint ? null : <ThingIcon icon={type.icon} size="lg" />}
               </span>
               <span className="grid gap-1.5 px-3 py-2.5">
                 <span className="flex items-start gap-1.5">
@@ -103,7 +118,7 @@ export function GalleryView({
                           key={key}
                           className="flex min-w-0 items-baseline gap-1.5 text-[12px]"
                         >
-                          <dt className="shrink-0 font-mono text-[11px] text-faint">{key}</dt>
+                          <dt className="shrink-0 text-[11px] text-faint">{property.name}</dt>
                           <dd className="min-w-0 truncate text-muted">
                             <PropertyValue
                               property={property}

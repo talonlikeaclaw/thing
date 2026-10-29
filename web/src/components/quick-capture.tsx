@@ -506,7 +506,7 @@ function QuickCaptureDialog({
                       {selected === null ? <option value="">Choose a type</option> : null}
                       {typeList.map((entry) => (
                         <option key={entry.key} value={entry.key}>
-                          {entry.name} · {entry.key}
+                          {entry.name}
                         </option>
                       ))}
                     </select>
@@ -547,9 +547,7 @@ function QuickCaptureDialog({
                         >
                           <div className="flex items-baseline justify-between gap-3">
                             <span className="label">{property.name}</span>
-                            <span className="font-mono text-[11px] text-faint">
-                              {property.key} · required
-                            </span>
+                            <span className="font-mono text-[11px] text-faint">required</span>
                           </div>
                           <PropertyField
                             spaceId={spaceId ?? ""}

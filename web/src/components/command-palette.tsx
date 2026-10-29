@@ -20,7 +20,7 @@ import { useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
-import { relativeTime } from "@/lib/format";
+import { relativeTime, typeLabel } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { rank } from "@/lib/search";
 
@@ -179,14 +179,14 @@ export function CommandPalette({
     .map((item) => ({
       id: `recent:${item.id}`,
       label: item.title,
-      hint: `${item.type} · ${relativeTime(item.at)}`,
+      hint: `${typeLabel(typeList, item.type)} · ${relativeTime(item.at)}`,
       ...(item.icon ? { icon: item.icon } : {}),
       to: `/s/${spaceId}/o/${item.id}`,
     }));
   const typeItems: PaletteItem[] = typeList.map((type) => ({
     id: `type:${type.key}`,
     label: type.name,
-    hint: `${type.key} · ${type.object_count} ${type.name_plural.toLowerCase()}`,
+    hint: `${type.object_count} ${type.name_plural.toLowerCase()}`,
     ...(type.icon ? { icon: type.icon } : {}),
     to: `/s/${spaceId}/t/${type.key}`,
   }));
@@ -200,7 +200,7 @@ export function CommandPalette({
   const recordItems: PaletteItem[] = records.map((record) => ({
     id: `record:${record.id}`,
     label: record.title,
-    hint: `${record.type} · ${relativeTime(record.updated_at)}`,
+    hint: `${typeLabel(typeList, record.type)} · ${relativeTime(record.updated_at)}`,
     ...(record.icon ? { icon: record.icon } : {}),
     to: `/s/${spaceId}/o/${record.id}`,
   }));
