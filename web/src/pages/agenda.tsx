@@ -202,9 +202,23 @@ function AgendaEntry({
     complete.mutate(
       { id: row.id, rev: row.rev },
       {
-        onSuccess: ({ object }) => {
-          const nextDue = object.schedule?.due_date;
-          toast.showToast(nextDue ? `Next due ${nextDue}.` : "Marked done.");
+        onSuccess: ({ object: saved, previous }) => {
+          const nextDue = saved.schedule?.due_date;
+          toast.showToast(
+            nextDue ? `Next due ${nextDue} for “${saved.title}”.` : `“${saved.title}” marked done.`,
+            "plain",
+            {
+              label: "Undo",
+              onAction: () => {
+                void complete
+                  .undo(saved, previous)
+                  .then(() => toast.showToast("Completion undone."))
+                  .catch((error) =>
+                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+                  );
+              },
+            },
+          );
         },
         onError: (error) => {
           toast.showToast(`Could not complete — ${readError(error)}`, "danger");

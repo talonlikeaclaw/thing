@@ -7,6 +7,7 @@ import { ApiError } from "@/api/client";
 import {
   useCompleteObject,
   useDuplicateObject,
+  useRestoreObject,
   useTrashObject,
   useUpdateObject,
 } from "@/api/queries";
@@ -237,6 +238,7 @@ export function ObjectPanel({
   const update = useUpdateObject(spaceId);
   const complete = useCompleteObject(spaceId);
   const trash = useTrashObject(spaceId);
+  const restore = useRestoreObject(spaceId);
   const duplicate = useDuplicateObject(spaceId);
   const navigate = useNavigate();
   const toast = useToast();
@@ -384,7 +386,9 @@ export function ObjectPanel({
           setConfirmComplete(false);
           const nextDue = saved.schedule?.due_date;
           toast.showToast(
-            nextDue ? `Next due ${nextDue}.` : "Marked done.",
+            nextDue
+              ? `Next due ${nextDue} for “${saved.title}”.`
+              : `“${saved.title}” marked done.`,
             "plain",
             {
               label: "Undo",
@@ -513,9 +517,22 @@ export function ObjectPanel({
   }
 
   function moveToTrash() {
+    const title = draft.title.trim() || object.title;
     trash.mutate(objectId, {
       onSuccess: () => {
-        toast.showToast(`Moved “${draft.title.trim() || object.title}” to the trash.`);
+        toast.showToast(`Moved “${title}” to the trash.`, "plain", {
+          label: "Undo",
+          onAction: () =>
+            // The panel has unmounted by the time this runs, and TanStack only
+            // delivers per-call callbacks to a mounted observer. The promise
+            // from `mutateAsync` settles either way.
+            void restore
+              .mutateAsync(objectId)
+              .then(() => toast.showToast(`Restored “${title}”.`))
+              .catch((error) =>
+                toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+              ),
+        });
         setLeaving(true);
         // The blocker reads the previous render's `dirty`; let the state land.
         window.setTimeout(() => navigate(`/s/${spaceId}/t/${object.type}`), 0);

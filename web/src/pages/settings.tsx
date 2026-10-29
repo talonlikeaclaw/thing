@@ -141,7 +141,7 @@ export function SettingsPage() {
       { confirm },
       {
         onSuccess: () => {
-          toast.showToast(`Deleted “${detail.name}”.`, "danger");
+          toast.showToast(`Deleted “${detail.name}”.`);
           navigate("/");
         },
       },

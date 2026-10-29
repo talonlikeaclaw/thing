@@ -644,17 +644,23 @@ export function TypeTable({
       {
         onSuccess: ({ object: saved, previous }) => {
           const nextDue = saved.schedule?.due_date;
-          toast.showToast(nextDue ? `Next due ${nextDue}.` : "Marked done.", "plain", {
-            label: "Undo",
-            onAction: () => {
-              void complete
-                .undo(saved, previous)
-                .then(() => toast.showToast("Completion undone."))
-                .catch((error) =>
-                  toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
-                );
+          toast.showToast(
+            nextDue
+              ? `Next due ${nextDue} for “${saved.title}”.`
+              : `“${saved.title}” marked done.`,
+            "plain",
+            {
+              label: "Undo",
+              onAction: () => {
+                void complete
+                  .undo(saved, previous)
+                  .then(() => toast.showToast("Completion undone."))
+                  .catch((error) =>
+                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+                  );
+              },
             },
-          });
+          );
         },
         onError: report,
       },

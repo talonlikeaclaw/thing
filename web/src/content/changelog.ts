@@ -17,6 +17,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Usability sweep",
+    upcoming: true,
+    highlights: [
+      "Undo a completion from Schedule, not only from the table and the record.",
+      "Undo a record you moved to the trash from the record itself.",
+      "A completion message names the record it changed, with or without a next due date.",
+      "Deleting a space confirms with a message that leaves on its own instead of a warning you must dismiss.",
+    ],
+  },
+  {
     version: "0.4.3",
     title: "Touch follow-through",
     highlights: [
