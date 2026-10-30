@@ -6,6 +6,7 @@ import {
   clampWidth,
   defaultWidth,
   effectiveQuery,
+  groupByDate,
   groupRows,
   monthGrid,
   monthOf,
@@ -245,6 +246,19 @@ describe("board grouping", () => {
 });
 
 describe("calendar dates", () => {
+  it("groups generic items by their date, preserving input order", () => {
+    const items = [
+      { id: "a", day: "2026-10-22" },
+      { id: "b", day: "2026-10-23" },
+      { id: "c", day: "2026-10-22" },
+      { id: "d", day: "" },
+    ];
+    const byDate = groupByDate(items, (item) => item.day);
+    expect([...byDate.keys()]).toEqual(["2026-10-22", "2026-10-23"]);
+    expect(byDate.get("2026-10-22")?.map((item) => item.id)).toEqual(["a", "c"]);
+    expect(byDate.get("2026-10-23")?.map((item) => item.id)).toEqual(["b"]);
+  });
+
   it("groups rows by their raw date and skips empty or malformed values", () => {
     const dated = (id: string, value: string) => ({
       ...row(id, undefined),

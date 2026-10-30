@@ -24,6 +24,16 @@ function readMedia(query: string) {
   return () => window.matchMedia(query).matches;
 }
 
+/**
+ * The synchronous answer for a one-off decision, e.g. whether a tap opens a
+ * day panel or follows a link. The reactive form is `useCoarsePointer`.
+ */
+export function isCoarsePointer(): boolean {
+  return typeof window.matchMedia === "function"
+    ? window.matchMedia(COARSE_QUERY).matches
+    : false;
+}
+
 /** Width-only compaction, as the type page already uses. */
 export function useCompactWidth(): boolean {
   return useSyncExternalStore(

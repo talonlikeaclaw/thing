@@ -221,6 +221,38 @@ export function groupRows(rows: ObjectSummary[], property: PropertyDef): BoardLa
 }
 
 /**
+ * Items keyed by the date `dateOf` returns, preserving the input's order. An
+ * empty key leaves the item out; the caller counts those separately.
+ */
+export function groupByDate<T>(
+  items: readonly T[],
+  dateOf: (item: T) => string,
+): Map<string, T[]> {
+  const byDate = new Map<string, T[]>();
+  for (const item of items) {
+    const date = dateOf(item);
+    if (!date) {
+      continue;
+    }
+    const bucket = byDate.get(date);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      byDate.set(date, [item]);
+    }
+  }
+  return byDate;
+}
+
+/** The `YYYY-MM-DD` a row stores under `property`, or `""` when it has none. */
+export function dateOfRow(property: string): (row: ObjectSummary) => string {
+  return (row) => {
+    const value = row.values[property]?.value;
+    return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+  };
+}
+
+/**
  * Rows keyed by their `YYYY-MM-DD` value, preserving the list's order. A row
  * without a valid date is left out; the calendar counts those separately.
  */
@@ -228,20 +260,7 @@ export function recordsByDate(
   rows: ObjectSummary[],
   property: string,
 ): Map<string, ObjectSummary[]> {
-  const byDate = new Map<string, ObjectSummary[]>();
-  for (const row of rows) {
-    const value = row.values[property]?.value;
-    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      continue;
-    }
-    const bucket = byDate.get(value);
-    if (bucket) {
-      bucket.push(row);
-    } else {
-      byDate.set(value, [row]);
-    }
-  }
-  return byDate;
+  return groupByDate(rows, dateOfRow(property));
 }
 
 /** One cell of a month grid; adjacent-month days keep their real date. */
