@@ -62,9 +62,10 @@ route, format, server field or dependency change; its physical-iPhone pass is th
 The next follow-up, v0.4.4, is implemented in
 [`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md): checkpoints 1–9 are committed
 at workspace `0.4.4`, again with no route, format, server field or dependency change; its
-physical-iPhone pass is still open. The schedule follow-up, v0.4.5, is planned — list and calendar
-views, remembered horizon/month, type filter and URL state, with no saved space-level views in its
-first cut — and will get `docs/plan/m4.5-schedule-views.md` when it starts. The next milestone starts its own
+physical-iPhone pass is still open. The schedule follow-up, v0.4.5, is scoped in
+[`docs/plan/m4.5-schedule-views.md`](plan/m4.5-schedule-views.md) — list and calendar views, one
+agenda read with a range and type filter, remembered horizon/month, and URL state, with no saved
+space-level views in its first cut — and is not started. The next milestone starts its own
 `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
 
@@ -215,14 +216,16 @@ usability move ahead of search.
   dependency change. The v0.4.3 physical-iPhone gate is still open and precedes any keyboard
   claim; v0.4.4's device pass had emulation only.
 
-  **v0.4.5 — schedule views.** **Planned**, not scoped; spec to be
-  `docs/plan/m4.5-schedule-views.md`. The Schedule page grows beyond its three buckets: a List view
-  (the current agenda) and a Calendar view over every scheduled type, with the 7d/14d/30d horizon
-  and the calendar month remembered per user and space, a type filter, and URL-backed view state so
-  a view is shareable and survives refresh and back. The first cut does not add saved space-level
-  views, board-by-type or custom filters/sorts; those wait for space-level views. The calendar
-  needs a range read (a new agenda range route or a bounded client query), so its plan settles the
-  API shape; no body-format or schema change is expected.
+  **v0.4.5 — schedule views.** **Scoped**, not started; spec:
+  [`docs/plan/m4.5-schedule-views.md`](plan/m4.5-schedule-views.md), five checkpoints. The Schedule
+  page grows beyond its three buckets: a List view (the current agenda) and a Calendar view over
+  every scheduled type, with the 7d/14d/30d horizon and the calendar month remembered per user and
+  space, a type filter, and URL-backed view state so a view is shareable and survives refresh and
+  back. The first cut does not add saved space-level views, board-by-type or custom filters/sorts;
+  those wait for space-level views. The plan settles the API shape on the existing agenda read:
+  `rows` and `later_count` replace the three bucket arrays, `types` narrows, and `from`/`to` asks
+  for a calendar window. The List buckets become a client projection of the server's `status`. No
+  body-format or schema change; no new route; completed records stay out of both views.
 
 - **M5 — Search, linking and the writing surface.** Full-text search over titles and bodies within
   a space, reachable from the command palette, with an on-disk inverted index rebuilt on change;
