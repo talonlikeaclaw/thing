@@ -154,6 +154,11 @@ export function PropertyEditor({
             </dd>
           </dl>
         ) : null}
+        {property.format === "relation" ? (
+          <p className="text-[12px] text-faint">
+            Target and target count are fixed when the property is created.
+          </p>
+        ) : null}
 
         {showsOptions ? (
           <div>

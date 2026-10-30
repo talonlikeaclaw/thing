@@ -35,6 +35,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A type with no records offers Import CSV right beside New record.",
       "A calendar opens on the current week instead of at the top of the month.",
       "Today brings the current month and today's row into view, even when the month is already showing.",
+      "A relation on a record shows its current value as chips; the search list opens only when you ask for it.",
     ],
     details: [
       "A Schedule row names its type once instead of repeating the type's key.",
@@ -54,6 +55,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A long completion label is shortened on Schedule and on a record's schedule line instead of taking the width.",
       "In left-handed mode a record's complete button moves to the thumb side with the rest of the record's actions.",
       "A record's more menu opens its type's editor directly, above Duplicate.",
+      "Opening a record no longer reads up to 500 possible relation targets before showing it.",
+      "Escape closes the relation picker without leaving the record.",
+      "Adding a relation from the table now says that a several-target relation is created in the Schema property library.",
     ],
   },
   {

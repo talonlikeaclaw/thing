@@ -631,7 +631,6 @@ export function ObjectPanel({
             label={object.properties[key]?.label ?? ""}
             canEdit={canEdit}
             timeZone={timeZone}
-            missing={object.properties[key]?.missing}
             locked={key === "last_completed_at" ? "Set by Complete" : undefined}
             onChange={(value) =>
               setDraft((current) => ({

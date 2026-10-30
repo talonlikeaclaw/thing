@@ -408,6 +408,13 @@ space, type and record icons, never as interface iconography.
 - **Metadata:** one line on a phone — `UPDATED <time> · <type>`; wider screens keep created time too.
 - **Properties:** the label and the value; the mono key echo under the label is hidden below `sm`
   where it only repeats the label. It stays in the `aria-label` and returns from `sm` up.
+- **Relations:** the current targets read first as 6px chips — title, the type name when the target
+  type is open, a remove X — followed by one text trigger (`Add relation` / `Change relation` /
+  `Add another`). The search field and target list are collapsed until that trigger is pressed, so a
+  record opens without reading the target type's records. Single-valued picking collapses the list;
+  multi-valued picking keeps it open with `Done`. `Escape` closes the picker, never the record. A
+  missing target shows its short id on the chip and the existing warning row with `Remove` once the
+  list is read.
 - **Keyboard:** the markdown body and the sticky save bar measure against the visual viewport, so the
   bar sits above the on-screen keyboard rather than behind it.
 

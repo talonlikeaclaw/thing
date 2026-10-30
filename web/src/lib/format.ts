@@ -1,4 +1,5 @@
 import type { PropertyDef, PropertyFormat } from "@/api/types";
+import { shortId } from "@/lib/display";
 import { recurrenceSummary } from "@/lib/schedule";
 
 /** Whether a value counts as unset, matching the server's empty-key rule. */
@@ -25,6 +26,37 @@ export function typeLabel(
   key: string,
 ): string {
   return types?.find((type) => type.key === key)?.name ?? key;
+}
+
+/** One current relation target: its stored id and the title to read. */
+export interface RelationChip {
+  id: string;
+  title: string;
+}
+
+/**
+ * The current relation targets as chips, mapped from the server's joined
+ * `label` so the record page needs no target fetch to read its own value.
+ *
+ * A missing target's label is its own id; the chip shows the id's tail instead
+ * of a UUID. When the joined label cannot be split into one part per id (a
+ * title containing ", "), every chip falls back to the id's tail rather than
+ * pairing a title with the wrong record.
+ */
+export function relationChips(ids: readonly string[], label: string): RelationChip[] {
+  const title = (part: string | undefined, id: string) =>
+    part === undefined || part === "" || part === id ? shortId(id) : part;
+  const [first, ...rest] = ids;
+  if (first === undefined) {
+    return [];
+  }
+  const text = label.trim();
+  if (rest.length === 0) {
+    return [{ id: first, title: title(text, first) }];
+  }
+  const parts = text.split(", ");
+  const aligned = parts.length === ids.length;
+  return ids.map((id, index) => ({ id, title: title(aligned ? parts[index] : undefined, id) }));
 }
 
 function plain(value: unknown): string {

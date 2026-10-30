@@ -7,6 +7,7 @@ import {
   isBlank,
   optionName,
   parseCellText,
+  relationChips,
   relativeTime,
   typeLabel,
   valueLabel,
@@ -103,5 +104,38 @@ describe("typeLabel", () => {
     expect(typeLabel(undefined, "plant")).toBe("plant");
     expect(typeLabel([], "plant")).toBe("plant");
     expect(typeLabel(types, "chore")).toBe("chore");
+  });
+});
+
+describe("relationChips", () => {
+  const a = "0199a0c0-0000-7000-8000-00000000000a";
+  const b = "0199a0c0-0000-7000-8000-00000000000b";
+
+  it("needs no target fetch: a joined label splits into one chip per id", () => {
+    expect(relationChips([a], "Fern")).toEqual([{ id: a, title: "Fern" }]);
+    expect(relationChips([a, b], "Fern, Monstera")).toEqual([
+      { id: a, title: "Fern" },
+      { id: b, title: "Monstera" },
+    ]);
+  });
+
+  it("shows a missing target's id tail, never the UUID", () => {
+    expect(relationChips([a, b], `Fern, ${b}`)).toEqual([
+      { id: a, title: "Fern" },
+      { id: b, title: "00000b" },
+    ]);
+    expect(relationChips([a], a)).toEqual([{ id: a, title: "00000a" }]);
+  });
+
+  it("falls back to id tails when a title contains the join separator", () => {
+    const ids = [a, b];
+    expect(relationChips(ids, "Window, kitchen, Monstera")).toEqual([
+      { id: a, title: "00000a" },
+      { id: b, title: "00000b" },
+    ]);
+  });
+
+  it("has no chips for an empty relation", () => {
+    expect(relationChips([], "")).toEqual([]);
   });
 });

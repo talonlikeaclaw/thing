@@ -259,7 +259,7 @@ export function AddPropertyDialog({
                     onValueChange={(next) => setFormat(next as PropertyFormat)}
                     hint={
                       format === "relation"
-                        ? "Any target type, one record each; change that in Schema."
+                        ? "Any target type, one record each; a several-target relation is created in the Schema property library."
                         : format === "select" || format === "multi_select"
                           ? "Options are added by typing into a cell, or in Schema."
                           : undefined
