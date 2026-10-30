@@ -10,6 +10,7 @@ import type { AgendaRow } from "@/api/types";
 import { Button } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
+import { agendaBuckets } from "@/lib/agenda";
 import { readError } from "@/lib/display";
 import { completeLabel, duePhrase, dueTone } from "@/lib/schedule";
 
@@ -21,7 +22,7 @@ export function AgendaPage() {
   const [horizon, setHorizon] = useState<number>(14);
   const space = useSpace(spaceId);
   const types = useTypes(spaceId);
-  const agenda = useAgenda(spaceId, horizon);
+  const agenda = useAgenda(spaceId, { days: horizon });
   // Scheduled types carry the completion verb on their definition; one cached
   // request per type, not one per row.
   const scheduledKeys = (types.data ?? [])
@@ -57,6 +58,8 @@ export function AgendaPage() {
   }
 
   const scheduled = typesData.filter((type) => type.schedule);
+  const { overdue, due_today, upcoming } = agendaBuckets(schedule.rows);
+  const laterCount = schedule.later_count ?? 0;
   const canEdit = detail.role !== "viewer";
   const verbs: Record<string, string> = Object.fromEntries(
     typeDetails.details.map((def) => [def.key, completeLabel(def.schedule_labels)]),
@@ -108,7 +111,7 @@ export function AgendaPage() {
           <>
             <Bucket
               title="Overdue"
-              rows={schedule.overdue}
+              rows={overdue}
               empty="Nothing is overdue."
               spaceId={detail.id}
               canEdit={canEdit}
@@ -116,7 +119,7 @@ export function AgendaPage() {
             />
             <Bucket
               title="Today"
-              rows={schedule.due_today}
+              rows={due_today}
               empty="Nothing is due today."
               spaceId={detail.id}
               canEdit={canEdit}
@@ -124,24 +127,24 @@ export function AgendaPage() {
             />
             <Bucket
               title={`Next ${horizon} days`}
-              rows={schedule.upcoming}
+              rows={upcoming}
               empty={`Nothing is due in the next ${horizon} days.`}
               spaceId={detail.id}
               canEdit={canEdit}
               verbs={verbs}
             />
-            {schedule.later_count > 0 ? (
+            {laterCount > 0 ? (
               horizon < 30 ? (
                 <button
                   type="button"
                   className="mt-4 font-mono text-[12px] text-faint underline decoration-line-strong underline-offset-2 transition-colors hover:text-ink pointer-coarse:min-h-11"
                   onClick={() => setHorizon(30)}
                 >
-                  {schedule.later_count} more due later · show 30 days
+                  {laterCount} more due later · show 30 days
                 </button>
               ) : (
                 <p className="mt-4 font-mono text-[12px] text-faint">
-                  {schedule.later_count} more due later
+                  {laterCount} more due later
                 </p>
               )
             ) : null}

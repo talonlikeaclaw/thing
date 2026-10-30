@@ -65,14 +65,16 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const pathname = location.pathname;
   const spaces = useSpaces();
   const space = useSpace(spaceId);
-  const agenda = useAgenda(spaceId);
+  const agenda = useAgenda(spaceId, { days: 14 });
   const me = useMe();
   const capture = useQuickCapture();
   const openPalette = usePalette();
   const { handedness } = useHandedness();
   const connection = useConnection();
   const list: SpaceSummary[] = spaces.data ?? [];
-  const overdue = agenda.data?.overdue.length ?? 0;
+  // The rail badge reports the whole space, never a page filter: every overdue
+  // row is inside the default window.
+  const overdue = agenda.data?.rows.filter((row) => row.status === "overdue").length ?? 0;
   const userId = me.data?.id;
   const [order, setOrder] = useState<NavLink[]>(DEFAULT_NAV_ORDER);
   const [reordering, setReordering] = useState(false);

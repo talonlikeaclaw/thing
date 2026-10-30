@@ -2693,9 +2693,7 @@ mod tests {
                 .call("GET", &format!("{base}/agenda"), None, Some(&cookie))
                 .await;
             assert_eq!(agenda.status, StatusCode::OK);
-            assert_eq!(agenda.body["overdue"], json!([]));
-            assert_eq!(agenda.body["due_today"], json!([]));
-            assert_eq!(agenda.body["upcoming"], json!([]));
+            assert_eq!(agenda.body["rows"], json!([]));
             assert_eq!(agenda.body["later_count"], 0);
         });
     }
@@ -2769,8 +2767,18 @@ mod tests {
         });
     }
 
+    /// The titles of an agenda reply's rows, in the order the server sent them.
+    fn agenda_titles(body: &Value) -> Vec<&str> {
+        body["rows"]
+            .as_array()
+            .expect("rows")
+            .iter()
+            .map(|row| row["title"].as_str().expect("a title"))
+            .collect()
+    }
+
     #[test]
-    fn the_agenda_buckets_by_calendar_day_and_horizon() {
+    fn the_agenda_lists_outstanding_rows_within_the_window() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");
         runtime.block_on(async {
@@ -2817,29 +2825,175 @@ mod tests {
             assert_eq!(agenda.status, StatusCode::OK, "{:?}", agenda.body);
             assert_eq!(agenda.body["today"], day(0));
             assert_eq!(agenda.body["timezone"], "UTC");
-            assert_eq!(agenda.body["overdue"][0]["title"], "Overdue");
-            assert_eq!(agenda.body["overdue"][0]["status"], "overdue");
-            assert_eq!(agenda.body["overdue"][0]["days_until_due"], -1);
-            assert_eq!(agenda.body["overdue"][0]["recurrence"], "Every 3 days");
-            assert_eq!(agenda.body["overdue"][0]["type_name"], "Chore");
-            assert_eq!(agenda.body["due_today"][0]["title"], "Today");
-            assert_eq!(agenda.body["upcoming"][0]["title"], "Tomorrow");
+            assert_eq!(
+                agenda_titles(&agenda.body),
+                vec!["Overdue", "Today", "Tomorrow"]
+            );
+            let overdue = &agenda.body["rows"][0];
+            assert_eq!(overdue["status"], "overdue");
+            assert_eq!(overdue["days_until_due"], -1);
+            assert_eq!(overdue["recurrence"], "Every 3 days");
+            assert_eq!(overdue["type_name"], "Chore");
+            assert_eq!(agenda.body["rows"][1]["status"], "today");
             assert_eq!(agenda.body["later_count"], 1);
-            let titles: Vec<&str> = agenda.body["overdue"]
-                .as_array()
-                .expect("overdue")
-                .iter()
-                .chain(agenda.body["due_today"].as_array().expect("today"))
-                .chain(agenda.body["upcoming"].as_array().expect("upcoming"))
-                .map(|row| row["title"].as_str().expect("a title"))
-                .collect();
-            assert_eq!(titles, vec!["Overdue", "Today", "Tomorrow"]);
+            assert!(agenda.body.get("from").is_none());
 
             let invalid = server
                 .call("GET", &format!("{base}/agenda?days=0"), None, Some(&cookie))
                 .await;
             assert_eq!(invalid.status, StatusCode::UNPROCESSABLE_ENTITY);
             assert_eq!(invalid.field(), "days");
+        });
+    }
+
+    #[test]
+    fn the_agenda_reads_an_inclusive_range_and_filters_by_type() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("range@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+            let plant = server
+                .call(
+                    "POST",
+                    &format!("{base}/types"),
+                    Some(json!({ "name": "Plant", "schedule": true })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(plant.status, StatusCode::CREATED, "{:?}", plant.body);
+            let mut saved = std::collections::BTreeMap::new();
+            for (title, kind, due) in [
+                ("Before", "chore", -3),
+                ("From edge", "chore", -2),
+                ("Middle", "plant", 0),
+                ("To edge", "chore", 2),
+                ("After", "chore", 3),
+            ] {
+                let created = server
+                    .call(
+                        "POST",
+                        &format!("{base}/objects"),
+                        Some(json!({
+                            "type": kind,
+                            "title": title,
+                            "properties": { "due_date": day(due) },
+                        })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+                saved.insert(
+                    title,
+                    (
+                        created.body["id"].as_str().expect("an id").to_owned(),
+                        created.body["rev"].as_u64().expect("a rev"),
+                    ),
+                );
+            }
+
+            let range = format!("{base}/agenda?from={}&to={}", day(-2), day(2));
+            let read = server.call("GET", &range, None, Some(&cookie)).await;
+            assert_eq!(read.status, StatusCode::OK, "{:?}", read.body);
+            assert_eq!(read.body["from"], day(-2));
+            assert_eq!(read.body["to"], day(2));
+            assert!(read.body.get("later_count").is_none());
+            assert_eq!(
+                agenda_titles(&read.body),
+                vec!["From edge", "Middle", "To edge"],
+                "an overdue row before from is outside the range"
+            );
+
+            let plants = server
+                .call("GET", &format!("{range}&types=plant"), None, Some(&cookie))
+                .await;
+            assert_eq!(plants.status, StatusCode::OK, "{:?}", plants.body);
+            assert_eq!(agenda_titles(&plants.body), vec!["Middle"]);
+
+            let plant_row = &plants.body["rows"][0];
+            assert_eq!(plant_row["type"], "plant");
+            assert_eq!(plant_row["type_name"], "Plant");
+
+            let window = server
+                .call("GET", &format!("{base}/agenda?days=2"), None, Some(&cookie))
+                .await;
+            assert_eq!(window.status, StatusCode::OK, "{:?}", window.body);
+            assert_eq!(
+                agenda_titles(&window.body),
+                vec!["Before", "From edge", "Middle", "To edge"],
+                "overdue rows stay inside every window"
+            );
+            assert_eq!(window.body["later_count"], 1);
+
+            let chores = server
+                .call(
+                    "GET",
+                    &format!("{base}/agenda?days=2&types=chore,%20chore"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(chores.status, StatusCode::OK, "{:?}", chores.body);
+            assert_eq!(
+                agenda_titles(&chores.body),
+                vec!["Before", "From edge", "To edge"],
+                "a duplicate key collapses and the filter precedes the window"
+            );
+            assert_eq!(chores.body["later_count"], 1);
+
+            let only_plants = server
+                .call(
+                    "GET",
+                    &format!("{base}/agenda?days=2&types=plant"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(agenda_titles(&only_plants.body), vec!["Middle"]);
+            assert_eq!(only_plants.body["later_count"], 0);
+
+            let (from_edge, from_edge_rev) = &saved["From edge"];
+            let completed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{from_edge}/complete"),
+                    Some(json!({ "rev": from_edge_rev })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(completed.status, StatusCode::OK, "{:?}", completed.body);
+            let after = server.call("GET", &range, None, Some(&cookie)).await;
+            assert_eq!(agenda_titles(&after.body), vec!["Middle", "To edge"]);
+
+            for (uri, field) in [
+                (format!("{base}/agenda?from={}", day(-1)), "to"),
+                (format!("{base}/agenda?to={}", day(1)), "from"),
+                (
+                    format!("{base}/agenda?from=2026-13-01&to={}", day(1)),
+                    "from",
+                ),
+                (format!("{base}/agenda?from={}&to={}", day(2), day(1)), "to"),
+                (
+                    format!("{base}/agenda?from={}&to={}", day(0), day(63)),
+                    "to",
+                ),
+                (
+                    format!("{base}/agenda?days=14&from={}&to={}", day(0), day(1)),
+                    "days",
+                ),
+                (format!("{base}/agenda?types=nope"), "type"),
+            ] {
+                let invalid = server.call("GET", &uri, None, Some(&cookie)).await;
+                assert_eq!(
+                    invalid.status,
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "{uri}: {:?}",
+                    invalid.body
+                );
+                assert_eq!(invalid.field(), field, "{uri}");
+            }
         });
     }
 

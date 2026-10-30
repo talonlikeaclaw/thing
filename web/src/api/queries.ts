@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { ApiError, downloadFile, isUnauthenticated, request, sendCsv } from "@/api/client";
 import type {
   Agenda,
+  AgendaQuery,
   CreateInviteResult,
   CreateView,
   CsvImportResult,
@@ -41,7 +42,7 @@ export const queryKeys = {
   properties: (id: string) => ["space", id, "properties"] as const,
   objects: (id: string, query: ObjectsQuery) => ["space", id, "objects", query] as const,
   objectsPrefix: (id: string) => ["space", id, "objects"] as const,
-  agenda: (id: string, days = 14) => ["space", id, "agenda", days] as const,
+  agenda: (id: string, query: AgendaQuery) => ["space", id, "agenda", query] as const,
   object: (id: string, objectId: string) => ["space", id, "object", objectId] as const,
   history: (id: string, objectId: string) =>
     ["space", id, "object", objectId, "history"] as const,
@@ -630,11 +631,26 @@ export function useObject(spaceId: string | undefined, objectId: string | undefi
   });
 }
 
-/** The space's due buckets, computed by the server in the space's timezone. */
-export function useAgenda(spaceId: string | undefined, days = 14) {
+/** The agenda read's query string; exactly one of `days` or `from`/`to`. */
+function agendaSearch(query: AgendaQuery): string {
+  const params = new URLSearchParams();
+  if ("from" in query && "to" in query) {
+    params.set("from", query.from);
+    params.set("to", query.to);
+  } else if (query.days !== undefined) {
+    params.set("days", String(query.days));
+  }
+  if (query.types && query.types.length > 0) {
+    params.set("types", query.types.join(","));
+  }
+  return params.toString();
+}
+
+/** The space's outstanding scheduled rows, classified in the space's timezone. */
+export function useAgenda(spaceId: string | undefined, query: AgendaQuery) {
   return useQuery({
-    queryKey: queryKeys.agenda(spaceId ?? "", days),
-    queryFn: () => request<Agenda>(`/api/spaces/${spaceId}/agenda?days=${days}`),
+    queryKey: queryKeys.agenda(spaceId ?? "", query),
+    queryFn: () => request<Agenda>(`/api/spaces/${spaceId}/agenda?${agendaSearch(query)}`),
     enabled: Boolean(spaceId),
   });
 }

@@ -298,11 +298,21 @@ export interface AgendaRow {
 export interface Agenda {
   today: string;
   timezone: string;
-  overdue: AgendaRow[];
-  due_today: AgendaRow[];
-  upcoming: AgendaRow[];
-  later_count: number;
+  rows: AgendaRow[];
+  /** Present in window mode: outstanding rows due beyond the horizon. */
+  later_count?: number;
+  /** Present in range mode: the inclusive bounds the server applied. */
+  from?: string;
+  to?: string;
 }
+
+/**
+ * The agenda read is either a horizon window (`days`) or an explicit inclusive
+ * range (`from`/`to`); never both. `types` narrows either to scheduled keys.
+ */
+export type AgendaQuery = ({ days?: number } | { from: string; to: string }) & {
+  types?: string[];
+};
 
 /** The query the table sends; `filter` and `sorts` are already effective. */
 export interface ObjectsQuery {

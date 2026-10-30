@@ -829,15 +829,32 @@ async fn history_at(
     Ok(Json(json!(found)))
 }
 
-/// `GET /api/spaces/{space}/agenda?days=14` [viewer]
+/// Most days a range-mode request may span, end included. A month grid is at
+/// most 42 cells; the cap leaves room for one cell of slop, not a year query.
+const MAX_RANGE_DAYS: i64 = 62;
+
+/// The `YYYY-MM-DD` grammar every agenda date parameter takes.
+const DATE_FORMAT: &[time::format_description::FormatItem<'static>] =
+    time::macros::format_description!("[year]-[month]-[day]");
+
+/// `GET /api/spaces/{space}/agenda?days=14[&types=chore,plant]` [viewer]
 ///
-/// One pass over live objects of scheduled types, bucketed by calendar day in
-/// the space's zone. The server owns the classification; the client renders it.
+/// `GET /api/spaces/{space}/agenda?from=2026-09-28&to=2026-11-08[&types=…]`
 ///
-/// `today` is the space's civil date for the header; the bucket of records due
-/// today is `due_today`, because one JSON object cannot carry the same key
-/// twice. The plan's example showed both under `today`, which no parser can
-/// represent.
+/// One pass over live objects of scheduled types in the space's zone. The
+/// server classifies and filters; the client projects `rows` into buckets or
+/// calendar cells and never holds a second copy of them.
+///
+/// Window mode (`days`, 1–90, default 14) keeps every outstanding row due
+/// within that many days and reports how many more wait beyond it as
+/// `later_count`. Range mode (`from`/`to`, inclusive, at most 62 days apart)
+/// keeps every outstanding row due inside the dates and omits `later_count`.
+/// The two modes refuse to mix on parameter presence. `types` narrows both to
+/// the named scheduled type keys; absent or empty means every scheduled type.
+/// Overdue rows are outstanding by definition, so they are always inside a
+/// window and are only kept by a range when they fall inside it.
+///
+/// `today` is the space's civil date for the header; `timezone` its zone.
 async fn agenda(
     State(state): State<SharedState>,
     caller: Caller,
@@ -846,13 +863,69 @@ async fn agenda(
 ) -> Result<Json<Value>, ApiError> {
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Viewer)?;
-    let days = query.parse::<i64>("days")?.unwrap_or(14);
+
+    let days = query.parse::<i64>("days")?;
+    let from = query.raw("from");
+    let to = query.raw("to");
+    let types = query.raw("types");
     query.finish()?;
-    if !(1..=90).contains(&days) {
+
+    if days.is_some() && (from.is_some() || to.is_some()) {
+        return Err(ApiError::validation(
+            "days",
+            "cannot be combined with from or to",
+        ));
+    }
+    let range = match (from, to) {
+        (None, None) => None,
+        (Some(_), None) => {
+            return Err(ApiError::validation("to", "is required when from is given"));
+        }
+        (None, Some(_)) => {
+            return Err(ApiError::validation("from", "is required when to is given"));
+        }
+        (Some(from), Some(to)) => {
+            let from = date_param("from", &from)?;
+            let to = date_param("to", &to)?;
+            if to < from {
+                return Err(ApiError::validation("to", "must not be before from"));
+            }
+            if (to - from).whole_days() > MAX_RANGE_DAYS {
+                return Err(ApiError::validation(
+                    "to",
+                    format!("must be within {MAX_RANGE_DAYS} days of from"),
+                ));
+            }
+            Some((from, to))
+        }
+    };
+    let days = days.unwrap_or(14);
+    if range.is_none() && !(1..=90).contains(&days) {
         return Err(ApiError::validation("days", "must be between 1 and 90"));
     }
+    let types = types.and_then(|raw| {
+        let mut keys: Vec<String> = Vec::new();
+        for key in raw.split(',').map(str::trim).filter(|key| !key.is_empty()) {
+            if !keys.iter().any(|known| known == key) {
+                keys.push(key.to_owned());
+            }
+        }
+        (!keys.is_empty()).then_some(keys)
+    });
 
-    let body = handle.with_index(|index| {
+    let body = handle.with_index(|index| -> Result<Value, ApiError> {
+        if let Some(keys) = &types
+            && let Some(unknown) = keys
+                .iter()
+                .find(|key| !index.type_def(key).is_some_and(|def| def.schedule))
+        {
+            return Err(ApiError::validation(
+                "type",
+                format!("{unknown} is not a scheduled type"),
+            ));
+        }
+
+        let bounds = range.map(|(from, to)| (from.to_string(), to.to_string()));
         let timezone = space_timezone(index);
         let now = OffsetDateTime::now_utc();
         let today = schedule::today_in(&timezone, now);
@@ -863,21 +936,37 @@ async fn agenda(
             let Some(def) = index.type_def(&doc.type_key) else {
                 continue;
             };
-            let Some(schedule) = schedule::state(def, doc, &timezone, now) else {
+            let Some(state) = schedule::state(def, doc, &timezone, now) else {
                 continue;
             };
-            let (Some(due), Some(distance)) = (schedule.due_date, schedule.days_until_due) else {
+            let (Some(due), Some(distance)) = (state.due_date, state.days_until_due) else {
                 continue;
             };
             if matches!(
-                schedule.status,
+                state.status,
                 schedule::DueStatus::Unscheduled | schedule::DueStatus::Done
             ) {
                 continue;
             }
-            if distance > days {
-                later_count += 1;
+            if let Some(keys) = &types
+                && !keys.contains(&doc.type_key)
+            {
                 continue;
+            }
+            match &bounds {
+                Some((from, to)) => {
+                    // Both sides are canonical `YYYY-MM-DD`, so text order is
+                    // date order and the schedule's own date type stays its own.
+                    let due = due.to_string();
+                    if due.as_str() < from.as_str() || due.as_str() > to.as_str() {
+                        continue;
+                    }
+                }
+                None if distance > days => {
+                    later_count += 1;
+                    continue;
+                }
+                None => {}
             }
             let recurrence = match doc.properties.get(RECURRENCE_KEY) {
                 Some(CoreValue::Recurrence(value)) => Some(schedule::recurrence_label(value)),
@@ -891,10 +980,10 @@ async fn agenda(
                 title: doc.title.clone(),
                 rev: doc.rev,
                 due_date: due.to_string(),
-                status: schedule.status,
+                status: state.status,
                 days_until_due: distance,
                 recurrence,
-                last_completed_at: schedule.last_completed_at,
+                last_completed_at: state.last_completed_at,
             });
         }
 
@@ -903,32 +992,31 @@ async fn agenda(
                 .cmp(&right.due_date)
                 .then_with(|| left.title.cmp(&right.title))
         });
-        let overdue = rows
-            .iter()
-            .filter(|row| row.status == schedule::DueStatus::Overdue)
-            .cloned()
-            .collect::<Vec<_>>();
-        let due_today = rows
-            .iter()
-            .filter(|row| row.status == schedule::DueStatus::Today)
-            .cloned()
-            .collect::<Vec<_>>();
-        let upcoming = rows
-            .iter()
-            .filter(|row| row.status == schedule::DueStatus::Upcoming)
-            .cloned()
-            .collect::<Vec<_>>();
 
-        json!({
+        let mut body = json!({
             "today": today.to_string(),
             "timezone": index.meta().timezone,
-            "overdue": overdue,
-            "due_today": due_today,
-            "upcoming": upcoming,
-            "later_count": later_count,
-        })
-    });
+            "rows": rows,
+        });
+        let object = body.as_object_mut().expect("a JSON object");
+        match &bounds {
+            Some((from, to)) => {
+                object.insert("from".to_owned(), json!(from));
+                object.insert("to".to_owned(), json!(to));
+            }
+            None => {
+                object.insert("later_count".to_owned(), json!(later_count));
+            }
+        }
+        Ok(body)
+    })?;
     Ok(Json(body))
+}
+
+/// A `YYYY-MM-DD` query date, or a `422` naming `name`.
+fn date_param(name: &str, value: &str) -> Result<time::Date, ApiError> {
+    time::Date::parse(value, DATE_FORMAT)
+        .map_err(|_| ApiError::validation(name, "must be a YYYY-MM-DD date"))
 }
 
 /// One scheduled record as the agenda lists it.
