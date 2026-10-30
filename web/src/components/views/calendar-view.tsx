@@ -231,16 +231,18 @@ export function CalendarView({
             >
               <div className="flex items-baseline justify-between gap-1">
                 <span
+                  aria-current={isToday ? "date" : undefined}
                   className={cn(
                     "font-mono text-[11px] tnum",
                     cell.inMonth ? "text-muted" : "text-faint",
                     isToday ? "text-accent" : "",
                   )}
+                  title={isToday ? "Today" : undefined}
                 >
                   {Number(cell.date.slice(8, 10))}
                 </span>
                 {isToday ? (
-                  <span className="font-mono text-[11px] tracking-[0.08em] text-accent">
+                  <span className="hidden font-mono text-[11px] tracking-[0.08em] text-accent sm:inline">
                     TODAY
                   </span>
                 ) : null}

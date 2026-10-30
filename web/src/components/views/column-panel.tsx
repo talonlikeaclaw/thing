@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import type { PropertyDef, ViewDef } from "@/api/types";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button } from "@/components/ui/controls";
+import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 import { moveViewColumn, withColumn, withoutColumn } from "@/lib/views";
 
 interface ColumnPanelProps {
@@ -24,6 +25,8 @@ export function ColumnPanel({
 }: ColumnPanelProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const nameOf = (key: string) => propertyByKey.get(key)?.name ?? key;
+  const compact = useCompactWidth();
+  const coarse = useCoarsePointer();
   const shown = view.columns.filter((key) => key !== "title");
   const hidden = properties.filter((property) => !view.columns.includes(property.key));
 
@@ -48,14 +51,18 @@ export function ColumnPanel({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="label">Columns</span>
         <span className="text-[12px] text-faint">
-          Drag a header edge in the table to set its width.
+          {coarse
+            ? "Column widths are set on a wide screen."
+            : "Drag a header edge in the table to set its width."}
         </span>
       </div>
 
       <ul className="mt-2">
         <li className="flex items-center justify-between border-b rule py-1.5">
           <span className="flex items-baseline gap-2">
-            <span className="font-mono text-[11px] text-faint">title</span>
+            {compact ? null : (
+              <span className="font-mono text-[11px] text-faint">title</span>
+            )}
             <span className="text-[14px]">Title</span>
           </span>
           <span className="label">fixed first</span>
@@ -66,7 +73,9 @@ export function ColumnPanel({
             className="flex items-center justify-between gap-2 border-b rule py-1.5"
           >
             <span className="flex min-w-0 items-baseline gap-2">
-              <span className="font-mono text-[11px] text-faint">{key}</span>
+              {compact ? null : (
+                <span className="font-mono text-[11px] text-faint">{key}</span>
+              )}
               <span className="truncate text-[14px]">{nameOf(key)}</span>
             </span>
             <span className="flex items-center gap-1">
@@ -106,7 +115,9 @@ export function ColumnPanel({
                 className="flex items-center justify-between gap-2 border-b rule py-1.5"
               >
                 <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="font-mono text-[11px] text-faint">{property.key}</span>
+                  {compact ? null : (
+                    <span className="font-mono text-[11px] text-faint">{property.key}</span>
+                  )}
                   <span className="truncate text-[14px]">{property.name}</span>
                 </span>
                 <SmallButton

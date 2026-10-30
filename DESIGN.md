@@ -351,7 +351,12 @@ space, type and record icons, never as interface iconography.
   Columns is a ghost button beside Filter and Sort that names the visible property count
   (`view.columns.length - 1`), toggles the one query panel, and is absent on calendar views. Layout
   edits write as they commit; filter and sort edits wait for the explicit save. The kebab keeps View
-  settings, Save as view and Data only.
+  settings, Save as view and Data only. An empty type's state offers **New record** and, for
+  editors, **Import CSV**, which opens the same Data panel as the view menu's Data row.
+- **Columns panel:** the fixed title first, then the visible columns with move and hide controls,
+  then the hidden ones with Show. On a fine pointer each row also prints the property's mono key;
+  below `sm` the key is dropped so the name has the width. The width hint speaks about dragging a
+  header edge only on a fine pointer; a coarse pointer is told widths are set on a wide screen.
 - **View settings:** an inline panel for rename, make-default and delete with an inline confirm. The
   kind is shown read-only with "Kind is fixed; create a view to show these records another way".
 
@@ -373,7 +378,7 @@ space, type and record icons, never as interface iconography.
   panel use the same words. The glyph mirrors the `sorts` sent to the server; `cycleSort` keeps
   asc → desc → clear and Shift-click adds or removes one key. Below `sm` the toolbar is five 44px
   controls in one row — search (an icon that expands into the field), Filter, Sort, Columns and
-  View; Columns is absent on a calendar view. View opens one sheet whose first screen is a menu of
+  More; Columns is absent on a calendar view. More opens one sheet whose first screen is a menu of
   View settings, Save as view…, and Data — CSV, each panel returning through a Back control. When
   the query or the view has changed, one labelled band under the toolbar carries Save (only when
   the view differs from the saved one) and Reset (whenever a search, filter or sort is applied);
@@ -426,7 +431,9 @@ space, type and record icons, never as interface iconography.
 - **Grid:** Monday-first weeks in a 7-column ruled table; adjacent-month days are recessed with
   `surface/40` and a faint numeral. Cell borders are hairlines (`rule`).
 - **Chips:** a link with a single hairline left edge, not a filled pill; at most three per day, then
-  mono `+N more`. Today is a mono `TODAY` label and lichen numeral, not a filled block.
+  mono `+N more`. Today is a lichen numeral and, from `sm` up where the cell has room, a mono
+  `TODAY` label beside it; the word is dropped below `sm` so it never crosses into the next day.
+  The numeral carries `aria-current="date"` and the title `Today`; never a filled block.
 - **Navigation:** the month name, ghost previous/next buttons and `Today`, all 44px on coarse
   pointers. A footer counts records with no value for the date property.
 

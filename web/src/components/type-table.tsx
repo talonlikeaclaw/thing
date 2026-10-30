@@ -408,10 +408,17 @@ export function TypeTable({
     setSettingsOpen(next);
   }
 
-  function toggleData() {
-    const next = !dataOpen;
+  /**
+   * The Data panel's one door: the phone's More sheet or the inline section
+   * above the table. The empty state and both view menus come through here.
+   */
+  function openDataPanel() {
     closeViews();
-    setDataOpen(next);
+    if (compact) {
+      openViewPanel("data");
+      return;
+    }
+    setDataOpen(true);
   }
 
   function startSaveAs() {
@@ -845,7 +852,7 @@ export function TypeTable({
   );
 
   const sheetTitle = (
-    <Dialog.Title key="title" className="min-w-0 truncate text-[17px] font-medium">
+    <Dialog.Title key="title" className="min-w-0 flex-1 truncate text-[17px] font-medium">
       {viewPanel === "menu"
         ? "More"
         : viewPanel === "settings"
@@ -1029,7 +1036,7 @@ export function TypeTable({
                   Save as view…
                 </Popover.Close>
               ) : null}
-              <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleData}>
+              <Popover.Close className={VIEW_MENU_ITEM} onClick={openDataPanel}>
                 <FileSpreadsheet aria-hidden size={14} />
                 Data — CSV
               </Popover.Close>
@@ -1168,15 +1175,19 @@ export function TypeTable({
                 >
                   {handedness === "left" ? (
                     <>
-                      {sheetClose}
-                      {viewPanel === "menu" ? null : sheetBack}
+                      <span className="flex shrink-0 items-baseline gap-3">
+                        {sheetClose}
+                        {viewPanel === "menu" ? null : sheetBack}
+                      </span>
                       {sheetTitle}
                     </>
                   ) : (
                     <>
                       {sheetTitle}
-                      {viewPanel === "menu" ? null : sheetBack}
-                      {sheetClose}
+                      <span className="flex shrink-0 items-baseline gap-3">
+                        {viewPanel === "menu" ? null : sheetBack}
+                        {sheetClose}
+                      </span>
                     </>
                   )}
                 </div>
@@ -1207,7 +1218,7 @@ export function TypeTable({
                       <button
                         type="button"
                         className={VIEW_SHEET_ROW}
-                        onClick={() => openViewPanel("data")}
+                        onClick={openDataPanel}
                       >
                         <FileSpreadsheet aria-hidden size={16} />
                         Data — CSV
@@ -1340,6 +1351,14 @@ export function TypeTable({
                 onClick={() => capture.open(type.key)}
               >
                 New record
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                onClick={openDataPanel}
+              >
+                Import CSV
               </Button>
               {view.kind === "board" || view.kind === "gallery" ? (
                 <Button
