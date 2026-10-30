@@ -33,9 +33,13 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Board and gallery cards name their fields instead of printing raw schema keys.",
       "A gallery cover reads as a tinted band instead of a blank one.",
       "A type with no records offers Import CSV right beside New record.",
+      "A calendar opens on the current week instead of at the top of the month.",
+      "Today brings the current month and today's row into view, even when the month is already showing.",
     ],
     details: [
       "A Schedule row names its type once instead of repeating the type's key.",
+      "On a phone the today row stops above the bottom bar instead of sitting behind it.",
+      "The Today control is thumb-wide on a touch screen.",
       "On a phone the Columns panel shows each property's full name without a key squeezing it.",
       "The Columns panel no longer tells a touch screen to drag a header edge.",
       "A sheet's Back and Close sit together instead of at opposite ends of the header.",

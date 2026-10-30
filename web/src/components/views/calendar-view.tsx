@@ -68,6 +68,28 @@ export function CalendarView({
   } | null>(null);
   const dayPanel = useRef<HTMLDivElement | null>(null);
   const dayAnchor = useRef<HTMLElement | null>(null);
+  const todayCell = useRef<HTMLDivElement | null>(null);
+  const currentMonth = monthOf(today);
+
+  /**
+   * `nearest` leaves a visible month alone on a wide screen and brings the
+   * current week above the phone bar otherwise; the bar's height is the cell's
+   * `scroll-margin-bottom`. Motion is never animated here: the calendar should
+   * open where the reader already is, not travel there.
+   */
+  function scrollToToday() {
+    todayCell.current?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "auto",
+    });
+  }
+
+  useLayoutEffect(() => {
+    if (month === currentMonth) {
+      scrollToToday();
+    }
+  }, [month, currentMonth]);
 
   /**
    * The day list is portalled and clamped into the viewport, so it flips on a
@@ -178,8 +200,15 @@ export function CalendarView({
           </button>
           <button
             type="button"
-            className="label rounded-[3px] px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
-            onClick={() => onMonthChange(monthOf(today))}
+            className="label rounded-[3px] px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+            onClick={() => {
+              if (month === currentMonth) {
+                scrollToToday();
+                return;
+              }
+              // The month effect scrolls once the current grid has rendered.
+              onMonthChange(currentMonth);
+            }}
           >
             Today
           </button>
@@ -224,8 +253,9 @@ export function CalendarView({
           return (
             <div
               key={cell.date}
+              ref={isToday ? todayCell : undefined}
               className={cn(
-                "relative min-h-[6.5rem] border-r border-b rule p-1.5",
+                "calendar-day relative min-h-[6.5rem] border-r border-b rule p-1.5",
                 cell.inMonth ? "" : "bg-surface/40",
               )}
             >

@@ -435,7 +435,10 @@ space, type and record icons, never as interface iconography.
   `TODAY` label beside it; the word is dropped below `sm` so it never crosses into the next day.
   The numeral carries `aria-current="date"` and the title `Today`; never a filled block.
 - **Navigation:** the month name, ghost previous/next buttons and `Today`, all 44px on coarse
-  pointers. A footer counts records with no value for the date property.
+  pointers. A calendar opens scrolled to the current week, and `Today` returns to the current month
+  and brings that week into view even when the month is already current; a month that already fits
+  the screen never moves. On a phone the today row stops above the bottom bar. A footer counts
+  records with no value for the date property.
 
 ### Command Palette
 - **Shape:** a bottom sheet below `sm` and a 40rem centred sheet above; one 56px search row with

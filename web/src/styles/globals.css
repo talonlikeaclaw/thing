@@ -401,6 +401,11 @@
   .toast-stack {
     bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem);
   }
+
+  /* Scrolling the calendar to today must stop above that same bar. */
+  .calendar-day {
+    scroll-margin-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
 }
 
 /* iOS never resizes the layout viewport for the keyboard; a toast raised from
