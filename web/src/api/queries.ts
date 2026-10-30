@@ -980,6 +980,9 @@ export interface PaletteRecord {
 /**
  * The palette looks at titles, not the saved view: an empty filter keeps every
  * record eligible and the updated-desc sort makes the cap the newest rows.
+ *
+ * This is a bounded title lookup, so the palette's copy promises titles only.
+ * M5 replaces it with real search; the table endpoint already matches bodies.
  */
 export function usePaletteRecords(
   spaceId: string | undefined,

@@ -3,6 +3,7 @@ import { ChevronDown, X } from "lucide-react";
 import {
   createContext,
   use,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -174,6 +175,8 @@ function QuickCaptureDialog({
   const [epoch, setEpoch] = useState(0);
   /** The field a refusal named; focused once the pending buttons re-enable. */
   const [problemField, setProblemField] = useState<string | null>(null);
+  /** A close was requested with an unsaved draft; the sheet asks first. */
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const typeList = types.data ?? [];
   const type = useType(spaceId, selected ?? undefined);
@@ -187,12 +190,8 @@ function QuickCaptureDialog({
     type.data !== undefined &&
     properties.data !== undefined;
 
-  // Opening starts a fresh draft and resolves the preferred type: the opener's
-  // hint, else this user's last capture here, else the first type.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  /** A fresh draft: called on open and when the user discards one. */
+  const resetDraft = useCallback(() => {
     setTitle("");
     setIcon("");
     setValues({});
@@ -203,7 +202,17 @@ function QuickCaptureDialog({
     setProblemField(null);
     setSelected(null);
     setShowOptional(false);
-  }, [open, spaceId]);
+    setConfirmDiscard(false);
+  }, []);
+
+  // Opening starts a fresh draft and resolves the preferred type: the opener's
+  // hint, else this user's last capture here, else the first type.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    resetDraft();
+  }, [open, spaceId, resetDraft]);
 
   useEffect(() => {
     if (!open || typeList.length === 0) {
@@ -352,6 +361,34 @@ function QuickCaptureDialog({
     title.trim() === "" ||
     missing.length > 0 ||
     invalid.size > 0;
+  // Anything typed that a close would throw away. A create in flight is not a
+  // draft to protect: the request already has its payload.
+  const dirty = title.trim() !== "" || icon.trim() !== "" || Object.keys(values).length > 0;
+
+  function requestClose() {
+    if (confirmDiscard) {
+      // The question is up; a second close gesture means "keep editing".
+      setConfirmDiscard(false);
+      return;
+    }
+    if (!pending && dirty) {
+      setConfirmDiscard(true);
+      return;
+    }
+    onOpenChange(false);
+  }
+
+  function keepEditing() {
+    setConfirmDiscard(false);
+    // The form's input remounts with this branch; the existing refocus effect
+    // waits for that commit instead of focusing the field being replaced.
+    setRefocus((current) => current + 1);
+  }
+
+  function discardDraft() {
+    resetDraft();
+    onOpenChange(false);
+  }
   const { handedness } = useHandedness();
   // An optional field that went invalid while the disclosure was open must not
   // become invisible: the Create guard needs it on screen.
@@ -382,7 +419,13 @@ function QuickCaptureDialog({
   const mod = isApplePlatform() ? "⌘" : "Ctrl";
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open={open} onOpenChange={(next) => {
+        if (next) {
+          onOpenChange(true);
+        } else {
+          requestClose();
+        }
+      }}>
       {/* Kept mounted: the title exists before the tap so that tap can focus it
           and raise the keyboard, and sits off-canvas while closed. */}
       <Dialog.Portal keepMounted>
@@ -394,7 +437,11 @@ function QuickCaptureDialog({
             initialFocus={() => titleRef.current ?? true}
             finalFocus={() => returnFocusRef.current ?? false}
             onKeyDown={(event) => {
-              if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) {
+              if (
+                confirmDiscard ||
+                event.key !== "Enter" ||
+                !(event.metaKey || event.ctrlKey)
+              ) {
                 return;
               }
               event.preventDefault();
@@ -421,7 +468,33 @@ function QuickCaptureDialog({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2.5 sm:py-4">
-              {types.isPending ? (
+              {confirmDiscard ? (
+                <div className="grid gap-3">
+                  <div>
+                    <p className="text-[15px] font-medium">Discard this record?</p>
+                    <p className="mt-1 text-[13px] text-muted">
+                      The title and values you typed will not be saved.
+                    </p>
+                  </div>
+                  <ThumbRow className="flex-wrap items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      autoFocus
+                      className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+                      onClick={keepEditing}
+                    >
+                      Keep editing
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+                      onClick={discardDraft}
+                    >
+                      Discard
+                    </Button>
+                  </ThumbRow>
+                </div>
+              ) : types.isPending ? (
                 <p className="text-[13px] text-muted">Reading types…</p>
               ) : types.isError ? (
                 <div className="grid gap-2">
@@ -666,6 +739,7 @@ function QuickCaptureDialog({
               )}
             </div>
 
+            {confirmDiscard ? null : (
             <div className="sheet-footer grid gap-2 border-t rule px-4 pt-2 sm:pt-3">
               {error ? (
                 <p role="alert" className="text-[13px] text-danger">
@@ -695,6 +769,7 @@ function QuickCaptureDialog({
                 </ThumbRow>
               </ThumbRow>
             </div>
+            )}
           </SheetPopup>
         </SheetViewport>
       </Dialog.Portal>

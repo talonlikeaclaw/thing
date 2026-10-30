@@ -77,16 +77,16 @@ export function SpacePage() {
         ) : null}
       </ThumbRow>
 
-      <section aria-labelledby="space-recent" className="mt-10">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h2 id="space-recent" className="text-[17px] font-medium">
-            Recent
-          </h2>
-          <span className="label tnum">{liveRecent.length}</span>
-        </div>
-        {liveRecent.length === 0 ? (
-          <p className="py-4 text-[13px] text-muted">Records you open will appear here.</p>
-        ) : (
+      {/* A fresh browser has no recents; an empty section would sit above the
+          type list as the first thing a new member reads. */}
+      {liveRecent.length > 0 ? (
+        <section aria-labelledby="space-recent" className="mt-10">
+          <div className="flex items-baseline justify-between border-b rule pb-2">
+            <h2 id="space-recent" className="text-[17px] font-medium">
+              Recent
+            </h2>
+            <span className="label tnum">{liveRecent.length}</span>
+          </div>
           <ul>
             {liveRecent.map((item) => (
               <li key={item.id} className="border-b rule">
@@ -106,8 +106,8 @@ export function SpacePage() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section aria-labelledby="space-types" className="mt-10">
         <div className="flex items-baseline justify-between gap-3 border-b rule pb-2">

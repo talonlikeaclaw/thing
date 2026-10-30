@@ -285,7 +285,21 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
               route instead of jumping between the content edge and the right.
             */}
             <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
-              <Wordmark />
+              <div className="flex min-w-0 items-center gap-2">
+                <Wordmark />
+                {/* The text below is `sm` and up; a phone still needs to see
+                    that the socket is down, without moving Search or Capture. */}
+                {spaceId && connection !== "live" ? (
+                  <span
+                    role="status"
+                    title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
+                    aria-label={
+                      connection === "connecting" ? "Connecting…" : "Offline, reconnecting"
+                    }
+                    className="size-2 shrink-0 rounded-full bg-warning sm:hidden"
+                  />
+                ) : null}
+              </div>
               <div
                 // Two groups: global chrome at the content edge and the space's
                 // own action after it, the account controls at the container's
@@ -304,18 +318,6 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     <span>Search</span>
                     <Keycap>{shortcutLabel}</Keycap>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    aria-label="Keyboard shortcuts (?)"
-                    aria-keyshortcuts="?"
-                    aria-haspopup="dialog"
-                    className="hidden min-h-11 min-w-11 shrink-0 px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:hidden"
-                    onClick={() => setShortcutsOpen(true)}
-                  >
-                    <Keyboard aria-hidden size={15} />
-                    <span className="hidden sm:inline">Shortcuts</span>
-                    <Keycap className="hidden md:inline">?</Keycap>
-                  </Button>
                   {capture.available ? (
                     <Button
                       variant="ghost"
@@ -330,6 +332,18 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                       <Keycap>{captureShortcut?.keys ?? "C"}</Keycap>
                     </Button>
                   ) : null}
+                  <Button
+                    variant="ghost"
+                    aria-label="Keyboard shortcuts (?)"
+                    aria-keyshortcuts="?"
+                    aria-haspopup="dialog"
+                    className="hidden min-h-11 min-w-11 shrink-0 px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:hidden"
+                    onClick={() => setShortcutsOpen(true)}
+                  >
+                    <Keyboard aria-hidden size={15} />
+                    <span className="hidden sm:inline">Shortcuts</span>
+                    <Keycap className="hidden md:inline">?</Keycap>
+                  </Button>
                   {/* The state follows every nav action, so Search and Capture
                       keep their positions when the connection drops. */}
                   {spaceId && connection !== "live" ? (

@@ -36,6 +36,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A calendar opens on the current week instead of at the top of the month.",
       "Today brings the current month and today's row into view, even when the month is already showing.",
       "A relation on a record shows its current value as chips; the search list opens only when you ask for it.",
+      "A fresh space home leads with Types instead of an empty Recent section.",
+      "Quick capture asks before throwing away a title or values you typed.",
+      "A phone shows an amber dot beside the wordmark while the connection is down.",
     ],
     details: [
       "A Schedule row names its type once instead of repeating the type's key.",
@@ -58,6 +61,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Opening a record no longer reads up to 500 possible relation targets before showing it.",
       "Escape closes the relation picker without leaving the record.",
       "Adding a relation from the table now says that a several-target relation is created in the Schema property library.",
+      "The palette says it searches titles, which is what it reads today.",
+      "The accent reset reads Reset to Lichen instead of looking like a second choice.",
+      "The last owner's role and Remove controls are disabled with the reason, instead of failing on the server.",
+      "Capture comes before Shortcuts in the header, so the least-used control sits last.",
     ],
   },
   {

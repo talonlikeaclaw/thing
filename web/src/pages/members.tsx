@@ -112,6 +112,9 @@ function MemberList({
   const [removeError, setRemoveError] = useState<{ user: string; message: string } | null>(
     null,
   );
+  // The server refuses to leave a space ownerless; saying so beats an error
+  // after the tap.
+  const ownerCount = detail.members.filter((member) => member.role === "owner").length;
 
   function changeRole(member: Member, role: Role) {
     if (role === member.role || !owner) {
@@ -156,6 +159,7 @@ function MemberList({
           const self = member.user === currentUser;
           const saving = setMember.isPending && setMember.variables?.user === member.user;
           const removingThis = removing === member.user;
+          const lastOwner = member.role === "owner" && ownerCount <= 1;
           return (
             <li key={member.user} className="grid gap-2 border-b rule py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
@@ -175,7 +179,10 @@ function MemberList({
                       aria-label={`Role for ${member.name}`}
                       className="h-8 rounded-field border border-line-interactive bg-ground px-2 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
                       value={member.role}
-                      disabled={saving || removeMember.isPending}
+                      disabled={saving || removeMember.isPending || lastOwner}
+                      title={
+                        lastOwner ? "The last owner cannot be removed or step down" : undefined
+                      }
                       onChange={(event) => changeRole(member, event.target.value as Role)}
                     >
                       {ROLE_OPTIONS.map((option) => (
@@ -191,6 +198,10 @@ function MemberList({
                     <Button
                       variant="ghost"
                       className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                      disabled={lastOwner}
+                      title={
+                        lastOwner ? "The last owner cannot be removed or step down" : undefined
+                      }
                       onClick={() => {
                         setRemoving(member.user);
                         setRemoveError(null);
@@ -201,6 +212,13 @@ function MemberList({
                   ) : null}
                 </span>
               </div>
+
+              {owner && lastOwner ? (
+                <p className="text-[12px] text-faint">
+                  The last owner cannot be removed or step down. Make someone else an owner
+                  first.
+                </p>
+              ) : null}
 
               {roleError?.user === member.user ? (
                 <FormError message={roleError.message} />

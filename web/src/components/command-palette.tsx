@@ -325,7 +325,7 @@ export function CommandPalette({
           >
             <Dialog.Title className="sr-only">Search and commands</Dialog.Title>
             <Dialog.Description className="sr-only">
-              Search records, types, spaces and actions.
+              Search titles, types, spaces and actions.
             </Dialog.Description>
 
             <div className="flex items-center gap-3 border-b rule px-4">
@@ -342,7 +342,7 @@ export function CommandPalette({
                   activeItem ? `palette-option-${activeIndex}` : undefined
                 }
                 aria-label="Search and commands"
-                placeholder="Search records, types, spaces or actions"
+                placeholder="Search titles, types, spaces and actions."
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);

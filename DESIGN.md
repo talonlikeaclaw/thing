@@ -126,7 +126,8 @@ The palette is functional: no color appears without a job.
 Lichen is the baseline. The accent is a property of the space: an owner chooses one of six palettes
 in **Space settings > Appearance**, and every member's open client applies it live through the
 existing `space.updated` broadcast. Editors and viewers see the current preset with its radios
-disabled and the sentence that only an owner can change it; **Use Lichen** is owner-only. The value
+disabled and the sentence that only an owner can change it; **Reset to Lichen** is owner-only and
+derives the default's name from the accent list. The value
 lives in `space.yml` under the optional `accent` key (schema 4) and is written through the
 owner-only `PATCH /api/spaces/{space}` with the usual double-option shape — absent leaves it,
 `null` returns to Lichen, and an unknown id or a hex value is a `422` field `accent`. A hand-edited
@@ -272,13 +273,16 @@ space, type and record icons, never as interface iconography.
 - **App header:** 64px tall, hairline bottom rule; at `lg` it is the page's rail-and-content grid
   on every route — a 13rem column holding the wordmark and a content column holding two groups —
   so an action keeps one x whether or not a space is open. The first group is the global chrome,
-  Search with the platform shortcut cap then the keyboard-only Shortcuts control, followed by the
-  space's own connection status and Capture with its `C` cap, so opening a space appends to the
-  zone instead of pushing the global pair sideways. The second group is the account email, an
+  Search with the platform shortcut cap, then the space's Capture with its `C` cap, then the
+  keyboard-only Shortcuts control — the least-used action sits last — followed by the space's
+  connection status, so opening a space appends to the zone instead of pushing Search sideways. The second group is the account email, an
   **Account** link and a ghost **Sign out**, which always closes the row at the container's
   trailing edge. Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
   only the wordmark, a 44px Account and a 44px Sign out; the email is hidden and the two groups sit
-  together at the right. The row shapes itself in one order when it runs out of room: the email
+  together at the right. A phone keeps a connection cue the text cannot give: when the socket is
+  not live, an 8px amber dot with `role="status"` sits beside the wordmark below `sm`, titled
+  **Offline, reconnecting** or **Connecting…**, and leaves on reconnect without moving Search or
+  Capture. The row shapes itself in one order when it runs out of room: the email
   holds from `sm` to `lg` and again from `xl` up, and the space's connection status truncates
   rather than pushing the action or account buttons. The Shortcuts control does not render below
   `sm` or on a coarse pointer, and neither does the palette's key-hint footer. No sidebar in the
@@ -323,6 +327,13 @@ space, type and record icons, never as interface iconography.
 - **Role:** uppercase mono 11px, right-aligned.
 - **Annotation:** opens directly beneath the row as a 5rem/1fr definition list in mono 12px, with a
   single hairline left border. It carries the full id, member count and type count.
+
+### Members
+- **Rows:** name and email, then the role select and Remove for an owner; a viewer sees the role as
+  a label. A confirmation states the loss before the write.
+- **The last owner:** the role select and Remove are disabled with **The last owner cannot be
+  removed or step down** as the row's title and an inline sentence, so the server's guard is
+  never the first thing the person hears.
 
 ### Schema Editor
 - **Shape:** two columns at `lg` — a keyed list of types or properties on the left, the selected
@@ -450,6 +461,8 @@ space, type and record icons, never as interface iconography.
 ### Command Palette
 - **Shape:** a bottom sheet below `sm` and a 40rem centred sheet above; one 56px search row with
   the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.
+- **Copy:** the description and placeholder say **Search titles, types, spaces and actions**, because
+  the palette reads the newest hundred titles per type; M5 replaces that bounded lookup.
 - **Rows:** title left, mono hint right, a raised ground and accent text for the active row; 44px
   minimum on coarse pointers. The footer states the result count and, on keyboard screens only,
   the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger. The
@@ -464,6 +477,11 @@ space, type and record icons, never as interface iconography.
 - **Refusal:** the sheet stays open with the attempted values and an inline error with Retry; a
   second Create is blocked while one is in flight. A space with no types offers the link to make
   one instead of a form.
+- **Discard guard:** closing with a title, icon or any value typed — by backdrop, Escape or the X —
+  replaces the form with **Discard this record?** and **Keep editing** / **Discard**. Keep editing
+  restores the form and focuses the title with the draft intact; Discard clears it and closes, and
+  Escape during the question means keep editing. Create and Create and open bypass the guard, and
+  there is no browser `beforeunload` prompt.
 
 ### Bulk Bar
 - **Shape:** a hairline band inside the table scrollport, never a floating card. It names the count

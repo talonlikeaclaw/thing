@@ -17,6 +17,7 @@ import { Button, FormError, TextField } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import {
+  ACCENTS,
   DEFAULT_ACCENT,
   isAccentId,
   type AccentId,
@@ -81,6 +82,8 @@ export function SettingsPage() {
       Appearance
     </h2>
   );
+  const defaultAccentLabel =
+    ACCENTS.find((preset) => preset.id === DEFAULT_ACCENT)?.label ?? DEFAULT_ACCENT;
   const accentReset =
     owner && detail.accent ? (
       <Button
@@ -90,7 +93,7 @@ export function SettingsPage() {
         disabled={accentPending}
         onClick={resetAccent}
       >
-        Use Lichen
+        Reset to {defaultAccentLabel}
       </Button>
     ) : null;
 
