@@ -328,6 +328,14 @@ space, type and record icons, never as interface iconography.
 - **Annotation:** opens directly beneath the row as a 5rem/1fr definition list in mono 12px, with a
   single hairline left border. It carries the full id, member count and type count.
 
+### Space Home
+- **Order:** the action row first, then **Recent** with its count when the browser has records it
+  still has, then **Types**. A fresh browser hides the Recent section entirely, including its empty
+  sentence, so a new person lands on Types and the onboarding block rather than a blank heading.
+- **Recent rows:** each names the record with its icon and the type's display name, never the key;
+  the list is browser-local, trashed records are filtered out, and there is no server recents
+  fallback.
+
 ### Members
 - **Rows:** name and email, then the role select and Remove for an owner; a viewer sees the role as
   a label. A confirmation states the loss before the write.
@@ -353,7 +361,14 @@ space, type and record icons, never as interface iconography.
 ### View Switcher
 - **Tabs:** directly under the type header, one per saved view in file order: kind icon, name, and a
   mono `DEFAULT` marker on the default. Selection is a 1px lichen bottom rule and lichen text, never
-  a filled chip. `aria-pressed` carries the state; the row scrolls horizontally at 375px.
+  a filled chip. `aria-pressed` carries the state. On a phone the tabs wrap onto further lines so
+  every saved view is visible at once and none hides under **New view**; above the compact width
+  the row still scrolls horizontally, and a selected tab is scrolled into view.
+- **Reorder:** a **Reorder** toggle turns the strip into a list — each view gets its own row — with
+  up/down pairs (44px on coarse pointers) that move it one slot and write immediately, so the
+  space's saved order changes for everyone. The default view is pinned first; making another view
+  default moves it there. On a phone **Reorder** and **New view** sit in their own row under the
+  views so they do not take a tab's width.
 - **New view:** a ghost `+ New view` at the end of the row opens an inline form beneath it — name,
   kind choice, and the kind's required property. It never opens a modal and never asks for a column
   list; the new view copies the current default's layout.

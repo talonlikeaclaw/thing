@@ -48,7 +48,7 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M4 are landed; M1 is
-deployed and M2–M4.3 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
+deployed and M2–M4.4 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
 The patch after it, v0.4.1, is implemented in
 [`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md): checkpoints 1–8 are committed at
 workspace `0.4.1`, and the format is schema 4 for record icons, the shared space accent and the
@@ -59,12 +59,12 @@ it, v0.4.3, is implemented in
 [`docs/plan/m4.3-touch-follow-through.md`](plan/m4.3-touch-follow-through.md): checkpoints 1–6 are
 committed and checkpoint 7's version and docs are written at workspace `0.4.3`, again with no
 route, format, server field or dependency change; its physical-iPhone pass is the only open item.
-The next follow-up, v0.4.4, is scoped in
-[`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md): eight work checkpoints plus a
-release checkpoint, again with no route, format, server field or dependency change, and it is not
-implemented. The schedule follow-up, v0.4.5, is planned — list and calendar views, remembered
-horizon/month, type filter and URL state, with no saved space-level views in its first cut — and
-will get `docs/plan/m4.5-schedule-views.md` when it starts. The next milestone starts its own
+The next follow-up, v0.4.4, is implemented in
+[`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md): checkpoints 1–9 are committed
+at workspace `0.4.4`, again with no route, format, server field or dependency change; its
+physical-iPhone pass is still open. The schedule follow-up, v0.4.5, is planned — list and calendar
+views, remembered horizon/month, type filter and URL state, with no saved space-level views in its
+first cut — and will get `docs/plan/m4.5-schedule-views.md` when it starts. The next milestone starts its own
 `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
 
@@ -201,16 +201,19 @@ usability move ahead of search.
   functional text sits below 11 px. No route, format, server field or dependency changes. The
   physical-iPhone pass is still open; Android has emulation only (§1, §8).
 
-  **v0.4.4 — usability sweep.** **Scoped** (not implemented); spec:
+  **v0.4.4 — usability sweep.** **Implemented** (workspace `0.4.4`, not yet deployed;
+  checkpoints 1–9 committed, schema 4); spec:
   [`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md). A web-only pass over the
-  surfaces used every day: completion and record-page trash gain the Undo the table already has;
-  Schedule rows become whole-row targets and stop printing `Plant · plant`; the phone's saved-view
-  strip wraps so no view hides under New view; board and gallery cards use property names; the phone
-  column panel loses truncating keys and desktop-only advice; empty types offer CSV import; the
-  calendar opens on today; relation fields collapse to the current value; and a fresh home leads
-  with Types instead of an empty Recent. Eight work checkpoints plus a release checkpoint; no
-  route, format, server field or dependency change. The v0.4.3 physical-iPhone gate is still open
-  and precedes any keyboard claim.
+  surfaces used every day: completion and record-page trash gain the Undo the table already had;
+  Schedule rows become whole-row targets and stop printing `Plant · plant`, with thumb-wide labelled
+  horizon controls; the phone's saved-view strip wraps so no view hides under New view, and the
+  strip reorders views for the whole space; board and gallery cards use property names and the
+  gallery cover is a tinted band; the phone column panel loses truncating keys and desktop-only
+  advice; empty types offer CSV import; the calendar opens on the current week and Today scrolls to
+  today's row; relation fields collapse to the current value and fetch targets on demand; and a
+  fresh home leads with Types instead of an empty Recent. No route, format, server field or
+  dependency change. The v0.4.3 physical-iPhone gate is still open and precedes any keyboard
+  claim; v0.4.4's device pass had emulation only.
 
   **v0.4.5 — schedule views.** **Planned**, not scoped; spec to be
   `docs/plan/m4.5-schedule-views.md`. The Schedule page grows beyond its three buckets: a List view

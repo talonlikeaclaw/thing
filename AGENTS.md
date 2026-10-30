@@ -15,10 +15,10 @@ Two claims drive design:
   `thing-server` is an I/O shell. Later binaries (CLI, Tauri, MCP) link the same core.
 
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
-v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`) and v0.4.3 touch follow-through
-(`0.4.3`, schema 4) are implemented, not yet tagged or deployed; CI is green. v0.4.4 (usability
-sweep) is scoped in `docs/plan/m4.4-usability-sweep.md`, not implemented, and v0.4.5 (schedule
-views) is planned. The v0.4.3 physical-iPhone pass is still open.**
+v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-through
+(`0.4.3`) and v0.4.4 usability sweep (`0.4.4`, schema 4) are implemented, not yet tagged or
+deployed; CI is green. v0.4.5 (schedule views) is planned. The v0.4.3 physical-iPhone pass is
+still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
@@ -98,6 +98,23 @@ reads `— records` while its list loads; and every page meets the 11 px text fl
 Schedule's completion verb, Edit type deep-linking to the editor, the header's connection state no
 longer moving Search and Capture, and the table's leading seam.
 
+v0.4.4 is the usability sweep, web-only and again with no server, format or dependency change:
+Schedule gains the table's Undo, a whole-row link and named horizon controls (`pages/agenda.tsx`);
+record-page trash gains Undo and a completion toast names its record (`components/object-panel.tsx`);
+the view strip wraps at every width and reorders saved views in place, while the phone toolbar's
+View sheet is renamed More (`components/views/view-tabs.tsx`, `components/type-table.tsx`); board
+and gallery cards print property names and the gallery cover is a tinted band
+(`components/views/board-view.tsx`, `gallery-view.tsx`, `lib/format.ts`); the phone Columns panel
+drops the mono key and the desktop width advice, and an empty type offers Import CSV directly
+(`components/views/column-panel.tsx`); the calendar opens on the current week and Today scrolls to
+today's row (`components/views/calendar-view.tsx`); a record's relation reads as chips with the
+picker collapsed and targets fetched only on demand (`components/property-field.tsx`,
+`lib/format.ts`); and the loose ends are closed: a fresh home hides an empty Recent
+section (`pages/space.tsx`), quick capture confirms a discard (`components/quick-capture.tsx`), a
+phone shows an amber connection dot (`components/app-shell.tsx`), the palette says titles
+(`components/command-palette.tsx`), the accent reset says reset and the last owner's controls are
+disabled (`pages/settings.tsx`, `pages/members.tsx`).
+
 ## Where the plan lives
 
 | File | Role |
@@ -110,7 +127,7 @@ longer moving Search and Capture, and the table's leading seam.
 | `docs/plan/m4.1-follow-ups.md` | The v0.4.1 patch spec: handedness, add property from the table, shared accent, record icons, table controls and option-order sorting. Landed as `0.4.1`, schema 4. |
 | `docs/plan/m4.2-mobile-craft.md` | The v0.4.2 patch spec: viewport and sheet geometry, palette focus, literal table widths, the phone table, type page, record page, touch/text floor, docs and the device pass. Landed as `0.4.2`, schema 4. |
 | `docs/plan/m4.3-touch-follow-through.md` | The v0.4.3 patch spec: the touch emoji picker sheet and recents, toast clearance, the five-control phone toolbar and View band, capture context, the truthful count and text floor, docs and the device pass. Landed as `0.4.3`, schema 4. |
-| `docs/plan/m4.4-usability-sweep.md` | The v0.4.4 patch spec: undo parity, whole-row Schedule targets, phone saved-view wrapping, labels and cards, the phone column panel and CSV import door, calendar-today, record relation chips and first-run/loose ends. Scoped, not implemented. |
+| `docs/plan/m4.4-usability-sweep.md` | The v0.4.4 patch spec: undo parity, whole-row Schedule targets, phone saved-view wrapping and view order, labels and cards, the phone column panel and CSV import door, calendar-today, record relation chips and first-run/loose ends. Landed as `0.4.4`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -130,10 +147,12 @@ table width model; phone table; type page header; record page; touch and text sw
 and the device pass), and checkpoints 1–6 of M4.3 (media hooks and the picker sheet; picker content;
 toast placement; phone search and toolbar; capture context; truthful count and text floor) are
 landed and CI-green; checkpoint 7 of M4.3 (version, docs and the device pass) has its version and
-docs written.** M1 is deployed; M2–M4.3 are not deployed. The physical-iPhone gate is still open —
-it is checkpoint 7's device pass in
+docs written, and checkpoints 1–9 of M4.4 (undo parity; Schedule targets; phone view wrap; view
+order; cards and names; phone columns and import; calendar-today; record relations; first-run and
+version/docs) are landed at workspace `0.4.4`.** M1 is deployed; M2–M4.4 are not deployed. The
+physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
-carries the v0.4.2 keyboard gate.
+carries the v0.4.2 keyboard gate and the v0.4.4 device pass.
 Work proceeds one numbered checkpoint at a time — finish it, report what was built, verified and how
 to test it by hand (see [Delivery, Git and Manual QA](#delivery-git-and-manual-qa)), then stop for
 review. If the plan is silent on something that matters, ask rather than picking silently.
