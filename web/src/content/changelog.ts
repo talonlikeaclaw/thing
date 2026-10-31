@@ -17,6 +17,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Schedule views",
+    upcoming: true,
+    highlights: [
+      "Schedule has a Calendar beside its List, showing every scheduled type on one month grid.",
+      "Completing a record from a calendar day offers the same Undo as the List.",
+      "The view, the horizon and the month you choose are remembered and carried in the link, so a refresh, Back or a shared link opens where you left off.",
+    ],
+  },
+  {
     version: "0.4.4",
     title: "Usability sweep",
     highlights: [

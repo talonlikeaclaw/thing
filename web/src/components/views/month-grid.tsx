@@ -6,7 +6,7 @@ import { Link } from "react-router";
 
 import { cn } from "@/lib/cn";
 import { isCoarsePointer } from "@/lib/media";
-import { addMonths, groupByDate, monthGrid, monthOf } from "@/lib/views";
+import { addMonths, groupByDate, monthGrid, monthLabel, monthOf } from "@/lib/views";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DEFAULT_MAX_CHIPS = 3;
@@ -150,11 +150,7 @@ export function MonthGrid<T>({
 
   const byDate = groupByDate(items, dateOf);
   const weeks = monthGrid(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
-  const label = new Intl.DateTimeFormat(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${month}-01T00:00:00Z`));
+  const label = monthLabel(month);
 
   return (
     <div className="mt-6">

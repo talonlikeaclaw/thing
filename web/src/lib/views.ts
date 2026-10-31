@@ -297,6 +297,15 @@ export function monthOf(date: string): string {
   return date.slice(0, 7);
 }
 
+/** A `YYYY-MM` month as `October 2026`, formatted in UTC so no day shifts. */
+export function monthLabel(month: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${month}-01T00:00:00Z`));
+}
+
 /** `YYYY-MM` moved by whole months, using UTC arithmetic. */
 export function addMonths(month: string, delta: number): string {
   const [yearText, monthText] = month.split("-");
