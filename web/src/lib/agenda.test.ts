@@ -7,8 +7,10 @@ import {
   agendaParams,
   agendaStateFromParams,
   agendaStorageKey,
+  agendaTypeLabel,
   defaultAgendaState,
   gridWindow,
+  normalizeAgendaTypes,
   readAgendaState,
   writeAgendaState,
   type AgendaState,
@@ -96,7 +98,7 @@ const base = defaultAgendaState("2026-10-30");
 
 describe("agenda page state", () => {
   it("starts on the List at 14 days in the current month", () => {
-    expect(base).toEqual({ view: "list", horizon: 14, month: "2026-10" });
+    expect(base).toEqual({ view: "list", horizon: 14, month: "2026-10", types: [] });
   });
 
   it("writes no parameters for the defaults", () => {
@@ -104,9 +106,14 @@ describe("agenda page state", () => {
   });
 
   it("writes non-default state in a fixed order", () => {
-    const state: AgendaState = { view: "calendar", horizon: 30, month: "2026-11" };
+    const state: AgendaState = {
+      view: "calendar",
+      horizon: 30,
+      month: "2026-11",
+      types: ["chore", "plant"],
+    };
     expect(agendaParams(state, base).toString()).toBe(
-      "view=calendar&horizon=30&month=2026-11",
+      "view=calendar&horizon=30&month=2026-11&types=chore%2Cplant",
     );
   });
 
@@ -114,7 +121,7 @@ describe("agenda page state", () => {
     for (const view of ["list", "calendar"] as const) {
       for (const horizon of [7, 14, 30] as const) {
         for (const month of ["2026-10", "2026-11", "2027-01"]) {
-          const state: AgendaState = { view, horizon, month };
+          const state: AgendaState = { view, horizon, month, types: [] };
           const params = agendaParams(state, base);
           expect(agendaStateFromParams(params, base)).toEqual(state);
         }
@@ -128,7 +135,7 @@ describe("agenda page state", () => {
     expect(agendaStateFromParams(new URLSearchParams(), base)).toEqual(base);
     expect(
       agendaStateFromParams(new URLSearchParams("view=calendar&month=2026-11"), base),
-    ).toEqual({ view: "calendar", horizon: 14, month: "2026-11" });
+    ).toEqual({ view: "calendar", horizon: 14, month: "2026-11", types: [] });
   });
 
   it("scopes storage to the user and the space", () => {
@@ -138,7 +145,12 @@ describe("agenda page state", () => {
   it("reads a stored state back", () => {
     const storage = memoryStorage();
     const key = agendaStorageKey("user-1", "space-1");
-    const state: AgendaState = { view: "calendar", horizon: 7, month: "2026-11" };
+    const state: AgendaState = {
+      view: "calendar",
+      horizon: 7,
+      month: "2026-11",
+      types: ["chore", "plant"],
+    };
     writeAgendaState(storage, key, state);
     expect(readAgendaState(storage, key, base)).toEqual(state);
   });
@@ -159,6 +171,7 @@ describe("agenda page state", () => {
       view: "calendar",
       horizon: 14,
       month: "2026-11",
+      types: [],
     });
   });
 
@@ -170,6 +183,47 @@ describe("agenda page state", () => {
       },
     };
     expect(() => writeAgendaState(storage, "key", base)).not.toThrow();
+  });
+
+  it("normalizes types by trimming, deduplicating and sorting", () => {
+    expect(normalizeAgendaTypes([" plant", "chore", "", "plant", "chore "])).toEqual([
+      "chore",
+      "plant",
+    ]);
+  });
+
+  it("writes types sorted whichever order they were chosen", () => {
+    const state: AgendaState = {
+      ...base,
+      types: ["plant", "chore"],
+    };
+    expect(agendaParams(state, base).get("types")).toBe("chore,plant");
+    expect(agendaParams({ ...state, types: ["chore", "plant"] }, base).get("types")).toBe(
+      "chore,plant",
+    );
+  });
+
+  it("splits and normalizes types from the query string", () => {
+    const parsed = agendaStateFromParams(
+      new URLSearchParams("types=plant,chore,,plant"),
+      base,
+    );
+    expect(parsed.types).toEqual(["chore", "plant"]);
+    expect(agendaStateFromParams(new URLSearchParams("types="), base).types).toEqual([]);
+  });
+
+  it("ignores a stored types value that is not a string array", () => {
+    const key = agendaStorageKey("user-1", "space-1");
+    const storage = memoryStorage({
+      [key]: JSON.stringify({ types: ["chore", 7] }),
+    });
+    expect(readAgendaState(storage, key, base).types).toEqual([]);
+  });
+
+  it("labels one or several active types as a sentence", () => {
+    expect(agendaTypeLabel([])).toBe("");
+    expect(agendaTypeLabel(["Chore"])).toBe("Chore");
+    expect(agendaTypeLabel(["Chore", "Plant"])).toBe("Chore and Plant");
   });
 
   it("computes the inclusive grid window for a month", () => {

@@ -9,25 +9,30 @@ import {
   useTypeDetails,
   useTypes,
 } from "@/api/queries";
-import type { AgendaRow } from "@/api/types";
+import type { AgendaQuery, AgendaRow } from "@/api/types";
 import { AgendaCalendar } from "@/components/agenda/agenda-calendar";
 import { AgendaHorizons, AgendaList } from "@/components/agenda/agenda-list";
+import { TypeFilter } from "@/components/agenda/type-filter";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { useToast } from "@/components/ui/toast";
 import {
   agendaParams,
   agendaStateFromParams,
   agendaStorageKey,
+  agendaTypeLabel,
   defaultAgendaState,
   gridWindow,
   isMonth,
+  normalizeAgendaTypes,
   readAgendaState,
   writeAgendaState,
   type AgendaState,
 } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
+import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
 import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
@@ -67,26 +72,49 @@ export function AgendaPage() {
   }, [booted, storageKey, space.data, base, params, setParams]);
 
   const state = agendaStateFromParams(params, base);
-  const query =
+  const scheduledTypes = (types.data ?? []).filter((type) => type.schedule);
+  const scheduledKeys = scheduledTypes.map((type) => type.key);
+  // A stale key from a link or storage narrows nothing: the page keeps only
+  // the types this space still schedules, then repairs the URL and storage.
+  const effectiveTypes = state.types.filter((key) => scheduledKeys.includes(key));
+  const filterLabel = agendaTypeLabel(
+    scheduledTypes
+      .filter((type) => effectiveTypes.includes(type.key))
+      .map((type) => type.name),
+  );
+
+  useEffect(() => {
+    if (!booted || !types.data || effectiveTypes.length === state.types.length) {
+      return;
+    }
+    const next = { ...state, types: effectiveTypes };
+    if (storageKey) {
+      writeAgendaState(window.localStorage, storageKey, next);
+    }
+    setParams(agendaParams(next, base), { replace: true });
+  }, [booted, types.data, state, effectiveTypes, storageKey, base, setParams]);
+
+  const typeFilter = effectiveTypes.length > 0 ? { types: effectiveTypes } : {};
+  const query: AgendaQuery =
     state.view === "calendar" && isMonth(state.month)
-      ? gridWindow(state.month)
-      : { days: state.horizon };
-  // The first read waits for the URL to settle, so a bare link makes one
-  // request rather than a default one it immediately replaces.
-  const agenda = useAgenda(booted ? spaceId : undefined, query);
+      ? { ...gridWindow(state.month), ...typeFilter }
+      : { days: state.horizon, ...typeFilter };
+  // The first read waits for the URL and the type list to settle, so a bare
+  // link makes one request rather than a default one it immediately replaces,
+  // and a stale type key never reaches the server.
+  const agenda = useAgenda(booted && types.data ? spaceId : undefined, query);
 
   // Scheduled types carry the completion verb on their definition; one cached
   // request per type, not one per row.
-  const scheduledKeys = (types.data ?? [])
-    .filter((type) => type.schedule)
-    .map((type) => type.key);
   const typeDetails = useTypeDetails(spaceId ?? "", scheduledKeys);
 
   const complete = useCompleteObject(spaceId ?? "");
   const toast = useToast();
+  const { handedness } = useHandedness();
+  const compact = useCompactWidth();
 
   function update(patch: Partial<AgendaState>) {
-    const next = { ...state, ...patch };
+    const next = { ...state, ...patch, types: normalizeAgendaTypes(patch.types ?? state.types) };
     if (storageKey) {
       writeAgendaState(window.localStorage, storageKey, next);
     }
@@ -122,15 +150,14 @@ export function AgendaPage() {
     );
   }
 
-  if (!booted || types.isPending || agenda.isPending) {
+  if (!booted || types.isPending) {
     return <p className="text-[13px] text-muted">Reading the schedule…</p>;
   }
 
-  const error = types.error ?? agenda.error;
-  if (error) {
+  if (types.error) {
     return (
       <ErrorState
-        error={error}
+        error={types.error}
         subject="Schedule"
         onRetry={() => {
           void types.refetch();
@@ -142,18 +169,82 @@ export function AgendaPage() {
 
   const detail = space.data;
   const typesData = types.data;
-  const schedule = agenda.data;
-  if (!detail || !typesData || !schedule) {
+  if (!detail || !typesData) {
     return <p className="text-[13px] text-muted">Reading the schedule…</p>;
   }
 
-  const scheduled = typesData.filter((type) => type.schedule);
+  const schedule = agenda.data;
   const canEdit = detail.role !== "viewer";
   const verbs: Record<string, string> = Object.fromEntries(
     typeDetails.details.map((def) => [def.key, completeLabel(def.schedule_labels)]),
   );
   const pendingId = complete.isPending ? (complete.variables?.id ?? null) : null;
-  const today = schedule.today || spaceToday;
+  const today = schedule?.today || spaceToday;
+  const viewSwitch = (
+    <div role="group" aria-label="View" className="flex items-center gap-1">
+      {(
+        [
+          ["list", "List"],
+          ["calendar", "Calendar"],
+        ] as const
+      ).map(([view, label]) => (
+        <button
+          key={view}
+          type="button"
+          aria-pressed={state.view === view}
+          className={cn(
+            "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+            state.view === view ? "" : "text-faint",
+          )}
+          onClick={() => update({ view })}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+  const titleHeading = (
+    <h1 className="text-[26px] font-medium tracking-[-0.02em]">Schedule</h1>
+  );
+  const headerTitle = (
+    <div
+      className={cn(
+        "flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2",
+        compact && "w-full justify-between",
+      )}
+    >
+      {handedness === "left" ? (
+        <>
+          {viewSwitch}
+          {titleHeading}
+        </>
+      ) : (
+        <>
+          {titleHeading}
+          {viewSwitch}
+        </>
+      )}
+    </div>
+  );
+  // The controls are an action row: canonical order puts the primary filter
+  // last, and `ThumbRow` moves it to the left thumb edge in left mode.
+  const headerTools = (
+    <ThumbRow className={cn("flex-wrap items-center gap-2", compact && "w-full")}>
+      {state.view === "list" ? (
+        <AgendaHorizons
+          horizon={state.horizon}
+          onChange={(horizon) => update({ horizon })}
+        />
+      ) : null}
+      {scheduledTypes.length > 0 ? (
+        <TypeFilter
+          types={scheduledTypes}
+          selected={effectiveTypes}
+          onChange={(nextTypes) => update({ types: nextTypes })}
+        />
+      ) : null}
+    </ThumbRow>
+  );
 
   return (
     <div className="settle">
@@ -161,40 +252,34 @@ export function AgendaPage() {
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schedule" }]}
       />
       <div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <h1 className="text-[26px] font-medium tracking-[-0.02em]">Schedule</h1>
-          <div role="group" aria-label="View" className="flex items-center gap-1">
-            {(
-              [
-                ["list", "List"],
-                ["calendar", "Calendar"],
-              ] as const
-            ).map(([view, label]) => (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={state.view === view}
-                className={cn(
-                  "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-                  state.view === view ? "" : "text-faint",
-                )}
-                onClick={() => update({ view })}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {state.view === "list" ? (
-            <div className="ml-auto flex max-sm:basis-full max-sm:ml-0">
-              <AgendaHorizons horizon={state.horizon} onChange={(horizon) => update({ horizon })} />
-            </div>
-          ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          {handedness === "left" && !compact ? (
+            <>
+              {headerTools}
+              {headerTitle}
+            </>
+          ) : (
+            <>
+              {headerTitle}
+              {headerTools}
+            </>
+          )}
         </div>
         <p className="mt-2 font-mono text-[12px] text-faint">
-          {schedule.timezone} · today {today}
+          {schedule?.timezone ?? detail.timezone} · today {today}
         </p>
 
-        {scheduled.length === 0 ? (
+        {agenda.error ? (
+          <div className="mt-8">
+            <ErrorState
+              error={agenda.error}
+              subject="Schedule"
+              onRetry={() => {
+                void agenda.refetch();
+              }}
+            />
+          </div>
+        ) : scheduledTypes.length === 0 ? (
           <div className="mt-8 max-w-[52ch] border-t rule pt-4">
             <p className="text-muted">
               No type is scheduled — open Schema and turn on Schedule for a type.
@@ -206,6 +291,8 @@ export function AgendaPage() {
               Open Schema
             </Link>
           </div>
+        ) : !schedule ? (
+          <p className="mt-8 text-[13px] text-muted">Reading the schedule…</p>
         ) : state.view === "calendar" ? (
           <AgendaCalendar
             spaceId={detail.id}
@@ -217,6 +304,8 @@ export function AgendaPage() {
             pendingId={pendingId}
             onComplete={onComplete}
             onMonthChange={(month) => update({ month })}
+            filterLabel={filterLabel}
+            onClearFilter={() => update({ types: [] })}
           />
         ) : (
           <AgendaList
@@ -229,6 +318,8 @@ export function AgendaPage() {
             verbs={verbs}
             pendingId={pendingId}
             onComplete={onComplete}
+            filterLabel={filterLabel}
+            onClearFilter={() => update({ types: [] })}
           />
         )}
       </div>

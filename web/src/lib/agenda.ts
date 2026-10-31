@@ -37,12 +37,14 @@ export type AgendaHorizon = (typeof AGENDA_HORIZONS)[number];
 /** The defaults the URL omits. */
 export const DEFAULT_AGENDA_HORIZON: AgendaHorizon = 14;
 
-/** Everything the Schedule page remembers: view, List horizon and month. */
+/** Everything the Schedule page remembers: view, List horizon, month and types. */
 export interface AgendaState {
   view: AgendaView;
   horizon: AgendaHorizon;
   /** `YYYY-MM` for the Calendar; kept while the List is showing. */
   month: string;
+  /** Scheduled type keys; empty means every scheduled type. */
+  types: string[];
 }
 
 /** The slice of `Storage` this module needs; a fake can stand in for it. */
@@ -62,9 +64,22 @@ function isHorizon(value: unknown): value is AgendaHorizon {
   return value === 7 || value === 14 || value === 30;
 }
 
+/** Trimmed, deduplicated and sorted, so the same selection makes one link. */
+export function normalizeAgendaTypes(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort();
+}
+
+/** The active types as a sentence: "Chore", "Chore and Plant". */
+export function agendaTypeLabel(names: readonly string[]): string {
+  if (names.length <= 1) {
+    return names[0] ?? "";
+  }
+  return new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(names);
+}
+
 /** A first visit: the List at 14 days, on the month containing `today`. */
 export function defaultAgendaState(today: string): AgendaState {
-  return { view: "list", horizon: DEFAULT_AGENDA_HORIZON, month: monthOf(today) };
+  return { view: "list", horizon: DEFAULT_AGENDA_HORIZON, month: monthOf(today), types: [] };
 }
 
 /**
@@ -75,10 +90,12 @@ export function agendaStateFromParams(params: URLSearchParams, base: AgendaState
   const view = params.get("view");
   const horizon = Number(params.get("horizon"));
   const month = params.get("month") ?? "";
+  const types = params.get("types");
   return {
     view: view === "list" || view === "calendar" ? view : base.view,
     horizon: isHorizon(horizon) ? horizon : base.horizon,
     month: isMonth(month) ? month : base.month,
+    types: types === null ? base.types : normalizeAgendaTypes(types.split(",")),
   };
 }
 
@@ -96,6 +113,10 @@ export function agendaParams(state: AgendaState, base: AgendaState): URLSearchPa
   }
   if (state.month !== base.month) {
     params.set("month", state.month);
+  }
+  const types = normalizeAgendaTypes(state.types);
+  if (types.length > 0) {
+    params.set("types", types.join(","));
   }
   return params;
 }
@@ -133,18 +154,23 @@ export function readAgendaState(
     return base;
   }
   const stored = parsed as Record<string, unknown>;
+  const storedTypes = stored.types;
   return {
     view:
       stored.view === "list" || stored.view === "calendar" ? stored.view : base.view,
     horizon: isHorizon(stored.horizon) ? stored.horizon : base.horizon,
     month: typeof stored.month === "string" && isMonth(stored.month) ? stored.month : base.month,
+    types:
+      Array.isArray(storedTypes) && storedTypes.every((value) => typeof value === "string")
+        ? normalizeAgendaTypes(storedTypes)
+        : base.types,
   };
 }
 
 /** Persists one state; a refused write is swallowed so the page still works. */
 export function writeAgendaState(storage: AgendaStorage, key: string, state: AgendaState): void {
   try {
-    storage.setItem(key, JSON.stringify(state));
+    storage.setItem(key, JSON.stringify({ ...state, types: normalizeAgendaTypes(state.types) }));
   } catch {
     // Storage is a convenience; the URL still carries the state.
   }

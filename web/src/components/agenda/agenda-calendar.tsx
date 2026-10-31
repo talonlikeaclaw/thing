@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 import type { AgendaRow } from "@/api/types";
+import { ClearFilterButton } from "@/components/agenda/type-filter";
 import { ThumbRow } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { MonthGrid } from "@/components/views/month-grid";
@@ -23,6 +24,8 @@ export function AgendaCalendar({
   pendingId,
   onComplete,
   onMonthChange,
+  filterLabel,
+  onClearFilter,
 }: {
   spaceId: string;
   month: string;
@@ -36,6 +39,9 @@ export function AgendaCalendar({
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
   onMonthChange: (month: string) => void;
+  /** The active type names, or empty when every type is showing. */
+  filterLabel?: string;
+  onClearFilter?: () => void;
 }) {
   return (
     <MonthGrid
@@ -108,9 +114,16 @@ export function AgendaCalendar({
       }}
       above={
         rows.length === 0 ? (
-          <p className="mt-3 border-t rule pt-3 text-[13px] text-muted">
-            Nothing scheduled in {monthLabel(month)}.
-          </p>
+          <div className="mt-3 max-w-[52ch] border-t rule pt-3">
+            <p className="text-[13px] text-muted">
+              {filterLabel
+                ? `Nothing scheduled for ${filterLabel} in ${monthLabel(month)}.`
+                : `Nothing scheduled in ${monthLabel(month)}.`}
+            </p>
+            {filterLabel && onClearFilter ? (
+              <ClearFilterButton onClick={onClearFilter} />
+            ) : null}
+          </div>
         ) : null
       }
       onMonthChange={onMonthChange}

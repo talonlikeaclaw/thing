@@ -24,6 +24,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Schedule has a Calendar beside its List, showing every scheduled type on one month grid.",
       "Completing a record from a calendar day offers the same Undo as the List.",
       "The view, the horizon and the month you choose are remembered and carried in the link, so a refresh, Back or a shared link opens where you left off.",
+      "Filter the schedule to the types you care about, and the choice travels in the link.",
+      "An empty filtered schedule names the types with nothing due and offers one tap back to everything.",
     ],
   },
   {

@@ -1,0 +1,208 @@
+import { Dialog } from "@base-ui/react/dialog";
+import { Popover } from "@base-ui/react/popover";
+import { Filter, X } from "lucide-react";
+import { useState } from "react";
+
+import type { TypeSummary } from "@/api/types";
+import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThingIcon } from "@/components/thing-icon";
+import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import { normalizeAgendaTypes } from "@/lib/agenda";
+import { cn } from "@/lib/cn";
+import { useCompactWidth } from "@/lib/media";
+
+const TRIGGER =
+  "inline-flex min-h-9 items-center gap-1.5 rounded-field border border-line px-2.5 label text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11";
+const ROW =
+  "min-h-10 w-full items-center gap-2.5 rounded-[4px] px-2 text-left text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11";
+
+/** The Filter trigger plus a checkbox list of the space's scheduled types. */
+export function TypeFilter({
+  types,
+  selected,
+  onChange,
+}: {
+  types: readonly TypeSummary[];
+  /** The active keys; empty means every scheduled type. */
+  selected: readonly string[];
+  onChange: (types: string[]) => void;
+}) {
+  const compact = useCompactWidth();
+  const { handedness } = useHandedness();
+  const [open, setOpen] = useState(false);
+  const count = selected.length;
+  const label = count > 0 ? `Filter, ${count} type${count === 1 ? "" : "s"}` : "Filter";
+  const trigger = (
+    <>
+      <Filter aria-hidden size={13} />
+      Filter
+      {count > 0 ? (
+        <span className="font-mono text-[11px] tnum text-ink">{count}</span>
+      ) : null}
+    </>
+  );
+
+  const body = (
+    <TypeFilterList types={types} selected={selected} onChange={onChange} />
+  );
+
+  if (!compact) {
+    return (
+      <Popover.Root>
+        <Popover.Trigger aria-label={label} className={TRIGGER}>
+          {trigger}
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner
+            sideOffset={4}
+            align={handedness === "left" ? "start" : "end"}
+            className="z-50"
+          >
+            <Popover.Popup className="w-[15rem] rounded-field border border-line bg-surface p-1">
+              {body}
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    );
+  }
+
+  const close = (
+    <Dialog.Close
+      key="close"
+      aria-label="Close filter"
+      className={cn(
+        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+      )}
+    >
+      <X aria-hidden size={15} />
+    </Dialog.Close>
+  );
+  const title = (
+    <Dialog.Title key="title" className="min-w-0 flex-1 truncate text-[17px] font-medium">
+      Filter the schedule
+    </Dialog.Title>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className={TRIGGER}
+        onClick={() => setOpen(true)}
+      >
+        {trigger}
+      </button>
+      <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Portal>
+          <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+          <SheetViewport>
+            <SheetPopup className="sm:w-[34rem]">
+              <div
+                className={cn(
+                  "flex items-center gap-3 border-b rule px-4 py-3",
+                  handedness === "left" ? "justify-start" : "justify-between",
+                )}
+              >
+                {handedness === "left" ? (
+                  <>
+                    {close}
+                    {title}
+                  </>
+                ) : (
+                  <>
+                    {title}
+                    {close}
+                  </>
+                )}
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                {body}
+              </div>
+            </SheetPopup>
+          </SheetViewport>
+        </Dialog.Portal>
+      </Dialog.Root>
+    </>
+  );
+}
+
+function TypeFilterList({
+  types,
+  selected,
+  onChange,
+}: {
+  types: readonly TypeSummary[];
+  selected: readonly string[];
+  onChange: (types: string[]) => void;
+}) {
+  return (
+    <div>
+      <ul>
+        {types.map((type) => {
+          const checked = selected.includes(type.key);
+          return (
+            <li key={type.key}>
+              <label className="block">
+                <ThumbRow className={ROW}>
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <ThingIcon icon={type.icon} size="sm" />
+                    <span className="min-w-0 truncate">{type.name}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 shrink-0 accent-accent"
+                    checked={checked}
+                    onChange={() =>
+                      onChange(
+                        normalizeAgendaTypes(
+                          checked
+                            ? selected.filter((key) => key !== type.key)
+                            : [...selected, type.key],
+                        ),
+                      )
+                    }
+                  />
+                </ThumbRow>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <ThumbRow className="mt-1 items-center justify-between gap-2 border-t rule pt-1">
+        <button
+          type="button"
+          className="label min-h-8 rounded-[3px] px-2 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
+          onClick={() => onChange(types.map((type) => type.key))}
+        >
+          All scheduled types
+        </button>
+        <button
+          type="button"
+          className="label min-h-8 rounded-[3px] px-2 text-muted transition-colors hover:bg-raised hover:text-ink disabled:text-faint pointer-coarse:min-h-11"
+          disabled={selected.length === 0}
+          onClick={() => onChange([])}
+        >
+          Clear
+        </button>
+      </ThumbRow>
+    </div>
+  );
+}
+
+/** The empty-state action both Schedule views show under an active filter. */
+export function ClearFilterButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="mt-3 inline-flex min-h-10 w-fit items-center rounded-field border border-line px-4 text-sm text-ink transition-colors hover:border-line-strong pointer-coarse:min-h-11"
+      onClick={onClick}
+    >
+      Clear filter
+    </button>
+  );
+}

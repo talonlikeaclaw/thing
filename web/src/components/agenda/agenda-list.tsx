@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 import type { AgendaRow } from "@/api/types";
+import { ClearFilterButton } from "@/components/agenda/type-filter";
 import { useHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { agendaBuckets, AGENDA_HORIZONS, type AgendaHorizon } from "@/lib/agenda";
@@ -47,6 +48,8 @@ export function AgendaList({
   verbs,
   pendingId,
   onComplete,
+  filterLabel,
+  onClearFilter,
 }: {
   rows: AgendaRow[];
   horizon: AgendaHorizon;
@@ -59,40 +62,54 @@ export function AgendaList({
   /** The row whose completion is in flight, if any. */
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
+  /** The active type names, or empty when every type is showing. */
+  filterLabel?: string;
+  onClearFilter?: () => void;
 }) {
   const { overdue, due_today, upcoming } = agendaBuckets(rows);
   return (
     <>
-      <Bucket
-        title="Overdue"
-        rows={overdue}
-        empty="Nothing is overdue."
-        spaceId={spaceId}
-        canEdit={canEdit}
-        verbs={verbs}
-        pendingId={pendingId}
-        onComplete={onComplete}
-      />
-      <Bucket
-        title="Today"
-        rows={due_today}
-        empty="Nothing is due today."
-        spaceId={spaceId}
-        canEdit={canEdit}
-        verbs={verbs}
-        pendingId={pendingId}
-        onComplete={onComplete}
-      />
-      <Bucket
-        title={`Next ${horizon} days`}
-        rows={upcoming}
-        empty={`Nothing is due in the next ${horizon} days.`}
-        spaceId={spaceId}
-        canEdit={canEdit}
-        verbs={verbs}
-        pendingId={pendingId}
-        onComplete={onComplete}
-      />
+      {filterLabel && rows.length === 0 ? (
+        <div className="mt-8 max-w-[52ch] border-t rule pt-4">
+          <p className="text-[13px] text-muted">
+            No {filterLabel} work in the next {horizon} days.
+          </p>
+          {onClearFilter ? <ClearFilterButton onClick={onClearFilter} /> : null}
+        </div>
+      ) : (
+        <>
+          <Bucket
+            title="Overdue"
+            rows={overdue}
+            empty="Nothing is overdue."
+            spaceId={spaceId}
+            canEdit={canEdit}
+            verbs={verbs}
+            pendingId={pendingId}
+            onComplete={onComplete}
+          />
+          <Bucket
+            title="Today"
+            rows={due_today}
+            empty="Nothing is due today."
+            spaceId={spaceId}
+            canEdit={canEdit}
+            verbs={verbs}
+            pendingId={pendingId}
+            onComplete={onComplete}
+          />
+          <Bucket
+            title={`Next ${horizon} days`}
+            rows={upcoming}
+            empty={`Nothing is due in the next ${horizon} days.`}
+            spaceId={spaceId}
+            canEdit={canEdit}
+            verbs={verbs}
+            pendingId={pendingId}
+            onComplete={onComplete}
+          />
+        </>
+      )}
       {laterCount > 0 ? (
         horizon < 30 ? (
           <button
