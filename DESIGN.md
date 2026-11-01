@@ -473,6 +473,32 @@ space, type and record icons, never as interface iconography.
   the screen never moves. On a phone the today row stops above the bottom bar. A footer counts
   records with no value for the date property.
 
+### Schedule Page
+- **Two views, one page.** `List` and `Calendar` are pressed text buttons in one labelled group, never
+  tabs with a filled selection; the group and the 7d/14d/30d horizon keep their reading order in both
+  handedness modes because they are navigation, not thumb actions. The horizon, the month and the
+  chosen types live in the link, so a shared URL opens the same view.
+- **List:** the existing Overdue / Today / Next N buckets, each a ruled section with its name, a mono
+  count and rows that link as a whole. The type filter and the snooze control are the only new
+  controls in a row; both sit inside one `ThumbRow` so the completion verb stays the primary action
+  at the thumb edge.
+- **Calendar:** the same `MonthGrid` the type calendar uses — Monday-first weeks, hairline cells, a
+  lichen today numeral, three chips and `+N more`, the portalled day panel with focus return and the
+  today scroll. A chip carries the type's icon because several types share one month. An empty month
+  names the month, and names the active types when a filter is on.
+- **Type filter:** one Filter trigger with the active count. A Base UI popover anchored to the
+  trigger on a fine pointer; the app's sheet on a phone, with its close first in the title row in
+  left mode. One checkbox row per scheduled type, then `All scheduled types` and `Clear`; no
+  per-type counts, because the page only holds the filtered rows.
+- **Snooze:** a ghost alarm icon beside the completion verb, 44px on a coarse pointer. On a fine
+  pointer it opens an anchored popover; on a phone, a sheet titled `Snooze “<title>”` whose close is
+  first in left mode. The body offers `1 day`, `3 days` and `1 week` as full-width rows, then a
+  labelled `Days` field (16px on coarse) with a `Snooze` submit that stays disabled outside 1–90.
+  Snoozing moves the record's due day, so the chip moves with it and the toast names the new date
+  with `Undo`; nothing is hidden while showing its old date.
+- **Toasts:** completion and snooze share the existing toast stack, one action (`Undo`) at the
+  handedness edge; the stack already clears the phone bar and the keyboard.
+
 ### Command Palette
 - **Shape:** a bottom sheet below `sm` and a 40rem centred sheet above; one 56px search row with
   the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.

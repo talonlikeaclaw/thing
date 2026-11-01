@@ -16,10 +16,9 @@ Two claims drive design:
 
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
 v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-through
-(`0.4.3`) and v0.4.4 usability sweep (`0.4.4`, schema 4) are implemented, not yet tagged or
-deployed; CI is green. v0.4.5 (schedule views) is scoped in
-[`docs/plan/m4.5-schedule-views.md`](docs/plan/m4.5-schedule-views.md), not started. The v0.4.3
-physical-iPhone pass is still open.**
+(`0.4.3`), v0.4.4 usability sweep (`0.4.4`) and v0.4.5 schedule views (`0.4.5`, schema 4) are
+implemented, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is still
+open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
@@ -31,8 +30,8 @@ membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and its
 APIs: `routes/types` (types and schedule vocabulary), `routes/views` (named views: create, patch,
 delete, default), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
-filter/sort/search/view selection, raw, history, trash, restore, purge, backlinks, Complete and the
-agenda) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
+filter/sort/search/view selection, raw, history, trash, restore, purge, backlinks, Complete, snooze
+and the agenda's window, range and type parameters) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
 builds the Garden demo space against a running server, with relative due dates in
 `America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is
 a Vite + React 19 SPA with the signed-out surfaces (sign in, register, invite join), the space list,
@@ -41,8 +40,9 @@ the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-ty
 selection, filters and sorts, inline cell editing with optimistic writes and `409` recovery, the
 recurrence editor, WebSocket invalidation through `lib/use-space-events.ts`, the object panel with
 per-format inputs, a markdown body and Complete (`pages/object.tsx`, `components/object-panel.tsx`),
-the Schedule page with overdue/today/upcoming buckets and the nav badge (`pages/agenda.tsx`,
-`components/space-nav.tsx`), space settings
+the Schedule page's List and Calendar over one agenda read, its type filter and snooze
+(`pages/agenda.tsx`, `components/agenda/`), the shared month grid
+(`components/views/month-grid.tsx`) and the nav badge (`components/space-nav.tsx`), space settings
 with name, searchable emoji icon, timezone and confirmed deletion (`pages/settings.tsx`,
 `components/icon-picker.tsx`, `lib/emoji.ts`), and history and trash
 (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
@@ -116,6 +116,21 @@ phone shows an amber connection dot (`components/app-shell.tsx`), the palette sa
 (`components/command-palette.tsx`), the accent reset says reset and the last owner's controls are
 disabled (`pages/settings.tsx`, `pages/members.tsx`).
 
+v0.4.5 turns Schedule into two views of one read, still at schema 4: the agenda route returns one
+`rows` array plus `later_count` and takes `days` or an inclusive `from`/`to` range and a `types`
+filter (`components/agenda/agenda-list.tsx` projects the List's buckets from `status`), the
+Calendar renders those rows through the extracted `MonthGrid` the type calendar now shares
+(`components/agenda/agenda-calendar.tsx`, `components/views/month-grid.tsx`, `lib/views.ts`), and
+`lib/agenda.ts` carries the page state — view, horizon, month and types — in the query string with
+browser-local storage as the fallback (`lib/agenda.ts`, following `lib/recent.ts`). A type filter
+presents as a popover on a fine pointer and a sheet on a phone (`components/agenda/type-filter.tsx`).
+A record can be snoozed for 1–90 days from a List row or a calendar day: `schedule::snooze` writes
+only `due_date` as `max(due, today) + days`, sharing `complete`'s base-day rule, and
+`POST …/objects/{object}/snooze` records an `update` revision (`crates/core/src/schedule.rs`,
+`routes/objects.rs`, `components/agenda/snooze-menu.tsx`); the toast's Undo PATCHes the previous
+date. No body-format or schema change, one new route, no new dependency. The v0.4.5 device pass had
+emulation only; the physical-iPhone gate stays open.
+
 ## Where the plan lives
 
 | File | Role |
@@ -129,7 +144,7 @@ disabled (`pages/settings.tsx`, `pages/members.tsx`).
 | `docs/plan/m4.2-mobile-craft.md` | The v0.4.2 patch spec: viewport and sheet geometry, palette focus, literal table widths, the phone table, type page, record page, touch/text floor, docs and the device pass. Landed as `0.4.2`, schema 4. |
 | `docs/plan/m4.3-touch-follow-through.md` | The v0.4.3 patch spec: the touch emoji picker sheet and recents, toast clearance, the five-control phone toolbar and View band, capture context, the truthful count and text floor, docs and the device pass. Landed as `0.4.3`, schema 4. |
 | `docs/plan/m4.4-usability-sweep.md` | The v0.4.4 patch spec: undo parity, whole-row Schedule targets, phone saved-view wrapping and view order, labels and cards, the phone column panel and CSV import door, calendar-today, record relation chips and first-run/loose ends. Landed as `0.4.4`, schema 4. |
-| `docs/plan/m4.5-schedule-views.md` | The v0.4.5 patch spec: one agenda read with rows, a date range and a type filter; the Schedule Calendar across scheduled types; URL-backed and remembered view, horizon, month and types; the type-filter popover/sheet; the shared month grid. Scoped, not started. |
+| `docs/plan/m4.5-schedule-views.md` | The v0.4.5 patch spec: one agenda read with rows, a date range and a type filter; the Schedule Calendar across scheduled types; URL-backed and remembered view, horizon, month and types; the type-filter popover/sheet; the shared month grid; snooze for 1–90 days with Undo. Landed as `0.4.5`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -151,7 +166,9 @@ toast placement; phone search and toolbar; capture context; truthful count and t
 landed and CI-green; checkpoint 7 of M4.3 (version, docs and the device pass) has its version and
 docs written, and checkpoints 1–9 of M4.4 (undo parity; Schedule targets; phone view wrap; view
 order; cards and names; phone columns and import; calendar-today; record relations; first-run and
-version/docs) are landed at workspace `0.4.4`.** M1 is deployed; M2–M4.4 are not deployed. The
+version/docs) are landed at workspace `0.4.4`, and checkpoints 1–6 of M4.5 (one agenda read; the
+shared month grid; the Calendar and page state; the type filter; snooze; version, docs and the
+device pass) are landed at workspace `0.4.5`.** M1 is deployed; M2–M4.5 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
 carries the v0.4.2 keyboard gate and the v0.4.4 device pass.
@@ -313,6 +330,12 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   new property map, requires the current `rev` (`409` otherwise), broadcasts `object.completed`,
   and never accepts a title or body. The web's undo is an ordinary PATCH of the two schedule values
   at the returned revision, not a history rewrite.
+- **Snooze postpones the plan; it does not hide it.** `schedule::snooze` writes only `due_date`,
+  as `max(due, today) + days` in the space zone for 1–90 days, sharing `complete`'s base-day rule;
+  `recurrence` and `last_completed_at` are untouched, so a later completion counts from the moved
+  date. The route records an `update` revision (never `complete`), requires the current `rev`, and
+  refuses a record with no due date. The web's undo PATCHes the previous due date at the returned
+  revision. There is no stored hidden-until field and no mute.
 - **A PATCH merges, and `null` removes.** `properties: {"room": "study"}` sets one value without
   touching the others; `properties: {"room": null}` drops the key. Every `PATCH` carries the `rev`
   the caller read, and a different one is a `409` with `details.current_rev`.
@@ -403,7 +426,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
 | `crates/core/src/markdown.rs` | The on-disk format (schema 3): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
-| `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, recurrence labels |
+| `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, `snooze` (with the shared `rephase_base`), `MAX_SNOOZE_DAYS`, recurrence labels |
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`) and the property rename/removal rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
@@ -422,12 +445,12 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/lib/table-widths.ts` | Literal width model: `savedWidths` (compact 136/104), `widthPlan` with the filler column, `dragWidth`, `DRAG_THRESHOLD`; no proportional scaling |
 | `web/src/lib/viewport.ts` | `metricsFor` over `visualViewport`, the rAF-collapsed `subscribeVisualViewport`, and `applyViewportMetrics` writing `--vv-height` / `--vv-top` / `--kb-height` |
 | `web/src/components/ui/sheet.tsx` | `SheetViewport` / `SheetPopup` (the one overlay geometry, motion and safe-area footer) plus `useSheetViewport`, mounted once in `App.tsx` |
-| `web/src/lib/schedule.ts` | Recurrence labels/drafts, schedule property names, due tone and relative due phrases; no date math |
+| `web/src/lib/schedule.ts` | Recurrence labels/drafts, schedule property names, due tone and relative due phrases, and the snooze presets/label/bounds; no date math |
 | `web/src/lib/timezone.ts` | The `Intl` timezone list, always including UTC and the space's current zone |
 | `web/src/components/schema/` | Type and property lists, editors, and the shared option editor; columns and grouping are per view on the type page |
 | `web/src/components/views/` | The view tab row, inline new-view form, view settings, column panel, and the four renderers (`table`, `board`, `gallery`, `calendar`) over one `useObjects` result |
 | `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
-| `web/src/pages/agenda.tsx` | The Schedule page: horizon, Overdue/Today/Next N buckets, each row's completion button labelled with its type's `complete` verb, and the no-scheduled-type state |
+| `web/src/pages/agenda.tsx` | The Schedule page: List/Calendar switch, horizon, month and type filter in the URL with storage as fallback, one loading/error path for both views, and one completion/snooze handler with their toasts and Undo |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
 | `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
@@ -496,7 +519,7 @@ When the UI changes, update them; never let them describe a different world.
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 303 tests (164 `thing-core`, 10 `tests/roundtrip.rs`, 75 `thing-server`, 54
+- **Current coverage:** 561 tests (209 `thing-core`, 15 `tests/roundtrip.rs`, 102 `thing-server`, 235
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

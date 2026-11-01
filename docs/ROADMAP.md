@@ -48,7 +48,7 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M4 are landed; M1 is
-deployed and M2–M4.4 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
+deployed and M2–M4.5 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
 The patch after it, v0.4.1, is implemented in
 [`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md): checkpoints 1–8 are committed at
 workspace `0.4.1`, and the format is schema 4 for record icons, the shared space accent and the
@@ -62,12 +62,18 @@ route, format, server field or dependency change; its physical-iPhone pass is th
 The next follow-up, v0.4.4, is implemented in
 [`docs/plan/m4.4-usability-sweep.md`](plan/m4.4-usability-sweep.md): checkpoints 1–9 are committed
 at workspace `0.4.4`, again with no route, format, server field or dependency change; its
-physical-iPhone pass is still open. The schedule follow-up, v0.4.5, is scoped in
-[`docs/plan/m4.5-schedule-views.md`](plan/m4.5-schedule-views.md) — list and calendar views, one
-agenda read with a range and type filter, remembered horizon/month, and URL state, with no saved
-space-level views in its first cut — and is not started. The next milestone starts its own
+physical-iPhone pass is still open. The schedule follow-up, v0.4.5, is implemented in
+[`docs/plan/m4.5-schedule-views.md`](plan/m4.5-schedule-views.md): checkpoints 1–6 are committed at
+workspace `0.4.5` — list and calendar views over one agenda read, a range and type filter,
+remembered horizon/month carried in the URL, and snooze for a record — with no saved space-level
+views and no format change; one object sub-route is new. Its device pass had emulation only, and
+the physical-iPhone gate stays open. The next milestone starts its own
 `docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
+
+**Revised 2026-11-01:** v0.4.5 ships snooze as a sixth checkpoint, ahead of its release step, so a
+record can be put off for 1–90 days without a hidden-until field; the milestone gains one core
+function and one object route, and still no format change.
 
 **Revised 2026-10-28:** v0.4.4 (usability sweep) and v0.4.5 (schedule views) are recorded after
 v0.4.3; M5 now includes the markdown writing surface and may split the space graph to `0.5.1`.
@@ -216,16 +222,21 @@ usability move ahead of search.
   dependency change. The v0.4.3 physical-iPhone gate is still open and precedes any keyboard
   claim; v0.4.4's device pass had emulation only.
 
-  **v0.4.5 — schedule views.** **Scoped**, not started; spec:
-  [`docs/plan/m4.5-schedule-views.md`](plan/m4.5-schedule-views.md), five checkpoints. The Schedule
-  page grows beyond its three buckets: a List view (the current agenda) and a Calendar view over
-  every scheduled type, with the 7d/14d/30d horizon and the calendar month remembered per user and
-  space, a type filter, and URL-backed view state so a view is shareable and survives refresh and
-  back. The first cut does not add saved space-level views, board-by-type or custom filters/sorts;
-  those wait for space-level views. The plan settles the API shape on the existing agenda read:
-  `rows` and `later_count` replace the three bucket arrays, `types` narrows, and `from`/`to` asks
-  for a calendar window. The List buckets become a client projection of the server's `status`. No
-  body-format or schema change; no new route; completed records stay out of both views.
+  **v0.4.5 — schedule views.** **Implemented** (workspace `0.4.5`, not yet deployed; checkpoints
+  1–6 committed, schema 4); spec:
+  [`docs/plan/m4.5-schedule-views.md`](plan/m4.5-schedule-views.md). The Schedule page grows beyond
+  its three buckets: a List view (the current agenda) and a Calendar view over every scheduled
+  type, with the 7d/14d/30d horizon and the calendar month remembered per user and space, a type
+  filter, and URL-backed view state so a view is shareable and survives refresh and back. A record
+  can be snoozed for 1–90 days from a List row or a calendar day: the due date moves by the count
+  from the same base a completion uses, the Calendar follows it, and the toast carries the Undo.
+  The API shape stays on the existing agenda read — `rows` and `later_count` replace the three
+  bucket arrays, `types` narrows, and `from`/`to` asks for a calendar window — and the List buckets
+  become a client projection of the server's `status`. A snooze is the one new write route and
+  records an update revision, not a completion. No body-format or schema change; completed records
+  stay out of both views; no saved space-level views, boards by type or custom filter/sort builders
+  until space-level views exist. The v0.4.5 device pass had emulation only, and the v0.4.3
+  physical-iPhone gate still precedes any keyboard claim.
 
 - **M5 — Search, linking and the writing surface.** Full-text search over titles and bodies within
   a space, reachable from the command palette, with an on-disk inverted index rebuilt on change;

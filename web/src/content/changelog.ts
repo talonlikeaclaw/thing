@@ -17,16 +17,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.4.5",
     title: "Schedule views",
-    upcoming: true,
     highlights: [
-      "Schedule has a Calendar beside its List, showing every scheduled type on one month grid.",
-      "Completing a record from a calendar day offers the same Undo as the List.",
-      "A scheduled record can be snoozed for a few days from the List or a calendar day, with one-tap Undo.",
-      "The view, the horizon and the month you choose are remembered and carried in the link, so a refresh, Back or a shared link opens where you left off.",
-      "Filter the schedule to the types you care about, and the choice travels in the link.",
-      "An empty filtered schedule names the types with nothing due and offers one tap back to everything.",
+      "Schedule has a Calendar beside its List, with every scheduled type on one month grid.",
+      "Snooze a scheduled record for a few days; Undo puts the date back.",
+      "Your view, horizon and month are remembered, so a link opens where you left off.",
+      "Filter the schedule to one or more types.",
+      "Complete a record from a calendar day, with the same Undo as the List.",
+    ],
+    details: [
+      "Tap a day to see its records, each with its type, due phrase and repeat.",
+      "Snooze offers one day, three days, a week, or any count you type.",
+      "A snoozed record past the horizon counts as due later until its new day.",
+      "An empty filtered schedule says which types have nothing due and offers a way back.",
+      "The schedule and a type's calendar share one month grid.",
+      "Back returns through the views, horizons and months you chose.",
     ],
   },
   {
