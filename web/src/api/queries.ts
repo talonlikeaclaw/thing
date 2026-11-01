@@ -19,6 +19,7 @@ import type {
   PropertyFormat,
   Revision,
   Role,
+  SearchResponse,
   SpaceDetail,
   SpaceSummary,
   Session,
@@ -49,7 +50,7 @@ export const queryKeys = {
   trash: (id: string) => ["space", id, "trash"] as const,
   invites: (id: string) => ["space", id, "invites"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
-  palette: (id: string, typeKey: string) => ["space", id, "palette", typeKey] as const,
+  search: (id: string, query: string) => ["space", id, "search", query] as const,
 };
 
 /** The signed-in user, or `null` when the request had no live session. */
@@ -1061,57 +1062,22 @@ export function useRelationChoices(
 }
 
 
-/** A title the palette can match, bounded to the newest rows of each type. */
-export interface PaletteRecord {
-  id: Uuid;
-  type: string;
-  title: string;
-  icon?: string;
-  updated_at: string;
-}
-
 /**
- * The palette looks at titles, not the saved view: an empty filter keeps every
- * record eligible and the updated-desc sort makes the cap the newest rows.
- *
- * This is a bounded title lookup, so the palette's copy promises titles only.
- * M5 replaces it with real search; the table endpoint already matches bodies.
+ * The space-wide ranked search. The caller debounces its input, so every query
+ * here is one the user paused on; the server owns the order and the snippet.
  */
-export function usePaletteRecords(
-  spaceId: string | undefined,
-  typeKeys: string[],
-  enabled: boolean,
-): PaletteRecord[] {
-  const lists = useQueries({
-    queries: (spaceId ? typeKeys : []).map((key) => ({
-      queryKey: queryKeys.palette(spaceId ?? "", key),
-      queryFn: async () => {
-        const params = new URLSearchParams({
-          type: key,
-          filter: JSON.stringify({ op: "and", conditions: [] }),
-          sorts: JSON.stringify([{ property: "updated_at", direction: "desc" }]),
-          limit: "100",
-        });
-        return request<ObjectList>(`/api/spaces/${spaceId}/objects?${params}`);
-      },
-      enabled: enabled && Boolean(spaceId),
-      staleTime: 60_000,
-    })),
+export function useSearch(spaceId: string | undefined, query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: queryKeys.search(spaceId ?? "", q),
+    queryFn: ({ signal }) =>
+      request<SearchResponse>(
+        `/api/spaces/${spaceId}/search?${new URLSearchParams({ q })}`,
+        { signal },
+      ),
+    enabled: Boolean(spaceId && q),
+    placeholderData: (previous) => previous,
   });
-
-  const rows: PaletteRecord[] = [];
-  for (const list of lists) {
-    for (const object of list.data?.objects ?? []) {
-      rows.push({
-        id: object.id,
-        type: object.type,
-        title: object.title,
-        ...(object.icon ? { icon: object.icon } : {}),
-        updated_at: object.updated_at,
-      });
-    }
-  }
-  return rows;
 }
 
 /** A duplicate is an ordinary create, so the returned detail is a new object. */

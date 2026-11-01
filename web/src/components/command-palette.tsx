@@ -5,13 +5,14 @@ import {
   useLayoutEffect,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useNavigate } from "react-router";
 
 import {
   useMe,
-  usePaletteRecords,
+  useSearch,
   useSpaces,
   useTrash,
   useTypes,
@@ -20,14 +21,18 @@ import { useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { useDebouncedValue } from "@/lib/debounce";
+import { readError } from "@/lib/display";
 import { relativeTime, typeLabel } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
-import { rank } from "@/lib/search";
+import { matchRanges, rank } from "@/lib/search";
 
 interface PaletteItem {
   id: string;
   label: string;
   hint: string;
+  /** A second line: a search result's matching sentence. */
+  detail?: string;
   /** A record, type or space glyph; actions carry none. */
   icon?: string;
   /** A navigation target, or a callback for actions that are not routes. */
@@ -64,8 +69,7 @@ interface CommandPaletteProps {
 
 /**
  * The global command sheet: actions, recent records, types and spaces, plus a
- * bounded title lookup. Records are fetched only while the query is non-empty;
- * M5 replaces this lookup with the real search index.
+ * ranked search over every record's title and body in the current space.
  */
 export function CommandPalette({
   open,
@@ -86,11 +90,10 @@ export function CommandPalette({
 
   const trimmed = query.trim();
   const typeList = types.data ?? [];
-  const records = usePaletteRecords(
-    spaceId,
-    typeList.map((type) => type.key),
-    open && trimmed.length > 0,
-  );
+  const debounced = useDebouncedValue(trimmed, 150);
+  const search = useSearch(spaceId, debounced);
+  const records = search.data?.results ?? [];
+  const searching = trimmed !== "" && (debounced !== trimmed || search.isFetching);
 
   useEffect(() => {
     if (!open) {
@@ -200,7 +203,8 @@ export function CommandPalette({
   const recordItems: PaletteItem[] = records.map((record) => ({
     id: `record:${record.id}`,
     label: record.title,
-    hint: `${typeLabel(typeList, record.type)} · ${relativeTime(record.updated_at)}`,
+    hint: `${record.type_name} · ${relativeTime(record.updated_at)}`,
+    ...(record.snippet ? { detail: record.snippet } : {}),
     ...(record.icon ? { icon: record.icon } : {}),
     to: `/s/${spaceId}/o/${record.id}`,
   }));
@@ -222,7 +226,6 @@ export function CommandPalette({
       0,
       5,
     );
-    const rankedRecords = rank(trimmed, recordItems, (item) => item.label).slice(0, 12);
     const rankedTypes = rank(trimmed, typeItems, (item) => `${item.label} ${item.hint}`).slice(
       0,
       5,
@@ -231,8 +234,8 @@ export function CommandPalette({
     if (rankedActions.length > 0) {
       sections.push({ id: "actions", label: "Actions", items: rankedActions });
     }
-    if (rankedRecords.length > 0) {
-      sections.push({ id: "records", label: "Records", items: rankedRecords });
+    if (recordItems.length > 0) {
+      sections.push({ id: "records", label: "Records", items: recordItems });
     }
     if (rankedTypes.length > 0) {
       sections.push({ id: "types", label: "Types", items: rankedTypes });
@@ -325,7 +328,7 @@ export function CommandPalette({
           >
             <Dialog.Title className="sr-only">Search and commands</Dialog.Title>
             <Dialog.Description className="sr-only">
-              Search titles, types, spaces and actions.
+              Search every record's title and text, plus types, spaces and actions.
             </Dialog.Description>
 
             <div className="flex items-center gap-3 border-b rule px-4">
@@ -342,7 +345,7 @@ export function CommandPalette({
                   activeItem ? `palette-option-${activeIndex}` : undefined
                 }
                 aria-label="Search and commands"
-                placeholder="Search titles, types, spaces and actions."
+                placeholder="Search titles, text, types and actions."
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
@@ -361,11 +364,23 @@ export function CommandPalette({
               id="command-palette-list"
               role="listbox"
               aria-label="Results"
+              aria-busy={searching || undefined}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2"
             >
+              {search.isError ? (
+                <p role="alert" className="px-3 py-2 text-[12px] text-danger">
+                  Could not search — {readError(search.error)}
+                </p>
+              ) : null}
               {flat.length === 0 ? (
                 <p className="px-3 py-6 text-[13px] text-muted">
-                  No matches. Try a type, a record title, or an action.
+                  {search.isError
+                    ? "Search is unavailable right now."
+                    : searching
+                      ? "Searching this space…"
+                      : trimmed === ""
+                        ? "No matches. Try a type, a record title, or an action."
+                        : `No record or action matches “${trimmed}”.`}
                 </p>
               ) : (
                 sections.map((section) => {
@@ -387,7 +402,7 @@ export function CommandPalette({
                             aria-selected={selected}
                             aria-disabled={item.disabled || undefined}
                             className={cn(
-                              "flex items-baseline gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors pointer-coarse:min-h-11",
+                              "flex items-start gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors pointer-coarse:min-h-11",
                               item.disabled
                                 ? "cursor-default text-faint"
                                 : "cursor-pointer",
@@ -396,11 +411,20 @@ export function CommandPalette({
                             onMouseEnter={() => setActive(flatIndex)}
                             onClick={() => select(item)}
                           >
-                            <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                              {item.icon ? (
-                                <ThingIcon icon={item.icon} size="sm" />
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <span className="flex min-w-0 items-baseline gap-2">
+                                {item.icon ? (
+                                  <ThingIcon icon={item.icon} size="sm" />
+                                ) : null}
+                                <span className="min-w-0 truncate">
+                                  <Highlighted text={item.label} query={trimmed} />
+                                </span>
+                              </span>
+                              {item.detail ? (
+                                <span className="mt-0.5 line-clamp-2 text-[12px] leading-[1.5] text-muted">
+                                  <Highlighted text={item.detail} query={trimmed} />
+                                </span>
                               ) : null}
-                              <span className="min-w-0 truncate">{item.label}</span>
                             </span>
                             <span className="shrink-0 font-mono text-[11px] text-faint">
                               {item.hint}
@@ -427,4 +451,32 @@ export function CommandPalette({
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+/** Marks the query's ranges inside a snippet without parsing markdown. */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  const ranges = matchRanges(text, query);
+  if (ranges.length === 0) {
+    return text;
+  }
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (const [start, end] of ranges) {
+    if (start > cursor) {
+      parts.push(text.slice(cursor, start));
+    }
+    parts.push(
+      <mark
+        key={`${start}-${end}`}
+        className="bg-transparent text-inherit underline decoration-accent decoration-2 underline-offset-2"
+      >
+        {text.slice(start, end)}
+      </mark>,
+    );
+    cursor = end;
+  }
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+  return <>{parts}</>;
 }

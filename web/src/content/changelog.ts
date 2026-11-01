@@ -17,6 +17,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Search, links and writing",
+    upcoming: true,
+    highlights: [
+      "Search every record's title and text from the command palette, and see the sentence the match came from.",
+    ],
+  },
+  {
     version: "0.4.5",
     title: "Schedule views",
     highlights: [

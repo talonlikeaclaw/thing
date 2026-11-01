@@ -262,6 +262,27 @@ export interface ObjectList {
   objects: ObjectSummary[];
 }
 
+/** One ranked hit from the space-wide search read. */
+export interface SearchResult {
+  id: Uuid;
+  type: string;
+  type_name: string;
+  type_icon?: string;
+  title: string;
+  icon?: string;
+  updated_at: IsoDate;
+  score: number;
+  /** The sentence around the first body match; absent for a title-only hit. */
+  snippet?: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  /** Every match, before the page limit. */
+  total: number;
+  results: SearchResult[];
+}
+
 export interface ObjectDetail {
   id: Uuid;
   type: string;

@@ -62,3 +62,48 @@ export function rank<T>(query: string, items: readonly T[], text: (item: T) => s
     .sort((left, right) => (right.score ?? 0) - (left.score ?? 0) || left.index - right.index)
     .map((entry) => entry.item);
 }
+
+/**
+ * The ranges of `text` a query names, for marking a snippet.
+ *
+ * Every alphanumeric run in the query is matched case-insensitively in the
+ * original text, so the indices always slice the string React renders. Ranges
+ * are sorted and merged; an empty query marks nothing.
+ */
+export function matchRanges(text: string, query: string): Array<[number, number]> {
+  const tokens = [
+    ...new Set(
+      (query.match(/[\p{L}\p{N}]+/gu) ?? [])
+        .map((token) => token.toLowerCase())
+        .filter((token) => token.length > 0),
+    ),
+  ].slice(0, 8);
+  if (tokens.length === 0) {
+    return [];
+  }
+
+  const found: Array<[number, number]> = [];
+  for (const token of tokens) {
+    const pattern = new RegExp(escapePattern(token), "giu");
+    for (const match of text.matchAll(pattern)) {
+      const start = match.index ?? 0;
+      found.push([start, start + match[0].length]);
+    }
+  }
+  found.sort((left, right) => left[0] - right[0] || left[1] - right[1]);
+
+  const merged: Array<[number, number]> = [];
+  for (const range of found) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1]) {
+      last[1] = Math.max(last[1], range[1]);
+    } else {
+      merged.push([range[0], range[1]]);
+    }
+  }
+  return merged;
+}
+
+function escapePattern(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

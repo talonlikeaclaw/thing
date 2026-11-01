@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { rank, score } from "@/lib/search";
+import { matchRanges, rank, score } from "@/lib/search";
 
 describe("score", () => {
   it("matches case-insensitively as a subsequence", () => {
@@ -54,6 +54,33 @@ describe("rank", () => {
     expect(rank("ro", ["Rose", "Fern", "Rosemary"], (item) => item)).toEqual([
       "Rose",
       "Rosemary",
+    ]);
+  });
+});
+
+describe("matchRanges", () => {
+  it("marks every occurrence of a query token, case-insensitively", () => {
+    expect(matchRanges("The soil stays moist.", "moist")).toEqual([[15, 20]]);
+    expect(matchRanges("Moist soil, more MOIST.", "moist")).toEqual([
+      [0, 5],
+      [17, 22],
+    ]);
+  });
+
+  it("merges overlapping tokens and drops duplicates", () => {
+    expect(matchRanges("plant", "plan plant plan")).toEqual([[0, 5]]);
+  });
+
+  it("marks nothing for punctuation or an empty query", () => {
+    expect(matchRanges("The soil is moist.", "!!!")).toEqual([]);
+    expect(matchRanges("The soil is moist.", "   ")).toEqual([]);
+  });
+
+  it("keeps ranges in text order after merging", () => {
+    expect(matchRanges("water the ficus, then water again", "again water")).toEqual([
+      [0, 5],
+      [22, 27],
+      [28, 33],
     ]);
   });
 });

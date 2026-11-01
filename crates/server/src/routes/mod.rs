@@ -9,6 +9,7 @@ mod auth;
 mod csv;
 mod objects;
 mod properties;
+mod search;
 mod spaces;
 mod types;
 mod values;
@@ -60,6 +61,7 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .merge(views::routes())
         .merge(properties::routes())
         .merge(csv::routes())
+        .merge(search::routes())
         .merge(objects::routes())
         .merge(crate::events::routes())
         .route("/api", any(no_such_route))
@@ -1610,6 +1612,236 @@ mod tests {
                 .await;
             assert_eq!(nonsense.status, StatusCode::UNPROCESSABLE_ENTITY);
             assert_eq!(nonsense.field(), "nonsense");
+        });
+    }
+
+    #[test]
+    fn search_reads_titles_and_bodies_and_refuses_bad_parameters() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("search@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}", garden.space);
+
+            let chore_type = server
+                .call(
+                    "POST",
+                    &format!("{base}/types"),
+                    Some(json!({ "name": "Chore" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                chore_type.status,
+                StatusCode::CREATED,
+                "{:?}",
+                chore_type.body
+            );
+            let chore = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Water the ficus",
+                        "body": "\nThe soil stays moist near the roots.\n",
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(chore.status, StatusCode::CREATED, "{:?}", chore.body);
+
+            let moist = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=moist"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(moist.status, StatusCode::OK, "{:?}", moist.body);
+            assert_eq!(moist.body["query"], "moist");
+            assert_eq!(moist.body["total"], 1);
+            assert_eq!(moist.body["results"][0]["type"], "chore");
+            assert_eq!(moist.body["results"][0]["type_name"], "Chore");
+            assert_eq!(moist.body["results"][0]["title"], "Water the ficus");
+            assert!(
+                moist.body["results"][0]["snippet"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("moist")),
+                "{:?}",
+                moist.body
+            );
+
+            let watered = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=watered"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(watered.body["total"], 1);
+            assert_eq!(watered.body["results"][0]["type"], "plant");
+
+            let both = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q={}", url_encoded("water ficus")),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(both.body["total"], 1);
+            assert_eq!(both.body["results"][0]["type"], "chore");
+
+            let ranked = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=water"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(ranked.body["total"], 2);
+            assert_eq!(
+                ranked.body["results"][0]["type"], "chore",
+                "a title phrase ranks above a body hit"
+            );
+
+            let filtered = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=water&type=plant"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(filtered.status, StatusCode::OK, "{:?}", filtered.body);
+            assert_eq!(filtered.body["total"], 1);
+            assert_eq!(filtered.body["results"][0]["type"], "plant");
+
+            let paged = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=water&limit=1"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(paged.body["total"], 2);
+            assert_eq!(paged.body["results"].as_array().map(Vec::len), Some(1));
+
+            for (uri, field) in [
+                (format!("{base}/search"), "q"),
+                (format!("{base}/search?q="), "q"),
+                (format!("{base}/search?q=%20%20"), "q"),
+                (format!("{base}/search?q=water&limit=0"), "limit"),
+                (format!("{base}/search?q=water&limit=51"), "limit"),
+                (format!("{base}/search?q=water&limit=nope"), "limit"),
+                (format!("{base}/search?q=water&type=ghost"), "type"),
+                (format!("{base}/search?q=water&nonsense=1"), "nonsense"),
+            ] {
+                let refused = server.call("GET", &uri, None, Some(&cookie)).await;
+                assert_eq!(
+                    refused.status,
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "{uri}: {:?}",
+                    refused.body
+                );
+                assert_eq!(refused.field(), field, "{uri}");
+            }
+            let long = "a".repeat(201);
+            let refused = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q={}", url_encoded(&long)),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(refused.field(), "q");
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("{base}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(invite.status, StatusCode::CREATED, "{:?}", invite.body);
+            let code = invite.body["code"].as_str().expect("an invite").to_owned();
+            let viewer = server
+                .register("search-viewer@example.com", Some(&code))
+                .await;
+            assert_eq!(viewer.status, StatusCode::CREATED, "{:?}", viewer.body);
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let viewed = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=moist"),
+                    None,
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(viewed.status, StatusCode::OK, "{:?}", viewed.body);
+
+            let work = create_space(&server, &cookie, "Work").await;
+            let work_invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{work}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                work_invite.status,
+                StatusCode::CREATED,
+                "{:?}",
+                work_invite.body
+            );
+            let work_code = work_invite.body["code"]
+                .as_str()
+                .expect("a work invite")
+                .to_owned();
+            let stranger = server
+                .register("search-stranger@example.com", Some(&work_code))
+                .await;
+            assert_eq!(stranger.status, StatusCode::CREATED, "{:?}", stranger.body);
+            let stranger_cookie = cookie_of(&stranger).to_owned();
+            let foreign = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=moist"),
+                    None,
+                    Some(&stranger_cookie),
+                )
+                .await;
+            assert_eq!(foreign.status, StatusCode::NOT_FOUND);
+
+            let trashed = server
+                .call(
+                    "DELETE",
+                    &format!("{base}/objects/{}", garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(trashed.status, StatusCode::OK, "{:?}", trashed.body);
+            let gone = server
+                .call(
+                    "GET",
+                    &format!("{base}/search?q=watered"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(gone.body["total"], 0, "trash leaves the index");
         });
     }
 
