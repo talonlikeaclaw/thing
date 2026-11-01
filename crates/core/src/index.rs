@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::error::CoreError;
 use crate::model::{ObjectDetail, ObjectDoc, ObjectSummary, PropertyDef, SpaceMeta, TypeDef};
 use crate::schedule;
+use crate::search::SearchIndex;
 use crate::slug::slugify;
 use crate::store::{self, FileFingerprint, SPACE_FILE, SpaceFileKind, SpaceStore};
 use crate::validate::{self, Schema};
@@ -91,6 +92,8 @@ pub struct SpaceIndex {
     fingerprints: BTreeMap<PathBuf, FileFingerprint>,
     /// Rows per type, in load order; the query engine imposes the shown order.
     summaries: BTreeMap<String, Vec<ObjectSummary>>,
+    /// Derived from the live bodies, updated one document at a time.
+    search: SearchIndex,
     unparseable: Vec<UnparseableFile>,
 }
 
@@ -111,6 +114,7 @@ impl SpaceIndex {
             paths_to_ids: BTreeMap::new(),
             fingerprints: BTreeMap::new(),
             summaries: BTreeMap::new(),
+            search: SearchIndex::default(),
             unparseable: Vec::new(),
         };
         index.fingerprints.insert(PathBuf::from(SPACE_FILE), at);
@@ -189,6 +193,11 @@ impl SpaceIndex {
             }
         }
         found
+    }
+
+    /// The derived full-text index over this space's live records.
+    pub fn search(&self) -> &SearchIndex {
+        &self.search
     }
 
     /// The space's own metadata.
@@ -396,6 +405,7 @@ impl SpaceIndex {
             self.trash.insert(doc.id, doc);
         } else {
             self.paths.insert(doc.id, path.to_owned());
+            self.search.upsert(&doc);
             self.objects.insert(doc.id, doc);
             self.summaries.entry(type_key).or_default().push(summary);
         }
@@ -410,6 +420,7 @@ impl SpaceIndex {
         };
         self.paths.remove(&id);
         self.trash_paths.remove(&id);
+        self.search.remove(id);
         let removed = self.objects.remove(&id).or_else(|| self.trash.remove(&id));
         if let Some(doc) = removed
             && let Some(rows) = self.summaries.get_mut(&doc.type_key)
@@ -1014,6 +1025,49 @@ mod tests {
         assert_eq!(index.problems(), Problems::default());
         assert_eq!(index.trash().count(), 1);
         assert_eq!(index.summaries("plant"), &[]);
+    }
+
+    #[test]
+    fn search_follows_a_body_edit_trash_and_restore() {
+        let space = Space::new().seed();
+        let path = object_path("Monstera");
+        let id = Uuid::from_u128(2);
+        let mut doc = object(2, "Monstera", "Kitchen", 5);
+        doc.body = "The soil stays moist.".to_owned();
+        space.store.save_object(&path, &doc, None).expect("object");
+
+        let mut index = space.index();
+        assert_eq!(index.search().query("moist", None, 10).total, 1);
+
+        doc.body = "Watered today.".to_owned();
+        let stamp = index.fingerprint(&path).expect("fingerprint");
+        space
+            .store
+            .save_object(&path, &doc, Some(stamp))
+            .expect("edit");
+        index.reload_file(&space.store, &path).expect("reload edit");
+        assert_eq!(index.search().query("moist", None, 10).total, 0);
+        assert_eq!(index.search().query("watered", None, 10).total, 1);
+
+        space
+            .store
+            .move_to_trash(&path, at(9), None)
+            .expect("trash");
+        let trashed = PathBuf::from(format!("trash/{id}.md"));
+        index.reload_file(&space.store, &path).expect("reload gone");
+        index
+            .reload_file(&space.store, &trashed)
+            .expect("reload trash");
+        assert_eq!(index.search().query("watered", None, 10).total, 0);
+
+        let restored = space.store.restore(id).expect("restore");
+        index
+            .reload_file(&space.store, &trashed)
+            .expect("reload empty trash");
+        index
+            .reload_file(&space.store, &restored)
+            .expect("reload restored");
+        assert_eq!(index.search().query("watered", None, 10).total, 1);
     }
 
     #[test]

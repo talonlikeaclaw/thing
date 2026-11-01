@@ -13,6 +13,7 @@ pub mod markdown;
 pub mod model;
 pub mod query;
 pub mod schedule;
+pub mod search;
 pub mod slug;
 pub mod store;
 pub mod validate;
