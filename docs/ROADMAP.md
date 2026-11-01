@@ -47,7 +47,9 @@ Binding for every milestone. Do not re-open any of these during implementation.
 M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.md), M2 in
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
-[`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M1–M4 are landed; M1 is
+[`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M5 is specified in
+[`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md); it is planned, not
+started. M1–M4 are landed; M1 is
 deployed and M2–M4.5 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
 The patch after it, v0.4.1, is implemented in
 [`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md): checkpoints 1–8 are committed at
