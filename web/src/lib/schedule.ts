@@ -226,3 +226,37 @@ export function dueCellLabel(schedule: ScheduleState | undefined, dueDate: unkno
   }
   return dueDate;
 }
+
+/** The longest one snooze may postpone a record; the server refuses the rest. */
+export const MAX_SNOOZE_DAYS = 90;
+
+/** The counts the snooze panel offers as one tap; the field takes any count. */
+export const SNOOZE_PRESETS = [1, 3, 7] as const;
+
+/** A snooze row's label: whole days, with a week spelled out at 7. */
+export function snoozeLabel(days: number): string {
+  if (days === 7) {
+    return "1 week";
+  }
+  return days === 1 ? "1 day" : `${days} days`;
+}
+
+/** Whether a typed count is one the server would accept. */
+export function isSnoozeDays(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= MAX_SNOOZE_DAYS
+  );
+}
+
+/** The field's text, trimmed and parsed, or `undefined` while it is not valid. */
+export function parseSnoozeDays(text: string): number | undefined {
+  const trimmed = text.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return undefined;
+  }
+  const days = Number(trimmed);
+  return isSnoozeDays(days) ? days : undefined;
+}

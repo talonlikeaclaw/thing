@@ -5,6 +5,7 @@ import {
   useAgenda,
   useCompleteObject,
   useMe,
+  useSnoozeObject,
   useSpace,
   useTypeDetails,
   useTypes,
@@ -109,6 +110,7 @@ export function AgendaPage() {
   const typeDetails = useTypeDetails(spaceId ?? "", scheduledKeys);
 
   const complete = useCompleteObject(spaceId ?? "");
+  const snooze = useSnoozeObject(spaceId ?? "");
   const toast = useToast();
   const { handedness } = useHandedness();
   const compact = useCompactWidth();
@@ -119,6 +121,37 @@ export function AgendaPage() {
       writeAgendaState(window.localStorage, storageKey, next);
     }
     setParams(agendaParams(next, base), { replace: false });
+  }
+
+  function onSnooze(row: AgendaRow, days: number) {
+    snooze.mutate(
+      { id: row.id, rev: row.rev, days },
+      {
+        onSuccess: ({ object: saved, dueDateBefore }) => {
+          const nextDue = saved.schedule?.due_date;
+          toast.showToast(
+            nextDue
+              ? `Snoozed “${saved.title}” to ${nextDue}.`
+              : `“${saved.title}” snoozed.`,
+            "plain",
+            {
+              label: "Undo",
+              onAction: () => {
+                void snooze
+                  .undo(saved, dueDateBefore)
+                  .then(() => toast.showToast("Snooze undone."))
+                  .catch((error) =>
+                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
+                  );
+              },
+            },
+          );
+        },
+        onError: (error) => {
+          toast.showToast(`Could not snooze — ${readError(error)}`, "danger");
+        },
+      },
+    );
   }
 
   function onComplete(row: AgendaRow) {
@@ -178,7 +211,11 @@ export function AgendaPage() {
   const verbs: Record<string, string> = Object.fromEntries(
     typeDetails.details.map((def) => [def.key, completeLabel(def.schedule_labels)]),
   );
-  const pendingId = complete.isPending ? (complete.variables?.id ?? null) : null;
+  // One busy row at a time: the verb and the alarm both disable together.
+  const pendingId =
+    (complete.isPending ? complete.variables?.id : undefined) ??
+    (snooze.isPending ? snooze.variables?.id : undefined) ??
+    null;
   const today = schedule?.today || spaceToday;
   const viewSwitch = (
     <div role="group" aria-label="View" className="flex items-center gap-1">
@@ -303,6 +340,7 @@ export function AgendaPage() {
             verbs={verbs}
             pendingId={pendingId}
             onComplete={onComplete}
+            onSnooze={onSnooze}
             onMonthChange={(month) => update({ month })}
             filterLabel={filterLabel}
             onClearFilter={() => update({ types: [] })}
@@ -318,6 +356,7 @@ export function AgendaPage() {
             verbs={verbs}
             pendingId={pendingId}
             onComplete={onComplete}
+            onSnooze={onSnooze}
             filterLabel={filterLabel}
             onClearFilter={() => update({ types: [] })}
           />

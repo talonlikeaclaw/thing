@@ -29,6 +29,13 @@ pub const LAST_COMPLETED_KEY: &str = "last_completed_at";
 /// Every generated schedule key, in display order.
 pub const SCHEDULE_KEYS: [&str; 3] = [DUE_DATE_KEY, RECURRENCE_KEY, LAST_COMPLETED_KEY];
 
+/// The longest one snooze may postpone a record, in days.
+///
+/// The agenda's own window is capped at 90, so a snooze that fits here can
+/// always be shown; anything longer is a reschedule, and a slipped keystroke
+/// should not bury a record for a season.
+pub const MAX_SNOOZE_DAYS: i64 = 90;
+
 /// Whether a property key belongs to the scheduling vocabulary. Such a key may
 /// never be declared in `properties/`, whether or not a type is scheduled.
 pub fn is_schedule_key(key: &str) -> bool {
@@ -185,6 +192,15 @@ pub fn today_in(timezone: &TimeZone, now: OffsetDateTime) -> Date {
     timestamp(now).to_zoned(timezone.clone()).date()
 }
 
+/// The day a schedule change counts from.
+///
+/// Work already due counts from today: a late completion re-phases from the
+/// current day, and a snooze of an overdue record lands `days` from today
+/// rather than `days` after the missed date.
+fn rephase_base(due: Date, today: Date) -> Date {
+    due.max(today)
+}
+
 /// The due day after completing a recurring record.
 ///
 /// A late completion re-phases from `base` (today); an early one preserves the
@@ -304,8 +320,8 @@ pub fn complete(
         }
         Some(recurrence) => {
             let today = today_in(timezone, now);
-            let base = due.map_or(today, |due| due.max(today));
-            let next = advance(base, &recurrence);
+            let start = due.map_or(today, |due| rephase_base(due, today));
+            let next = advance(start, &recurrence);
             doc.properties
                 .insert(DUE_DATE_KEY.to_owned(), Value::Text(format_date(next)));
         }
@@ -314,6 +330,48 @@ pub fn complete(
         LAST_COMPLETED_KEY.to_owned(),
         Value::Text(format_datetime(now)?),
     );
+    Ok(doc)
+}
+
+/// Postpones a scheduled record by `days`, returning the updated document.
+///
+/// Snooze moves the plan, it does not hide it: only `due_date` changes, so the
+/// List, the Calendar and the badge keep reading one date. `recurrence` and
+/// `last_completed_at` are untouched, and the next occurrence counts from the
+/// moved date — "do it in three days, then every four" means exactly that.
+///
+/// The server owns `rev`, `updated_at`, `updated_by`, the file path and the
+/// revision append; this only moves the due day.
+pub fn snooze(
+    def: &TypeDef,
+    doc: &ObjectDoc,
+    timezone: &TimeZone,
+    now: OffsetDateTime,
+    days: i64,
+) -> Result<ObjectDoc, CoreError> {
+    if !def.schedule {
+        return Err(CoreError::ValidationFailed {
+            field: "schedule".to_owned(),
+            message: "this type is not scheduled".to_owned(),
+        });
+    }
+    if !(1..=MAX_SNOOZE_DAYS).contains(&days) {
+        return Err(CoreError::ValidationFailed {
+            field: "days".to_owned(),
+            message: format!("the snooze must be between 1 and {MAX_SNOOZE_DAYS} days"),
+        });
+    }
+    let due = due_date(doc)?.ok_or_else(|| CoreError::ValidationFailed {
+        field: DUE_DATE_KEY.to_owned(),
+        message: "this record has no due date to snooze".to_owned(),
+    })?;
+    let base = rephase_base(due, today_in(timezone, now));
+    let next = base
+        .checked_add(Span::new().days(days))
+        .unwrap_or(Date::MAX);
+    let mut doc = doc.clone();
+    doc.properties
+        .insert(DUE_DATE_KEY.to_owned(), Value::Text(format_date(next)));
     Ok(doc)
 }
 
@@ -703,5 +761,127 @@ mod tests {
         let updated = complete(&type_def(true), &original, &zone("Pacific/Kiritimati"), now)
             .expect("completes");
         assert_eq!(due(&updated), date("2026-10-24"));
+    }
+
+    #[test]
+    fn a_snooze_counts_from_the_base_day() {
+        let now = at("2026-10-21T07:12:00Z");
+        let utc = zone("UTC");
+        let def = type_def(true);
+        let snoozed = |due_text: &str, days: i64| {
+            let original = doc(&[(DUE_DATE_KEY, Value::Text(due_text.to_owned()))]);
+            snooze(&def, &original, &utc, now, days).expect("snoozes")
+        };
+
+        // Overdue: the missed day is not the base, today is.
+        assert_eq!(due(&snoozed("2026-10-16", 1)), date("2026-10-22"));
+        // Due today: the same rule.
+        assert_eq!(due(&snoozed("2026-10-21", 3)), date("2026-10-24"));
+        // Upcoming: the planned day keeps its place and moves by the count.
+        assert_eq!(due(&snoozed("2026-10-25", 3)), date("2026-10-28"));
+        // A month boundary is plain date arithmetic, not a clamp.
+        assert_eq!(due(&snoozed("2026-10-30", 3)), date("2026-11-02"));
+    }
+
+    #[test]
+    fn a_snooze_keeps_the_recurrence_and_the_completion() {
+        let now = at("2026-10-21T07:12:00Z");
+        let recurrence = recurrence(RecurrenceKind::Days, 4);
+        let original = doc(&[
+            (DUE_DATE_KEY, Value::Text("2026-10-19".to_owned())),
+            (RECURRENCE_KEY, Value::Recurrence(recurrence)),
+            (
+                LAST_COMPLETED_KEY,
+                Value::Text("2026-10-15T09:00:00Z".to_owned()),
+            ),
+        ]);
+        let updated = snooze(&type_def(true), &original, &zone("UTC"), now, 3).expect("snoozes");
+        assert_eq!(due(&updated), date("2026-10-24"));
+        assert_eq!(
+            updated.properties.get(RECURRENCE_KEY),
+            Some(&Value::Recurrence(recurrence))
+        );
+        assert_eq!(
+            updated.properties.get(LAST_COMPLETED_KEY),
+            Some(&Value::Text("2026-10-15T09:00:00Z".to_owned()))
+        );
+        // The input is untouched.
+        assert_eq!(due(&original), date("2026-10-19"));
+    }
+
+    #[test]
+    fn a_snooze_count_is_bounded() {
+        let now = at("2026-10-21T07:12:00Z");
+        let def = type_def(true);
+        let original = doc(&[(DUE_DATE_KEY, Value::Text("2026-10-21".to_owned()))]);
+        for days in [0, -1, MAX_SNOOZE_DAYS + 1] {
+            let err = snooze(&def, &original, &zone("UTC"), now, days)
+                .expect_err("a count outside the bound");
+            assert!(
+                matches!(&err, CoreError::ValidationFailed { field, .. } if field == "days"),
+                "{days}: {err}"
+            );
+        }
+        for days in [1, MAX_SNOOZE_DAYS] {
+            assert!(
+                snooze(&def, &original, &zone("UTC"), now, days).is_ok(),
+                "{days}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_record_without_a_due_date_cannot_be_snoozed() {
+        let now = at("2026-10-21T07:12:00Z");
+        let def = type_def(true);
+        let bare = doc(&[(
+            LAST_COMPLETED_KEY,
+            Value::Text("2026-10-20T09:00:00Z".to_owned()),
+        )]);
+        let err = snooze(&def, &bare, &zone("UTC"), now, 2).expect_err("no due date");
+        assert!(matches!(
+            &err,
+            CoreError::ValidationFailed { field, .. } if field == DUE_DATE_KEY
+        ));
+        assert_eq!(
+            err.to_string(),
+            "invalid due_date: this record has no due date to snooze"
+        );
+
+        let malformed = doc(&[(DUE_DATE_KEY, Value::Text("tomorrow".to_owned()))]);
+        let err = snooze(&def, &malformed, &zone("UTC"), now, 2).expect_err("bad date");
+        assert!(matches!(
+            &err,
+            CoreError::ValidationFailed { field, .. } if field == DUE_DATE_KEY
+        ));
+    }
+
+    #[test]
+    fn snoozing_an_unscheduled_type_is_a_validation_failure() {
+        let now = at("2026-10-21T07:12:00Z");
+        let original = doc(&[(DUE_DATE_KEY, Value::Text("2026-10-21".to_owned()))]);
+        let err = snooze(&type_def(false), &original, &zone("UTC"), now, 2)
+            .expect_err("unscheduled type");
+        assert_eq!(
+            err.to_string(),
+            "invalid schedule: this type is not scheduled"
+        );
+    }
+
+    #[test]
+    fn a_snooze_across_a_dst_change_moves_whole_civil_days() {
+        // Europe/Berlin springs forward on 2026-03-29; the civil date is what
+        // moves, so two days later is the 30th at either offset.
+        let now = at("2026-03-28T12:00:00Z");
+        let berlin = zone("Europe/Berlin");
+        let original = doc(&[(DUE_DATE_KEY, Value::Text("2026-03-28".to_owned()))]);
+        let updated = snooze(&type_def(true), &original, &berlin, now, 2).expect("snoozes");
+        assert_eq!(due(&updated), date("2026-03-30"));
+        assert_eq!(
+            state(&type_def(true), &updated, &berlin, now)
+                .expect("scheduled")
+                .days_until_due,
+            Some(2)
+        );
     }
 }

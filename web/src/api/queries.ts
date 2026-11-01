@@ -936,6 +936,83 @@ export function useCompleteObject(spaceId: string) {
   return { ...mutation, undo };
 }
 
+export interface SnoozeObjectInput {
+  id: string;
+  rev: number;
+  days: number;
+  /** The full record when the caller already holds it, so Undo needs no read. */
+  previous?: ObjectDetail;
+}
+
+export interface SnoozeResult {
+  object: ObjectDetail;
+  /** The due date before the snooze, kept so the toast can put it back. */
+  dueDateBefore: unknown | null;
+}
+
+/**
+ * Postpones one scheduled record by a number of days. The server owns the
+ * space's today, so the same row lands on the same date from any surface; the
+ * space prefix is invalidated so the List, the Calendar and the badge re-read.
+ *
+ * The returned `undo` writes the previous due date back at the new revision,
+ * exactly as a completion's Undo does.
+ */
+export function useSnoozeObject(spaceId: string) {
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: async (input: SnoozeObjectInput): Promise<SnoozeResult> => {
+      const before =
+        input.previous ??
+        (await request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${input.id}`));
+      if (before.rev !== input.rev) {
+        throw new ApiError(
+          409,
+          "conflict",
+          "This record changed since it was loaded. Reload it to see the current version.",
+          { current_rev: before.rev },
+        );
+      }
+      const object = await request<ObjectDetail>(
+        `/api/spaces/${spaceId}/objects/${input.id}/snooze`,
+        { method: "POST", body: { rev: input.rev, days: input.days } },
+      );
+      return { object, dueDateBefore: before.properties.due_date?.value ?? null };
+    },
+    onSuccess: (result) => {
+      applyObject(client, spaceId, result.object);
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+    },
+    onError: (error, input) => {
+      if (error instanceof ApiError && error.status === 409) {
+        void client.invalidateQueries({ queryKey: queryKeys.objectsPrefix(spaceId) });
+        void client.invalidateQueries({ queryKey: queryKeys.object(spaceId, input.id) });
+      }
+    },
+  });
+
+  const undo = useCallback(
+    async (snoozed: ObjectDetail, dueDateBefore: unknown | null) => {
+      const object = await request<ObjectDetail>(
+        `/api/spaces/${spaceId}/objects/${snoozed.id}`,
+        {
+          method: "PATCH",
+          body: {
+            rev: snoozed.rev,
+            properties: { due_date: dueDateBefore },
+          },
+        },
+      );
+      applyObject(client, spaceId, object);
+      void client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+      return object;
+    },
+    [client, spaceId],
+  );
+
+  return { ...mutation, undo };
+}
+
 export interface RelationChoice {
   id: string;
   title: string;

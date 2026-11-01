@@ -2699,6 +2699,285 @@ mod tests {
     }
 
     #[test]
+    fn snoozing_a_scheduled_record_moves_only_its_due_day() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("snooze@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&space).expect("an id"))
+                .expect("a loaded space");
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Water the monstera",
+                        "properties": {
+                            "due_date": day(-5),
+                            "recurrence": { "kind": "days", "every": 3 }
+                        }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+
+            let mut events = handle.events.subscribe();
+            let snoozed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/snooze"),
+                    Some(json!({ "rev": 1, "days": 2 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(snoozed.status, StatusCode::OK, "{:?}", snoozed.body);
+            assert_eq!(snoozed.body["rev"], 2);
+            assert_eq!(
+                snoozed.body["properties"]["due_date"]["value"],
+                day(2),
+                "an overdue record counts from today"
+            );
+            assert_eq!(snoozed.body["schedule"]["status"], "upcoming");
+            assert_eq!(snoozed.body["schedule"]["days_until_due"], 2);
+            assert_eq!(
+                snoozed.body["properties"]["recurrence"]["value"],
+                json!({ "kind": "days", "every": 3 })
+            );
+            assert!(
+                snoozed.body["properties"]
+                    .get("last_completed_at")
+                    .is_none(),
+                "a snooze is not a completion"
+            );
+
+            let event = next_event(&mut events).await;
+            assert_eq!(event.event, "object.updated");
+            assert_eq!(event.payload["id"], id.as_str());
+            assert_eq!(event.payload["rev"], 2);
+
+            let stale = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/snooze"),
+                    Some(json!({ "rev": 1, "days": 2 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(stale.status, StatusCode::CONFLICT);
+            assert_eq!(stale.code(), "conflict");
+
+            let history = server
+                .call(
+                    "GET",
+                    &format!("{base}/objects/{id}/history"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let last = history
+                .body
+                .as_array()
+                .expect("a list")
+                .last()
+                .expect("a line");
+            assert_eq!(last["action"], "update");
+            // A revision snapshot stores raw values, not the read shape.
+            assert_eq!(last["snapshot"]["properties"]["due_date"], day(2));
+        });
+    }
+
+    #[test]
+    fn a_snooze_past_the_horizon_counts_as_later_and_undo_restores_it() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("later@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Sweep the porch",
+                        "properties": { "due_date": day(0) }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+
+            let snoozed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/snooze"),
+                    Some(json!({ "rev": 1, "days": 30 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(snoozed.status, StatusCode::OK, "{:?}", snoozed.body);
+            assert_eq!(snoozed.body["properties"]["due_date"]["value"], day(30));
+
+            let agenda = server
+                .call("GET", &format!("{base}/agenda"), None, Some(&cookie))
+                .await;
+            assert_eq!(agenda.body["rows"], json!([]));
+            assert_eq!(agenda.body["later_count"], 1);
+
+            // The toast's Undo: write the previous due day back at the new rev.
+            let undone = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/objects/{id}"),
+                    Some(json!({
+                        "rev": 2,
+                        "properties": { "due_date": day(0) }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(undone.status, StatusCode::OK, "{:?}", undone.body);
+            assert_eq!(undone.body["rev"], 3);
+            assert_eq!(undone.body["schedule"]["status"], "today");
+
+            let agenda = server
+                .call("GET", &format!("{base}/agenda"), None, Some(&cookie))
+                .await;
+            assert_eq!(agenda.body["rows"].as_array().expect("rows").len(), 1);
+            assert_eq!(agenda.body["later_count"], 0);
+        });
+    }
+
+    #[test]
+    fn a_snooze_refuses_bad_counts_and_missing_due_dates() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("bounds@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = chore_space(&server, &cookie).await;
+            let base = format!("/api/spaces/{space}");
+
+            let created = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Rake",
+                        "properties": { "due_date": day(0) }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            let id = created.body["id"].as_str().expect("an id").to_owned();
+
+            for days in [0, 91, -2] {
+                let refused = server
+                    .call(
+                        "POST",
+                        &format!("{base}/objects/{id}/snooze"),
+                        Some(json!({ "rev": 1, "days": days })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(
+                    refused.status,
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "{days}: {:?}",
+                    refused.body
+                );
+                assert_eq!(refused.field(), "days", "{days}");
+            }
+
+            let wrong_type = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/snooze"),
+                    Some(json!({ "rev": 1, "days": "two" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(wrong_type.status, StatusCode::UNPROCESSABLE_ENTITY);
+
+            let missing = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/snooze"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(missing.status, StatusCode::UNPROCESSABLE_ENTITY);
+
+            // A done one-off has no due date left to move.
+            let completed = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/complete"),
+                    Some(json!({ "rev": 1 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(completed.status, StatusCode::OK, "{:?}", completed.body);
+            let done = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{id}/snooze"),
+                    Some(json!({ "rev": 2, "days": 2 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(done.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(done.field(), "due_date");
+
+            // A type that is not scheduled has nothing to snooze.
+            let space = create_space(&server, &cookie, "Garden").await;
+            let base = format!("/api/spaces/{space}");
+            server
+                .call(
+                    "POST",
+                    &format!("{base}/types"),
+                    Some(json!({ "name": "Plant" })),
+                    Some(&cookie),
+                )
+                .await;
+            let plant = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({ "type": "plant", "title": "Fern" })),
+                    Some(&cookie),
+                )
+                .await;
+            let plant_id = plant.body["id"].as_str().expect("an id").to_owned();
+            let unscheduled = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects/{plant_id}/snooze"),
+                    Some(json!({ "rev": 1, "days": 2 })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unscheduled.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unscheduled.field(), "schedule");
+        });
+    }
+
+    #[test]
     fn completing_an_unscheduled_or_trashed_record_is_refused() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

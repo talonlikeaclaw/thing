@@ -61,6 +61,7 @@ pub fn routes() -> Router<SharedState> {
             "/api/spaces/{space}/objects/{object}/complete",
             post(complete),
         )
+        .route("/api/spaces/{space}/objects/{object}/snooze", post(snooze))
         .route(
             "/api/spaces/{space}/objects/{object}/duplicate",
             post(duplicate),
@@ -502,6 +503,63 @@ async fn complete(
 #[serde(deny_unknown_fields)]
 struct CompleteRequest {
     rev: u64,
+}
+
+/// `POST /api/spaces/{space}/objects/{object}/snooze` [editor]
+///
+/// Postpones one record's due day by `days`. A snooze writes only `due_date`:
+/// an overdue record lands `days` from today, a future one moves `days` later,
+/// and the recurrence and the last completion are untouched. History records
+/// an update, because nothing was completed.
+async fn snooze(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path((space, object)): Path<(String, String)>,
+    ApiJson(body): ApiJson<SnoozeRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let id = uuid_param(&object, "object")?;
+    let handle = space_for(&state, &caller, space, Role::Editor)?;
+    let now = OffsetDateTime::now_utc();
+
+    commit(
+        &handle,
+        &caller,
+        id,
+        body.rev,
+        RevisionAction::Update,
+        |next| {
+            let (def, timezone) = handle.with_index(|index| {
+                (
+                    index.type_def(&next.type_key).cloned(),
+                    space_timezone(index),
+                )
+            });
+            let Some(def) = def else {
+                return Err(ApiError::not_found(format!("type {}", next.type_key)));
+            };
+            let updated = schedule::snooze(&def, next, &timezone, now, body.days)?;
+            *next = updated;
+            Ok(false)
+        },
+    )
+    .await?;
+
+    tracing::info!(
+        space = %space,
+        user = %caller.user.id,
+        object = %id,
+        days = body.days,
+        "object snoozed"
+    );
+    Ok(Json(object_response(&handle, id)?))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SnoozeRequest {
+    rev: u64,
+    days: i64,
 }
 
 /// One write path for every object mutation: lock, load, check the revision,

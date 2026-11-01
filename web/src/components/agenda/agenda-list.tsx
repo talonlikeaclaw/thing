@@ -1,8 +1,9 @@
 import { Link } from "react-router";
 
 import type { AgendaRow } from "@/api/types";
+import { SnoozeMenu } from "@/components/agenda/snooze-menu";
 import { ClearFilterButton } from "@/components/agenda/type-filter";
-import { useHandedness } from "@/components/handedness";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { agendaBuckets, AGENDA_HORIZONS, type AgendaHorizon } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
@@ -48,6 +49,7 @@ export function AgendaList({
   verbs,
   pendingId,
   onComplete,
+  onSnooze,
   filterLabel,
   onClearFilter,
 }: {
@@ -59,9 +61,10 @@ export function AgendaList({
   canEdit: boolean;
   /** The type's completion verb, by type key. */
   verbs: Record<string, string>;
-  /** The row whose completion is in flight, if any. */
+  /** The row whose completion or snooze is in flight, if any. */
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
+  onSnooze: (row: AgendaRow, days: number) => void;
   /** The active type names, or empty when every type is showing. */
   filterLabel?: string;
   onClearFilter?: () => void;
@@ -87,6 +90,7 @@ export function AgendaList({
             verbs={verbs}
             pendingId={pendingId}
             onComplete={onComplete}
+            onSnooze={onSnooze}
           />
           <Bucket
             title="Today"
@@ -97,6 +101,7 @@ export function AgendaList({
             verbs={verbs}
             pendingId={pendingId}
             onComplete={onComplete}
+            onSnooze={onSnooze}
           />
           <Bucket
             title={`Next ${horizon} days`}
@@ -107,6 +112,7 @@ export function AgendaList({
             verbs={verbs}
             pendingId={pendingId}
             onComplete={onComplete}
+            onSnooze={onSnooze}
           />
         </>
       )}
@@ -136,6 +142,7 @@ function Bucket({
   verbs,
   pendingId,
   onComplete,
+  onSnooze,
 }: {
   title: string;
   rows: AgendaRow[];
@@ -145,6 +152,7 @@ function Bucket({
   verbs: Record<string, string>;
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
+  onSnooze: (row: AgendaRow, days: number) => void;
 }) {
   return (
     <section aria-label={title} className="mt-8">
@@ -165,6 +173,7 @@ function Bucket({
               verb={verbs[row.type] ?? "Complete"}
               pendingId={pendingId}
               onComplete={onComplete}
+              onSnooze={onSnooze}
             />
           ))}
         </ul>
@@ -180,15 +189,17 @@ function AgendaEntry({
   verb,
   pendingId,
   onComplete,
+  onSnooze,
 }: {
   spaceId: string;
   row: AgendaRow;
   canEdit: boolean;
   /** The type's completion verb, from `schedule_labels.complete`. */
   verb: string;
-  /** The row whose completion is in flight, if any. */
+  /** The row whose completion or snooze is in flight, if any. */
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
+  onSnooze: (row: AgendaRow, days: number) => void;
 }) {
   const { handedness } = useHandedness();
   const phrase = duePhrase(row.status, row.days_until_due);
@@ -231,23 +242,37 @@ function AgendaEntry({
         </span>
       </Link>
       {canEdit ? (
-        <Button
-          type="button"
-          variant="ghost"
-          aria-label={`${verb} ${row.title}`}
-          title={verb}
+        // The action cell keeps the grid's handedness flip; inside it the
+        // snooze (secondary) precedes the verb (primary), and `ThumbRow` moves
+        // the primary to the thumb edge in left mode — one reversal, once.
+        <div
           className={cn(
-            "row-start-1 min-h-8 min-w-0 px-3 text-[13px] pointer-coarse:min-h-11",
+            "col-start-2 row-start-1 flex min-w-0 items-center",
             leftHanded && "max-sm:col-start-1",
           )}
-          disabled={pendingId === row.id}
-          onClick={() => onComplete(row)}
         >
-          {/* A user-set verb can be a sentence; the row keeps its width. */}
-          <span className="min-w-0 truncate">
-            {pendingId === row.id ? "Saving…" : verb}
-          </span>
-        </Button>
+          <ThumbRow className="min-w-0 items-center gap-0.5">
+            <SnoozeMenu
+              title={row.title}
+              disabled={pendingId === row.id}
+              onSnooze={(days) => onSnooze(row, days)}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label={`${verb} ${row.title}`}
+              title={verb}
+              className="min-h-8 min-w-0 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={pendingId === row.id}
+              onClick={() => onComplete(row)}
+            >
+              {/* A user-set verb can be a sentence; the row keeps its width. */}
+              <span className="min-w-0 truncate">
+                {pendingId === row.id ? "Saving…" : verb}
+              </span>
+            </Button>
+          </ThumbRow>
+        </div>
       ) : null}
     </li>
   );

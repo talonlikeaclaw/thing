@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 import type { AgendaRow } from "@/api/types";
+import { SnoozeMenu } from "@/components/agenda/snooze-menu";
 import { ClearFilterButton } from "@/components/agenda/type-filter";
 import { ThumbRow } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
@@ -23,6 +24,7 @@ export function AgendaCalendar({
   verbs,
   pendingId,
   onComplete,
+  onSnooze,
   onMonthChange,
   filterLabel,
   onClearFilter,
@@ -35,9 +37,10 @@ export function AgendaCalendar({
   canEdit: boolean;
   /** The type's completion verb, by type key. */
   verbs: Record<string, string>;
-  /** The row whose completion is in flight, if any. */
+  /** The row whose completion or snooze is in flight, if any. */
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
+  onSnooze: (row: AgendaRow, days: number) => void;
   onMonthChange: (month: string) => void;
   /** The active type names, or empty when every type is showing. */
   filterLabel?: string;
@@ -94,6 +97,13 @@ export function AgendaCalendar({
                 {row.recurrence ? <span className="text-faint">{row.recurrence}</span> : null}
               </span>
             </Link>
+            {canEdit ? (
+              <SnoozeMenu
+                title={row.title}
+                disabled={pendingId === row.id}
+                onSnooze={(days) => onSnooze(row, days)}
+              />
+            ) : null}
             {canEdit ? (
               <Button
                 type="button"

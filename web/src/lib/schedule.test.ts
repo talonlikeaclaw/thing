@@ -7,13 +7,18 @@ import {
   duePhrase,
   dueTone,
   isScheduleKey,
+  isSnoozeDays,
   labeledScheduleProperties,
+  MAX_SNOOZE_DAYS,
   normalizeRecurrence,
+  parseSnoozeDays,
   recurrenceDraft,
   recurrenceEquals,
   recurrenceSummary,
   scheduleLabel,
   SCHEDULE_PROPERTY_DEFS,
+  SNOOZE_PRESETS,
+  snoozeLabel,
   weekdayName,
 } from "@/lib/schedule";
 
@@ -149,5 +154,34 @@ describe("due presentation", () => {
     expect(isScheduleKey("recurrence")).toBe(true);
     expect(isScheduleKey("last_completed_at")).toBe(true);
     expect(isScheduleKey("due")).toBe(false);
+  });
+});
+
+describe("snooze counts", () => {
+  it("labels the presets, spelling a week out", () => {
+    expect(SNOOZE_PRESETS.map(snoozeLabel)).toEqual(["1 day", "3 days", "1 week"]);
+    expect(snoozeLabel(2)).toBe("2 days");
+    expect(snoozeLabel(MAX_SNOOZE_DAYS)).toBe("90 days");
+  });
+
+  it("accepts only whole counts inside the server's bound", () => {
+    expect(isSnoozeDays(1)).toBe(true);
+    expect(isSnoozeDays(MAX_SNOOZE_DAYS)).toBe(true);
+    expect(isSnoozeDays(0)).toBe(false);
+    expect(isSnoozeDays(MAX_SNOOZE_DAYS + 1)).toBe(false);
+    expect(isSnoozeDays(1.5)).toBe(false);
+    expect(isSnoozeDays(Number.NaN)).toBe(false);
+    expect(isSnoozeDays("3")).toBe(false);
+  });
+
+  it("parses a typed field only when the whole text is a valid count", () => {
+    expect(parseSnoozeDays("2")).toBe(2);
+    expect(parseSnoozeDays(" 30 ")).toBe(30);
+    expect(parseSnoozeDays("1.5")).toBeUndefined();
+    expect(parseSnoozeDays("-1")).toBeUndefined();
+    expect(parseSnoozeDays("0")).toBeUndefined();
+    expect(parseSnoozeDays("91")).toBeUndefined();
+    expect(parseSnoozeDays("")).toBeUndefined();
+    expect(parseSnoozeDays("two")).toBeUndefined();
   });
 });
