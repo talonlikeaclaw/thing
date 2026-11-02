@@ -244,11 +244,11 @@ usability move ahead of search.
   a space, reachable from the command palette, with an on-disk inverted index rebuilt on change;
   in-body `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; and
   a graph view. The record body gains a real markdown writing surface — toolbar, keyboard shortcuts,
-  list continuation, live preview and `[[` autocomplete — because it is where links are typed;
-  markdown remains the canonical source, with no WYSIWYG HTML. The graph starts as a local graph
-  (record plus backlinks and relations) and grows to the space graph; if M5 runs long, the space
-  graph can ship as `0.5.1` without changing the format. Relation properties already exist in M1,
-  so this is UI plus an index.
+  a `/` command menu, list continuation, live preview and `[[` autocomplete — because it is where
+  links are typed; markdown remains the canonical source, with no WYSIWYG HTML. The graph starts as
+  a local graph (record plus backlinks and relations) and grows to the space graph; if M5 runs long,
+  the space graph can ship as `0.5.1` without changing the format. Relation properties already exist
+  in M1, so this is UI plus an index.
 
 - **M6 — Files and images.** Attachments stored beside the object under `files/`, referenced from
   frontmatter; thumbnails; a `file`/`image` property format; cover images. Bytes stay on disk and in

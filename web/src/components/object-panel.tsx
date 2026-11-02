@@ -14,6 +14,7 @@ import {
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
 import { ThingIcon } from "@/components/thing-icon";
@@ -237,9 +238,6 @@ export function ObjectPanel({
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"write" | "preview">(
-    object.body.trim() === "" ? "write" : "preview",
-  );
   const [confirmingTrash, setConfirmingTrash] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -322,7 +320,6 @@ export function ObjectPanel({
     lastSavedRev.current = saved.rev;
     if (remount) {
       setResetToken((current) => current + 1);
-      setMode(saved.body.trim() === "" ? "write" : "preview");
     }
   }
 
@@ -887,56 +884,39 @@ export function ObjectPanel({
       </fieldset>
 
       <section aria-label="Body" className="mt-10">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="label flex items-center gap-1.5">
-            {bodyChanged ? (
-              <span
-                aria-label="Unsaved change"
-                title="Unsaved change"
-                className="h-1.5 w-1.5 rounded-full bg-accent"
-              />
-            ) : null}
+            <span
+              aria-label="Unsaved change"
+              title="Unsaved change"
+              className={cn(
+                "h-1.5 w-1.5 rounded-full bg-accent",
+                !bodyChanged && "invisible",
+              )}
+            />
             Body
           </h2>
           {canEdit ? (
-            <div className="flex items-center gap-1" role="group" aria-label="Body mode">
-              {bodyChanged ? (
-                <button
-                  type="button"
-                  className="label px-2 text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
-                  onClick={() => setDraft((current) => ({ ...current, body: baseline.body }))}
-                >
-                  Revert
-                </button>
-              ) : null}
-              {(["write", "preview"] as const).map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  aria-pressed={mode === choice}
-                  className={cn(
-                    "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11",
-                    mode === choice ? "" : "text-faint",
-                  )}
-                  onClick={() => setMode(choice)}
-                >
-                  {choice}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              className={cn(
+                "label px-2 text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11",
+                !bodyChanged && "invisible",
+              )}
+              onClick={() => setDraft((current) => ({ ...current, body: baseline.body }))}
+            >
+              Revert
+            </button>
           ) : null}
         </div>
-        {canEdit && mode === "write" ? (
-          <textarea
-            aria-label="Markdown body"
-            disabled={update.isPending}
-            className="record-body-input mt-2 min-h-[22rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:text-[16px]"
-            placeholder="Write in markdown. Saves with the rest of the record."
-            spellCheck
+        {canEdit ? (
+          <MarkdownEditor
             value={draft.body}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, body: event.target.value }))
-            }
+            onChange={(body) => setDraft((current) => ({ ...current, body }))}
+            disabled={update.isPending}
+            spaceId={spaceId}
+            resetToken={resetToken}
+            preview={(text) => <MarkdownView text={text} links={object.links} spaceId={spaceId} />}
           />
         ) : (
           <div className="mt-2 min-h-[22rem] rounded-field border border-line px-3">
@@ -1006,14 +986,22 @@ export function ObjectPanel({
               </Button>
             </span>
           ) : null}
-          {dirty ? (
-            <span className="label flex items-center gap-1.5 text-accent">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-              {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
-            </span>
-          ) : (
-            <span className="label">Saved</span>
-          )}
+          <span
+            role="status"
+            className={cn(
+              "label flex items-center gap-1.5",
+              dirty && "text-accent",
+            )}
+          >
+            {dirty ? (
+              <>
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+                {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
+              </>
+            ) : (
+              "Saved"
+            )}
+          </span>
           <Button
             type="button"
             className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"

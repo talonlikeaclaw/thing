@@ -446,7 +446,43 @@ space, type and record icons, never as interface iconography.
   `title` naming the reason; it never navigates. Syntax inside a fenced block or inline code stays
   literal, and a valid link typed but not yet saved reads as its title until the save resolves it.
 - **Keyboard:** the markdown body and the sticky save bar measure against the visual viewport, so the
-  bar sits above the on-screen keyboard rather than behind it.
+  bar sits above the on-screen keyboard rather than behind it. The field's scroll margin reserves the
+  keyboard, the phone bar and the save bar, so a focused caret settles above them instead of behind
+  the bar; the bar's bottom sits on the phone bar's hairline rather than 1px behind it.
+- **Body header:** the label, its unsaved dot and the Revert action share one row whose height and
+  spacing are fixed; the dot and Revert slots are reserved while the body is clean, so a change
+  never moves the toolbar or the field below it.
+- **Body toolbar:** one hairline row above the textarea — bold, italic, inline code, heading,
+  bulleted list, numbered list, quote, link and record link — 32px on a fine pointer and 44px on a
+  coarse one. On a phone the row wraps into two rows so every tool is visible without horizontal
+  guessing: seven tools, then the two link tools closing the second row with the Write/Preview switch
+  pinned at its right edge. From `sm` up it is one row with the switch pinned at the trailing edge.
+  A press keeps the selection and the focus in the textarea.
+- **Writing surface:** Write mode is a split from `lg` up: the textarea on the left and a scrollable
+  rendered preview of the same text on the right, capped at 70vh. Below `lg` there is one pane and
+  the Write/Preview switch. On a phone the field and the preview start at 14rem (about seven lines),
+  so the toolbar, field and save bar fit above the keyboard; from `sm` up they are 22rem. The
+  textarea stays mounted while Preview is showing, so returning to Write keeps the native undo
+  history and the caret, and the first tap on Write raises the field with the caret at the end of the
+  draft. The preview is the read renderer, so it cannot disagree with the saved record.
+- **Caret menu:** `/` commands and `[[` record completion are one popup, anchored under the caret
+  and flipped above it when the window's room below is short, measured to the visual viewport (not
+  the field) so the keyboard never covers it, and ended at the phone bar's top so its last row is
+  never painted under that bar. On a fine pointer it is a 18rem card at the caret; on a coarse
+  pointer it takes the field's full width, so a finger is not aiming at a narrow strip. Its list
+  scrolls, ArrowUp/Down keep the highlighted row inside the visible rows, and the next row peeks
+  below the last full one on a coarse pointer so the list reads as continuing. Rows are 32px fine
+  and 44px coarse; wiki rows show the record's title and its type name, slash rows show the command
+  and the marker it inserts in muted mono. The textarea keeps focus and names the active row through
+  `aria-activedescendant`.
+- **Slash commands:** a command opens only at the start of a line, with nothing but whitespace before
+  it and never inside a fenced block, so a path, a date or a ratio stays text. Enter or Tab accepts
+  the highlighted row, Escape leaves the typed text alone, and Space never accepts. With no menu
+  open, Escape leaves the field rather than reaching the record page's Escape-to-go-back handler. The
+  marker column teaches the syntax the menu hides; the stored body is still markdown.
+- **Editing changes text, never HTML.** Every toolbar action, shortcut and command edits the
+  textarea's value and selection through one pure helper; nothing between the writer and the file
+  stores rendered markup.
 
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a
@@ -490,6 +526,11 @@ space, type and record icons, never as interface iconography.
   lichen today numeral, three chips and `+N more`, the portalled day panel with focus return and the
   today scroll. A chip carries the type's icon because several types share one month. An empty month
   names the month, and names the active types when a filter is on.
+- **Day panel:** a portalled list of that day's records. On a fine pointer it is a 17rem card
+  anchored under the cell; on a coarse pointer it is a sheet docked above the phone bar at the full
+  width, so the rows are thumb-sized and readable. The date and its close control stay pinned, and
+  the rows below scroll — scrolling the panel never dismisses it, while scrolling the page, pressing
+  outside or Escape does. The list caps at 60% of the visible height.
 - **Type filter:** one Filter trigger with the active count. A Base UI popover anchored to the
   trigger on a fine pointer; the app's sheet on a phone, with its close first in the title row in
   left mode. One checkbox row per scheduled type, then `All scheduled types` and `Clear`; no

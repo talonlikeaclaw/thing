@@ -6,10 +6,11 @@ with the v0.4.3 physical-iPhone keyboard gate still open. Nothing here re-opens 
 `docs/ROADMAP.md`.
 
 **Scoping note, recorded now.** M5 adds one derived structure (an inverted index), one API read (search)
-and one API extension (links and mentions on a record), plus body-syntax parsing and a richer editor.
-It does **not** change the on-disk format: `FORMAT_VERSION` stays `4`, no frontmatter key is added, and
-a wiki link is body text, not a stored relation value. It adds **no dependency**: `react-markdown` and
-`remark-gfm` already render the body, and the graph is plain SVG.
+and one API extension (links and mentions on a record), plus body-syntax parsing and a richer editor
+(toolbar, shortcuts, a `/` command menu, live preview). It does **not** change the on-disk format:
+`FORMAT_VERSION` stays `4`, no frontmatter key is added, and a wiki link is body text, not a stored
+relation value. It adds **no dependency**: `react-markdown` and `remark-gfm` already render the body,
+and the graph is plain SVG.
 
 The search index is **in memory, derived from the markdown** — built at boot and updated per changed
 file, never written beside the space. The roadmap's phrase "on-disk inverted index" is read as "an
@@ -41,8 +42,9 @@ In scope:
   simulation, no new dependency. A space-wide graph is explicitly `0.5.1`, as the roadmap allows.
 - **A real writing surface.** A formatting toolbar, keyboard shortcuts, list continuation, list
   indentation, a live preview beside the editor on wide screens, and `[[` autocomplete that inserts
-  a link whose target exists. The source stays markdown in a plain textarea; there is no WYSIWYG
-  HTML and no editor library.
+  a link whose target exists. A `/` menu at the start of a line applies the same formatting without
+  a shortcut or a toolbar button, so a person who does not know markdown can type `/quote`. The
+  source stays markdown in a plain textarea; there is no WYSIWYG HTML and no editor library.
 - **Documentation and the release.** `AGENTS.md`, `docs/ROADMAP.md`, `DESIGN.md` where the body
   surface changed, the changelog, and workspace `0.5.0`.
 
@@ -76,7 +78,8 @@ Out of scope, deliberately:
 Success is: on the seeded Garden space, typing a word that appears only in a Plant's body into
 `⌘K` finds that record with a snippet around the word and opens it; typing `[[plant/Monstera]]` in a
 Chore's body saves normally, renders as a link to that record, and puts the Chore in Monstera's links
-panel and local graph; the toolbar and shortcuts format a selection without losing focus; a phone
+panel and local graph; the toolbar and shortcuts format a selection without losing focus; typing
+`/quote` at the start of a line turns that line into a quote without knowing the `>` prefix; a phone
 keeps a usable editor and preview without the toolbar covering the keyboard; and no object file
 gains a key it did not already have.
 
@@ -128,7 +131,7 @@ mockup.
 | 2 | Ranking | Client subsequence score over titles | Results are ordered by title shape, not by where the query matched or how recent the record is |
 | 3 | Body syntax | `[[Plant/Monstera]]` renders as literal text | There is no way to point from prose to a record |
 | 4 | Backlinks | Route exists for relation properties only; no caller | The user cannot see what points at a record; wiki links would have no surface |
-| 5 | Writing | Plain textarea; no toolbar, shortcuts, list continuation or preview beside the text | Formatting is typed by hand; `[[` is not discoverable |
+| 5 | Writing | Plain textarea; no toolbar, shortcuts, list continuation, preview beside the text or `/` menu | Formatting is typed by hand; `[[` is not discoverable |
 | 6 | Graph | None | The space's shape is invisible beyond tables and views |
 | 7 | Index | `SpaceIndex` holds documents but no token structure | Every search would either scan bodies per query or re-tokenize on demand |
 | 8 | Object detail | `with=backlinks` returns relation rows only; `with` rejects anything else | A mentions shape and an outgoing-link shape must be added deliberately |
@@ -159,9 +162,10 @@ page already reserves space for the body and the sticky save bar.
 6. **Search is ranked; table `q` is a filter.** The palette's results are ordered by the server and
    carry a snippet. The type table keeps its substring filter, saved view and sorts. The two are not
    unified in this milestone because their contracts differ.
-7. **Editing stays plain text.** The textarea is the editor, the toolbar edits the selection, and
-   the preview renders the same markdown the server stores. No HTML is stored, no editor library is
-   added, and every toolbar action is a pure function over `(value, selection)`.
+7. **Editing stays plain text.** The textarea is the editor, the toolbar and the `/` menu edit the
+   selection, and the preview renders the same markdown the server stores. No HTML is stored, no
+   editor library is added, and every toolbar action and slash command is a pure function over
+   `(value, selection)`.
 8. **A link is not a frontmatter value.** A wiki link never becomes a relation property on save and
    never writes a new key. The relation *edge* is derived, which is what lets M5 stay at schema 4.
 9. **Broken links are visible, not destructive.** An unresolved or ambiguous link renders with a
@@ -217,8 +221,9 @@ surface by default, but the new editor toolbar and the links panel contain actio
   44 px coarse targets and 16 px coarse text; do not move it to the bottom edge or mirror it.
 - **The graph never mirrors.** Node positions and labels follow the same layout in both modes;
   handedness changes action placement, never data.
-- **The autocomplete listbox follows its caret**, not the thumb; Base UI is not involved, so no
-  anchor flips are introduced.
+- **The caret menu follows its caret**, not the thumb; Base UI is not involved, so no anchor flips
+  are introduced. The slash menu is the same popup in command mode, so its rows and marker column
+  obey the same sizes and never mirror.
 - **Toasts and sheets are already handled** by `:root[data-hand="left"]`; do not re-implement them.
 
 From the visual system, without re-deciding it: tokens only (`text-muted`, `rule`, `bg-raised`,
@@ -230,7 +235,8 @@ The editor's split view appears at `lg` and above; below it, the existing Write/
 the only mode control.
 
 Every checkpoint's live acceptance is run at **390 and 1440**, and in **both handedness modes** for
-the surfaces it touches — the editor toolbar, the links panel, and the graph included.
+the surfaces it touches — the editor toolbar, the caret menu, the links panel, and the graph
+included.
 
 ## 5. Checkpoints
 
@@ -482,57 +488,137 @@ the history panel's literal text.
 - **Extract the body editor** from `ObjectPanel` into `MarkdownEditor` with props for the value, a
   change callback, `disabled`, `spaceId`, `links`, a `resetToken` and the preview renderer.
   `ObjectPanel` keeps ownership of the draft, the dirty marker and Revert; the editor owns the
-  textarea, toolbar, preview mode and autocomplete, and resets its mode to Write/Preview on a
-  `resetToken` bump exactly as the current `setMode` does after a reload. The record's save payload
-  and every existing behavior (conflict, revert, focus return, sticky bar, 16 px coarse text) stay
-  exactly as they are.
-- **Toolbar.** One hairline row above the textarea: bold, italic, inline code, heading, bulleted
+  textarea, toolbar, preview mode, the caret menu and its two triggers, and resets its mode to
+  Write/Preview on a `resetToken` bump exactly as the current `setMode` does after a reload. The
+  record's save payload and every existing behavior (conflict, revert, focus return, sticky bar,
+  16 px coarse text) stay exactly as they are.
+- **Toolbar.** A hairline row above the textarea: bold, italic, inline code, heading, bulleted
   list, numbered list, quote, link and wiki link, each a Lucide icon button with an `aria-label`
   and a `title`; 32 px fine, 44 px coarse; `onMouseDown` prevents focus loss so the selection
-  survives. The wiki-link button inserts `[[` at the selection and opens the autocomplete; the link
-  button wraps the selection in `[text](url)` with the URL selected.
+  survives. On a phone the row wraps into two rows so every tool is visible without horizontal
+  guessing — seven tools, then the two link tools closing the second row with the Write/Preview
+  switch pinned at its right edge; from `sm` up it is one row with the switch at the trailing edge.
+  The wiki-link button inserts `[[` at the selection and opens the wiki mode of the caret
+  menu; the link button calls the same `insertLink` helper the `/link` command uses — a ranged
+  selection is wrapped and the URL is selected, a collapsed selection inserts `[text](url)` with
+  `text` selected.
+- **Slash commands.** Typing `/` as the first non-whitespace character of a line opens the same
+  caret menu in command mode. The table is a frozen `SLASH_COMMANDS` array in
+  `lib/markdown-edit.ts`; `matchSlash(query)` is the only filter, so the menu and the tests read one
+  list:
+
+  | Command | Aliases | Effect |
+  |---|---|---|
+  | Heading 1 | `/h1`, `/h` | `# ` before the line |
+  | Heading 2 | `/h2` | `## ` before the line |
+  | Heading 3 | `/h3` | `### ` before the line |
+  | Bulleted list | `/bullet`, `/ul` | `- ` before the line |
+  | Numbered list | `/number`, `/ol` | `1. ` before the line |
+  | Quote | `/quote`, `/q` | `> ` before the line |
+  | Inline code | `/code` | a placeholder in single backticks |
+  | Code block | `/block`, `/pre` | a fenced block, caret inside |
+  | Bold | `/bold`, `/b` | `**bold**`, placeholder selected |
+  | Italic | `/italic`, `/i` | `*italic*`, placeholder selected |
+  | Link | `/link` | `[text](url)` |
+  | Wiki link | `/wiki`, `/record` | inserts `[[` and opens the wiki mode |
+
+  Rows print the command name and, in muted monospace, the marker it inserts (`#`, `-`, `1.`, `>`,
+  backtick, fence, `**`, `*`, `[text](url)`, `[[…]]`) so the menu teaches the syntax it hides. The
+  query matches an id or alias case-insensitively by prefix first, then substring, in table order;
+  an empty query lists all twelve, and the list caps at eight visible rows on a fine pointer and
+  five with the next row peeking on a coarse one, then scrolls.
+- **Applying a command.** `applySlashCommand(value, selection, trigger, id)` deletes the `start`
+  offset through the caret, collapses the selection at `start`, then calls the same helper the
+  toolbar calls — `toggleLinePrefix`, `wrapSelection`, `insertFencedBlock`, `insertLink` or
+  `insertWikiLink` — so a command has no formatting logic of its own. Line commands affect the
+  caret's line only; text typed after the command on that line is kept. Inline commands always take
+  the placeholder path (`wrapSelection` with the collapsed selection, which leaves the placeholder
+  selected), because typing the `/` already replaced whatever was selected — an inline command
+  therefore inserts `**bold**` with `bold` selected rather than wrapping text that no longer exists.
+  Formatting an existing selection stays the toolbar's and `Mod+B`/`Mod+I`'s job.
+- **Slash trigger and grammar.** `slashTrigger(value, offset)` returns `{ start, query } | null`,
+  where `start` is the offset of the `/`. It fires only when the caret is on a line whose text
+  before the `/` is whitespace only (up to three spaces of markdown indentation are fine; a slash
+  after a bullet, quote or prose character is not), the character before the `/` is not `\`, the
+  run from `/` to the caret matches `[a-z0-9-]*` and is at most 20 characters, and `isInFence` is
+  false. `isInFence(value, offset)` counts fence lines above the offset — a line whose trimmed text
+  starts with three or more backticks or tildes — and reports inside only when that count is odd,
+  so `/` in a code sample opens nothing and a slash after the closing fence does. Any character
+  outside the grammar (space, punctuation, newline) ends the trigger: the menu closes and the text
+  stays exactly as typed; no command is applied, and the body is never rewritten to remove a slash
+  the user meant as text.
 - **Pure edit helpers** in `lib/markdown-edit.ts`, each returning `{ value, start, end }`:
   `wrapSelection` (wraps, unwraps an existing identical wrapper, and uses a placeholder when the
   selection is collapsed), `toggleLinePrefix` (per line, preserving indentation, removing the
   prefix when every non-empty selected line already has it), `continueList` (Enter at the end of a
   list or quote line starts the next item and increments an ordered number; Enter on an empty item
   removes the marker and exits), `indentSelection` (Tab/Shift-Tab over the selected lines, two
-  spaces), and `insertWikiLink`. Unit-test each with collapsed and ranged selections, multi-line
-  selections, existing markers, ordered numbers and an empty line.
+  spaces), `insertLink`, `insertFencedBlock`, `insertWikiLink`, `slashTrigger`, `isInFence`,
+  `matchSlash` and `applySlashCommand`. Unit-test each with collapsed and ranged selections,
+  multi-line selections, existing markers, ordered numbers and an empty line; for the slash pair,
+  also triggers at the start of the body, after indentation, after prose, after a bullet marker,
+  mid-line, escaped `\/`, after 20 characters, inside an open fence and after a closed one; a
+  no-match query; and each command's resulting text and selection.
 - **Shortcuts.** `Mod+B` bold, `Mod+I` italic, `Mod+K` link, `Mod+Shift+X` inline code; Enter and
   Tab as above. They fire only while the textarea is focused and never when the browser's own
-  shortcut owns the combination. No other global hotkeys change.
+  shortcut owns the combination. Key arbitration is ordered and explicit: an open caret menu takes
+  ArrowUp/Down, Enter, Tab and Escape first; only then do `Mod+*` shortcuts and Enter/Tab list
+  continuation run. Escape closes the menu; with no menu open it blurs the field, so the record
+  page's Escape-to-go-back handler never fires while the body has focus. Space is never an accept
+  key, because it belongs to prose. No other global hotkeys change.
 - **Live preview.** At `lg` and up, Write mode is a two-pane split: the textarea and a scrollable
   rendered preview of the same draft, updating per keystroke; Preview mode shows the rendered body
   alone at full width. Below `lg`, the existing single pane and Write/Preview switch remain. The
-  preview uses the same `MarkdownView` and the same link map as read mode.
-- **`[[` autocomplete.** `lib/caret.ts` measures the caret by mirroring the textarea's computed
-  font, padding, border and scroll offset into an off-screen div and reading the marker's
-  rectangle (tested over a fake element for the arithmetic and clamped to the field's box). When
-  the text before the caret ends in `[[` or `[[partial` on the current line, the editor opens a
-  listbox under the caret, debounces the partial by 150 ms, and calls `useSearch(spaceId, partial)`
-  with a limit of 8. Rows show the type name and title; typing filters; ArrowUp/Down move,
-  Enter/Tab insert `[[type_key/title]]` and place the caret after the closing brackets, Escape and
-  blur close without inserting. The listbox is a labelled `role="listbox"` with option ids, keeps
-  the textarea focus, and is not a Base UI popover (it anchors to a caret, not an element).
-- **No new dependency.** The mirror, the listbox and the toolbar are hand-written.
-- **Design.** Add the record-page body rules to `DESIGN.md`: the toolbar's order and sizes, the
-  split at `lg`, the autocomplete's placement and the rule that editing changes text, never the
-  stored HTML.
+  textarea stays mounted while Preview is showing, so returning to Write keeps the native undo
+  history and the selection; the first tap on Write raises the field with the caret at the end of
+  the draft. On a phone the field and the preview start at 14rem, so the toolbar, field and save bar
+  fit above the keyboard; from `sm` up they are 22rem. The preview uses the same `MarkdownView` and
+  the same link map as read mode.
+- **One caret menu, two triggers.** `lib/caret.ts` measures the caret by mirroring the textarea's
+  computed font, padding, border and scroll offset into an off-screen div and reading the marker's
+  rectangle (tested over a fake element for the arithmetic and clamped to the field's box). One
+  popup component inside `markdown-editor.tsx` renders both modes: a labelled `role="listbox"` with
+  option ids, `aria-activedescendant` on the textarea, rows 32 px fine and 44 px coarse, the
+  textarea keeping focus, and no Base UI popover (it anchors to a caret, not an element). Slash
+  mode filters `SLASH_COMMANDS` in memory; wiki mode debounces the partial 150 ms and calls
+  `useSearch(spaceId, partial)` with a limit of 20, showing the type name and title. Both modes move
+  with ArrowUp/Down, insert with Enter or Tab and close on Escape, blur, a caret move or a click
+  elsewhere. Slash mode's `/wiki` hands over to wiki mode with an empty query in the same popup.
+  ArrowUp/Down keep the active row inside the list's visible rows, and the list scrolls on its own
+  without dismissing the menu.
+  The popup flips above the caret when it would cross the bottom edge, is clamped horizontally to
+  the field, and reads the keyboard height and pan from `lib/viewport.ts` (the metrics behind the
+  root's `data-keyboard`) so it never lands under the on-screen keyboard. It ends at the phone
+  bar's top so its last row is never painted under that bar, and on a coarse pointer it sizes to
+  show the next row peeking below the last full one.
+- **No new dependency.** The mirror, the popup, the toolbar and the command table are hand-written.
+- **Design.** Add the record-page body rules to `DESIGN.md`: the toolbar's order and sizes and its
+  two-row phone wrap, the field heights, the split at `lg`, the caret menu's placement and
+  phone-bar clearance, row size and the two modes, the slash menu's marker column and peek row,
+  and the rule that editing changes text, never the stored HTML.
 - **Extend the `Unreleased` entry** with one sentence: formatting and links while writing, with a
-  live preview and a list that keeps going when you press Enter.
+  live preview, a `/` menu at the start of a line and a list that keeps going when you press Enter.
 
 **Acceptance:** At 1440, selecting a word and pressing `Mod+B` wraps it and keeps the selection;
 `Mod+K` produces `[text](url)` with the URL selected; Enter on `- water` continues the list, Enter
 on the empty item exits it; Tab indents two spaces; the preview updates while typing and matches the
 saved render. Typing `[[mon` opens a listbox under the caret listing Monstera; Enter inserts
-`[[plant/Monstera]]` and the save then renders it as a resolved link. At 390 the toolbar is one
-row, every button is 44 px, the textarea is 16 px, and the preview switch is reachable without the
-keyboard covering the save bar. In left-handed mode the toolbar order and text do not mirror.
+`[[plant/Monstera]]` and the save then renders it as a resolved link. Typing `/` on an empty line
+lists all twelve commands with their markers; `/qu` narrows to Quote; Enter turns the line into
+`> ` and keeps its text; `/b` inserts `**bold**` with `bold` selected; `/wiki` inserts `[[`
+and opens the record listbox; Escape leaves `/qu` as literal text; `/` inside an open fence, after
+prose, and in `/usr/bin` or `2026/11/01` opens nothing. At 390 the toolbar wraps into two rows with
+all nine tools and the switch visible, every button and menu row is 44 px, the textarea is 16 px,
+tapping Write focuses the field at the end of the draft, the caret menu stays above the keyboard and
+the phone bar, and the save bar never covers the field. Switching to Preview and back keeps the
+native undo history and the selection. In left-handed mode the toolbar order, the menu order and
+its marker column do not mirror.
 
 **Verify:** `cd web && npm run lint && npm run typecheck && npm run test:run`. Live at 390/1440 in
-both handedness modes: every toolbar action, every shortcut, list continuation and exit, Tab indent,
-preview parity, autocomplete by keyboard and pointer, Escape, and a save/undo cycle.
+both handedness modes: every toolbar action, every shortcut, every slash command by keyboard and by
+tap, the trigger's negative cases (mid-line, fenced, escaped), filtering by alias, Enter/Tab/Escape
+and Space, list continuation and exit, Tab indent, preview parity, wiki autocomplete, and a
+save/undo cycle.
 
 ### Checkpoint 6 — The links panel
 
@@ -659,6 +745,7 @@ physical-iPhone gap.
 | Wiki links | Resolved link navigates in place; unknown dotted; code fence literal | Same tap, body size; no horizontal scroll |
 | Editor | Toolbar, shortcuts, list continuation/exit, Tab indent, split preview at `lg` | One toolbar row, 44 px buttons, 16 px textarea, Write/Preview switch |
 | Autocomplete | Caret-anchored listbox, arrows/Enter/Escape, insert `[[type/title]]` | Listbox above the keyboard, 44 px rows, insert by tap |
+| Slash menu | `/` at line start lists twelve with markers; alias filter; Enter prefixes the line; Escape/Space leaves the text literal; silent mid-line, after prose, escaped and inside a fence | 44 px rows, popup above the keyboard, insert by tap |
 | Links panel | Relation + mention groups, snippets, counts, empty state | 44 px rows; no horizontal scroll |
 | Graph | ≥24-node cap, legend, keyboard nodes, deterministic layout | Closed `Graph` disclosure, opens above the bar, nodes tappable |
 | Handedness | Toolbar and text order unchanged; graph not mirrored | Same, plus no double reversal in any new row |
@@ -719,6 +806,26 @@ physical-iPhone gap.
   hairball. The space graph is `0.5.1`, as the roadmap allows, and needs no format change.
 - **No graph endpoint.** The record detail already carries both directions through `with`; a graph
   endpoint would be a second read of the same edges with its own cache and no new fact.
+- **The slash menu is line-start only.** A formatting command is a block decision, and `/` in prose
+  is already a path separator, a date and a ratio on this user's data — `/usr/bin` and `2026/11/01`
+  must stay text. The trigger therefore needs whitespace before it on the line, which also makes
+  the rule cheap to state, test and explain. Cost: `/` after a bullet or quote marker does not
+  open the menu; a person formats the line first and then uses the toolbar or a shortcut.
+- **One caret popup, two row sources.** Two popups would duplicate the mirror anchor, the keyboard
+  handler, the ARIA wiring and the keyboard-height clamp, and they would drift. The mode is a
+  discriminated union over the same component; only wiki mode fetches (debounced `useSearch`),
+  slash mode filters the frozen `SLASH_COMMANDS` table in memory.
+- **Enter and Tab accept; Space never does.** Space is the most common character after a command
+  word and the one a person would most resent losing; a menu that eats it would make a typo
+  destructive. Escape, blur, a caret move and any out-of-grammar character close the menu and leave
+  the typed text alone, so the worst outcome of a mistyped command is literal `/text` the user can
+  delete.
+- **A slash command never wraps text the `/` already replaced.** A textarea deletes the selection
+  when the trigger character is typed, so wrapping "the previous selection" would mean keeping a
+  pre-trigger buffer and resurrecting bytes the user watched disappear — and it would race with a
+  second edit. Inline commands insert a placeholder and select it, which is the same gesture for a
+  person who never had a selection; formatting text that exists is the toolbar's and the `Mod+*`
+  shortcuts' job.
 - **AGENTS.md wins where this file is silent.** The delivery protocol, the report shape, the
   no-commit rule, the gate commands, the test placement and the release-note style are inherited,
   not restated differently. The changelog opens as `Unreleased` in checkpoint 2, is extended through
@@ -748,6 +855,9 @@ physical-iPhone gap.
 - **Explicit link repair** after a rename, if §8.2 is asked for.
 - **Search refinements** — per-type scoping in the UI, result counts, and a keyboard shortcut to
   search the current type; none is needed to close M5.
+- **Slash-command growth** — tables, callouts, to-dos and dividers need block helpers and a
+  renderer decision that `react-markdown` + `remark-gfm` does not cover today; the twelve commands
+  are the set the current markdown can round-trip.
 - **In-app account settings** — password change and display name, still the largest account gap.
 
 ## 10. Release checklist

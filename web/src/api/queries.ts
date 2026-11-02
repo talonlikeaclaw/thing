@@ -50,7 +50,8 @@ export const queryKeys = {
   trash: (id: string) => ["space", id, "trash"] as const,
   invites: (id: string) => ["space", id, "invites"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
-  search: (id: string, query: string) => ["space", id, "search", query] as const,
+  search: (id: string, query: string, limit?: number) =>
+    ["space", id, "search", query, limit ?? null] as const,
 };
 
 /** The signed-in user, or `null` when the request had no live session. */
@@ -1080,15 +1081,16 @@ export function useRelationChoices(
  * The space-wide ranked search. The caller debounces its input, so every query
  * here is one the user paused on; the server owns the order and the snippet.
  */
-export function useSearch(spaceId: string | undefined, query: string) {
+export function useSearch(spaceId: string | undefined, query: string, limit?: number) {
   const q = query.trim();
+  const params = new URLSearchParams({ q });
+  if (limit !== undefined) {
+    params.set("limit", String(limit));
+  }
   return useQuery({
-    queryKey: queryKeys.search(spaceId ?? "", q),
+    queryKey: queryKeys.search(spaceId ?? "", q, limit),
     queryFn: ({ signal }) =>
-      request<SearchResponse>(
-        `/api/spaces/${spaceId}/search?${new URLSearchParams({ q })}`,
-        { signal },
-      ),
+      request<SearchResponse>(`/api/spaces/${spaceId}/search?${params}`, { signal }),
     enabled: Boolean(spaceId && q),
     placeholderData: (previous) => previous,
   });

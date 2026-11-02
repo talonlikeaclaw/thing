@@ -304,7 +304,8 @@
    * and from `lg` the page has no bottom bar to clear.
    */
   .record-save-bar {
-    bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    /* The phone bar is 3.5rem of content plus its 1px top hairline. */
+    bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom));
   }
 
   :root[data-keyboard="on"] .record-save-bar {
@@ -312,11 +313,12 @@
   }
 
   /*
-   * Focusing the body pans the page. Reserve the keyboard, the save bar and the
-   * focused line so the browser cannot settle the caret behind either.
+   * Focusing the body pans the page. Reserve the keyboard, the phone bar, the
+   * save bar and the focused line so the browser cannot settle the caret behind
+   * either bar: 3.5rem nav + 1px hairline + 4.5rem save bar, rounded up.
    */
   .record-body-input {
-    scroll-margin-bottom: calc(var(--kb-height, 0px) + 6rem);
+    scroll-margin-bottom: calc(var(--kb-height, 0px) + 8rem);
   }
 
   @media (min-width: 64rem) {

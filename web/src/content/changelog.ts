@@ -23,6 +23,23 @@ export const CHANGELOG: ChangelogEntry[] = [
     highlights: [
       "Search every record's title and text from the command palette, and see the sentence the match came from.",
       "Type [[Type/Title]] in a body to link another record; a link that no longer matches is marked instead of vanishing.",
+      "Format a body from a toolbar or with shortcuts: bold, italic, code, headings, lists, quotes and links.",
+      "Type / at the start of a line to choose a format by name, without knowing markdown.",
+      "A list keeps going when you press Enter, and an empty item leaves it.",
+      "On a wide screen a live preview sits beside the text and updates as you type.",
+    ],
+    details: [
+      "The preview renders the same markdown the saved record shows.",
+      "Type [[ and pick from up to twenty matching records, scrolling the list without the menu closing.",
+      "A slash inside a code block, mid-sentence or inside a path stays text, so a date is never a command.",
+      "Arrow keys keep the highlighted command in view as the list scrolls.",
+      "On a phone the command list takes the editor's width instead of floating as a narrow card.",
+      "On a phone a calendar day opens a full-width sheet that scrolls through every task, with its date and close control staying put.",
+      "An inline command inserts a word you can type over; to format text you have selected, use the toolbar or the shortcut.",
+      "On a phone the toolbar wraps into two rows so every tool is visible, with thumb-sized buttons.",
+      "Tapping Write puts the caret at the end and raises the keyboard, so one tap starts the note.",
+      "Switching to Preview and back keeps the draft's undo history and your selection.",
+      "On a phone the save bar sits above the bottom bar and the keyboard instead of covering the field.",
     ],
   },
   {

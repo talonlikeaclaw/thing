@@ -65,8 +65,10 @@ export function MonthGrid<T>({
 }: MonthGridProps<T>) {
   const [dayOpen, setDayOpen] = useState<{
     date: string;
+    coarse: boolean;
     top: number;
     left: number;
+    width: number;
     maxHeight: number;
   } | null>(null);
   const dayPanel = useRef<HTMLDivElement | null>(null);
@@ -108,11 +110,13 @@ export function MonthGrid<T>({
     dayAnchor.current = anchor;
     setDayOpen({
       date,
+      coarse: isCoarsePointer(),
       top,
       left: Math.min(
         Math.max(DAY_PANEL_MARGIN, rect.left),
         window.innerWidth - width - DAY_PANEL_MARGIN,
       ),
+      width,
       maxHeight: window.innerHeight - top - DAY_PANEL_MARGIN,
     });
   }
@@ -136,8 +140,14 @@ export function MonthGrid<T>({
         setDayOpen(null);
       }
     };
-    // A fixed panel anchored to a cell would drift; scrolling closes it.
-    const onViewportChange = () => setDayOpen(null);
+    // A fixed panel anchored to a cell would drift, so scrolling the page
+    // closes it; the panel's own list must still scroll.
+    const onViewportChange = (event: Event) => {
+      if (event.target instanceof Node && dayPanel.current?.contains(event.target)) {
+        return;
+      }
+      setDayOpen(null);
+    };
     document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("scroll", onViewportChange, true);
     window.addEventListener("resize", onViewportChange);
@@ -278,13 +288,22 @@ export function MonthGrid<T>({
               role="dialog"
               aria-label={`Records on ${dayOpen.date}`}
               tabIndex={-1}
-              className="fixed z-50 overflow-y-auto overscroll-contain rounded-field border border-line bg-surface p-2 text-[12px] focus:outline-none"
-              style={{
-                top: dayOpen.top,
-                left: dayOpen.left,
-                width: Math.min(DAY_PANEL_WIDTH, window.innerWidth - DAY_PANEL_MARGIN * 2),
-                maxHeight: dayOpen.maxHeight,
-              }}
+              className={cn(
+                "fixed z-50 flex flex-col overflow-hidden border border-line bg-surface text-[12px] focus:outline-none",
+                dayOpen.coarse
+                  ? "inset-x-2 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] rounded-t-field p-3"
+                  : "rounded-field p-2",
+              )}
+              style={
+                dayOpen.coarse
+                  ? { maxHeight: "min(60vh, 60dvh)" }
+                  : {
+                      top: dayOpen.top,
+                      left: dayOpen.left,
+                      width: dayOpen.width,
+                      maxHeight: dayOpen.maxHeight,
+                    }
+              }
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   event.preventDefault();
@@ -292,7 +311,7 @@ export function MonthGrid<T>({
                 }
               }}
             >
-              <div className="flex items-baseline justify-between gap-2">
+              <div className="flex shrink-0 items-baseline justify-between gap-2">
                 <span className="label">{dayOpen.date}</span>
                 <button
                   type="button"
@@ -303,7 +322,7 @@ export function MonthGrid<T>({
                   <X aria-hidden size={13} />
                 </button>
               </div>
-              <ul className="mt-1 grid gap-0.5">
+              <ul className="mt-1 grid min-h-0 gap-0.5 overflow-y-auto overscroll-contain">
                 {(byDate.get(dayOpen.date) ?? []).map((item) => (
                   <li key={keyOf(item)} className="flex min-w-0 items-center gap-1">
                     {renderRow ? (

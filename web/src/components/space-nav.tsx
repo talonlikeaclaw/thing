@@ -288,7 +288,10 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         {/* The page wrapper animates a transform, which would become the
             containing block of a fixed child; the bar lives on the body. */}
         {createPortal(
-          <div className="fixed inset-x-0 bottom-0 z-40 border-t rule bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+          <div
+            data-phone-bar
+            className="fixed inset-x-0 bottom-0 z-40 border-t rule bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+          >
             <div className="flex items-center gap-1 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
               {handedness === "left" ? (
                 <>
