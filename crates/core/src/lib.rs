@@ -9,6 +9,7 @@ pub mod csv;
 pub mod error;
 pub mod filter;
 pub mod index;
+pub mod links;
 pub mod markdown;
 pub mod model;
 pub mod query;

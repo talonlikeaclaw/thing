@@ -297,9 +297,52 @@ export interface ObjectDetail {
   properties: Record<string, ValueJson>;
   body: string;
   missing_relations: Uuid[];
+  /** Outgoing `[[type/Title]]` links; present when the read asks for them. */
+  links?: ObjectLink[];
+  /** Records that point here; present when the read asks for them. */
+  backlinks?: Backlink[];
   /** Timing for a scheduled type; absent on every other type. */
   schedule?: ScheduleState;
 }
+
+export type LinkStatus = "ok" | "unknown" | "ambiguous";
+
+/** One distinct `[[type/Title]]` in a body, resolved or not. */
+export interface ObjectLink {
+  /** The trimmed text between the brackets, as typed. */
+  raw: string;
+  type: string;
+  title: string;
+  status: LinkStatus;
+  /** Present only when the link resolves. */
+  id?: Uuid;
+}
+
+export interface RelationBacklink {
+  kind: "relation";
+  id: Uuid;
+  type: string;
+  type_icon?: string;
+  title: string;
+  icon?: string;
+  /** The property key that points here. */
+  property: string;
+  property_name: string;
+}
+
+export interface MentionBacklink {
+  kind: "mention";
+  id: Uuid;
+  type: string;
+  type_icon?: string;
+  title: string;
+  icon?: string;
+  /** The sentence around the first link. */
+  snippet: string;
+  count: number;
+}
+
+export type Backlink = RelationBacklink | MentionBacklink;
 
 /** One row of the Schedule page; the server owns its bucket. */
 export interface AgendaRow {

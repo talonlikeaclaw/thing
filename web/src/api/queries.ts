@@ -627,7 +627,10 @@ export function useObjects(spaceId: string | undefined, query: ObjectsQuery | un
 export function useObject(spaceId: string | undefined, objectId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.object(spaceId ?? "", objectId ?? ""),
-    queryFn: () => request<ObjectDetail>(`/api/spaces/${spaceId}/objects/${objectId}`),
+    queryFn: () =>
+      request<ObjectDetail>(
+        `/api/spaces/${spaceId}/objects/${objectId}?with=links,backlinks`,
+      ),
     enabled: Boolean(spaceId && objectId),
   });
 }
@@ -748,7 +751,15 @@ function applyObject(
   spaceId: string,
   object: ObjectDetail,
 ) {
-  client.setQueryData(queryKeys.object(spaceId, object.id), object);
+  client.setQueryData<ObjectDetail>(queryKeys.object(spaceId, object.id), (current) => ({
+    ...object,
+    ...(object.links === undefined && current?.links !== undefined
+      ? { links: current.links }
+      : {}),
+    ...(object.backlinks === undefined && current?.backlinks !== undefined
+      ? { backlinks: current.backlinks }
+      : {}),
+  }));
   client.setQueriesData<ObjectList>({ queryKey: queryKeys.objectsPrefix(spaceId) }, (list) => {
     if (!list) {
       return list;
@@ -843,7 +854,10 @@ export function useUpdateObject(spaceId: string) {
         void client.invalidateQueries({ queryKey: queryKeys.object(spaceId, _input.id) });
       }
     },
-    onSuccess: (object) => applyObject(client, spaceId, object),
+    onSuccess: (object) => {
+      applyObject(client, spaceId, object);
+      void client.invalidateQueries({ queryKey: queryKeys.object(spaceId, object.id) });
+    },
   });
 }
 

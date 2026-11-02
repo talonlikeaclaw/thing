@@ -5,13 +5,16 @@
 //! files say. A file that will not parse is recorded as a problem and left out
 //! of the index, never guessed at; the file itself is untouched.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use uuid::Uuid;
 
 use crate::error::CoreError;
-use crate::model::{ObjectDetail, ObjectDoc, ObjectSummary, PropertyDef, SpaceMeta, TypeDef};
+use crate::links::{self, LinkStatus, LinkView, MentionBacklink, RelationBacklink};
+use crate::model::{
+    ObjectDetail, ObjectDoc, ObjectSummary, PropertyDef, PropertyFormat, SpaceMeta, TypeDef, Value,
+};
 use crate::schedule;
 use crate::search::SearchIndex;
 use crate::slug::slugify;
@@ -92,6 +95,8 @@ pub struct SpaceIndex {
     fingerprints: BTreeMap<PathBuf, FileFingerprint>,
     /// Rows per type, in load order; the query engine imposes the shown order.
     summaries: BTreeMap<String, Vec<ObjectSummary>>,
+    /// `(type key, folded title)` to the live ids that carry it.
+    titles: BTreeMap<(String, String), BTreeSet<Uuid>>,
     /// Derived from the live bodies, updated one document at a time.
     search: SearchIndex,
     unparseable: Vec<UnparseableFile>,
@@ -114,6 +119,7 @@ impl SpaceIndex {
             paths_to_ids: BTreeMap::new(),
             fingerprints: BTreeMap::new(),
             summaries: BTreeMap::new(),
+            titles: BTreeMap::new(),
             search: SearchIndex::default(),
             unparseable: Vec::new(),
         };
@@ -279,6 +285,113 @@ impl SpaceIndex {
         })
     }
 
+    /// What a `[[type key/Title]]` link names: one live record, none, or many.
+    pub fn resolve_link(&self, type_key: &str, title: &str) -> LinkStatus {
+        let key = (type_key.to_owned(), fold_title(title));
+        match self.titles.get(&key) {
+            None => LinkStatus::Unknown,
+            Some(ids) => match ids.len() {
+                0 => LinkStatus::Unknown,
+                1 => LinkStatus::Found(*ids.first().expect("one id")),
+                many => LinkStatus::Ambiguous(many),
+            },
+        }
+    }
+
+    /// Every distinct link in one record's body, in first-occurrence order.
+    pub fn outgoing_links(&self, id: Uuid) -> Vec<LinkView> {
+        let Some(doc) = self.object(id) else {
+            return Vec::new();
+        };
+        let mut seen: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut links = Vec::new();
+        for parsed in links::parse(&doc.body) {
+            let key = (parsed.type_key.clone(), fold_title(&parsed.title));
+            if !seen.insert(key) {
+                continue;
+            }
+            let status = self.resolve_link(&parsed.type_key, &parsed.title);
+            links.push(LinkView {
+                raw: parsed.inner,
+                type_key: parsed.type_key,
+                title: parsed.title,
+                status,
+            });
+        }
+        links
+    }
+
+    /// Records that point at `id`, through a relation property and through a
+    /// mention in a body.
+    ///
+    /// Both scans read every live object. The relation side already did; the
+    /// mention side joins it because a title rename changes every resolution,
+    /// which a second index would have to invalidate too.
+    pub fn backlinks_of(&self, id: Uuid) -> (Vec<RelationBacklink>, Vec<MentionBacklink>) {
+        let mut relations = Vec::new();
+        let mut mentions = Vec::new();
+        for doc in self.objects.values() {
+            for (property, value) in &doc.properties {
+                if self.property_def(property).map(|def| def.format)
+                    != Some(PropertyFormat::Relation)
+                {
+                    continue;
+                }
+                if names(value, id) {
+                    relations.push(RelationBacklink {
+                        source: doc.id,
+                        property: property.clone(),
+                    });
+                }
+            }
+
+            let mut count = 0;
+            let mut excerpt = None;
+            for link in links::parse(&doc.body) {
+                if self.resolve_link(&link.type_key, &link.title) != LinkStatus::Found(id) {
+                    continue;
+                }
+                count += 1;
+                if excerpt.is_none() {
+                    excerpt = Some(links::excerpt(&doc.body, link.start, link.end, 120));
+                }
+            }
+            if count > 0 {
+                mentions.push(MentionBacklink {
+                    source: doc.id,
+                    count,
+                    snippet: excerpt.unwrap_or_default(),
+                });
+            }
+        }
+        relations.sort_by_key(|backlink| backlink.source);
+        mentions.sort_by_key(|backlink| backlink.source);
+        (relations, mentions)
+    }
+
+    /// Records this title for link resolution; the caller inserted a live doc.
+    fn remember_title(&mut self, doc: &ObjectDoc) {
+        self.titles
+            .entry((doc.type_key.clone(), fold_title(&doc.title)))
+            .or_default()
+            .insert(doc.id);
+    }
+
+    /// Drops one doc's title entry, if it had one.
+    fn forget_title(&mut self, doc: &ObjectDoc) {
+        let key = (doc.type_key.clone(), fold_title(&doc.title));
+        let now_empty = match self.titles.get_mut(&key) {
+            Some(ids) => {
+                ids.remove(&doc.id);
+                ids.is_empty()
+            }
+            None => false,
+        };
+        if now_empty {
+            self.titles.remove(&key);
+        }
+    }
+
     fn reload_space<S: SpaceStore + ?Sized>(
         &mut self,
         store: &S,
@@ -406,6 +519,7 @@ impl SpaceIndex {
         } else {
             self.paths.insert(doc.id, path.to_owned());
             self.search.upsert(&doc);
+            self.remember_title(&doc);
             self.objects.insert(doc.id, doc);
             self.summaries.entry(type_key).or_default().push(summary);
         }
@@ -422,12 +536,13 @@ impl SpaceIndex {
         self.trash_paths.remove(&id);
         self.search.remove(id);
         let removed = self.objects.remove(&id).or_else(|| self.trash.remove(&id));
-        if let Some(doc) = removed
-            && let Some(rows) = self.summaries.get_mut(&doc.type_key)
-        {
-            rows.retain(|row| row.id != id);
-            if rows.is_empty() {
-                self.summaries.remove(&doc.type_key);
+        if let Some(doc) = removed {
+            self.forget_title(&doc);
+            if let Some(rows) = self.summaries.get_mut(&doc.type_key) {
+                rows.retain(|row| row.id != id);
+                if rows.is_empty() {
+                    self.summaries.remove(&doc.type_key);
+                }
             }
         }
     }
@@ -503,6 +618,21 @@ impl SpaceIndex {
         {
             self.unparseable.remove(at);
         }
+    }
+}
+
+/// The spelling a title is compared under: trimmed and case-folded.
+fn fold_title(title: &str) -> String {
+    title.trim().to_lowercase()
+}
+
+/// Whether a relation value names `target`.
+fn names(value: &Value, target: Uuid) -> bool {
+    let target = target.to_string();
+    match value {
+        Value::Text(id) => *id == target,
+        Value::List(ids) => ids.contains(&target),
+        _ => false,
     }
 }
 
@@ -1068,6 +1198,105 @@ mod tests {
             .reload_file(&space.store, &restored)
             .expect("reload restored");
         assert_eq!(index.search().query("watered", None, 10).total, 1);
+    }
+
+    #[test]
+    fn links_resolve_titles_and_report_both_kinds_of_backlink() {
+        let space = Space::new().seed();
+        let related = PropertyDef {
+            key: "related".to_owned(),
+            name: "Related".to_owned(),
+            format: PropertyFormat::Relation,
+            options: Vec::new(),
+            target_type: Some("plant".to_owned()),
+            multi: false,
+        };
+        space
+            .store
+            .save_property(&related, None)
+            .expect("relation property");
+
+        let monstera = object(2, "Monstera", "Kitchen", 5);
+        let monstera_path = object_path("Monstera");
+        space
+            .store
+            .save_object(&monstera_path, &monstera, None)
+            .expect("monstera");
+        space
+            .store
+            .save_object(&object_path("Twin"), &object(3, "Twin", "Kitchen", 6), None)
+            .expect("first twin");
+        space
+            .store
+            .save_object(
+                Path::new("objects/plant/twin-second.md"),
+                &object(4, "Twin", "Study", 7),
+                None,
+            )
+            .expect("second twin");
+
+        let mut chore = object(5, "Water the monstera", "Kitchen", 8);
+        chore.type_key = "chore".to_owned();
+        chore.body = "Linked [[plant/Monstera]]. Unknown [[plant/Ghost]]. \
+                     Ambiguous [[plant/Twin]].\n\n```\n[[plant/Monstera]]\n```\n\n\
+                     Inline `[[plant/Monstera]]`."
+            .to_owned();
+        chore
+            .properties
+            .insert("related".to_owned(), Value::Text(monstera.id.to_string()));
+        let chore_path = Path::new("objects/chore/water.md");
+        space
+            .store
+            .save_object(chore_path, &chore, None)
+            .expect("chore");
+
+        let mut index = space.index();
+        assert_eq!(
+            index.resolve_link("plant", "monstera"),
+            LinkStatus::Found(Uuid::from_u128(2))
+        );
+        assert_eq!(index.resolve_link("plant", "Ghost"), LinkStatus::Unknown);
+        assert_eq!(
+            index.resolve_link("plant", "Twin"),
+            LinkStatus::Ambiguous(2)
+        );
+
+        let links = index.outgoing_links(Uuid::from_u128(5));
+        assert_eq!(links.len(), 3, "{links:?}");
+        assert_eq!(links[0].title, "Monstera");
+        assert_eq!(links[0].status, LinkStatus::Found(Uuid::from_u128(2)));
+        assert_eq!(links[1].status, LinkStatus::Unknown);
+        assert_eq!(links[2].status, LinkStatus::Ambiguous(2));
+
+        let (relations, mentions) = index.backlinks_of(Uuid::from_u128(2));
+        assert_eq!(
+            relations,
+            vec![RelationBacklink {
+                source: Uuid::from_u128(5),
+                property: "related".to_owned(),
+            }]
+        );
+        assert_eq!(mentions.len(), 1);
+        assert_eq!(mentions[0].source, Uuid::from_u128(5));
+        assert_eq!(mentions[0].count, 1, "code and inline code do not count");
+        assert!(mentions[0].snippet.contains("Monstera"), "{mentions:?}");
+
+        // A rename changes resolution without touching the linking body.
+        let mut renamed = monstera.clone();
+        renamed.title = "Monstera deliciosa".to_owned();
+        let stamp = index.fingerprint(&monstera_path).expect("fingerprint");
+        space
+            .store
+            .save_object(&monstera_path, &renamed, Some(stamp))
+            .expect("rename");
+        index
+            .reload_file(&space.store, &monstera_path)
+            .expect("reload rename");
+        assert_eq!(index.resolve_link("plant", "Monstera"), LinkStatus::Unknown);
+        assert_eq!(
+            index.outgoing_links(Uuid::from_u128(5))[0].status,
+            LinkStatus::Unknown
+        );
     }
 
     #[test]

@@ -1846,6 +1846,177 @@ mod tests {
     }
 
     #[test]
+    fn a_record_read_returns_links_and_both_kinds_of_backlink() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("links@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}", garden.space);
+
+            let related = server
+                .call(
+                    "POST",
+                    &format!("{base}/properties"),
+                    Some(json!({
+                        "name": "Related plant",
+                        "format": "relation",
+                        "target_type": "plant",
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(related.status, StatusCode::CREATED, "{:?}", related.body);
+            let related_key = related.body["key"].as_str().expect("a key").to_owned();
+
+            let chore_type = server
+                .call(
+                    "POST",
+                    &format!("{base}/types"),
+                    Some(json!({ "name": "Chore" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                chore_type.status,
+                StatusCode::CREATED,
+                "{:?}",
+                chore_type.body
+            );
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/types/chore"),
+                    Some(json!({ "properties": [{ "key": related_key }] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            for _ in 0..2 {
+                let twin = server
+                    .call(
+                        "POST",
+                        &format!("{base}/objects"),
+                        Some(json!({ "type": "plant", "title": "Twin" })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(twin.status, StatusCode::CREATED, "{:?}", twin.body);
+            }
+
+            let body = "Linked to [[plant/Monstera in the study]].\n\n\
+                        Unknown [[plant/Ghost fern]].\n\n\
+                        Ambiguous [[plant/Twin]].\n\n\
+                        ```\n[[plant/Monstera in the study]]\n```\n\n\
+                        Inline `[[plant/Monstera in the study]]`.";
+            let mut properties = serde_json::Map::new();
+            properties.insert(related_key.clone(), json!(garden.plant));
+            let chore = server
+                .call(
+                    "POST",
+                    &format!("{base}/objects"),
+                    Some(json!({
+                        "type": "chore",
+                        "title": "Read the notes",
+                        "properties": Value::Object(properties),
+                        "body": body,
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(chore.status, StatusCode::CREATED, "{:?}", chore.body);
+            let chore_id = chore.body["id"].as_str().expect("an id").to_owned();
+
+            let read = server
+                .call(
+                    "GET",
+                    &format!("{base}/objects/{chore_id}?with=links,backlinks"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(read.status, StatusCode::OK, "{:?}", read.body);
+            let links = read.body["links"].as_array().expect("links");
+            assert_eq!(links.len(), 3, "{links:?}");
+            let found = links
+                .iter()
+                .find(|row| row["title"] == "Monstera in the study")
+                .expect("the resolved link");
+            assert_eq!(found["status"], "ok");
+            assert_eq!(found["id"].as_str(), Some(garden.plant.as_str()));
+            assert_eq!(found["type"], "plant");
+            let unknown = links
+                .iter()
+                .find(|row| row["title"] == "Ghost fern")
+                .expect("the unknown link");
+            assert_eq!(unknown["status"], "unknown");
+            assert!(unknown.get("id").is_none(), "an unknown link has no id");
+            let ambiguous = links
+                .iter()
+                .find(|row| row["title"] == "Twin")
+                .expect("the ambiguous link");
+            assert_eq!(ambiguous["status"], "ambiguous");
+            assert!(ambiguous.get("id").is_none());
+
+            let plant = server
+                .call(
+                    "GET",
+                    &format!("{base}/objects/{}?with=backlinks", garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let backlinks = plant.body["backlinks"].as_array().expect("backlinks");
+            assert_eq!(backlinks.len(), 2, "{backlinks:?}");
+            let relation = backlinks
+                .iter()
+                .find(|row| row["kind"] == "relation")
+                .expect("the relation backlink");
+            assert_eq!(relation["id"], chore_id);
+            assert_eq!(relation["property"], related_key);
+            assert_eq!(relation["property_name"], "Related plant");
+            let mention = backlinks
+                .iter()
+                .find(|row| row["kind"] == "mention")
+                .expect("the mention backlink");
+            assert_eq!(mention["id"], chore_id);
+            assert_eq!(mention["count"], 1, "code and inline code do not count");
+            assert!(
+                mention["snippet"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("Monstera")),
+                "{:?}",
+                mention["snippet"]
+            );
+
+            let trashed = server
+                .call(
+                    "DELETE",
+                    &format!("{base}/objects/{chore_id}"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(trashed.status, StatusCode::OK, "{:?}", trashed.body);
+            let after = server
+                .call(
+                    "GET",
+                    &format!("{base}/objects/{}?with=backlinks", garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                after.body["backlinks"].as_array().map(Vec::len),
+                Some(0),
+                "a trashed source leaves both groups"
+            );
+        });
+    }
+
+    #[test]
     fn a_search_matches_a_title_and_a_write_needs_the_current_revision() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

@@ -17,10 +17,11 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use thing_core::index::SpaceIndex;
+use thing_core::links::LinkStatus;
 use thing_core::markdown;
 use thing_core::model::{
-    ObjectDoc, ObjectSummary, PropertyFormat, Revision, RevisionAction, Role, Snapshot, Sort,
-    TITLE_KEY, Value as CoreValue,
+    ObjectDoc, ObjectSummary, Revision, RevisionAction, Role, Snapshot, Sort, TITLE_KEY,
+    Value as CoreValue,
 };
 use thing_core::query;
 use thing_core::schedule::{self, DUE_DATE_KEY, RECURRENCE_KEY};
@@ -684,7 +685,7 @@ async fn detail(
     if let Some(with) = with.as_deref() {
         for name in with.split(',') {
             match name {
-                "history" | "backlinks" => wanted.push(name),
+                "history" | "backlinks" | "links" => wanted.push(name),
                 other => {
                     return Err(ApiError::validation(
                         "with",
@@ -700,6 +701,9 @@ async fn detail(
         .ok_or_else(|| ApiError::not_found(format!("object {id}")))?;
     if wanted.contains(&"history") {
         body["history"] = json!(history_json(&handle.store.read_revisions(id)?));
+    }
+    if wanted.contains(&"links") {
+        body["links"] = json!(links(&handle, id));
     }
     if wanted.contains(&"backlinks") {
         body["backlinks"] = json!(backlinks(&handle, id));
@@ -1231,41 +1235,103 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
     keys
 }
 
-/// Objects that point at this one through a relation.
-///
-/// Backlinks are the relation values that name this id; M5's index is a faster
-/// way to ask the same question, not a different answer.
-fn backlinks(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
+/// One record's distinct outgoing links, with their resolution.
+fn links(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
     handle.with_index(|index| {
-        let mut found = Vec::new();
-        for doc in index.objects() {
-            for (key, value) in &doc.properties {
-                if index.property_def(key).map(|def| def.format) != Some(PropertyFormat::Relation) {
-                    continue;
+        index
+            .outgoing_links(id)
+            .into_iter()
+            .map(|link| {
+                let mut row = json!({
+                    "raw": link.raw,
+                    "type": link.type_key,
+                    "title": link.title,
+                    "status": link_status(link.status),
+                });
+                if let LinkStatus::Found(target) = link.status {
+                    row["id"] = json!(target);
                 }
-                if !names(value, id) {
-                    continue;
-                }
-                found.push(json!({
-                    "id": doc.id,
-                    "type": doc.type_key,
-                    "title": doc.title,
-                    "property": key,
-                }));
-            }
-        }
-        found
+                row
+            })
+            .collect()
     })
 }
 
-/// Whether a relation value holds this target id.
-fn names(value: &CoreValue, target: Uuid) -> bool {
-    let target = target.to_string();
-    match value {
-        CoreValue::Text(id) => *id == target,
-        CoreValue::List(ids) => ids.contains(&target),
-        _ => false,
+fn link_status(status: LinkStatus) -> &'static str {
+    match status {
+        LinkStatus::Found(_) => "ok",
+        LinkStatus::Unknown => "unknown",
+        LinkStatus::Ambiguous(_) => "ambiguous",
     }
+}
+
+/// Records that point at this one, through a relation property or a body link.
+///
+/// A source can appear twice — once per fact — because a relation and a mention
+/// say different things. Rows are ordered by title so a panel is stable.
+fn backlinks(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
+    handle.with_index(|index| {
+        let (relations, mentions) = index.backlinks_of(id);
+        let mut rows = Vec::with_capacity(relations.len() + mentions.len());
+        for backlink in relations {
+            let Some(doc) = index.object(backlink.source) else {
+                continue;
+            };
+            let Some(def) = index.type_def(&doc.type_key) else {
+                continue;
+            };
+            let property_name = index
+                .property_def(&backlink.property)
+                .map_or_else(|| backlink.property.clone(), |def| def.name.clone());
+            let mut row = json!({
+                "kind": "relation",
+                "id": doc.id,
+                "type": doc.type_key,
+                "title": doc.title,
+                "property": backlink.property,
+                "property_name": property_name,
+            });
+            if let Some(icon) = &def.icon {
+                row["type_icon"] = json!(icon);
+            }
+            if let Some(icon) = &doc.icon {
+                row["icon"] = json!(icon);
+            }
+            rows.push(row);
+        }
+        for backlink in mentions {
+            let Some(doc) = index.object(backlink.source) else {
+                continue;
+            };
+            let Some(def) = index.type_def(&doc.type_key) else {
+                continue;
+            };
+            let mut row = json!({
+                "kind": "mention",
+                "id": doc.id,
+                "type": doc.type_key,
+                "title": doc.title,
+                "snippet": backlink.snippet,
+                "count": backlink.count,
+            });
+            if let Some(icon) = &def.icon {
+                row["type_icon"] = json!(icon);
+            }
+            if let Some(icon) = &doc.icon {
+                row["icon"] = json!(icon);
+            }
+            rows.push(row);
+        }
+        rows.sort_by(|left, right| {
+            let left_title = left["title"].as_str().unwrap_or_default().to_lowercase();
+            let right_title = right["title"].as_str().unwrap_or_default().to_lowercase();
+            left_title
+                .cmp(&right_title)
+                .then_with(|| left["kind"].as_str().cmp(&right["kind"].as_str()))
+                .then_with(|| left["id"].as_str().cmp(&right["id"].as_str()))
+        });
+        rows
+    })
 }
 
 /// The object's title and property map after a write.
@@ -1391,18 +1457,6 @@ mod tests {
             Some(CoreValue::List(vec!["easy".to_owned()]))
         );
         assert_eq!(values["gone"], None);
-    }
-
-    #[test]
-    fn a_relation_value_names_its_target() {
-        let target = Uuid::now_v7();
-        assert!(names(&CoreValue::Text(target.to_string()), target));
-        assert!(names(
-            &CoreValue::List(vec![target.to_string(), Uuid::now_v7().to_string()]),
-            target
-        ));
-        assert!(!names(&CoreValue::Text(Uuid::now_v7().to_string()), target));
-        assert!(!names(&CoreValue::List(Vec::new()), target));
     }
 
     #[test]
