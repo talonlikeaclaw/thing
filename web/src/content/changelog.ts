@@ -29,6 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "On a wide screen a live preview sits beside the text and updates as you type.",
     ],
     details: [
+      "See which records point at the one you are reading, through a relation or a sentence that names it.",
       "The preview renders the same markdown the saved record shows.",
       "Type [[ and pick from up to twenty matching records, scrolling the list without the menu closing.",
       "A slash inside a code block, mid-sentence or inside a path stays text, so a date is never a command.",

@@ -483,6 +483,15 @@ space, type and record icons, never as interface iconography.
 - **Editing changes text, never HTML.** Every toolbar action, shortcut and command edits the
   textarea's value and selection through one pure helper; nothing between the writer and the file
   stores rendered markup.
+- **Sections:** Properties, Body, Links, History, Trash, in that order, each separated by a
+  hairline. Links sits directly below the body so both ways of pointing at a record read as one
+  surface.
+- **Links:** the heading carries a mono count of every row. `Linked from` lists relations — type
+  glyph, the source title at 15px, then `Type · via Property` at 12px muted — and `Mentioned in`
+  lists body mentions — title, type name, a two-line snippet at 13px muted and a mono `×N` when a
+  source links more than once. Each group renders only when it has a row, and the whole row is the
+  navigation target: 44px on a coarse pointer, no per-row action, so left-handed mode does not
+  mirror it. An empty panel is one muted sentence naming the two ways to make a link.
 
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a

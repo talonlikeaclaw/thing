@@ -4,6 +4,7 @@ import { useObject, useProperties, useSpace, useType } from "@/api/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
 import { HistoryPanel } from "@/components/history-panel";
+import { LinksPanel } from "@/components/links-panel";
 import { ObjectPanel } from "@/components/object-panel";
 import { shortId } from "@/lib/display";
 import { effectiveProperties } from "@/lib/schema";
@@ -70,6 +71,7 @@ export function ObjectPage() {
         timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
       />
+      <LinksPanel spaceId={detail.id} backlinks={record.backlinks} />
       <HistoryPanel
         spaceId={detail.id}
         objectId={record.id}
