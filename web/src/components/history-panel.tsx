@@ -1,3 +1,4 @@
+import { History } from "lucide-react";
 import { useState } from "react";
 
 import { useHistory } from "@/api/queries";
@@ -59,7 +60,8 @@ export function HistoryPanel({
   return (
     <section aria-labelledby="history-heading" className="mt-10 border-t rule pt-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="history-heading" className="label">
+        <h2 id="history-heading" className="label flex items-center gap-1.5">
+          <History aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
           History
         </h2>
         <span className="label tnum">

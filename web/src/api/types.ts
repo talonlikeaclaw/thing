@@ -344,6 +344,28 @@ export interface MentionBacklink {
 
 export type Backlink = RelationBacklink | MentionBacklink;
 
+/** One record in the whole-space graph. */
+export interface SpaceGraphNode {
+  id: Uuid;
+  type: string;
+  title: string;
+  icon?: string;
+}
+
+/** One resolved connection; a relation and a body link share a pair. */
+export interface SpaceGraphEdge {
+  source: Uuid;
+  target: Uuid;
+  kind: "relation" | "mention";
+  mention: boolean;
+}
+
+/** Every live record and every resolved connection in one space. */
+export interface SpaceGraph {
+  nodes: SpaceGraphNode[];
+  edges: SpaceGraphEdge[];
+}
+
 /** One row of the Schedule page; the server owns its bucket. */
 export interface AgendaRow {
   id: Uuid;

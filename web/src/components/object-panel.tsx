@@ -1,5 +1,13 @@
 import { Popover } from "@base-ui/react/popover";
-import { ChevronRight, Copy, MoreHorizontal, Pencil, Undo2 } from "lucide-react";
+import {
+  AlignLeft,
+  ChevronRight,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  SlidersHorizontal,
+  Undo2,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -869,7 +877,10 @@ export function ObjectPanel({
         className="mt-6 m-0 min-w-0 border-0 p-0"
       >
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="label">Properties</h2>
+          <h2 className="label flex items-center gap-1.5">
+            <SlidersHorizontal aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
+            Properties
+          </h2>
           <span className="label tnum">{keys.length}</span>
         </div>
         <div className="mt-1 border-t rule">
@@ -886,6 +897,7 @@ export function ObjectPanel({
       <section aria-label="Body" className="mt-10">
         <div className="flex items-center justify-between gap-3">
           <h2 className="label flex items-center gap-1.5">
+            <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
             <span
               aria-label="Unsaved change"
               title="Unsaved change"

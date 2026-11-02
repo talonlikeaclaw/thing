@@ -30,6 +30,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     details: [
       "See which records point at the one you are reading, through a relation or a sentence that names it.",
+      "A small map places the record in the middle of everything that points at or from it.",
+      "Switch the map to the whole space and see the record you are reading at the centre, with the busiest records nearest it.",
+      "The map stays folded behind a full-width Graph row until you open it.",
+      "Section headers on a record carry a small icon, so the properties, body, links and history are easier to find by shape.",
+      "Drag the map to pan and scroll to zoom; it resets to the whole neighbourhood with one control.",
+      "Drag any record on the map to rearrange it, with its connections following; the arrangement resets when you change record or scope.",
       "The preview renders the same markdown the saved record shows.",
       "Type [[ and pick from up to twenty matching records, scrolling the list without the menu closing.",
       "A slash inside a code block, mid-sentence or inside a path stays text, so a date is never a command.",

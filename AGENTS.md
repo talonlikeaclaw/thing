@@ -30,7 +30,7 @@ membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and its
 APIs: `routes/types` (types and schedule vocabulary), `routes/views` (named views: create, patch,
 delete, default), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
-filter/sort/search/view selection, raw, history, trash, restore, purge, backlinks, Complete, snooze
+filter/sort/search/view selection, raw, history, trash, restore, purge, backlinks, the space graph, Complete, snooze
 and the agenda's window, range and type parameters) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
 builds the Garden demo space against a running server, with relative due dates in
 `America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is

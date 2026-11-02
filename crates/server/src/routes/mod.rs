@@ -1991,6 +1991,21 @@ mod tests {
                 mention["snippet"]
             );
 
+            let graph = server
+                .call("GET", &format!("{base}/graph"), None, Some(&cookie))
+                .await;
+            assert_eq!(graph.status, StatusCode::OK, "{:?}", graph.body);
+            let graph_nodes = graph.body["nodes"].as_array().expect("graph nodes");
+            assert!(graph_nodes.iter().any(|node| node["id"] == chore_id));
+            let edge = graph.body["edges"]
+                .as_array()
+                .expect("graph edges")
+                .iter()
+                .find(|edge| edge["source"] == chore_id && edge["target"] == garden.plant)
+                .expect("the relation and mention share one edge");
+            assert_eq!(edge["kind"], "relation");
+            assert_eq!(edge["mention"], true, "the body link is not lost");
+
             let trashed = server
                 .call(
                     "DELETE",

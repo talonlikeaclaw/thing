@@ -1,14 +1,21 @@
+import { Link2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 
 import { useTypes } from "@/api/queries";
-import type { Backlink, MentionBacklink, RelationBacklink } from "@/api/types";
+import type {
+  Backlink,
+  MentionBacklink,
+  ObjectDetail,
+  RelationBacklink,
+} from "@/api/types";
+import { GraphSection } from "@/components/graph-section";
 import { ThingIcon } from "@/components/thing-icon";
 
 interface LinksPanelProps {
   spaceId: string;
-  /** Records that point here, through a relation property or a body link. */
-  backlinks: Backlink[] | undefined;
+  /** The record as the read returned it, including its `with=links,backlinks` rows. */
+  object: ObjectDetail;
 }
 
 /** The type's display name, falling back to its key until the list is read. */
@@ -85,9 +92,9 @@ function MentionRow({
  * Both kinds are one per source fact, so a record can hold two rows for one
  * source when a relation and a mention both exist.
  */
-export function LinksPanel({ spaceId, backlinks }: LinksPanelProps) {
+export function LinksPanel({ spaceId, object }: LinksPanelProps) {
   const types = useTypes(spaceId);
-  const rows = backlinks ?? [];
+  const rows = object.backlinks ?? [];
   const relations = rows.filter((row): row is RelationBacklink => row.kind === "relation");
   const mentions = rows.filter((row): row is MentionBacklink => row.kind === "mention");
   const names = new Map((types.data ?? []).map((type) => [type.key, type.name]));
@@ -95,7 +102,8 @@ export function LinksPanel({ spaceId, backlinks }: LinksPanelProps) {
   return (
     <section aria-labelledby="links-heading" className="mt-10 border-t rule pt-4">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="links-heading" className="label">
+        <h2 id="links-heading" className="label flex items-center gap-1.5">
+          <Link2 aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
           Links
         </h2>
         {rows.length > 0 ? (
@@ -109,7 +117,7 @@ export function LinksPanel({ spaceId, backlinks }: LinksPanelProps) {
           <span className="font-mono text-[12px] text-ink">[[Type/Title]]</span> in a body.
         </p>
       ) : (
-        <div className="mt-3 grid gap-6">
+        <div id="links-rows" className="mt-3 grid gap-6">
           {relations.length > 0 ? (
             <div>
               <h3 className="label">Linked from</h3>
@@ -135,6 +143,18 @@ export function LinksPanel({ spaceId, backlinks }: LinksPanelProps) {
               </ul>
             </div>
           ) : null}
+          <GraphSection
+            spaceId={spaceId}
+            center={{
+              id: object.id,
+              title: object.title,
+              type: object.type,
+              ...(object.icon === undefined ? {} : { icon: object.icon }),
+            }}
+            links={object.links}
+            backlinks={object.backlinks}
+            typeNames={names}
+          />
         </div>
       )}
     </section>

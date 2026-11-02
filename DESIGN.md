@@ -485,13 +485,42 @@ space, type and record icons, never as interface iconography.
   stores rendered markup.
 - **Sections:** Properties, Body, Links, History, Trash, in that order, each separated by a
   hairline. Links sits directly below the body so both ways of pointing at a record read as one
-  surface.
+  surface. Every section header starts with one 13px muted line icon — sliders for properties,
+  lines for the body, a chain for links, a network for the graph row and a clock for history — so a
+  long record can be scanned by shape; the icon is `aria-hidden` and never replaces the label.
 - **Links:** the heading carries a mono count of every row. `Linked from` lists relations — type
   glyph, the source title at 15px, then `Type · via Property` at 12px muted — and `Mentioned in`
   lists body mentions — title, type name, a two-line snippet at 13px muted and a mono `×N` when a
   source links more than once. Each group renders only when it has a row, and the whole row is the
   navigation target: 44px on a coarse pointer, no per-row action, so left-handed mode does not
   mirror it. An empty panel is one muted sentence naming the two ways to make a link.
+- **Graph bar:** a full-width `Graph` row, closed by default at every width, above a drawing placed
+  below the panel's rows and centred in the column at no more than 44rem. The row is 44px, folds
+  into `Hide graph`, keeps its title at the left and its chevron at the right in both handedness
+  modes; the whole row is the target, not a small word.
+- **Graph:** the opened body carries a `Local` / `Space` scope switch, aligned to the thumb edge.
+  The viewBox matches its drawn width — 640×320 local, 640×420 for the space, 390 wide on a phone —
+  so its 12px labels never shrink.
+- **Local graph:** the current record is an accent-ringed dot at the centre with its title below;
+  neighbours sit on rings — one ring up to twelve nodes, a wider second ring past that — with 5px
+  dots and 12px labels beside them. When the second ring opens only the outer ring carries labels;
+  the inner names stay in the tooltip and the rows above, so dense drawings never overlap their own
+  text.
+- **Space graph:** the current record stays at the centre and every other live record takes a place
+  on the rings by connectivity — degree first, then title, then id — with each further ring wider
+  and holding more. Records with no edge still appear, so the map is the whole space. Up to ten
+  records show labels; past that only the current record and the hovered or focused one do, with
+  the rest in tooltips and the rows.
+- **Graph edges:** `rule` hairlines, solid for a relation and dashed for a mention. Every neighbour
+  is a link with an accent focus ring; the centre is `aria-current` and not a link. Dragging the
+  canvas pans, dragging a node moves just that node with its edges following, the wheel zooms
+  around the pointer between 0.6× and 2.6×, and `+` / `−` / reset controls do the same without a
+  wheel; a drag never opens the record under the finger, and hovering or focusing a node lights its
+  edge. Node offsets are view-only and reset when the record or scope changes, so a saved record is
+  never rewritten. The legend and the pan/zoom hint sit on their own line above
+  the zoom controls; the controls alone follow the thumb edge — right by default, left in
+  Left-handed mode — so the legend reads the same in both modes. The drawing itself never mirrors.
+  On a phone the open graph keeps vertical page scrolling, and the rows remain the primary path.
 
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a

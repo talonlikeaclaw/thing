@@ -71,7 +71,7 @@ export function ObjectPage() {
         timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
       />
-      <LinksPanel spaceId={detail.id} backlinks={record.backlinks} />
+      <LinksPanel spaceId={detail.id} object={record} />
       <HistoryPanel
         spaceId={detail.id}
         objectId={record.id}

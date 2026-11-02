@@ -28,6 +28,25 @@ pub struct UnparseableFile {
     pub message: String,
 }
 
+/// One live record as the space graph names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GraphNode {
+    pub id: Uuid,
+    pub type_key: String,
+    pub title: String,
+    pub icon: Option<String>,
+}
+
+/// One edge of the space graph. A relation and a body link between the same
+/// pair are one edge with both flags, because they are one connection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GraphEdge {
+    pub source: Uuid,
+    pub target: Uuid,
+    pub relation: bool,
+    pub mention: bool,
+}
+
 /// A relation value whose target is not in the space.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DanglingRelation {
@@ -369,6 +388,72 @@ impl SpaceIndex {
         (relations, mentions)
     }
 
+    /// Every live record and every resolved connection between two of them.
+    ///
+    /// A relation property and a body link are the two facts; a pair that has
+    /// both stays one edge with both flags. Nodes and edges are sorted, so a
+    /// drawing never depends on the order the files were read.
+    pub fn graph(&self) -> (Vec<GraphNode>, Vec<GraphEdge>) {
+        let nodes: Vec<GraphNode> = self
+            .objects
+            .values()
+            .map(|doc| GraphNode {
+                id: doc.id,
+                type_key: doc.type_key.clone(),
+                title: doc.title.clone(),
+                icon: doc.icon.clone(),
+            })
+            .collect();
+
+        let mut edges: BTreeMap<(Uuid, Uuid), GraphEdge> = BTreeMap::new();
+        for doc in self.objects.values() {
+            let mut targets: BTreeSet<Uuid> = BTreeSet::new();
+            for (property, value) in &doc.properties {
+                if self.property_def(property).map(|def| def.format)
+                    != Some(PropertyFormat::Relation)
+                {
+                    continue;
+                }
+                for target in relation_targets(value) {
+                    targets.insert(target);
+                }
+            }
+            for target in targets {
+                if self.objects.contains_key(&target) {
+                    edges.entry((doc.id, target)).or_insert(GraphEdge {
+                        source: doc.id,
+                        target,
+                        relation: true,
+                        mention: false,
+                    });
+                }
+            }
+
+            let mut targets: BTreeSet<Uuid> = BTreeSet::new();
+            for link in self.outgoing_links(doc.id) {
+                if let LinkStatus::Found(target) = link.status {
+                    targets.insert(target);
+                }
+            }
+            for target in targets {
+                if target == doc.id || !self.objects.contains_key(&target) {
+                    continue;
+                }
+                edges
+                    .entry((doc.id, target))
+                    .and_modify(|edge| edge.mention = true)
+                    .or_insert(GraphEdge {
+                        source: doc.id,
+                        target,
+                        relation: false,
+                        mention: true,
+                    });
+            }
+        }
+
+        (nodes, edges.into_values().collect())
+    }
+
     /// Records this title for link resolution; the caller inserted a live doc.
     fn remember_title(&mut self, doc: &ObjectDoc) {
         self.titles
@@ -627,6 +712,17 @@ fn fold_title(title: &str) -> String {
 }
 
 /// Whether a relation value names `target`.
+fn relation_targets(value: &Value) -> Vec<Uuid> {
+    match value {
+        Value::Text(id) => Uuid::parse_str(id).ok().into_iter().collect(),
+        Value::List(ids) => ids
+            .iter()
+            .filter_map(|id| Uuid::parse_str(id).ok())
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn names(value: &Value, target: Uuid) -> bool {
     let target = target.to_string();
     match value {
@@ -1280,6 +1376,26 @@ mod tests {
         assert_eq!(mentions[0].source, Uuid::from_u128(5));
         assert_eq!(mentions[0].count, 1, "code and inline code do not count");
         assert!(mentions[0].snippet.contains("Monstera"), "{mentions:?}");
+
+        let (nodes, edges) = index.graph();
+        assert_eq!(nodes.len(), 4, "{nodes:?}");
+        assert_eq!(
+            nodes
+                .iter()
+                .map(|node| node.title.clone())
+                .collect::<Vec<_>>(),
+            vec!["Monstera", "Twin", "Twin", "Water the monstera"]
+        );
+        assert_eq!(
+            edges,
+            vec![GraphEdge {
+                source: Uuid::from_u128(5),
+                target: Uuid::from_u128(2),
+                relation: true,
+                mention: true,
+            }],
+            "one pair, both facts, and no ambiguous edge"
+        );
 
         // A rename changes resolution without touching the linking body.
         let mut renamed = monstera.clone();

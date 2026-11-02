@@ -73,6 +73,7 @@ pub fn routes() -> Router<SharedState> {
             "/api/spaces/{space}/objects/{object}/history/{rev}",
             get(history_at),
         )
+        .route("/api/spaces/{space}/graph", get(graph))
         .route("/api/spaces/{space}/agenda", get(agenda))
         .route("/api/spaces/{space}/trash", get(trash))
         .route("/api/spaces/{space}/trash/{object}", delete(purge))
@@ -709,6 +710,47 @@ async fn detail(
         body["backlinks"] = json!(backlinks(&handle, id));
     }
     Ok(Json(body))
+}
+
+/// `GET /api/spaces/{space}/graph` [viewer]
+///
+/// Every live record and every resolved connection, in one read: the local
+/// panel already has its own edges, but a whole-space drawing cannot ask one
+/// record at a time.
+async fn graph(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path(space): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Viewer)?;
+    let (nodes, edges) = handle.with_index(|index| index.graph());
+    let nodes: Vec<Value> = nodes
+        .into_iter()
+        .map(|node| {
+            let mut row = json!({
+                "id": node.id,
+                "type": node.type_key,
+                "title": node.title,
+            });
+            if let Some(icon) = node.icon {
+                row["icon"] = json!(icon);
+            }
+            row
+        })
+        .collect();
+    let edges: Vec<Value> = edges
+        .into_iter()
+        .map(|edge| {
+            json!({
+                "source": edge.source,
+                "target": edge.target,
+                "kind": if edge.relation { "relation" } else { "mention" },
+                "mention": edge.mention,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "nodes": nodes, "edges": edges })))
 }
 
 /// `DELETE /api/spaces/{space}/objects/{object}` [editor]

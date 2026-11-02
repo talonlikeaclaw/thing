@@ -21,6 +21,7 @@ import type {
   Role,
   SearchResponse,
   SpaceDetail,
+  SpaceGraph,
   SpaceSummary,
   Session,
   TrashItem,
@@ -50,6 +51,7 @@ export const queryKeys = {
   trash: (id: string) => ["space", id, "trash"] as const,
   invites: (id: string) => ["space", id, "invites"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
+  graph: (id: string) => ["space", id, "graph"] as const,
   search: (id: string, query: string, limit?: number) =>
     ["space", id, "search", query, limit ?? null] as const,
 };
@@ -252,6 +254,15 @@ export function useTypes(spaceId: string | undefined) {
     queryKey: queryKeys.types(spaceId ?? ""),
     queryFn: () => request<TypeSummary[]>(`/api/spaces/${spaceId}/types`),
     enabled: Boolean(spaceId),
+  });
+}
+
+/** The whole space's records and edges; only the space graph asks for it. */
+export function useSpaceGraph(spaceId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.graph(spaceId ?? ""),
+    queryFn: () => request<SpaceGraph>(`/api/spaces/${spaceId}/graph`),
+    enabled: Boolean(spaceId && enabled),
   });
 }
 
