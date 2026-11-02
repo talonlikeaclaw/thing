@@ -22,6 +22,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     upcoming: true,
     highlights: [
       "Search every record's title and text from the command palette, and see the sentence the match came from.",
+      "Type [[Type/Title]] in a body to link another record; a link that no longer matches is marked instead of vanishing.",
     ],
   },
   {

@@ -441,6 +441,10 @@ space, type and record icons, never as interface iconography.
   multi-valued picking keeps it open with `Done`. `Escape` closes the picker, never the record. A
   missing target shows its short id on the chip and the existing warning row with `Remove` once the
   list is read.
+- **Body links:** a resolved `[[Type/Title]]` renders as its title with the accent underline and
+  opens the record in place. A link with no unique target uses a dotted warning underline and a
+  `title` naming the reason; it never navigates. Syntax inside a fenced block or inline code stays
+  literal, and a valid link typed but not yet saved reads as its title until the save resolves it.
 - **Keyboard:** the markdown body and the sticky save bar measure against the visual viewport, so the
   bar sits above the on-screen keyboard rather than behind it.
 

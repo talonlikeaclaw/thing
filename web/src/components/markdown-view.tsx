@@ -1,11 +1,31 @@
+import { useMemo } from "react";
 import Markdown from "react-markdown";
+import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
+
+import type { ObjectLink } from "@/api/types";
+import { wikiLinks } from "@/lib/wiki-links";
+
+interface MarkdownViewProps {
+  text: string;
+  /** The record's resolved links; absent in history, where syntax stays text. */
+  links?: ObjectLink[];
+  /** The space an internal link opens in. */
+  spaceId?: string;
+}
 
 /**
  * The body as prose: GFM via `remark-gfm`, every element mapped to the field
  * guide's type scale. Read mode never edits; the textarea owns writing.
  */
-export function MarkdownView({ text }: { text: string }) {
+export function MarkdownView({ text, links, spaceId }: MarkdownViewProps) {
+  const plugins = useMemo(() => {
+    if (!links || !spaceId) {
+      return [];
+    }
+    return [wikiLinks(new Map(links.map((link) => [link.raw, link])), spaceId)];
+  }, [links, spaceId]);
+
   if (text.trim() === "") {
     return (
       <p className="py-10 text-[13px] text-faint">
@@ -17,7 +37,7 @@ export function MarkdownView({ text }: { text: string }) {
   return (
     <div className="max-w-[68ch] py-2 text-[15px] leading-[1.65]">
       <Markdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, ...plugins]}
         components={{
           h1: ({ children }) => (
             <h1 className="mt-6 mb-2 text-[24px] font-medium tracking-[-0.02em] first:mt-0">
@@ -34,16 +54,38 @@ export function MarkdownView({ text }: { text: string }) {
           ul: ({ children }) => <ul className="my-2.5 list-disc pl-5">{children}</ul>,
           ol: ({ children }) => <ol className="my-2.5 list-decimal pl-5">{children}</ol>,
           li: ({ children }) => <li className="my-1 pl-0.5">{children}</li>,
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-accent underline decoration-line-strong hover:decoration-accent"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href, title }) => {
+            if (href === "#broken") {
+              return (
+                <span
+                  title={title}
+                  className="cursor-help underline decoration-warning decoration-dotted underline-offset-2"
+                >
+                  {children}
+                </span>
+              );
+            }
+            if (href?.startsWith("/s/")) {
+              return (
+                <Link
+                  to={href}
+                  className="text-accent underline decoration-line-strong hover:decoration-accent"
+                >
+                  {children}
+                </Link>
+              );
+            }
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent underline decoration-line-strong hover:decoration-accent"
+              >
+                {children}
+              </a>
+            );
+          },
           strong: ({ children }) => <strong className="font-medium text-ink">{children}</strong>,
           em: ({ children }) => <em className="italic">{children}</em>,
           blockquote: ({ children }) => (

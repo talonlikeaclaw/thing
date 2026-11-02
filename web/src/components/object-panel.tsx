@@ -940,7 +940,7 @@ export function ObjectPanel({
           />
         ) : (
           <div className="mt-2 min-h-[22rem] rounded-field border border-line px-3">
-            <MarkdownView text={draft.body} />
+            <MarkdownView text={draft.body} links={object.links} spaceId={spaceId} />
           </div>
         )}
       </section>
