@@ -96,6 +96,36 @@ function parseInner(inner: string): ParsedInner | null {
   return { raw, title };
 }
 
+/** A `[[type/title` fragment that names a live type and a new record title. */
+export interface CreateSuggestion {
+  typeKey: string;
+  title: string;
+}
+
+/**
+ * Parses a completion fragment into a record the writer could create.
+ *
+ * The type key must be live; a bare title, an unknown type, an empty title or
+ * a fragment without a slash returns `null`, because guessing a schema is a
+ * silent decision. Whether the title already resolves is the caller's check.
+ */
+export function createSuggestion(
+  partial: string,
+  typeKeys: ReadonlySet<string>,
+): CreateSuggestion | null {
+  const raw = partial.trim();
+  const slash = raw.indexOf("/");
+  if (slash <= 0) {
+    return null;
+  }
+  const typeKey = raw.slice(0, slash).trim();
+  const title = raw.slice(slash + 1).trim();
+  if (!TYPE_KEY.test(typeKey) || title === "" || !typeKeys.has(typeKey)) {
+    return null;
+  }
+  return { typeKey, title };
+}
+
 function isEscaped(text: string, at: number): boolean {
   let backslashes = 0;
   for (let index = at - 1; index >= 0 && text[index] === "\\"; index -= 1) {

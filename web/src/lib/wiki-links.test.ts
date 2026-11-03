@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ObjectLink } from "@/api/types";
-import { splitWikiText, wikiLinks, type WikiNode } from "@/lib/wiki-links";
+import { createSuggestion, splitWikiText, wikiLinks, type WikiNode } from "@/lib/wiki-links";
 
 const space = "space-1";
 const monstera: ObjectLink = {
@@ -15,6 +15,35 @@ const monstera: ObjectLink = {
 function byRaw(...links: ObjectLink[]): ReadonlyMap<string, ObjectLink> {
   return new Map(links.map((link) => [link.raw, link]));
 }
+
+describe("createSuggestion", () => {
+  const types = new Set(["plant", "chore"]);
+
+  it("splits a live type from the new title", () => {
+    expect(createSuggestion("plant/New fern", types)).toEqual({
+      typeKey: "plant",
+      title: "New fern",
+    });
+    expect(createSuggestion("  chore/ Water pots  ", types)).toEqual({
+      typeKey: "chore",
+      title: "Water pots",
+    });
+  });
+
+  it("keeps a slash that belongs to the title", () => {
+    expect(createSuggestion("plant/Fern / moss", types)).toEqual({
+      typeKey: "plant",
+      title: "Fern / moss",
+    });
+  });
+
+  it("refuses a bare title, an unknown type or an empty title", () => {
+    expect(createSuggestion("New fern", types)).toBeNull();
+    expect(createSuggestion("nope/New fern", types)).toBeNull();
+    expect(createSuggestion("plant/", types)).toBeNull();
+    expect(createSuggestion("Plant/New fern", types)).toBeNull();
+  });
+});
 
 describe("splitWikiText", () => {
   it("turns a resolved link into an in-app href", () => {

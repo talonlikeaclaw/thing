@@ -1,3 +1,4 @@
+import { Popover } from "@base-ui/react/popover";
 import {
   Bold,
   Brackets,
@@ -19,10 +20,12 @@ import {
   type ReactNode,
 } from "react";
 
-import { useSearch } from "@/api/queries";
+import { useCreateObject, useSearch, useTypes } from "@/api/queries";
+import { useHandedness } from "@/components/handedness";
 import { caretRect } from "@/lib/caret";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
+import { readError } from "@/lib/display";
 import {
   applySlashCommand,
   continueList,
@@ -30,6 +33,7 @@ import {
   insertLink,
   insertWikiLink,
   matchSlash,
+  pasteLink,
   slashTrigger,
   toggleLinePrefix,
   toggleNumberedList,
@@ -39,6 +43,7 @@ import {
   type SlashCommand,
 } from "@/lib/markdown-edit";
 import { metricsFor, subscribeVisualViewport } from "@/lib/viewport";
+import { createSuggestion } from "@/lib/wiki-links";
 
 type BodyMode = "write" | "preview";
 
@@ -68,6 +73,20 @@ interface WikiRow {
   title: string;
   type_name: string;
 }
+
+/** The trailing row that creates the typed title in its named type. */
+interface CreateRow {
+  create: true;
+  typeKey: string;
+  title: string;
+  type_name: string;
+}
+
+type MenuRow = SlashCommand | WikiRow | CreateRow;
+
+const TOOL =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 max-sm:h-11 max-sm:w-11 pointer-coarse:h-11 pointer-coarse:w-11";
+const HEADING_LEVELS = [1, 2, 3] as const;
 
 const WIKI_LIMIT = 20;
 const MENU_WIDTH = 288;
@@ -116,6 +135,7 @@ export function MarkdownEditor({
     maxHeight: number;
   } | null>(null);
   const [applyToken, setApplyToken] = useState(0);
+  const [createError, setCreateError] = useState<string | null>(null);
   const field = useRef<HTMLTextAreaElement | null>(null);
   const shell = useRef<HTMLDivElement | null>(null);
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
@@ -124,21 +144,48 @@ export function MarkdownEditor({
   const rowCount = useRef(0);
   /** A tap on Write, not a server reset, is what raises the field and keyboard. */
   const requestFocus = useRef(false);
+  /** A tap on the preview asks for Write with the caret at the end. */
+  const caretToEnd = useRef(false);
   /** The first write on this draft appends; later ones keep the caret where it was. */
   const enteredWrite = useRef(false);
   const listId = useId();
   menuRef.current = menu;
 
+  const create = useCreateObject(spaceId);
+  const types = useTypes(spaceId);
+  const typeByKey = new Map((types.data ?? []).map((type) => [type.key, type]));
   const wikiQuery = menu?.mode === "wiki" ? menu.query : "";
-  const settled = useDebouncedValue(wikiQuery, 150);
+  const suggestion =
+    menu?.mode === "wiki" ? createSuggestion(menu.query, new Set(typeByKey.keys())) : null;
+  const settled = useDebouncedValue(suggestion?.title ?? wikiQuery, 150);
   const search = useSearch(spaceId, settled, WIKI_LIMIT);
-  // An empty partial has nothing to search; the previous query's rows may still
-  // sit in the query cache, so they are never shown as if they matched it.
+  // A link is always qualified by its type, so results from other types are
+  // noise once the writer has typed one.
   const wikiRows: WikiRow[] =
-    menu?.mode === "wiki" && settled.trim() !== "" ? (search.data?.results ?? []) : [];
+    menu?.mode === "wiki" && settled.trim() !== ""
+      ? (search.data?.results ?? []).filter((row) =>
+          suggestion ? row.type === suggestion.typeKey : true,
+        )
+      : [];
+  const exactMatch =
+    suggestion !== null &&
+    wikiRows.some(
+      (row) =>
+        row.type === suggestion.typeKey &&
+        row.title.trim().toLowerCase() === suggestion.title.toLowerCase(),
+    );
+  const createRow: CreateRow | null =
+    suggestion !== null && settled === suggestion.title && !exactMatch
+      ? {
+          create: true,
+          typeKey: suggestion.typeKey,
+          title: suggestion.title,
+          type_name: typeByKey.get(suggestion.typeKey)?.name ?? suggestion.typeKey,
+        }
+      : null;
   const slashRows = menu?.mode === "slash" ? matchSlash(menu.query) : [];
-  const rows: readonly (SlashCommand | WikiRow)[] =
-    menu?.mode === "wiki" ? wikiRows : slashRows;
+  const rows: readonly MenuRow[] =
+    menu?.mode === "wiki" ? [...wikiRows, ...(createRow ? [createRow] : [])] : slashRows;
   const highlighted = rows.length === 0 ? -1 : Math.min(active, rows.length - 1);
   rowCount.current = rows.length;
 
@@ -196,7 +243,8 @@ export function MarkdownEditor({
     const firstWrite = !enteredWrite.current;
     enteredWrite.current = true;
     textarea.focus({ preventScroll: true });
-    if (firstWrite) {
+    if (firstWrite || caretToEnd.current) {
+      caretToEnd.current = false;
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
     revealEditor();
@@ -207,6 +255,7 @@ export function MarkdownEditor({
       return;
     }
     setMenu(null);
+    setCreateError(null);
     if (next === "write") {
       requestFocus.current = true;
     }
@@ -433,8 +482,49 @@ export function MarkdownEditor({
   function onInput(event: React.ChangeEvent<HTMLTextAreaElement>) {
     const next = event.target.value;
     onChange(next);
+    setCreateError(null);
     setMenu(detect(next, event.target.selectionStart ?? next.length));
     setActive(0);
+  }
+
+  /** One URL pasted over a selection becomes a markdown link; anything else is a normal paste. */
+  function onPaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    if (disabled) {
+      return;
+    }
+    const textarea = event.currentTarget;
+    const edit = pasteLink(
+      value,
+      textarea.selectionStart,
+      textarea.selectionEnd,
+      event.clipboardData.getData("text/plain"),
+    );
+    if (!edit) {
+      return;
+    }
+    event.preventDefault();
+    apply(edit);
+  }
+
+  /** A tap on prose opens the writer; an interactive child keeps its own job. */
+  function editFromPreview(event: React.MouseEvent<HTMLDivElement>) {
+    if (disabled || mode !== "preview") {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    if (target.closest("a, button, input, textarea, select, summary, [role='button']")) {
+      return;
+    }
+    // A click that ends a text selection is a copy gesture, not an edit.
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      return;
+    }
+    caretToEnd.current = true;
+    changeMode("write");
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -537,8 +627,28 @@ export function MarkdownEditor({
       }
       return;
     }
+    if (row && "create" in row) {
+      if (create.isPending) {
+        return;
+      }
+      setCreateError(null);
+      const { end } = selectionRange();
+      create.mutate(
+        { type: row.typeKey, title: row.title },
+        {
+          onSuccess: () => {
+            setMenu(null);
+            apply(insertWikiLink(value, open.start, end, `${row.typeKey}/${row.title}`));
+          },
+          onError: (error) => {
+            setCreateError(readError(error));
+          },
+        },
+      );
+      return;
+    }
     setMenu(null);
-    if (!row || !("type" in row)) {
+    if (!row || "effect" in row || "create" in row) {
       return;
     }
     const { end } = selectionRange();
@@ -557,7 +667,6 @@ export function MarkdownEditor({
     { label: "Bold", icon: Bold, run: () => wrapSelection(value, ...range(), "**", "bold") },
     { label: "Italic", icon: Italic, run: () => wrapSelection(value, ...range(), "*", "italic") },
     { label: "Inline code", icon: Code, run: () => wrapSelection(value, ...range(), "`", "code") },
-    { label: "Heading", icon: Heading2, run: () => toggleLinePrefix(value, ...range(), "## ") },
     { label: "Bulleted list", icon: List, run: () => toggleLinePrefix(value, ...range(), "- ") },
     { label: "Numbered list", icon: ListOrdered, run: () => toggleNumberedList(value, ...range()) },
     { label: "Quote", icon: Quote, run: () => toggleLinePrefix(value, ...range(), "> ") },
@@ -581,35 +690,45 @@ export function MarkdownEditor({
         className="flex flex-wrap items-center gap-x-0.5 gap-y-1 sm:flex-nowrap sm:gap-2"
       >
         {mode === "write" ? (
-          <>
-            {tools.map((tool) => (
-              <button
-                key={tool.label}
-                type="button"
-                aria-label={tool.label}
-                title={tool.label}
+          <div className="grid w-full grid-cols-4 justify-items-center gap-1 sm:contents">
+              <HeadingMenu
                 disabled={disabled}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => runTool(tool.run)}
-              >
-                <tool.icon aria-hidden className="h-4 w-4" />
-              </button>
-            ))}
+                onPick={(level) =>
+                  apply(toggleLinePrefix(value, ...range(), `${"#".repeat(level)} `))
+                }
+              />
+              {tools.map((tool) => (
+                <button
+                  key={tool.label}
+                  type="button"
+                  aria-label={tool.label}
+                  title={tool.label}
+                  disabled={disabled}
+                  className={TOOL}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => runTool(tool.run)}
+                >
+                  <tool.icon aria-hidden className="h-4 w-4" />
+                </button>
+              ))}
+          </div>
+        ) : null}
+        <div className="ml-auto flex items-center gap-2">
+          {mode === "write" ? (
             <button
               type="button"
               aria-label="Link to a record"
               title="Link to a record"
               disabled={disabled}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
+              className={TOOL}
               onMouseDown={(event) => event.preventDefault()}
               onClick={startWikiLink}
             >
               <Brackets aria-hidden className="h-4 w-4" />
             </button>
-          </>
-        ) : null}
-        <BodyModeSwitch mode={mode} onChange={changeMode} className="ml-auto" />
+          ) : null}
+          <BodyModeSwitch mode={mode} onChange={changeMode} />
+        </div>
       </div>
 
       <div
@@ -634,6 +753,7 @@ export function MarkdownEditor({
             spellCheck
             value={value}
             onChange={onInput}
+            onPaste={onPaste}
             onFocus={() => {
               enteredWrite.current = true;
               revealEditor();
@@ -650,6 +770,7 @@ export function MarkdownEditor({
             mode === "write" &&
               "hidden lg:block lg:max-h-[70vh] lg:overflow-y-auto",
           )}
+          onClick={editFromPreview}
         >
           {preview(value)}
         </div>
@@ -668,6 +789,11 @@ export function MarkdownEditor({
           <p className="label px-2 py-1 text-faint">
             {menu.mode === "wiki" ? "Link to a record" : "Formatting commands"}
           </p>
+          {createError ? (
+            <p role="alert" className="border-b rule px-2 pb-1.5 text-[12px] text-danger">
+              {createError}
+            </p>
+          ) : null}
           {rows.length === 0 ? (
             <p className="px-2 py-1.5 text-[13px] text-muted">
               {menu.mode === "wiki" && settled.trim() === ""
@@ -706,6 +832,15 @@ export function MarkdownEditor({
                         {row.marker}
                       </span>
                     </>
+                  ) : "create" in row ? (
+                    <>
+                      <span className="truncate">
+                        {create.isPending ? "Creating…" : `Create “${row.title}”`}
+                      </span>
+                      <span className="shrink-0 font-mono text-[11px] text-faint">
+                        {row.type_name}
+                      </span>
+                    </>
                   ) : (
                     <>
                       <span className="truncate">{row.title}</span>
@@ -725,28 +860,69 @@ export function MarkdownEditor({
   );
 }
 
+/** The toolbar's heading trigger: one level per row, applied to the selection. */
+function HeadingMenu({
+  disabled,
+  onPick,
+}: {
+  disabled: boolean;
+  onPick: (level: 1 | 2 | 3) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { handedness } = useHandedness();
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        aria-label="Heading"
+        title="Heading"
+        disabled={disabled}
+        className={TOOL}
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        <Heading2 aria-hidden className="h-4 w-4" />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner
+          sideOffset={4}
+          align={handedness === "left" ? "start" : "end"}
+          className="z-50"
+        >
+          <Popover.Popup className="w-[10.5rem] rounded-field border border-line bg-surface p-1">
+            {HEADING_LEVELS.map((level) => (
+              <Popover.Close
+                key={level}
+                className="flex min-h-9 w-full items-center justify-between gap-3 rounded-[3px] px-2 text-left text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
+                onClick={() => onPick(level)}
+              >
+                <span>Heading {level}</span>
+                <span className="font-mono text-[11px] text-faint">
+                  {"#".repeat(level)}
+                </span>
+              </Popover.Close>
+            ))}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 function BodyModeSwitch({
   mode,
   onChange,
-  className,
 }: {
   mode: BodyMode;
   onChange: (mode: BodyMode) => void;
-  className?: string;
 }) {
   return (
-    <div
-      className={cn("flex shrink-0 items-center gap-1", className)}
-      role="group"
-      aria-label="Body mode"
-    >
+    <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Body mode">
       {(["write", "preview"] as const).map((choice) => (
         <button
           key={choice}
           type="button"
           aria-pressed={mode === choice}
           className={cn(
-            "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11",
+            "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink max-sm:min-h-11 pointer-coarse:min-h-11",
             mode === choice ? "" : "text-faint",
           )}
           onClick={() => onChange(choice)}

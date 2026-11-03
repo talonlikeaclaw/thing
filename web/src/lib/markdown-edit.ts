@@ -354,6 +354,44 @@ export function indentSelection(
 }
 
 /**
+ * Wraps a non-empty selection in a markdown link when the pasted text is one
+ * http(s) URL. Returns `null` for a collapsed selection or any other clipboard,
+ * so every ordinary paste stays the browser's.
+ */
+export function pasteLink(value: string, start: number, end: number, clipboard: string): Edit | null {
+  const url = clipboard.trim();
+  if (start === end || !/^https?:\/\/\S+$/i.test(url)) {
+    return null;
+  }
+  const label = value.slice(start, end).replace(/([[\]])/g, "\\$1");
+  const inserted = `[${label}](${markdownDestination(url)})`;
+  return {
+    value: value.slice(0, start) + inserted + value.slice(end),
+    start: start + 1,
+    end: start + 1 + label.length,
+  };
+}
+
+/**
+ * A link destination that keeps a URL with unbalanced parentheses intact;
+ * CommonMark allows a bare destination only while its parentheses balance.
+ */
+function markdownDestination(url: string): string {
+  let depth = 0;
+  for (const character of url) {
+    if (character === "(") {
+      depth += 1;
+    } else if (character === ")") {
+      depth -= 1;
+      if (depth < 0) {
+        return `<${url}>`;
+      }
+    }
+  }
+  return depth === 0 ? url : `<${url}>`;
+}
+
+/**
  * Inserts a markdown link around the selection.
  *
  * A ranged selection becomes `[selected](url)` with the URL selected; a

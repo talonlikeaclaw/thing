@@ -9,6 +9,7 @@ import {
   insertWikiLink,
   isInFence,
   matchSlash,
+  pasteLink,
   SLASH_COMMANDS,
   slashTrigger,
   toggleLinePrefix,
@@ -180,6 +181,41 @@ describe("indentSelection", () => {
   it("inserts and removes spaces at a collapsed caret", () => {
     expect(indentSelection("ab", 2, 2, 1)).toEqual({ value: "ab  ", start: 4, end: 4 });
     expect(indentSelection("ab  ", 4, 4, -1)).toEqual({ value: "ab", start: 2, end: 2 });
+  });
+});
+
+describe("pasteLink", () => {
+  it("wraps a selection in the pasted URL and keeps the link text selected", () => {
+    expect(pasteLink("see selected here", 4, 12, "https://example.com/plants")).toEqual({
+      value: "see [selected](https://example.com/plants) here",
+      start: 5,
+      end: 13,
+    });
+  });
+
+  it("keeps a URL with balanced parentheses intact", () => {
+    const url = "https://example.com/wiki/Function_(math)";
+    expect(pasteLink("see here", 4, 8, url)).toEqual({
+      value: `see [here](${url})`,
+      start: 5,
+      end: 9,
+    });
+  });
+
+  it("angle-brackets a URL whose parentheses do not balance", () => {
+    expect(pasteLink("x", 0, 1, "https://example.com/a_(b")).toEqual({
+      value: "[x](<https://example.com/a_(b>)",
+      start: 1,
+      end: 2,
+    });
+  });
+
+  it("leaves ordinary pastes and collapsed selections alone", () => {
+    expect(pasteLink("", 0, 0, "https://example.com")).toBeNull();
+    expect(pasteLink("see ", 4, 4, "https://example.com")).toBeNull();
+    expect(pasteLink("see here", 4, 8, "plain text")).toBeNull();
+    expect(pasteLink("see here", 4, 8, "two\nlines")).toBeNull();
+    expect(pasteLink("see here", 4, 8, "ftp://example.com")).toBeNull();
   });
 });
 
