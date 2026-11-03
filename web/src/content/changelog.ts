@@ -21,11 +21,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Phone editor and map fixes",
     upcoming: true,
     highlights: [
+      "A record shows the records it points at, not only the records that point at it.",
       "Opening the editor on a phone keeps the formatting toolbar in view instead of scrolling it away.",
       "Dragging the map on a phone always pans it.",
       "A tap on a map node still opens the record.",
     ],
     details: [
+      "A record that only links out opens its map.",
+      "The link count totals both directions.",
+      "Outgoing relation rows name the property that makes the connection.",
+      "An outgoing body mention says it is mentioned in this body, so it reads apart from a relation to the same record.",
       "Page scrolling on a phone starts outside the map, so the drawing no longer guesses between the page, a pan and a node.",
       "A node can still be dragged with a mouse or pen.",
       "The map's phone hint names drag, tap and the zoom controls.",

@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { useSpaceGraph } from "@/api/queries";
 import { useHandedness } from "@/components/handedness";
-import type { Backlink, ObjectLink } from "@/api/types";
+import type { Backlink, ObjectLink, OutgoingLink } from "@/api/types";
 import { LocalGraph } from "@/components/local-graph";
 import { SpaceGraph } from "@/components/space-graph";
 import { cn } from "@/lib/cn";
@@ -15,6 +15,7 @@ interface GraphSectionProps {
   spaceId: string;
   center: GraphCenter;
   links?: ObjectLink[];
+  linksTo?: OutgoingLink[];
   backlinks?: Backlink[];
   typeNames: ReadonlyMap<string, string>;
 }
@@ -25,7 +26,14 @@ interface GraphSectionProps {
  * Space is fetched only when chosen, and both scopes share one disclosure on a
  * phone or a touch screen.
  */
-export function GraphSection({ spaceId, center, links, backlinks, typeNames }: GraphSectionProps) {
+export function GraphSection({
+  spaceId,
+  center,
+  links,
+  linksTo,
+  backlinks,
+  typeNames,
+}: GraphSectionProps) {
   const { handedness } = useHandedness();
   const leftHanded = handedness === "left";
   const [scope, setScope] = useState<Scope>("local");
@@ -60,6 +68,7 @@ export function GraphSection({ spaceId, center, links, backlinks, typeNames }: G
           spaceId={spaceId}
           center={center}
           links={links}
+          linksTo={linksTo}
           backlinks={backlinks}
           typeNames={typeNames}
         />

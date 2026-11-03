@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Backlink, ObjectLink } from "@/api/types";
+import type { Backlink, ObjectLink, OutgoingLink } from "@/api/types";
 import {
   buildLocalGraph,
   GRAPH_NODE_LIMIT,
@@ -26,6 +26,21 @@ function relation(id: string, title: string, property = "related_plant"): Backli
     property,
     property_name: "Related plant",
   };
+}
+
+function outgoingRelation(id: string, title: string, property = "related_plant"): OutgoingLink {
+  return {
+    kind: "relation",
+    id,
+    title,
+    type: "plant",
+    property,
+    property_name: "Related plant",
+  };
+}
+
+function outgoingMention(id: string, title: string): OutgoingLink {
+  return { kind: "mention", id, title, type: "plant" };
 }
 
 function link(id: string, title: string, status: ObjectLink["status"] = "ok"): ObjectLink {
@@ -68,6 +83,39 @@ describe("buildLocalGraph", () => {
     expect(graph.nodes).toHaveLength(1);
     expect(graph.nodes[0]!.kind).toBe("relation");
     expect(graph.edges).toEqual([{ target: "source", kind: "relation", mention: true }]);
+  });
+
+  it("draws an outgoing relation and an outgoing mention", () => {
+    const graph = buildLocalGraph({
+      center,
+      linksTo: [outgoingRelation("r", "Ivy"), outgoingMention("m", "Fern")],
+    });
+    expect(graph.nodes.map((node) => node.id)).toEqual(["r", "m"]);
+    expect(graph.nodes.map((node) => node.kind)).toEqual(["relation", "mention"]);
+    expect(graph.edges).toEqual([
+      { target: "r", kind: "relation", mention: false },
+      { target: "m", kind: "mention", mention: false },
+    ]);
+  });
+
+  it("keeps one target with an outgoing relation and an incoming mention", () => {
+    const graph = buildLocalGraph({
+      center,
+      linksTo: [outgoingRelation("source", "Water the monstera")],
+      backlinks: [mention("source", "Water the monstera")],
+    });
+    expect(graph.nodes).toHaveLength(1);
+    expect(graph.nodes[0]!.kind).toBe("relation");
+    expect(graph.edges).toEqual([{ target: "source", kind: "relation", mention: true }]);
+  });
+
+  it("drops an outgoing row that points at the centre", () => {
+    const graph = buildLocalGraph({
+      center,
+      linksTo: [outgoingRelation(center.id, center.title), outgoingMention(center.id, center.title)],
+    });
+    expect(graph.nodes).toEqual([]);
+    expect(graph.edges).toEqual([]);
   });
 
   it("draws a relation-only edge solid and an outgoing link dashed", () => {

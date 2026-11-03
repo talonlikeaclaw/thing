@@ -95,6 +95,90 @@ describe("LinksPanel", () => {
     expect(screen.getByText("2", { selector: ".tnum" })).toBeInTheDocument();
   });
 
+  it("lists outgoing relations and mentions under Links to", async () => {
+    stubTypes();
+    renderWithProviders(
+      <LinksPanel
+        spaceId="s1"
+        object={objectDetail({
+          links_to: [
+            {
+              kind: "relation",
+              id: "o2",
+              type: "plant",
+              title: "Fiddle-leaf fig",
+              property: "related_plant",
+              property_name: "Related plant",
+            },
+            { kind: "mention", id: "o3", type: "task", title: "Water the monstera" },
+          ],
+        })}
+      />,
+    );
+
+    const [linksTo] = screen.getAllByRole("list");
+    expect(screen.getByRole("heading", { name: "Links to" })).toBeInTheDocument();
+    expect(within(linksTo!).getByText("Fiddle-leaf fig")).toBeInTheDocument();
+    expect(within(linksTo!).getByText(/via Related plant/)).toBeInTheDocument();
+    expect(within(linksTo!).getByText("Water the monstera")).toBeInTheDocument();
+    expect(
+      await within(linksTo!).findByText("Task · mentioned in this body"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Linked from" })).not.toBeInTheDocument();
+    expect(await within(linksTo!).findByText(/Plant · via Related plant/)).toBeInTheDocument();
+    expect(screen.getByText("2", { selector: ".tnum" })).toBeInTheDocument();
+  });
+
+  it("offers the graph when the record only links out", () => {
+    stubTypes();
+    renderWithProviders(
+      <LinksPanel
+        spaceId="s1"
+        object={objectDetail({
+          links_to: [
+            {
+              kind: "relation",
+              id: "o2",
+              type: "plant",
+              title: "Fiddle-leaf fig",
+              property: "related_plant",
+              property_name: "Related plant",
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Graph")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Graph scope" })).toBeInTheDocument();
+    expect(screen.queryByText(/No links yet/)).not.toBeInTheDocument();
+  });
+
+  it("keeps both rows when one target is related and mentioned", () => {
+    stubTypes();
+    renderWithProviders(
+      <LinksPanel
+        spaceId="s1"
+        object={objectDetail({
+          links_to: [
+            {
+              kind: "relation",
+              id: "o2",
+              type: "plant",
+              title: "Fiddle-leaf fig",
+              property: "related_plant",
+              property_name: "Related plant",
+            },
+            { kind: "mention", id: "o2", type: "plant", title: "Fiddle-leaf fig" },
+          ],
+        })}
+      />,
+    );
+
+    const [linksTo] = screen.getAllByRole("list");
+    expect(within(linksTo!).getAllByText("Fiddle-leaf fig")).toHaveLength(2);
+  });
+
   it("offers the graph when there is an incoming row", () => {
     stubTypes();
     renderWithProviders(

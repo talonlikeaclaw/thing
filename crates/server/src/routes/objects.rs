@@ -5,7 +5,7 @@
 //! changed underneath — append the revision, and reload what changed. Nothing
 //! here computes an order or a rule the core engine already owns.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -705,6 +705,7 @@ async fn detail(
     }
     if wanted.contains(&"links") {
         body["links"] = json!(links(&handle, id));
+        body["links_to"] = json!(links_to(&handle, id));
     }
     if wanted.contains(&"backlinks") {
         body["backlinks"] = json!(backlinks(&handle, id));
@@ -1277,6 +1278,27 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
     keys
 }
 
+/// The fields every link row shares: the target's identity and its glyphs.
+///
+/// A type that is no longer in the index would leave a row without a display
+/// name, so it is skipped the same way both directions skipped it before.
+fn link_row(index: &SpaceIndex, kind: &str, doc: &ObjectDoc) -> Option<Value> {
+    let def = index.type_def(&doc.type_key)?;
+    let mut row = json!({
+        "kind": kind,
+        "id": doc.id,
+        "type": doc.type_key,
+        "title": doc.title,
+    });
+    if let Some(icon) = &def.icon {
+        row["type_icon"] = json!(icon);
+    }
+    if let Some(icon) = &doc.icon {
+        row["icon"] = json!(icon);
+    }
+    Some(row)
+}
+
 /// One record's distinct outgoing links, with their resolution.
 fn links(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
     handle.with_index(|index| {
@@ -1296,6 +1318,66 @@ fn links(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
                 row
             })
             .collect()
+    })
+}
+
+/// Resolved records this record points at, through a relation property or a
+/// body mention. A target that is both is two rows, because the facts differ;
+/// a missing target stays a `missing_relations` row and is not invented here.
+fn links_to(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
+    handle.with_index(|index| {
+        let mut rows = Vec::new();
+        for relation in index.outgoing_relations(id) {
+            let Some(doc) = index.object(relation.target) else {
+                continue;
+            };
+            let Some(mut row) = link_row(index, "relation", doc) else {
+                continue;
+            };
+            let property_name = index
+                .property_def(&relation.property)
+                .map_or_else(|| relation.property.clone(), |def| def.name.clone());
+            row["property"] = json!(relation.property);
+            row["property_name"] = json!(property_name);
+            rows.push(row);
+        }
+
+        let mut seen: BTreeSet<Uuid> = BTreeSet::new();
+        for link in index.outgoing_links(id) {
+            let LinkStatus::Found(target) = link.status else {
+                continue;
+            };
+            if !seen.insert(target) {
+                continue;
+            }
+            let Some(doc) = index.object(target) else {
+                continue;
+            };
+            let Some(row) = link_row(index, "mention", doc) else {
+                continue;
+            };
+            rows.push(row);
+        }
+
+        rows.sort_by(|left, right| {
+            let rank = |row: &Value| match row["kind"].as_str() {
+                Some("relation") => 0,
+                _ => 1,
+            };
+            let left_title = left["title"].as_str().unwrap_or_default().to_lowercase();
+            let right_title = right["title"].as_str().unwrap_or_default().to_lowercase();
+            rank(left)
+                .cmp(&rank(right))
+                .then_with(|| left_title.cmp(&right_title))
+                .then_with(|| {
+                    left["property"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .cmp(right["property"].as_str().unwrap_or_default())
+                })
+                .then_with(|| left["id"].as_str().cmp(&right["id"].as_str()))
+        });
+        rows
     })
 }
 
@@ -1319,49 +1401,25 @@ fn backlinks(handle: &Arc<SpaceHandle>, id: Uuid) -> Vec<Value> {
             let Some(doc) = index.object(backlink.source) else {
                 continue;
             };
-            let Some(def) = index.type_def(&doc.type_key) else {
+            let Some(mut row) = link_row(index, "relation", doc) else {
                 continue;
             };
             let property_name = index
                 .property_def(&backlink.property)
                 .map_or_else(|| backlink.property.clone(), |def| def.name.clone());
-            let mut row = json!({
-                "kind": "relation",
-                "id": doc.id,
-                "type": doc.type_key,
-                "title": doc.title,
-                "property": backlink.property,
-                "property_name": property_name,
-            });
-            if let Some(icon) = &def.icon {
-                row["type_icon"] = json!(icon);
-            }
-            if let Some(icon) = &doc.icon {
-                row["icon"] = json!(icon);
-            }
+            row["property"] = json!(backlink.property);
+            row["property_name"] = json!(property_name);
             rows.push(row);
         }
         for backlink in mentions {
             let Some(doc) = index.object(backlink.source) else {
                 continue;
             };
-            let Some(def) = index.type_def(&doc.type_key) else {
+            let Some(mut row) = link_row(index, "mention", doc) else {
                 continue;
             };
-            let mut row = json!({
-                "kind": "mention",
-                "id": doc.id,
-                "type": doc.type_key,
-                "title": doc.title,
-                "snippet": backlink.snippet,
-                "count": backlink.count,
-            });
-            if let Some(icon) = &def.icon {
-                row["type_icon"] = json!(icon);
-            }
-            if let Some(icon) = &doc.icon {
-                row["icon"] = json!(icon);
-            }
+            row["snippet"] = json!(backlink.snippet);
+            row["count"] = json!(backlink.count);
             rows.push(row);
         }
         rows.sort_by(|left, right| {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import type { Backlink, ObjectLink } from "@/api/types";
+import type { Backlink, ObjectLink, OutgoingLink } from "@/api/types";
 import { GraphCanvas } from "@/components/graph-canvas";
 import {
   buildLocalGraph,
@@ -28,6 +28,7 @@ interface LocalGraphProps {
   spaceId: string;
   center: GraphCenter;
   links?: ObjectLink[];
+  linksTo?: OutgoingLink[];
   backlinks?: Backlink[];
   /** Display names keyed by type key, for the visible labels and aria names. */
   typeNames: ReadonlyMap<string, string>;
@@ -63,13 +64,20 @@ function edgeLine(
  * carry the same nodes, so the drawing adds a shape, never a second place to
  * look for a link.
  */
-export function LocalGraph({ spaceId, center, links, backlinks, typeNames }: LocalGraphProps) {
+export function LocalGraph({
+  spaceId,
+  center,
+  links,
+  linksTo,
+  backlinks,
+  typeNames,
+}: LocalGraphProps) {
   const compact = useCompactWidth();
   const coarse = useCoarsePointer();
   const width = compact ? COMPACT_WIDTH : WIDE_WIDTH;
   const graph = useMemo(
-    () => buildLocalGraph({ center, links, backlinks }),
-    [center, links, backlinks],
+    () => buildLocalGraph({ center, links, linksTo, backlinks }),
+    [center, links, linksTo, backlinks],
   );
   const layout = useMemo(
     () => layoutLocalGraph(graph.nodes, graph.edges, width, HEIGHT),

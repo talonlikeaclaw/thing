@@ -37,6 +37,16 @@ pub struct GraphNode {
     pub icon: Option<String>,
 }
 
+/// One live target named by a relation property on a record.
+///
+/// `property` is the source property's key, so two properties pointing at the
+/// same record stay two facts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelationTarget {
+    pub target: Uuid,
+    pub property: String,
+}
+
 /// One edge of the space graph. A relation and a body link between the same
 /// pair are one edge with both flags, because they are one connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -338,6 +348,44 @@ impl SpaceIndex {
             });
         }
         links
+    }
+
+    /// Every live target named by a relation property on `id`, deduplicated by
+    /// target and property, in property-key then target-title order.
+    ///
+    /// A target that is not in the space is not an edge here; it stays a
+    /// `missing_relations` row on the record. The caller reads the target docs
+    /// for its own projection, so this returns only ids and property keys.
+    pub fn outgoing_relations(&self, id: Uuid) -> Vec<RelationTarget> {
+        let Some(doc) = self.object(id) else {
+            return Vec::new();
+        };
+        let mut seen: BTreeSet<(Uuid, String)> = BTreeSet::new();
+        let mut rows: Vec<(String, String, Uuid)> = Vec::new();
+        for (property, value) in &doc.properties {
+            if self.property_def(property).map(|def| def.format) != Some(PropertyFormat::Relation) {
+                continue;
+            }
+            for target in relation_targets(value) {
+                let Some(record) = self.object(target) else {
+                    continue;
+                };
+                if seen.insert((target, property.clone())) {
+                    rows.push((property.clone(), fold_title(&record.title), target));
+                }
+            }
+        }
+        // Property first so the rows follow the schema, then title so one
+        // property's targets read alphabetically rather than by file order.
+        rows.sort_by(|left, right| {
+            left.0
+                .cmp(&right.0)
+                .then_with(|| left.1.cmp(&right.1))
+                .then_with(|| left.2.cmp(&right.2))
+        });
+        rows.into_iter()
+            .map(|(property, _, target)| RelationTarget { target, property })
+            .collect()
     }
 
     /// Records that point at `id`, through a relation property and through a
@@ -1357,6 +1405,14 @@ mod tests {
             LinkStatus::Ambiguous(2)
         );
 
+        assert_eq!(
+            index.outgoing_relations(Uuid::from_u128(5)),
+            vec![RelationTarget {
+                target: Uuid::from_u128(2),
+                property: "related".to_owned(),
+            }]
+        );
+
         let links = index.outgoing_links(Uuid::from_u128(5));
         assert_eq!(links.len(), 3, "{links:?}");
         assert_eq!(links[0].title, "Monstera");
@@ -1413,6 +1469,71 @@ mod tests {
             index.outgoing_links(Uuid::from_u128(5))[0].status,
             LinkStatus::Unknown
         );
+    }
+
+    #[test]
+    fn outgoing_relations_skip_dangling_targets_and_sort_by_property_then_title() {
+        let space = Space::new().seed();
+        for (key, name) in [("companion", "Companion"), ("related", "Related")] {
+            let property = PropertyDef {
+                key: key.to_owned(),
+                name: name.to_owned(),
+                format: PropertyFormat::Relation,
+                options: Vec::new(),
+                target_type: Some("plant".to_owned()),
+                multi: true,
+            };
+            space
+                .store
+                .save_property(&property, None)
+                .expect("relation property");
+        }
+        for (id, title) in [(10, "Zinnia"), (11, "Apple"), (12, "Basil")] {
+            space
+                .store
+                .save_object(&object_path(title), &object(id, title, "Study", 5), None)
+                .expect("target");
+        }
+
+        let mut source = object(20, "Source", "Study", 6);
+        source.properties.insert(
+            "related".to_owned(),
+            Value::List(vec![
+                Uuid::from_u128(10).to_string(),
+                Uuid::from_u128(11).to_string(),
+                Uuid::from_u128(10).to_string(),
+                Uuid::from_u128(99).to_string(),
+            ]),
+        );
+        source.properties.insert(
+            "companion".to_owned(),
+            Value::Text(Uuid::from_u128(12).to_string()),
+        );
+        space
+            .store
+            .save_object(&object_path("Source"), &source, None)
+            .expect("source");
+
+        let index = space.index();
+        assert_eq!(
+            index.outgoing_relations(Uuid::from_u128(20)),
+            vec![
+                RelationTarget {
+                    target: Uuid::from_u128(12),
+                    property: "companion".to_owned(),
+                },
+                RelationTarget {
+                    target: Uuid::from_u128(11),
+                    property: "related".to_owned(),
+                },
+                RelationTarget {
+                    target: Uuid::from_u128(10),
+                    property: "related".to_owned(),
+                },
+            ],
+            "property order, then title, with the duplicate and the dangling target gone"
+        );
+        assert!(index.outgoing_relations(Uuid::from_u128(99)).is_empty());
     }
 
     #[test]

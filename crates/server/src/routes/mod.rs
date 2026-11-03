@@ -1960,6 +1960,24 @@ mod tests {
             assert_eq!(ambiguous["status"], "ambiguous");
             assert!(ambiguous.get("id").is_none());
 
+            let links_to = read.body["links_to"].as_array().expect("links_to");
+            assert_eq!(links_to.len(), 2, "{links_to:?}");
+            assert_eq!(links_to[0]["kind"], "relation");
+            assert_eq!(links_to[0]["id"], garden.plant);
+            assert_eq!(links_to[0]["type"], "plant");
+            assert_eq!(links_to[0]["title"], "Monstera in the study");
+            assert_eq!(links_to[0]["property"], related_key);
+            assert_eq!(links_to[0]["property_name"], "Related plant");
+            assert_eq!(links_to[1]["kind"], "mention");
+            assert_eq!(links_to[1]["id"], garden.plant);
+            assert!(links_to[1].get("property").is_none());
+            assert!(
+                !links_to
+                    .iter()
+                    .any(|row| row["title"] == "Ghost fern" || row["title"] == "Twin"),
+                "unknown and ambiguous links are not targets"
+            );
+
             let plant = server
                 .call(
                     "GET",
@@ -1968,6 +1986,10 @@ mod tests {
                     Some(&cookie),
                 )
                 .await;
+            assert!(
+                plant.body.get("links_to").is_none(),
+                "links_to belongs to with=links only"
+            );
             let backlinks = plant.body["backlinks"].as_array().expect("backlinks");
             assert_eq!(backlinks.len(), 2, "{backlinks:?}");
             let relation = backlinks

@@ -299,6 +299,8 @@ export interface ObjectDetail {
   missing_relations: Uuid[];
   /** Outgoing `[[type/Title]]` links; present when the read asks for them. */
   links?: ObjectLink[];
+  /** Resolved records this one points at; present with `with=links`. */
+  links_to?: OutgoingLink[];
   /** Records that point here; present when the read asks for them. */
   backlinks?: Backlink[];
   /** Timing for a scheduled type; absent on every other type. */
@@ -343,6 +345,30 @@ export interface MentionBacklink {
 }
 
 export type Backlink = RelationBacklink | MentionBacklink;
+
+/** An outgoing relation or mention, with the target's display facts. */
+export interface OutgoingRelationLink {
+  kind: "relation";
+  id: Uuid;
+  type: string;
+  type_icon?: string;
+  title: string;
+  icon?: string;
+  /** The property key that points at the target. */
+  property: string;
+  property_name: string;
+}
+
+export interface OutgoingMentionLink {
+  kind: "mention";
+  id: Uuid;
+  type: string;
+  type_icon?: string;
+  title: string;
+  icon?: string;
+}
+
+export type OutgoingLink = OutgoingRelationLink | OutgoingMentionLink;
 
 /** One record in the whole-space graph. */
 export interface SpaceGraphNode {

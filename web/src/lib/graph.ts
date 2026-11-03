@@ -1,4 +1,10 @@
-import type { Backlink, ObjectLink, SpaceGraphEdge, SpaceGraphNode } from "@/api/types";
+import type {
+  Backlink,
+  ObjectLink,
+  OutgoingLink,
+  SpaceGraphEdge,
+  SpaceGraphNode,
+} from "@/api/types";
 
 /** How many neighbours the drawing holds before it reports the overflow. */
 export const GRAPH_NODE_LIMIT = 24;
@@ -43,6 +49,7 @@ export interface LocalGraph {
 export interface BuildLocalGraphInput {
   center: GraphCenter;
   links?: ObjectLink[];
+  linksTo?: OutgoingLink[];
   backlinks?: Backlink[];
 }
 
@@ -83,11 +90,14 @@ function compareNodes(left: Candidate, right: Candidate): number {
 /**
  * The centre, its resolved outgoing links and every record that points at it,
  * deduplicated and capped. Only a resolved outgoing link becomes a node; an
- * unknown or ambiguous one is already a warning in the body.
+ * unknown or ambiguous one is already a warning in the body. Outgoing relation
+ * and mention rows from `links_to` join the same candidate map as incoming
+ * rows, so one target keeps every fact in one node and one edge.
  */
 export function buildLocalGraph({
   center,
   links,
+  linksTo,
   backlinks,
 }: BuildLocalGraphInput): LocalGraph {
   const candidates = new Map<string, Candidate>();
@@ -116,6 +126,13 @@ export function buildLocalGraph({
   };
 
   for (const row of backlinks ?? []) {
+    if (row.kind === "relation") {
+      add({ id: row.id, title: row.title, type: row.type, icon: row.icon }, "relation");
+    } else {
+      add({ id: row.id, title: row.title, type: row.type, icon: row.icon }, "mention");
+    }
+  }
+  for (const row of linksTo ?? []) {
     if (row.kind === "relation") {
       add({ id: row.id, title: row.title, type: row.type, icon: row.icon }, "relation");
     } else {
