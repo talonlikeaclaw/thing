@@ -8,7 +8,7 @@ import {
   SlidersHorizontal,
   Undo2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
@@ -35,7 +35,7 @@ import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { formatDate, readError, shortId } from "@/lib/display";
+import { formatDate, formatDateTime, formatDay, readError } from "@/lib/display";
 import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { effectiveMembers, sameJson } from "@/lib/schema";
@@ -57,6 +57,8 @@ interface ObjectPanelProps {
   highlight?: string;
   /** Removes the query from the URL without leaving the record. */
   onClearHighlight?: () => void;
+  /** Evidence below the body — the links and the history — in the main field. */
+  children?: ReactNode;
 }
 
 const STATUS_LABELS = {
@@ -119,11 +121,19 @@ function draftOf(object: ObjectDetail): Draft {
 }
 
 /**
- * The record's identity behind one mono line. The tail of the UUID is enough
- * to recognise a record; the full value and the revision are one tap away,
- * where the id can also be copied without selecting it by hand on a phone.
+ * The record's folio: its type key and revision in one mono line, with the id
+ * and its copy control behind the disclosure. The full value is one tap away,
+ * where it can also be copied without selecting it by hand on a phone.
  */
-function RecordIdentity({ objectId, rev }: { objectId: string; rev: number }) {
+function RecordIdentity({
+  objectId,
+  rev,
+  typeKey,
+}: {
+  objectId: string;
+  rev: number;
+  typeKey: string;
+}) {
   const toast = useToast();
   const codeRef = useRef<HTMLElement | null>(null);
 
@@ -150,24 +160,24 @@ function RecordIdentity({ objectId, rev }: { objectId: string; rev: number }) {
     <details className="group min-w-0">
       <summary
         aria-label={`Record id ${objectId}, revision ${rev}. Show the full id.`}
-        className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-[3px] font-mono text-[12px] text-faint transition-colors hover:text-ink sm:min-h-7 [&::-webkit-details-marker]:hidden"
+        className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 font-mono text-[length:var(--text-small)] text-faint uppercase transition-colors hover:text-ink sm:min-h-7 [&::-webkit-details-marker]:hidden"
       >
         <ChevronRight
           aria-hidden
           size={12}
           className="shrink-0 transition-transform group-open:rotate-90"
         />
-        <span className="truncate">{shortId(objectId)}</span>
+        <span className="truncate">{typeKey}</span>
         <span aria-hidden>·</span>
         <span className="tnum">rev {rev}</span>
       </summary>
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] text-muted">
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[length:var(--text-small)] text-muted">
         <code ref={codeRef} className="min-w-0 break-all select-all">
           {objectId}
         </code>
         <button
           type="button"
-          className="text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+          className="text-[length:var(--text-small)] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
           onClick={() => void copyId()}
         >
           Copy id
@@ -261,6 +271,7 @@ export function ObjectPanel({
   reloadObject,
   highlight,
   onClearHighlight,
+  children,
 }: ObjectPanelProps) {
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
   const [draft, setDraft] = useState<Draft>(() => draftOf(object));
@@ -318,6 +329,9 @@ export function ObjectPanel({
   const titleChanged = draft.title.trim() !== baseline.title;
   const iconChanged = draft.icon.trim() !== baseline.icon;
   const bodyChanged = draft.body !== baseline.body;
+  const bodyText = draft.body.trim();
+  const bodyWords = bodyText === "" ? 0 : bodyText.split(/\s+/u).length;
+  const bodyChars = Array.from(draft.body).length;
   const changedFields = keys.filter(
     (key) => !sameJson(baseline.values[key] ?? null, draft.values[key] ?? null),
   );
@@ -712,9 +726,14 @@ export function ObjectPanel({
           ? JSON.stringify(raw)
           : valueLabel("text", raw, undefined);
       return (
-        <div key={key} className="grid gap-1 py-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-6">
-          <span className="font-mono text-[11px] text-faint">{key}</span>
-          <span className="font-mono text-[12.5px] text-muted">{text || "—"}</span>
+        <div
+          key={key}
+          className="grid gap-1 border-b rule py-3 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:gap-6 xl:grid-cols-1 xl:gap-1"
+        >
+          <span className="font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint uppercase">
+            {key}
+          </span>
+          <span className="font-mono text-[length:var(--text-small)] text-muted">{text || "—"}</span>
         </div>
       );
     }
@@ -723,10 +742,13 @@ export function ObjectPanel({
         key={key}
         role="group"
         aria-label={`${property.name} — key ${key}${member?.required ? ", required" : ""}`}
-        className="grid gap-1 border-b rule py-3 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start sm:gap-6"
+        className="group/property grid gap-1 border-b rule py-3 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start sm:gap-6 xl:grid-cols-1 xl:gap-1"
       >
-        <div className="pt-1">
-          <span className="label flex items-center gap-1.5">
+        <div className="pt-1 xl:pt-0">
+          <span
+            className="label flex flex-wrap items-center gap-1.5"
+            title={`${property.name} — key ${key}${member?.required ? ", required" : ""}`}
+          >
             {changed ? (
               <span
                 aria-label="Unsaved change"
@@ -735,21 +757,21 @@ export function ObjectPanel({
               />
             ) : null}
             {property.name}
-          </span>
-          <span className="font-mono text-[11px] text-faint">
-            <span className="max-sm:hidden">{key}</span>
             {member?.required ? (
-              <>
-                <span className="max-sm:hidden"> · </span>
-                required
-              </>
+              <span className="font-normal tracking-normal text-faint normal-case">required</span>
             ) : null}
+            <span
+              aria-hidden
+              className="hidden font-mono font-normal tracking-[0.09em] text-faint pointer-fine:group-hover/property:inline"
+            >
+              {key}
+            </span>
           </span>
           {changed ? (
             <ThumbRow className="mt-0.5 w-full">
               <button
                 type="button"
-                className="text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                className="text-[length:var(--text-label)] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
                 onClick={() => {
                   setDraft((current) => ({
                     ...current,
@@ -766,7 +788,7 @@ export function ObjectPanel({
             </ThumbRow>
           ) : null}
         </div>
-        <div id={`field-frame-${key}`}>
+        <div id={`field-frame-${key}`} aria-description={`Key ${key}`}>
           <PropertyField
             key={`${objectId}:${key}:${resetToken}:${revertTokens[key] ?? 0}`}
             spaceId={spaceId}
@@ -801,9 +823,19 @@ export function ObjectPanel({
 
   return (
     <div className="settle" data-record-panel>
-      <div className="mt-2 border-b rule pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <RecordIdentity objectId={object.id} rev={baseline.rev} />
+      <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
+      <div className="mt-2 border-b rule pb-3 xl:col-span-8 xl:col-start-1">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="flex min-w-0 items-center gap-2">
+            <ThingIcon icon={type?.icon} size="md" />
+            <span className="label truncate">{type?.name ?? object.type}</span>
+          </span>
+          <span className="flex min-w-0 items-center gap-3">
+          <RecordIdentity
+            objectId={object.id}
+            rev={baseline.rev}
+            typeKey={object.type.toUpperCase()}
+          />
           <ThumbRow className="shrink-0 items-center gap-1">
             {canEdit ? (
               <IconPicker
@@ -828,12 +860,13 @@ export function ObjectPanel({
               />
             ) : null}
           </ThumbRow>
+          </span>
         </div>
 
         {canEdit ? (
           <input
             aria-label="Title"
-            className="mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-[26px] font-medium tracking-[-0.02em] outline-none placeholder:text-faint pointer-coarse:min-h-11"
+            className="display mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-title outline-none placeholder:text-faint pointer-coarse:min-h-11"
             maxLength={200}
             disabled={update.isPending}
             value={draft.title}
@@ -842,54 +875,56 @@ export function ObjectPanel({
             }
           />
         ) : (
-          <h1 className="mt-1 text-[26px] font-medium tracking-[-0.02em]">{draft.title}</h1>
+          <h1 className="display mt-1 text-title">{draft.title}</h1>
         )}
 
-        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-mono text-[11px] text-faint">
+        <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-mono text-[length:var(--text-small)] text-faint">
           <span>updated {formatDate(object.updated_at, timeZone)}</span>
           <span className="max-sm:hidden">· created {formatDate(object.created_at, timeZone)}</span>
-          {type ? <span>· {type.name}</span> : null}
           {canEdit ? null : <span className="label">read only</span>}
         </p>
       </div>
 
       {type?.schedule && object.schedule ? (
-        <section aria-label="Schedule" className="mt-4 border-y rule py-2.5">
+        <section
+          aria-label="Schedule"
+          className="mt-4 border-y rule py-2.5 xl:col-span-8 xl:col-start-1"
+        >
           <ThumbRow className="items-center gap-4">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-5">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--text-small)] sm:gap-x-5">
             <span className={cn("label", dueTone(object.schedule.status))}>
               {STATUS_LABELS[object.schedule.status]}
             </span>
             {object.schedule.due_date ? (
-              <span className="text-[13px] text-muted">
+              <span className="text-muted">
                 {dueLabel}{" "}
                 <span className={cn("tnum", dueTone(object.schedule.status))}>
-                  {object.schedule.due_date}
+                  {formatDay(object.schedule.due_date)}
                 </span>
               </span>
             ) : null}
             {object.schedule.status === "overdue" &&
             object.schedule.days_until_due !== undefined ? (
-              <span className="text-[13px] text-danger tnum">
+              <span className="text-danger tnum">
                 {Math.abs(object.schedule.days_until_due)}d overdue
               </span>
             ) : null}
             {object.schedule.status === "upcoming" &&
             object.schedule.days_until_due !== undefined ? (
-              <span className="text-[13px] text-muted tnum">
+              <span className="text-muted tnum">
                 in {object.schedule.days_until_due}d
               </span>
             ) : null}
             {type.schedule && object.properties.recurrence?.label ? (
-              <span className="text-[13px] text-muted">
+              <span className="text-muted">
                 {object.properties.recurrence.label}
               </span>
             ) : null}
             {object.schedule.completed_at ? (
-              <span className="text-[13px] text-faint">
+              <span className="text-faint">
                 {completedLabel}{" "}
                 <span className="tnum">
-                  {formatDate(object.schedule.completed_at, timeZone)}
+                  {formatDateTime(object.schedule.completed_at, timeZone)}
                 </span>
               </span>
             ) : null}
@@ -898,7 +933,7 @@ export function ObjectPanel({
             <Button
               type="button"
               title={verb}
-              className="min-h-8 min-w-0 max-w-[45%] shrink-0 px-3 text-[13px] sm:max-w-[12rem] pointer-coarse:min-h-11"
+              className="min-h-8 min-w-0 max-w-[45%] shrink-0 px-3 text-[length:var(--text-small)] sm:max-w-[12rem] pointer-coarse:min-h-11"
               disabled={complete.isPending || confirmComplete}
               onClick={onComplete}
             >
@@ -916,7 +951,7 @@ export function ObjectPanel({
         <div
           role="alertdialog"
           aria-label="Complete record"
-          className="mt-4 grid max-w-[52ch] gap-2 border-y rule py-3"
+          className="mt-4 grid max-w-[52ch] gap-2 border-y rule py-3 xl:col-span-8 xl:col-start-1"
         >
           <p className="text-[13px]">
             This record has {changeCount} unsaved{" "}
@@ -958,7 +993,7 @@ export function ObjectPanel({
       {conflict ? (
         <div
           role="alert"
-          className="mt-4 max-w-[52ch] border-l border-warning pl-3 text-[13px] text-warning"
+          className="mt-4 max-w-[52ch] border-l border-warning pl-3 text-[13px] text-warning xl:col-span-8 xl:col-start-1"
         >
           <p>{conflict}</p>
           <ThumbRow className="mt-2 flex-wrap items-center gap-2">
@@ -993,7 +1028,7 @@ export function ObjectPanel({
       ) : stale ? (
         <div
           role="status"
-          className="mt-4 max-w-[52ch] border-l border-warning pl-3 text-[13px] text-warning"
+          className="mt-4 max-w-[52ch] border-l border-warning pl-3 text-[13px] text-warning xl:col-span-8 xl:col-start-1"
         >
           <p>
             This record changed elsewhere: the server is at revision {object.rev}, your copy is at{" "}
@@ -1013,14 +1048,17 @@ export function ObjectPanel({
       <fieldset
         aria-label="Properties"
         disabled={update.isPending}
-        className="mt-6 m-0 min-w-0 border-0 p-0"
+        className="mt-6 m-0 min-w-0 border-0 p-0 xl:col-span-4 xl:col-start-9 xl:mt-2 xl:[grid-row:1/span_99]"
       >
+        <div className="xl:sticky xl:top-[var(--space-4)]">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="label flex items-center gap-1.5">
-            <SlidersHorizontal aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
+          <h2 className="flex items-center gap-2 text-heading font-medium">
+            <SlidersHorizontal aria-hidden size={15} strokeWidth={1.5} className="text-muted" />
             Properties
+            <span className="font-mono text-[length:var(--text-small)] font-normal text-faint tnum">
+              {keys.length}
+            </span>
           </h2>
-          <span className="label tnum">{keys.length}</span>
         </div>
         <div className="mt-1 border-t rule">
           {type && keys.length === 0 ? (
@@ -1031,13 +1069,14 @@ export function ObjectPanel({
             keys.map(field)
           )}
         </div>
+        </div>
       </fieldset>
 
-      <section aria-label="Body" className="mt-10">
-        <div className="flex items-center justify-between gap-3">
+      <section aria-label="Body" className="mt-10 xl:col-span-8 xl:col-start-1 xl:mt-8">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">
           <div className="min-w-0">
-            <h2 className="label flex items-center gap-1.5">
-              <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
+            <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-heading font-medium">
+              <AlignLeft aria-hidden size={15} strokeWidth={1.5} className="text-muted" />
               <span
                 aria-label="Unsaved change"
                 title="Unsaved change"
@@ -1047,9 +1086,13 @@ export function ObjectPanel({
                 )}
               />
               Body
+              <span className="font-mono text-[length:var(--text-small)] font-normal text-faint tnum">
+                {bodyWords} {bodyWords === 1 ? "word" : "words"} · {bodyChars}{" "}
+                {bodyChars === 1 ? "character" : "characters"}
+              </span>
             </h2>
             {highlight ? (
-              <p className="mt-0.5 flex items-center gap-2 text-[11px] text-faint">
+              <p className="mt-0.5 flex items-center gap-2 text-[length:var(--text-label)] text-faint">
                 <span className="truncate">Match: “{highlight}”</span>
                 {onClearHighlight ? (
                   <button
@@ -1108,8 +1151,15 @@ export function ObjectPanel({
         )}
       </section>
 
+      {children ? (
+        <div className="xl:col-span-8 xl:col-start-1">{children}</div>
+      ) : null}
+
       {canEdit ? (
-        <section aria-label="Trash" className="mt-10 border-t rule pt-4">
+        <section
+          aria-label="Trash"
+          className="mt-10 border-t rule pt-4 xl:col-span-8 xl:col-start-1"
+        >
           {confirmingTrash ? (
             <div
               role="group"
@@ -1153,8 +1203,10 @@ export function ObjectPanel({
         </section>
       ) : null}
 
+      </div>
+
       {canEdit ? (
-        <StickyActionBar>
+        <StickyActionBar className="lg:justify-between">
           {saveError ? (
             <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
               <FormError message={saveError} />

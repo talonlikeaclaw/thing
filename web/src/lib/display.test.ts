@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/api/client";
-import { formatDate, formatDateTime, readApiCreated, readApiProblems } from "@/lib/display";
+import {
+  formatDate,
+  formatDateTime,
+  formatDay,
+  readApiCreated,
+  readApiProblems,
+} from "@/lib/display";
 
 describe("readApiProblems", () => {
   it("keeps every row and field from details.errors", () => {
@@ -76,5 +82,20 @@ describe("formatDateTime", () => {
       timeZone: "Asia/Tokyo",
     }).format(new Date(instant));
     expect(formatDateTime(instant, "Asia/Tokyo")).toBe(expected);
+  });
+});
+
+describe("formatDay", () => {
+  it("keeps a calendar day on its own date everywhere", () => {
+    const expected = new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeZone: "UTC",
+    }).format(new Date("2026-11-03T00:00:00Z"));
+    expect(formatDay("2026-11-03")).toBe(expected);
+    expect(formatDay("2026-11-03")).toContain("2026");
+  });
+
+  it("reads a malformed day as itself", () => {
+    expect(formatDay("not a day")).toBe("not a day");
   });
 });

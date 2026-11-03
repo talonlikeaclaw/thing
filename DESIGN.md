@@ -279,6 +279,10 @@ recent margin 4, separated by a hairline and a 40px gutter. Under `xl` the grid 
 column in reading order — masthead, ledger, recent — so nothing moves that a reader would have to
 re-find.
 
+A record is a specimen sheet on the same grid: the main field holds 8 columns and the property
+margin 4. The margin is sticky to the viewport top while the body scrolls but never scrolls on its
+own; under `xl` it becomes the property block before the body in reading order.
+
 Spacing uses one 4px scale: `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16,
 `--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64. Tight groups use 4–8px, a label
 group 8px, fields 16px, sections 32px, page bands 48–64px.
@@ -570,21 +574,37 @@ its own button, field, focus ring or error treatment.
   rows and named actions.
 
 ### Record Page
-- **Title:** the title input owns its line at 26px with nothing beside it; the sticky save bar is the
+- **Composition:** at `xl` the record is one specimen sheet on the 12-column grid: an 8-column main
+  field (identity, schedule, body, links, graph, history, trash) and a 4-column property margin
+  separated by a hairline and a 40px gutter. The margin sticks to the viewport top while the body
+  scrolls; it is never a second scroll container. Below `xl` the grid collapses to one column in
+  reading order, so the property block comes before the body. The sticky save row spans the content
+  and, from `lg`, puts its status at the leading edge and Save at the trailing edge.
+- **Identity band:** the type glyph and type name lead, the title follows in `--text-title` mono
+  (editable in place), and the mono folio — `PLANT · REV 1` — sits at the trailing edge before the
+  icon and overflow controls. The folio disclosure holds the full record id and its copy control. One
+  quiet mono line under the title carries updated and created times; the type is not repeated there.
+- **Title:** the display face at the title size with nothing beside it; the sticky save bar is the
   only save indicator, and Duplicate and Revert live in the overflow menu.
-- **Identity:** the record id and revision collapse into one mono line. A phone shows the last six
-  characters; the full id, a copy control and `REV n` sit behind the disclosure. History always
-  shows the full id.
-- **Metadata:** one line on a phone — `UPDATED <time> · <type>`; wider screens keep created time too.
-- **Properties:** the label and the value; the mono key echo under the label is hidden below `sm`
-  where it only repeats the label. It stays in the `aria-label` and returns from `sm` up.
-- **Relations:** the current targets read first as 6px chips — title, the type name when the target
-  type is open, a remove X — followed by one text trigger (`Add relation` / `Change relation` /
-  `Add another`). The search field and target list are collapsed until that trigger is pressed, so a
-  record opens without reading the target type's records. Single-valued picking collapses the list;
-  multi-valued picking keeps it open with `Done`. `Escape` closes the picker, never the record. A
-  missing target shows its short id on the chip and the existing warning row with `Remove` once the
-  list is read.
+- **Metadata:** one line on a phone — `UPDATED <time>`; wider screens keep created time too. Every
+  date on the record uses one grammar: a calendar day reads `2 Nov 2026`, an instant adds its clock
+  time in the space's zone.
+- **Properties:** at `xl` the margin is a label-over-value stack; from `sm` to below `xl` it is a
+  label/value grid. Rows are separated by hairlines, and controls stay 40px on a fine pointer and
+  44px on a coarse one. The mono key is not echoed under the label at a fine pointer: it is the
+  group's `aria-description`, the label's `title`, and a hover-only key at the label's trailing
+  edge. The schema editor still shows every key. Tags are wrapping checkbox chips with the accent
+  wash for selection; multi-select controls remain one tap target per option.
+- **Dates:** every date and datetime field shows the formatted value over an invisible native
+  input, so the visible text and the stored ISO value agree while the native picker and keyboard
+  entry still work. The schedule strip uses the same day and instant formatters.
+- **Relations:** the current targets read first as quiet chips — title, the type name when the
+  target type is open, a remove X — followed by one text trigger (`Add relation` / `Change
+  relation` / `Add another`). The search field and target list are collapsed until that trigger is
+  pressed, so a record opens without reading the target type's records. Single-valued picking
+  collapses the list; multi-valued picking keeps it open with `Done`. `Escape` closes the picker,
+  never the record. A missing target shows its short id on the chip and the existing warning row
+  with `Remove` once the list is read.
 - **Body links:** a resolved `[[Type/Title]]` renders as its title with the accent underline and
   opens the record in place. A link with no unique target uses a dotted warning underline and a
   `title` naming the reason; it never navigates. Syntax inside a fenced block or inline code stays
@@ -605,10 +625,11 @@ its own button, field, focus ring or error treatment.
   bar sits above the on-screen keyboard rather than behind it. The field's scroll margin reserves the
   keyboard, the phone bar and the save bar, so a focused caret settles above them instead of behind
   the bar; the bar's bottom sits on the phone bar's hairline rather than 1px behind it.
-- **Body header:** the label, its unsaved dot and the Revert action share one row whose height and
-  spacing are fixed; the dot and Revert slots are reserved while the body is clean, so a change
-  never moves the toolbar or the field below it. A search match adds the `Match:` annotation and
-  clear control on the same row without moving the tools.
+- **Body header:** a visible `Body` heading, its unsaved dot, the mono word and character count and
+  the Revert action share one ruled row whose height and spacing are fixed; the dot and Revert slots
+  are reserved while the body is clean, so a change never moves the toolbar or the field below it.
+  The Write/Preview switch is a segmented control on the same hairline rhythm. A search match adds
+  the `Match:` annotation and clear control below the heading without moving the tools.
 - **Body toolbar:** one hairline row above the textarea — bold, italic, inline code, a heading menu
   for H1–H3, bulleted list, numbered list, quote, link and record link — 32px on a fine pointer and
   44px on a coarse one. The heading control applies the chosen level and removes it when the same
@@ -657,9 +678,13 @@ its own button, field, focus ring or error treatment.
   stores rendered markup.
 - **Sections:** Properties, Body, Links, History, Trash, in that order, each separated by a
   hairline. Links sits directly below the body so both ways of pointing at a record read as one
-  surface. Every section header starts with one 13px muted line icon — sliders for properties,
+  surface. Properties and Body are true headings in the heading role; Links and History are ruled
+  evidence labels. Every section header starts with one muted line icon — sliders for properties,
   lines for the body, a chain for links, a network for the graph row and a clock for history — so a
   long record can be scanned by shape; the icon is `aria-hidden` and never replaces the label.
+- **History:** a quiet disclosure below the links. Its summary names the latest revision, action,
+  moment and writer; expanding reveals the existing revision list, diff and body snapshot. No
+  history behavior changes and the list is never a second page.
 - **Links:** the heading carries a mono count of every row in both directions. `Links to` lists the
   resolved records this one points at, relations first with `Type · via Property`, then body
   mentions with `Type · mentioned in this body`; `Linked from` lists incoming relations — type glyph,

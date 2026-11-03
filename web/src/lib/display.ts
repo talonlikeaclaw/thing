@@ -31,6 +31,21 @@ export function formatDateTime(iso: string, timeZone?: string): string {
   }).format(at);
 }
 
+/**
+ * A calendar day (`YYYY-MM-DD`) in words. A day has no zone: formatting it in
+ * UTC keeps `2026-11-03` on the third everywhere, unlike an instant.
+ */
+export function formatDay(day: string): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  if (Number.isNaN(at.getTime())) {
+    return day;
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(at);
+}
+
 /** The server's own sentence for a refusal, or a plain fallback. */
 export function readError(error: unknown): string {
   if (error instanceof ApiError) {

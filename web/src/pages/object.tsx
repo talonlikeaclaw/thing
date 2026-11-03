@@ -82,17 +82,18 @@ export function ObjectPage() {
                 setParams(next, { replace: true });
               }
         }
-      />
-      <LinksPanel spaceId={detail.id} object={record} />
-      <HistoryPanel
-        spaceId={detail.id}
-        objectId={record.id}
-        properties={effectiveProperties(typeData, propertiesData)}
-        memberName={(userId) =>
-          detail.members.find((member) => member.user === userId)?.name ?? shortId(userId)
-        }
-        timeZone={detail.timezone}
-      />
+      >
+        <LinksPanel spaceId={detail.id} object={record} />
+        <HistoryPanel
+          spaceId={detail.id}
+          objectId={record.id}
+          properties={effectiveProperties(typeData, propertiesData)}
+          memberName={(userId) =>
+            detail.members.find((member) => member.user === userId)?.name ?? shortId(userId)
+          }
+          timeZone={detail.timezone}
+        />
+      </ObjectPanel>
     </div>
   );
 }

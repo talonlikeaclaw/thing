@@ -97,9 +97,20 @@ export function InlineActions({ children }: { children: ReactNode }) {
  * scroll away; the translucent surface keeps the content beneath it readable.
  * The primary action follows the thumb edge like every other action row.
  */
-export function StickyActionBar({ children }: { children: ReactNode }) {
+export function StickyActionBar({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <ThumbRow className="record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-[var(--space-3)] border-t rule bg-ground py-[var(--space-3)]">
+    <ThumbRow
+      className={cn(
+        "record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-[var(--space-3)] border-t rule bg-ground py-[var(--space-3)]",
+        className,
+      )}
+    >
       {children}
     </ThumbRow>
   );

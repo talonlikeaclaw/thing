@@ -1,4 +1,4 @@
-import { History } from "lucide-react";
+import { ChevronRight, History } from "lucide-react";
 import { useState } from "react";
 
 import { useHistory } from "@/api/queries";
@@ -6,7 +6,7 @@ import type { PropertyDef, Revision, RevisionAction } from "@/api/types";
 import { MarkdownView } from "@/components/markdown-view";
 import { Button, FormError } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
-import { readError } from "@/lib/display";
+import { formatDateTime, formatDay, readError } from "@/lib/display";
 import { formatMoment, revisionDiff } from "@/lib/history";
 import { valueLabel } from "@/lib/format";
 
@@ -58,19 +58,33 @@ export function HistoryPanel({
   const rows = current ? revisionDiff(current, previous) : [];
 
   return (
-    <section aria-labelledby="history-heading" className="mt-10 border-t rule pt-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 id="history-heading" className="label flex items-center gap-1.5">
-          <History aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
-          History
-        </h2>
-        <span className="label tnum">
-          {history.data
-            ? `${revisions.length} ${revisions.length === 1 ? "revision" : "revisions"}`
-            : "reading"}
-        </span>
-      </div>
+    <section aria-label="History" className="mt-10 border-t rule pt-4">
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-3 gap-y-1 pointer-fine:min-h-8 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <ChevronRight
+              aria-hidden
+              size={12}
+              className="shrink-0 text-muted transition-transform group-open:rotate-90"
+            />
+            <History aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
+            <span className="label">History</span>
+            <span className="sr-only">, </span>
+            <span className="label tnum">
+              {history.data
+                ? `${revisions.length} ${revisions.length === 1 ? "revision" : "revisions"}`
+                : "reading"}
+            </span>
+          </span>
+          {current ? (
+            <span className="min-w-0 truncate font-mono text-[length:var(--text-small)] text-faint tnum">
+              rev {current.rev} · {ACTION_LABELS[current.action]} ·{" "}
+              {formatMoment(current.at, timeZone)} · {memberName(current.by)}
+            </span>
+          ) : null}
+        </summary>
 
+        <div className="mt-3">
       {history.isError ? (
         <div className="mt-3 grid max-w-[52ch] gap-3">
           <FormError message={readError(history.error)} />
@@ -157,12 +171,14 @@ export function HistoryPanel({
                         value={row.before}
                         field={row.key}
                         property={property}
+                        timeZone={timeZone}
                       />
                       <DiffValue
                         marker="+"
                         value={row.after}
                         field={row.key}
                         property={property}
+                        timeZone={timeZone}
                       />
                     </div>
                   </div>
@@ -185,6 +201,8 @@ export function HistoryPanel({
           </div>
         </div>
       ) : null}
+        </div>
+      </details>
     </section>
   );
 }
@@ -194,11 +212,13 @@ function DiffValue({
   value,
   field,
   property,
+  timeZone,
 }: {
   marker: "−" | "+";
   value: unknown;
   field: string;
   property: PropertyDef | undefined;
+  timeZone?: string;
 }) {
   if (field === "icon") {
     return (
@@ -231,9 +251,13 @@ function DiffValue({
     );
   }
   const text =
-    field === "title" || !property
-      ? valueLabel("text", value, undefined)
-      : valueLabel(property.format, value, property);
+    property?.format === "date" && typeof value === "string"
+      ? formatDay(value)
+      : property?.format === "datetime" && typeof value === "string"
+        ? formatDateTime(value, timeZone)
+        : field === "title" || !property
+          ? valueLabel("text", value, undefined)
+          : valueLabel(property.format, value, property);
   return (
     <span
       className={cn(

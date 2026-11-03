@@ -1044,7 +1044,10 @@ function BodyModeSwitch({
 }) {
   return (
     <div
-      className={cn("flex shrink-0 items-center gap-1", className)}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 rounded-field border border-line p-0.5",
+        className,
+      )}
       role="group"
       aria-label="Body mode"
     >
@@ -1054,7 +1057,7 @@ function BodyModeSwitch({
           type="button"
           aria-pressed={mode === choice}
           className={cn(
-            "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink max-sm:min-h-11 pointer-coarse:min-h-11",
+            "label rounded-[4px] px-2.5 py-1 transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent max-sm:min-h-11 pointer-coarse:min-h-11",
             mode === choice ? "" : "text-faint",
           )}
           onClick={() => onChange(choice)}

@@ -1,5 +1,5 @@
 import { Popover } from "@base-ui/react/popover";
-import { Check, ChevronDown, Plus, X } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Plus, X } from "lucide-react";
 import { useState } from "react";
 
 import { useRelationChoices, useTypes, useUpdateProperty } from "@/api/queries";
@@ -7,7 +7,7 @@ import type { PropertyDef } from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
-import { formatDateTime, readError, shortId } from "@/lib/display";
+import { formatDateTime, formatDay, readError, shortId } from "@/lib/display";
 import {
   datetimeLocal,
   fromDatetimeLocal,
@@ -40,6 +40,12 @@ interface PropertyFieldProps {
 
 const control =
   "h-10 w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+
+/** A datetime-local value in the record's one date grammar. */
+function shownDateTime(local: string, timeZone?: string): string {
+  const at = new Date(local);
+  return Number.isNaN(at.getTime()) ? local : formatDateTime(at.toISOString(), timeZone);
+}
 
 /**
  * One property in the record panel: an input per format, bound to the panel's
@@ -111,6 +117,9 @@ function ReadOnlyValue({
   }
   if (isBlank(value) || label === "") {
     return <span className="text-faint">—</span>;
+  }
+  if (property.format === "date" && typeof value === "string") {
+    return <span className="tnum text-[14px]">{formatDay(value)}</span>;
   }
   if (property.format === "select" && typeof value === "string") {
     const option = property.options?.find((known) => known.key === value);
@@ -205,18 +214,67 @@ function TextField({
               ? "email"
               : "text";
 
+  const showsCalendar = format === "date" || format === "datetime";
+  const shown =
+    text === ""
+      ? ""
+      : format === "date"
+        ? formatDay(text)
+        : format === "datetime"
+          ? shownDateTime(text, timeZone)
+          : text;
+
   return (
     <div className="grid max-w-[32rem] gap-1">
-      <input
-        aria-label={property.name}
-        aria-invalid={invalid || undefined}
-        className={cn(control, invalid && "border-danger")}
-        type={type}
-        step={format === "number" ? "any" : undefined}
-        value={text}
-        onChange={(event) => change(event.target.value)}
-        placeholder={format === "url" ? "https://…" : undefined}
-      />
+      {showsCalendar ? (
+        <div className="relative">
+          <div
+            aria-hidden
+            className={cn(
+              control,
+              "flex items-center justify-between gap-2",
+              invalid && "border-danger",
+              "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
+            )}
+          >
+            <span className={cn("truncate", shown === "" && "text-faint")}>
+              {shown === ""
+                ? format === "date"
+                  ? "Choose a date"
+                  : "Choose a date and time"
+                : shown}
+            </span>
+            <CalendarDays aria-hidden size={15} className="shrink-0 text-muted" />
+          </div>
+          <input
+            aria-label={property.name}
+            aria-invalid={invalid || undefined}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            type={type}
+            value={text}
+            onChange={(event) => change(event.target.value)}
+            onClick={(event) => {
+              const input = event.currentTarget;
+              try {
+                input.showPicker();
+              } catch {
+                // A browser may require a different gesture; the field still focuses.
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <input
+          aria-label={property.name}
+          aria-invalid={invalid || undefined}
+          className={cn(control, invalid && "border-danger")}
+          type={type}
+          step={format === "number" ? "any" : undefined}
+          value={text}
+          onChange={(event) => change(event.target.value)}
+          placeholder={format === "url" ? "https://…" : undefined}
+        />
+      )}
       {invalid ? (
         <p role="alert" className="text-[12px] text-danger">
           Enter a number.
@@ -439,16 +497,15 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
 }
 
 function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
-  const { handedness } = useHandedness();
   const selected = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
   const options = property.options ?? [];
 
   return (
-    <div className="grid max-w-[28rem] gap-1 rounded-field border border-line bg-ground p-2">
+    <div className="flex max-w-[28rem] flex-wrap items-center gap-1.5">
       {options.length === 0 ? (
-        <p className="px-1 py-1 text-[12px] text-muted">
+        <p className="py-1 text-[length:var(--text-small)] text-muted">
           No options yet; add them in the schema.
         </p>
       ) : (
@@ -457,27 +514,27 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
           return (
             <label
               key={option.key}
-              className="block cursor-pointer rounded-[3px] px-1 text-[13px] hover:bg-raised"
+              className={cn(
+                "inline-flex min-h-[var(--control-standard)] cursor-pointer items-center gap-1.5 rounded-field border px-2.5 text-[length:var(--text-small)] transition-colors pointer-coarse:min-h-[var(--control-coarse)]",
+                "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
+                checked
+                  ? "border-accent bg-accent-wash text-accent"
+                  : "border-line-interactive text-ink hover:border-line-strong hover:bg-raised",
+              )}
             >
-              <ThumbRow
-                className={cn(
-                  "min-h-9 w-full items-center gap-2 pointer-coarse:min-h-11",
-                  handedness === "right" && "justify-between",
-                )}
-              >
-                <span>{option.name}</span>
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 shrink-0 accent-accent"
-                  checked={checked}
-                  onChange={() => {
-                    const next = checked
-                      ? selected.filter((key) => key !== option.key)
-                      : [...selected, option.key];
-                    onChange(next.length === 0 ? null : next);
-                  }}
-                />
-              </ThumbRow>
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={() => {
+                  const next = checked
+                    ? selected.filter((key) => key !== option.key)
+                    : [...selected, option.key];
+                  onChange(next.length === 0 ? null : next);
+                }}
+              />
+              {checked ? <Check aria-hidden size={12} /> : null}
+              <span>{option.name}</span>
             </label>
           );
         })
@@ -550,7 +607,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
               return (
                 <li
                   key={chip.id}
-                  className="flex max-w-full items-center gap-1 rounded-field border border-line bg-raised py-0.5 pl-2.5 pr-0.5 text-[13px]"
+                  className="flex max-w-full items-center gap-1 rounded-field border border-line bg-ground py-0.5 pl-2.5 pr-0.5 text-[length:var(--text-small)]"
                 >
                   <span className="min-w-0 truncate">{chip.title}</span>
                   {type ? (
