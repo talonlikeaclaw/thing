@@ -269,7 +269,7 @@ export function BulkBar({
       </Button>
       <Button
         type="button"
-        variant="danger"
+        variant="destructive"
         disabled={busy}
         className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
         onClick={trashRows}

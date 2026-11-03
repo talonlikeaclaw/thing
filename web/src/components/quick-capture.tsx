@@ -28,6 +28,7 @@ import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
 import {
   focusSheetField,
+  SheetFooter,
   SheetPopup,
   sheetReturnFocus,
   SheetViewport,
@@ -486,7 +487,7 @@ function QuickCaptureDialog({
                       Keep editing
                     </Button>
                     <Button
-                      variant="danger"
+                      variant="destructive"
                       className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                       onClick={discardDraft}
                     >
@@ -740,7 +741,7 @@ function QuickCaptureDialog({
             </div>
 
             {confirmDiscard ? null : (
-            <div className="sheet-footer grid gap-2 border-t rule px-4 pt-2 sm:pt-3">
+            <SheetFooter className="grid gap-[var(--space-2)] sm:pt-[var(--space-3)]">
               {error ? (
                 <p role="alert" className="text-[13px] text-danger">
                   {error}
@@ -768,7 +769,7 @@ function QuickCaptureDialog({
                   </Button>
                 </ThumbRow>
               </ThumbRow>
-            </div>
+            </SheetFooter>
             )}
           </SheetPopup>
         </SheetViewport>

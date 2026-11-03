@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-03T00:00:00Z",
+  "generatedAt": "2026-11-03T18:30:00Z",
   "title": "Design System: thing",
   "extensions": {
     "colorMeta": {
@@ -17,6 +17,21 @@
           "oklch(70% 0.008 130)",
           "oklch(83% 0.008 130)",
           "oklch(95% 0.008 130)"
+        ]
+      },
+      "inset": {
+        "role": "neutral",
+        "displayName": "Night Inset",
+        "canonical": "#0d100d",
+        "tonalRamp": [
+          "oklch(11% 0.008 130)",
+          "oklch(22% 0.008 130)",
+          "oklch(33% 0.008 130)",
+          "oklch(44% 0.008 130)",
+          "oklch(55% 0.008 130)",
+          "oklch(67% 0.008 130)",
+          "oklch(80% 0.008 130)",
+          "oklch(94% 0.008 130)"
         ]
       },
       "surface": {
@@ -154,6 +169,21 @@
           "oklch(96% 0.02 120)"
         ]
       },
+      "accent-wash": {
+        "role": "primary",
+        "displayName": "Accent Wash",
+        "canonical": "#c8d96b1e",
+        "tonalRamp": [
+          "oklch(18% 0.09 115)",
+          "oklch(30% 0.12 115)",
+          "oklch(42% 0.14 115)",
+          "oklch(54% 0.15 115)",
+          "oklch(66% 0.16 115)",
+          "oklch(78% 0.16 115)",
+          "oklch(87% 0.12 115)",
+          "oklch(95% 0.06 115)"
+        ]
+      },
       "danger": {
         "role": "secondary",
         "displayName": "Ember",
@@ -188,18 +218,20 @@
     "accentPalettes": {
       "default": "lichen",
       "storage": "one shared preset per space in space.yml, owner-written through PATCH /api/spaces/{space}; the v0.4 browser-local key seeds it once, then is deleted",
-      "contrastFloor": "4.5:1 accent-on-ground and ink-on-accent in both schemes, enforced by web/src/lib/accent.test.ts",
+      "contrastFloor": "4.5:1 accent-on-ground, ink-on-accent and body ink on the composited 12% wash over ground, inset, surface and raised in both schemes, enforced by web/src/lib/accent.test.ts",
       "palettes": [
         {
           "id": "lichen",
           "label": "Lichen",
           "dark": {
             "accent": "#c8d96b",
-            "ink": "#14180f"
+            "ink": "#14180f",
+            "wash": "#c8d96b1e"
           },
           "light": {
             "accent": "#5f6f1e",
-            "ink": "#f7f8f0"
+            "ink": "#f7f8f0",
+            "wash": "#5f6f1e1e"
           }
         },
         {
@@ -207,11 +239,13 @@
           "label": "Yellow",
           "dark": {
             "accent": "#f2d64b",
-            "ink": "#1a1503"
+            "ink": "#1a1503",
+            "wash": "#f2d64b1e"
           },
           "light": {
             "accent": "#6f5d00",
-            "ink": "#fbf9ea"
+            "ink": "#fbf9ea",
+            "wash": "#6f5d001e"
           }
         },
         {
@@ -219,11 +253,13 @@
           "label": "Orange",
           "dark": {
             "accent": "#f5a24a",
-            "ink": "#1c1204"
+            "ink": "#1c1204",
+            "wash": "#f5a24a1e"
           },
           "light": {
             "accent": "#9a4a00",
-            "ink": "#fdf6ee"
+            "ink": "#fdf6ee",
+            "wash": "#9a4a001e"
           }
         },
         {
@@ -231,11 +267,13 @@
           "label": "Cyan",
           "dark": {
             "accent": "#6fdbe8",
-            "ink": "#04181a"
+            "ink": "#04181a",
+            "wash": "#6fdbe81e"
           },
           "light": {
             "accent": "#00646e",
-            "ink": "#eefcfe"
+            "ink": "#eefcfe",
+            "wash": "#00646e1e"
           }
         },
         {
@@ -243,11 +281,13 @@
           "label": "Green",
           "dark": {
             "accent": "#7fe08a",
-            "ink": "#051706"
+            "ink": "#051706",
+            "wash": "#7fe08a1e"
           },
           "light": {
             "accent": "#256b33",
-            "ink": "#f0fbf2"
+            "ink": "#f0fbf2",
+            "wash": "#256b331e"
           }
         },
         {
@@ -255,11 +295,13 @@
           "label": "Pink",
           "dark": {
             "accent": "#f49ac1",
-            "ink": "#1d0711"
+            "ink": "#1d0711",
+            "wash": "#f49ac11e"
           },
           "light": {
             "accent": "#96325f",
-            "ink": "#fdf1f6"
+            "ink": "#fdf1f6",
+            "wash": "#96325f1e"
           }
         }
       ]
@@ -273,39 +315,68 @@
       "tablePhones": "Below 640px the checkbox and title are pinned at the left (136px), property columns paint 104px and swipe in one document scroller with the thead stuck to the top, and a trailing spacer lets the last column clear the opaque 56px action rail. No resize handles on a coarse pointer; Select preserves scrollLeft; the header drops the mono key line.",
       "recordPhone": "The title input owns its line at 26px; the sticky save bar is the only save indicator; the id and revision sit behind one mono disclosure (last six characters, full id plus copy); one UPDATED line; a property's mono key echo is hidden below sm.",
       "recordLinks": "A resolved [[Type/Title]] reads as its title with the accent underline and opens in place; an unknown or ambiguous target uses a dotted warning underline and a title, never a navigation; code spans and fences stay literal; an unsaved valid link reads as plain text until saved.",
-      "bodyEditor": "One hairline toolbar above a textarea edits only text: bold, italic, inline code, an H1–H3 heading menu, lists, quote and the two link tools; 32px fine and 44px coarse. On a phone the controls form two rows of six columns, ending with Save. Write is a split from lg up with the read renderer beside it; below lg one pane and a Write/Preview switch, with the textarea kept mounted so undo and selection survive. On a coarse pointer Write becomes a fixed writing sheet against the visual viewport: the page, navigation and page save bar step aside, Save lives in the toolbar, a visible Done action and Escape close the sheet, and the textarea scrolls inside it. Done returns the page at its prior scroll. Typing and toolbar edits keep the caret in view, with three lines of lower margin and a re-check while Safari settles the keyboard. / and [[ share one caret popup clamped to the visual viewport; Enter or Tab accepts, Space never does, and a slash command opens only at line start outside a fence. A live type prefix turns an unresolved [[type/Title into a trailing Create row. Pasting one URL over a selection makes a markdown link; tapping non-link preview prose enters Write at the end.",
-      "linksPanel": "Below the body and above history: a mono count across both directions, Links to rows (outgoing relations with Type · via Property, then outgoing mentions with Type · mentioned in this body), Linked from rows (type glyph, source title, Type · via Property), and Mentioned in rows (title, type name, two-line snippet, ×N). A group renders only when non-empty; the whole row navigates, 44px on a coarse pointer; empty is one sentence naming relation properties and [[Type/Title]].",
+      "bodyEditor": "One hairline toolbar above a textarea edits only text: bold, italic, inline code, an H1\u2013H3 heading menu, lists, quote and the two link tools; 32px fine and 44px coarse. On a phone the controls form two rows of six columns, ending with Save. Write is a split from lg up with the read renderer beside it; below lg one pane and a Write/Preview switch, with the textarea kept mounted so undo and selection survive. On a coarse pointer Write becomes a fixed writing sheet against the visual viewport: the page, navigation and page save bar step aside, Save lives in the toolbar, a visible Done action and Escape close the sheet, and the textarea scrolls inside it. Done returns the page at its prior scroll. Typing and toolbar edits keep the caret in view, with three lines of lower margin and a re-check while Safari settles the keyboard. / and [[ share one caret popup clamped to the visual viewport; Enter or Tab accepts, Space never does, and a slash command opens only at line start outside a fence. A live type prefix turns an unresolved [[type/Title into a trailing Create row. Pasting one URL over a selection makes a markdown link; tapping non-link preview prose enters Write at the end.",
+      "linksPanel": "Below the body and above history: a mono count across both directions, Links to rows (outgoing relations with Type \u00b7 via Property, then outgoing mentions with Type \u00b7 mentioned in this body), Linked from rows (type glyph, source title, Type \u00b7 via Property), and Mentioned in rows (title, type name, two-line snippet, \u00d7N). A group renders only when non-empty; the whole row navigates, 44px on a coarse pointer; empty is one sentence naming relation properties and [[Type/Title]].",
       "graph": "A full-width Graph row, closed by default, shown whenever either direction has a link, above a drawing capped at 44rem with Local/Space scope and a solid-relation / dashed-mention legend. The local map draws outgoing and incoming edges from the same rows the panel lists. Local rings hold 24 nodes (12 inner) and the space map places every live record by degree. Nodes are links with accent focus rings and the centre is aria-current; wheel zoom runs 0.6x to 2.6x and a drag pans or moves one node with its edges. On a touch pointer a drag anywhere always pans and never moves a node, while a tap opens the record; node dragging stays a mouse or pen gesture, and page scrolling starts outside the drawing. Offsets are view-only and reset when the record or scope changes; the drawing never mirrors, only the zoom controls follow the thumb edge.",
       "sheetGeometry": ".sheet-viewport is fixed against the visual viewport, bottom-aligned below sm and a 12vh-top centred dialog above; .sheet-popup is capped at --vv-height minus a margin; no overlay uses inset:0 or 100dvh; viewport-fit=cover makes env(safe-area-inset-*) real.",
       "addProperty": "A ruled dialog from the trailing table header or the Columns panel: an existing library property or a new name and format; property, type member (featured) and current-view column write in order, staying open with a named stage and Retry on failure. Editor-only, no wizard, one toast on success.",
       "recordIcons": "One optional user-authored emoji in frontmatter (schema 4), never a property or interface icon. A fixed slot in the record header, table title cell, home recents, palette results, board cards, gallery tiles and Trash; absent means no empty box.",
       "sheetClose": "Right-handed keeps the platform-standard trailing close; left-handed puts the same control first in the title or search row, with focus order and margin following the DOM.",
-      "searchLanding": "Opening a record from a search result keeps ?q= in the address. MarkdownView marks every rendered occurrence with the accent and scrolls the first one into view once after the preview paints, without stealing focus. The body header shows Match: “<query>” with a clear control that removes q via replace so Back returns to the search. Code and fences stay unmarked, and re-opening the same query does not fight a reader's scroll.",
-      "renameRepair": "A title change on a record with inbound body mentions opens one preview dialog before the write: old and new title, each source with its type and mention count, and Update links / Rename only / Cancel. Sources are read while the old title still resolves. Update links renames first, then rewrites only occurrences that resolved to the record before the rename, each through an ordinary source PATCH; a stale source is skipped and reported, never retried. Rename only leaves old mentions unresolved; Cancel writes nothing. The dialog uses the sheet geometry and its action row follows the thumb edge."
+      "searchLanding": "Opening a record from a search result keeps ?q= in the address. MarkdownView marks every rendered occurrence with the accent and scrolls the first one into view once after the preview paints, without stealing focus. The body header shows Match: \u201c<query>\u201d with a clear control that removes q via replace so Back returns to the search. Code and fences stay unmarked, and re-opening the same query does not fight a reader's scroll.",
+      "renameRepair": "A title change on a record with inbound body mentions opens one preview dialog before the write: old and new title, each source with its type and mention count, and Update links / Rename only / Cancel. Sources are read while the old title still resolves. Update links renames first, then rewrites only occurrences that resolved to the record before the rename, each through an ordinary source PATCH; a stale source is skipped and reported, never retried. Rename only leaves old mentions unresolved; Cancel writes nothing. The dialog uses the sheet geometry and its action row follows the thumb edge.",
+      "foundation": "Six type roles with IBM Plex Serif for display/title; the neutral scale adds Night Inset below the ground; one 12% accent wash marks selection, the active row and the search match; 4px spacing scale; 36/40/44 control heights and 40/44 fields; 120/180/240ms motion on one exponential ease-out."
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Auth titles and page headings; one per screen."
+        "purpose": "Space name, auth and page titles; IBM Plex Serif 40/1.05, 32/1.08 on a phone."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Space list and space name."
+        "purpose": "Record title and type page name; IBM Plex Serif 30/1.1, 26/1.12 on a phone."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Prose, form values and row names."
+        "purpose": "Prose, form values and row names; IBM Plex Sans 15/1.6."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Column headers, field labels, roles and keys; uppercase mono."
+        "purpose": "Column headers, field labels, roles and keys; uppercase IBM Plex Mono 11/1.5, 0.09em."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Section headings; IBM Plex Sans 18/1.35, 500."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Secondary rows, hints, metadata sentences and errors; IBM Plex Sans 13/1.5."
       }
     },
     "shadows": [],
     "motion": [
       {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "One exponential ease-out for every entrance and state transition."
+      },
+      {
+        "name": "fast",
+        "value": "120ms",
+        "purpose": "Result changes, hover colour and palette result entrance."
+      },
+      {
+        "name": "base",
+        "value": "180ms",
+        "purpose": "Every overlay entrance and the sheet rise."
+      },
+      {
+        "name": "slow",
+        "value": "240ms",
+        "purpose": "The one page-content settle."
+      },
+      {
         "name": "settle",
-        "value": "260ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "value": "240ms cubic-bezier(0.16, 1, 0.3, 1)",
         "purpose": "One entrance on a page's main content; fill-mode backwards so a fixed descendant is never trapped in a wrapper; removed under prefers-reduced-motion."
       },
       {
@@ -326,6 +397,10 @@
       {
         "name": "lg",
         "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
       }
     ]
   },
@@ -336,7 +411,7 @@
       "refersTo": "button-primary",
       "description": "The one stateful action on a view: sign in, create account, create space.",
       "html": "<button class=\"ds-btn-primary\">Create space</button>",
-      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:10px 16px; border:0; border-radius:6px; background:var(--color-accent,#c8d96b); color:var(--color-accent-ink,#14180f); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:14px; font-weight:500; cursor:pointer; transition:filter 160ms ease; } .ds-btn-primary:hover { filter:brightness(1.05); } .ds-btn-primary:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-btn-primary:disabled { opacity:.5; cursor:not-allowed; }"
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:0; border-radius:var(--radius-field,6px); background:var(--color-accent,#c8d96b); color:var(--color-accent-ink,#14180f); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:filter var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-primary:hover { filter:brightness(1.05); } .ds-btn-primary:active { filter:brightness(.95); } .ds-btn-primary:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-btn-primary:disabled, .ds-btn-primary[data-loading] { opacity:.5; cursor:not-allowed; } .ds-btn-primary[aria-busy=true] { cursor:wait; }"
     },
     {
       "name": "Ghost Button",
@@ -344,7 +419,30 @@
       "refersTo": "button-ghost",
       "description": "Secondary action: sign out, retry, cancel.",
       "html": "<button class=\"ds-btn-ghost\">Sign out</button>",
-      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:10px 16px; border:1px solid var(--color-line,#2d332d); border-radius:6px; background:transparent; color:var(--color-ink,#e8ece4); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:14px; font-weight:500; cursor:pointer; transition:background-color 160ms ease, border-color 160ms ease; } .ds-btn-ghost:hover { background:var(--color-raised,#212621); border-color:var(--color-line-strong,#3a423a); } .ds-btn-ghost:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:1px solid var(--color-line-interactive,#667066); border-radius:var(--radius-field,6px); background:transparent; color:var(--color-ink,#e8ece4); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)), border-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-ghost:hover { background:var(--color-raised,#212621); border-color:var(--color-line-strong,#3a423a); } .ds-btn-ghost:active { background:var(--color-inset,#0d100d); } .ds-btn-ghost[aria-pressed=true] { background:var(--color-accent-wash,#c8d96b1e); border-color:var(--color-accent,#c8d96b); color:var(--color-accent,#c8d96b); } .ds-btn-ghost:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Borderless secondary action in a dense row or overlay footer.",
+      "html": "<button class=\"ds-btn-quiet\" aria-pressed=\"true\">Selected</button>",
+      "css": ".ds-btn-quiet { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:1px solid transparent; border-radius:var(--radius-field,6px); background:transparent; color:var(--color-muted,#9aa398); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)), color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-quiet:hover { background:var(--color-raised,#212621); color:var(--color-ink,#e8ece4); } .ds-btn-quiet[aria-pressed=true] { background:var(--color-accent-wash,#c8d96b1e); color:var(--color-accent,#c8d96b); } .ds-btn-quiet:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "A destructive action whose label names the loss; ember border and text, never a filled red.",
+      "html": "<button class=\"ds-btn-destructive\">Move to trash</button>",
+      "css": ".ds-btn-destructive { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:1px solid var(--color-danger,#f08a72); border-radius:var(--radius-field,6px); background:transparent; color:var(--color-danger,#f08a72); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-destructive:hover { background:var(--color-raised,#212621); } .ds-btn-destructive:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+    },
+    {
+      "name": "Primitive States",
+      "kind": "custom",
+      "description": "Hover, focus-visible, active, selected, disabled, loading, error and read-only are defined once in components/ui/controls.tsx. Focus is a 2px accent outline with 2px offset on every control; errors are ember border plus a role=alert message, never colour alone.",
+      "html": "<button aria-busy=\"true\" data-loading>Saving\u2026</button>",
+      "css": ".ds-focus { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-disabled { opacity:.5; cursor:not-allowed; } .ds-invalid { border-color:var(--color-danger,#f08a72); } .ds-selected { background:var(--color-accent-wash,#c8d96b1e); color:var(--color-accent,#c8d96b); }"
     },
     {
       "name": "Text Field",
@@ -352,7 +450,7 @@
       "refersTo": "input",
       "description": "Labeled input with hint and error slots.",
       "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input class=\"ds-input\" value=\"Garden\" /></label>",
-      "css": ".ds-field { display:grid; gap:6px; font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-field-label { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:11px; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-input { height:40px; padding:8px 12px; border:1px solid var(--color-line,#2d332d); border-radius:6px; background:var(--color-ground,#121512); color:var(--color-ink,#e8ece4); font:400 15px/1.5 var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-input:hover { border-color:var(--color-line-strong,#3a423a); } .ds-input:focus { border-color:var(--color-accent,#c8d96b); outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-input::placeholder { color:var(--color-faint,#747d72); }"
+      "css": ".ds-field { display:grid; gap:8px; font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-field-label { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:11px; line-height:1.5; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-input { height:var(--field-fine,40px); padding:8px 12px; border:1px solid var(--color-line-interactive,#667066); border-radius:var(--radius-field,6px); background:var(--color-ground,#121512); color:var(--color-ink,#e8ece4); font:400 var(--text-body,15px)/1.6 var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); transition:border-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-input:hover { border-color:var(--color-line-strong,#3a423a); } .ds-input:focus { border-color:var(--color-accent,#c8d96b); } .ds-input:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-input[aria-invalid=true] { border-color:var(--color-danger,#f08a72); } .ds-input:disabled { opacity:.6; cursor:not-allowed; } .ds-input:read-only { color:var(--color-muted,#9aa398); }"
     },
     {
       "name": "App Header",
@@ -371,14 +469,14 @@
   ],
   "narrative": {
     "northStar": "Nocturnal Field Guide",
-    "overview": "The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono, annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet — the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a working tool first. The world contributes type, palette, density and one signature move (the keyed entry), never the navigation model or the controls.",
+    "overview": "The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono, annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet \u2014 the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a working tool first. The v0.5.2 foundation adds a display serif voice, a six-step type scale, one accent wash, a 4px space scale and named primitive states. The world still contributes type, palette, density and one signature move (the keyed entry), never the navigation model or the controls.",
     "keyCharacteristics": [
-      "Dark ground with near-neutral, slightly green-black surfaces.",
+      "Dark ground with near-neutral, slightly green-black surfaces and one inset step below the ground.",
       "Hairline 1px rules instead of shadows or cards.",
-      "Mono for keys, ids, timestamps and counts; sans for prose and controls.",
-      "One accent per space, chosen by an owner from six contrast-tested palettes and shared by every member, used only for state (selection, focus, primary action); Lichen is the default.",
+      "IBM Plex Serif for display and page titles; IBM Plex Sans for prose and controls; IBM Plex Mono for keys, ids, timestamps, counts and labels.",
+      "One accent per space, chosen by an owner from six contrast-tested palettes and shared by every member, used only for state; one 12% accent wash is the only tint.",
       "A keyed index as the recurring structure: a short mono key leads every entry.",
-      "On phones, navigation and sheets live at the bottom, within thumb reach; keyboard-only affordances are absent."
+      "A real margin at xl for annotations, counts and properties; motion explains change and is absent under reduced motion."
     ],
     "rules": [
       {
@@ -429,6 +527,26 @@
       {
         "name": "The Five Controls Rule",
         "body": "Below sm the type toolbar is five 44px controls on one row: search, Filter, Sort, Columns and View, with Columns absent on a calendar. View opens one sheet whose first screen is a menu of View settings, Save as view and CSV, each panel returning through Back. A changed query or view shows one labelled band under the toolbar with Save and Reset; the band never wraps.",
+        "section": "layout"
+      },
+      {
+        "name": "The Serif Is a Voice Rule",
+        "body": "IBM Plex Serif sets display and page titles, the record title and one pull-quote or empty-state line per surface. Body, controls, tables and prose stay sans; keys, counts, dates and annotations stay mono. A serif paragraph is a defect.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Wash Rule",
+        "body": "The accent wash is the only tint in the system: the chosen accent at 12% alpha, for selection, the active row, the search match and drag. It is never a decorative panel, a gradient or a second accent, and body ink on the composited wash stays at 4.5:1 or better over ground, inset, surface and raised in both schemes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Margin Rule",
+        "body": "At xl the composed pages use a real margin column for annotations, counts, folios and properties. The margin is information, not decoration; if it has nothing to say, it collapses into the reading order.",
+        "section": "layout"
+      },
+      {
+        "name": "The Tokens Rule",
+        "body": "Every repeated size, colour, space, radius, duration or ease comes from a theme token or a documented CSS variable. A one-off stays local and is named in the checkpoint decisions.",
         "section": "layout"
       }
     ],

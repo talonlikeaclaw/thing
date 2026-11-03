@@ -283,7 +283,7 @@ export function SettingsPage() {
             <FormError message={remove.error ? readError(remove.error) : null} />
             <ThumbRow className="flex-wrap items-center gap-3">
               <Button
-                variant="danger"
+                variant="destructive"
                 className="w-fit"
                 disabled={confirm.trim() !== detail.name || remove.isPending}
                 onClick={onDelete}

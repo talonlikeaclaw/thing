@@ -244,7 +244,7 @@ export function ViewSettings({
             <p className="text-[13px] text-ink">Delete “{view.name}”? This cannot be undone.</p>
             <Button
               type="button"
-              variant="danger"
+              variant="destructive"
               className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
               disabled={remove.isPending}
               onClick={destroy}
@@ -263,7 +263,7 @@ export function ViewSettings({
         ) : (
           <Button
             type="button"
-            variant="danger"
+            variant="destructive"
             className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
             onClick={() => setConfirming(true)}
           >

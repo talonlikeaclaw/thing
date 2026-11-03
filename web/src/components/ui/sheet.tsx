@@ -41,6 +41,46 @@ export function SheetPopup({ className, ...props }: ComponentProps<typeof Dialog
 }
 
 /**
+ * The shared overlay header, title and footer. Pages supply their own content;
+ * the rule, spacing, type role and safe-area padding are defined here once.
+ */
+export function SheetHeader({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-[var(--space-3)] border-b rule px-[var(--space-4)] py-[var(--space-3)]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function SheetTitle({ className, ...props }: ComponentProps<typeof Dialog.Title>) {
+  return (
+    <Dialog.Title
+      className={cn(
+        "text-[length:var(--text-heading)] leading-[var(--text-heading--line-height)] font-medium text-ink",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function SheetFooter({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "sheet-footer border-t rule px-[var(--space-4)] pt-[var(--space-2)]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/**
  * Focus a field of a sheet that is kept mounted while closed, from inside the
  * gesture that opened it. iOS Safari only raises the keyboard for `focus()`
  * during the tap itself, and only for a field that already exists: by the time

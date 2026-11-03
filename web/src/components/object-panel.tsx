@@ -1130,7 +1130,7 @@ export function ObjectPanel({
                   Cancel
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="destructive"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                   disabled={trash.isPending}
                   onClick={moveToTrash}

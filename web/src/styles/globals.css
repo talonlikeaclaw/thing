@@ -5,8 +5,9 @@
  * The world contributes type, palette, density and the keyed rail; the shell
  * stays a standard web app. One lichen accent marks state, never decoration.
  */
-@theme {
+@theme static {
   --color-ground: #121512;
+  --color-inset: #0d100d;
   --color-surface: #1a1e1a;
   --color-raised: #212621;
   --color-line: #2d332d;
@@ -17,11 +18,49 @@
   --color-faint: #868e84;
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
+  --color-accent-wash: #c8d96b1e;
   --color-danger: #f08a72;
   --color-warning: #dcaa54;
 
   --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.015em;
+  --text-title: 1.875rem;
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.012em;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.35;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.6;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.5;
+  --text-label: 0.6875rem;
+  --text-label--line-height: 1.5;
+  --text-label--letter-spacing: 0.09em;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --control-fine: 2.25rem;
+  --control-standard: 2.5rem;
+  --control-coarse: 2.75rem;
+  --field-fine: 2.5rem;
+  --field-coarse: 2.75rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
 
   --radius-field: 6px;
   --radius-sheet: 10px;
@@ -29,76 +68,89 @@
 
 /*
  * Highlight accent: one preset shared by every member of a space, applied by
- * `SpaceLayout` from `space.yml`. Only the two accent tokens move; every
- * component keeps reading `accent` / `accent-ink`. Values mirror
+ * `SpaceLayout` from `space.yml`. The accent, its ink and its 12% wash move;
+ * every component keeps reading `accent` / `accent-ink` / `accent-wash`. Values mirror
  * `web/src/lib/accent.ts`, and `lib/accent.test.ts` enforces the 4.5:1
  * contrast floor in both schemes.
  */
 :root[data-accent="lichen"] {
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
+  --color-accent-wash: #c8d96b1e;
 }
 
 :root[data-accent="yellow"] {
   --color-accent: #f2d64b;
   --color-accent-ink: #1a1503;
+  --color-accent-wash: #f2d64b1e;
 }
 
 :root[data-accent="orange"] {
   --color-accent: #f5a24a;
   --color-accent-ink: #1c1204;
+  --color-accent-wash: #f5a24a1e;
 }
 
 :root[data-accent="cyan"] {
   --color-accent: #6fdbe8;
   --color-accent-ink: #04181a;
+  --color-accent-wash: #6fdbe81e;
 }
 
 :root[data-accent="green"] {
   --color-accent: #7fe08a;
   --color-accent-ink: #051706;
+  --color-accent-wash: #7fe08a1e;
 }
 
 :root[data-accent="pink"] {
   --color-accent: #f49ac1;
   --color-accent-ink: #1d0711;
+  --color-accent-wash: #f49ac11e;
 }
 
 @media (prefers-color-scheme: light) {
   :root[data-accent="lichen"] {
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
+    --color-accent-wash: #5f6f1e1e;
   }
 
   :root[data-accent="yellow"] {
     --color-accent: #6f5d00;
     --color-accent-ink: #fbf9ea;
+    --color-accent-wash: #6f5d001e;
   }
 
   :root[data-accent="orange"] {
     --color-accent: #9a4a00;
     --color-accent-ink: #fdf6ee;
+    --color-accent-wash: #9a4a001e;
   }
 
   :root[data-accent="cyan"] {
     --color-accent: #00646e;
     --color-accent-ink: #eefcfe;
+    --color-accent-wash: #00646e1e;
   }
 
   :root[data-accent="green"] {
     --color-accent: #256b33;
     --color-accent-ink: #f0fbf2;
+    --color-accent-wash: #256b331e;
   }
 
   :root[data-accent="pink"] {
     --color-accent: #96325f;
     --color-accent-ink: #fdf1f6;
+    --color-accent-wash: #96325f1e;
   }
 }
 
 @media (prefers-color-scheme: light) {
   :root {
     --color-ground: #f4f3ec;
+    --color-inset: #eae9e0;
     --color-surface: #fbfaf6;
     --color-raised: #efeee6;
     --color-line: #d9d7ca;
@@ -109,6 +161,7 @@
     --color-faint: #676d65;
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
+    --color-accent-wash: #5f6f1e1e;
     --color-danger: #a33a28;
     --color-warning: #7d5410;
   }
@@ -150,8 +203,8 @@
     background: var(--color-ground);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-size: 15px;
-    line-height: 1.55;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -208,15 +261,25 @@
 
   .label {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-label);
     font-weight: 500;
-    letter-spacing: 0.09em;
+    line-height: var(--text-label--line-height);
+    letter-spacing: var(--text-label--letter-spacing);
     text-transform: uppercase;
     color: var(--color-muted);
   }
 
   .rule {
     border-color: var(--color-line);
+  }
+
+  @media (max-width: 39.99rem) {
+    :root {
+      --text-display: 2rem;
+      --text-display--line-height: 1.08;
+      --text-title: 1.625rem;
+      --text-title--line-height: 1.12;
+    }
   }
 }
 
@@ -280,7 +343,7 @@
   }
 
   .sheet-popup[data-open] {
-    animation: sheet-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: sheet-in var(--duration-base) var(--ease-out);
   }
 
   /*
@@ -403,7 +466,7 @@
  * descendant — which is why the bottom bar and every dialog portal to `body`.
  */
 .settle {
-  animation: settle 260ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: settle var(--duration-slow) var(--ease-out) backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -14,6 +14,12 @@ export interface AccentScheme {
   accent: string;
   /** Text and glyphs drawn on the accent surface. */
   ink: string;
+  /**
+   * The one tint, at `WASH_ALPHA` alpha, for selection, the active row, the
+   * search match and drag. It is never a decorative panel and never sits
+   * behind primary text; `accent.test.ts` measures body ink on it.
+   */
+  wash: string;
 }
 
 export interface AccentPalette {
@@ -28,42 +34,45 @@ export const ACCENTS: readonly AccentPalette[] = [
   {
     id: "lichen",
     label: "Lichen",
-    dark: { accent: "#c8d96b", ink: "#14180f" },
-    light: { accent: "#5f6f1e", ink: "#f7f8f0" },
+    dark: { accent: "#c8d96b", ink: "#14180f", wash: "#c8d96b1e" },
+    light: { accent: "#5f6f1e", ink: "#f7f8f0", wash: "#5f6f1e1e" },
   },
   {
     id: "yellow",
     label: "Yellow",
-    dark: { accent: "#f2d64b", ink: "#1a1503" },
-    light: { accent: "#6f5d00", ink: "#fbf9ea" },
+    dark: { accent: "#f2d64b", ink: "#1a1503", wash: "#f2d64b1e" },
+    light: { accent: "#6f5d00", ink: "#fbf9ea", wash: "#6f5d001e" },
   },
   {
     id: "orange",
     label: "Orange",
-    dark: { accent: "#f5a24a", ink: "#1c1204" },
-    light: { accent: "#9a4a00", ink: "#fdf6ee" },
+    dark: { accent: "#f5a24a", ink: "#1c1204", wash: "#f5a24a1e" },
+    light: { accent: "#9a4a00", ink: "#fdf6ee", wash: "#9a4a001e" },
   },
   {
     id: "cyan",
     label: "Cyan",
-    dark: { accent: "#6fdbe8", ink: "#04181a" },
-    light: { accent: "#00646e", ink: "#eefcfe" },
+    dark: { accent: "#6fdbe8", ink: "#04181a", wash: "#6fdbe81e" },
+    light: { accent: "#00646e", ink: "#eefcfe", wash: "#00646e1e" },
   },
   {
     id: "green",
     label: "Green",
-    dark: { accent: "#7fe08a", ink: "#051706" },
-    light: { accent: "#256b33", ink: "#f0fbf2" },
+    dark: { accent: "#7fe08a", ink: "#051706", wash: "#7fe08a1e" },
+    light: { accent: "#256b33", ink: "#f0fbf2", wash: "#256b331e" },
   },
   {
     id: "pink",
     label: "Pink",
-    dark: { accent: "#f49ac1", ink: "#1d0711" },
-    light: { accent: "#96325f", ink: "#fdf1f6" },
+    dark: { accent: "#f49ac1", ink: "#1d0711", wash: "#f49ac11e" },
+    light: { accent: "#96325f", ink: "#fdf1f6", wash: "#96325f1e" },
   },
 ];
 
 export const DEFAULT_ACCENT: AccentId = "lichen";
+
+/** Maximum alpha of the accent wash; 0x1e is 11.8%, under the 12% ceiling. */
+export const WASH_ALPHA = 0x1e / 0xff;
 
 /** The slice of `Storage` this module needs; a fake can stand in for it. */
 export interface AccentStorage {

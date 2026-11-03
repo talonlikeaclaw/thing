@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCENTS,
   DEFAULT_ACCENT,
+  WASH_ALPHA,
   applyAccent,
   clearStoredAccent,
   isAccentId,
@@ -12,9 +13,17 @@ import {
   type AccentStorage,
 } from "@/lib/accent";
 
-/** The grounds the palettes are measured against (see `globals.css`). */
+/** The surfaces the palettes are measured against (see `globals.css`). */
 const DARK_GROUND = "#121512";
+const DARK_SURFACE = "#1a1e1a";
+const DARK_RAISED = "#212621";
+const DARK_INSET = "#0d100d";
 const LIGHT_GROUND = "#f4f3ec";
+const LIGHT_SURFACE = "#fbfaf6";
+const LIGHT_RAISED = "#efeee6";
+const LIGHT_INSET = "#eae9e0";
+const DARK_INK = "#e8ece4";
+const LIGHT_INK = "#1b1d19";
 
 function memoryStorage(values: Record<string, string> = {}): AccentStorage & {
   values: Map<string, string>;
@@ -34,12 +43,27 @@ function memoryStorage(values: Record<string, string> = {}): AccentStorage & {
 
 function channels(hex: string): [number, number, number] {
   const value = hex.replace("#", "");
-  expect(value).toHaveLength(6);
   return [0, 2, 4].map((offset) => parseInt(value.slice(offset, offset + 2), 16) / 255) as [
     number,
     number,
     number,
   ];
+}
+
+function alpha(hex: string): number {
+  const value = hex.replace("#", "");
+  return value.length === 8 ? parseInt(value.slice(6, 8), 16) / 255 : 1;
+}
+
+/** Composite a translucent wash over an opaque ground. */
+function washOver(wash: string, ground: string): string {
+  const a = alpha(wash);
+  const [wr, wg, wb] = channels(wash);
+  const [gr, gg, gb] = channels(ground);
+  const mix = (w: number, g: number) => Math.round((w * a + g * (1 - a)) * 255);
+  return `#${[mix(wr, gr), mix(wg, gg), mix(wb, gb)]
+    .map((channel) => channel.toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
 function luminance(hex: string): number {
@@ -78,6 +102,23 @@ describe("ACCENTS", () => {
     expect(contrast(dark.ink, dark.accent)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(light.accent, LIGHT_GROUND)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(light.ink, light.accent)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(ACCENTS)("keeps $id body ink readable on its wash", ({ dark, light }) => {
+    for (const ground of [DARK_GROUND, DARK_SURFACE, DARK_RAISED, DARK_INSET]) {
+      expect(contrast(DARK_INK, washOver(dark.wash, ground))).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const ground of [LIGHT_GROUND, LIGHT_SURFACE, LIGHT_RAISED, LIGHT_INSET]) {
+      expect(contrast(LIGHT_INK, washOver(light.wash, ground))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each(ACCENTS)("keeps $id wash tinted by its accent at the 12% ceiling", ({ dark, light }) => {
+    for (const { accent, wash } of [dark, light]) {
+      expect(wash.slice(0, 7)).toBe(accent);
+      expect(alpha(wash)).toBeLessThanOrEqual(0.12);
+      expect(alpha(wash)).toBeCloseTo(WASH_ALPHA, 5);
+    }
   });
 });
 

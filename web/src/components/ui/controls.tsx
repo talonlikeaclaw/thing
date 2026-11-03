@@ -7,24 +7,44 @@ import type { ComponentProps, ReactNode } from "react";
 import { ThumbRow } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 
-type ButtonVariant = "primary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "ghost" | "quiet" | "destructive";
 
 const buttonStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent text-accent-ink hover:brightness-105 active:brightness-95 disabled:hover:brightness-100",
-  ghost: "border border-line-interactive text-ink hover:border-line-strong hover:bg-raised",
-  danger: "border border-danger text-danger hover:bg-raised",
+    "bg-accent text-accent-ink hover:brightness-105 active:brightness-95 aria-pressed:brightness-95 disabled:hover:brightness-100",
+  ghost:
+    "border border-line-interactive text-ink hover:border-line-strong hover:bg-raised active:bg-raised aria-pressed:border-accent aria-pressed:bg-accent-wash aria-pressed:text-accent",
+  quiet:
+    "border border-transparent text-muted hover:bg-raised hover:text-ink active:bg-raised aria-pressed:bg-accent-wash aria-pressed:text-accent",
+  destructive:
+    "border border-danger text-danger hover:border-danger hover:bg-raised active:bg-raised",
 };
+
+/** The one focus treatment every control in the app inherits. */
+export const focusRing =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 interface ButtonProps extends ComponentProps<typeof BaseButton> {
   variant?: ButtonVariant;
+  /** Blocks a second submit and exposes a busy state to assistive tech. */
+  loading?: boolean;
 }
 
-export function Button({ variant = "primary", className, ...props }: ButtonProps) {
+export function Button({
+  variant = "primary",
+  loading = false,
+  disabled,
+  className,
+  ...props
+}: ButtonProps) {
   return (
     <BaseButton
+      aria-busy={loading || undefined}
+      data-loading={loading ? "" : undefined}
+      disabled={disabled || loading}
       className={cn(
-        "inline-flex min-h-10 items-center justify-center gap-2 rounded-field px-4 text-sm font-medium transition-[filter,background-color,border-color] disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11",
+        "inline-flex min-h-[var(--control-standard)] items-center justify-center gap-[var(--space-2)] rounded-field px-[var(--space-4)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] font-medium transition-[filter,background-color,border-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out)] disabled:cursor-not-allowed disabled:opacity-50 data-loading:cursor-wait pointer-coarse:min-h-[var(--control-coarse)]",
+        focusRing,
         buttonStyles[variant],
         className,
       )}
@@ -41,7 +61,7 @@ export function Keycap({ children, className }: { children: ReactNode; className
   return (
     <kbd
       className={cn(
-        "rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[11px] text-faint",
+        "rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] text-faint",
         className,
       )}
     >
@@ -56,7 +76,7 @@ export function Keycap({ children, className }: { children: ReactNode; className
  * when a narrow window reports a fine pointer.
  */
 export const inlineAction =
-  "min-h-7 px-2 text-[12px] pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:min-w-11 max-sm:text-[13px]";
+  "min-h-[var(--control-fine)] px-[var(--space-2)] text-[12px] pointer-coarse:min-h-[var(--control-coarse)] pointer-coarse:min-w-11 pointer-coarse:text-[length:var(--text-small)] max-sm:min-h-[var(--control-coarse)] max-sm:min-w-11 max-sm:text-[length:var(--text-small)]";
 
 /**
  * The action row of a compact editor. The primary action sits at the thumb
@@ -79,7 +99,7 @@ export function InlineActions({ children }: { children: ReactNode }) {
  */
 export function StickyActionBar({ children }: { children: ReactNode }) {
   return (
-    <ThumbRow className="record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-3 border-t rule bg-ground/95 py-3 backdrop-blur">
+    <ThumbRow className="record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-[var(--space-3)] border-t rule bg-ground py-[var(--space-3)]">
       {children}
     </ThumbRow>
   );
@@ -91,8 +111,8 @@ interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "cla
   hint?: ReactNode;
 }
 
-const controlStyles =
-  "w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors pointer-coarse:text-[16px] hover:border-line-strong focus:border-accent";
+/** The one field frame; every text, textarea and select control consumes it. */
+export const fieldFrame = `w-full rounded-field border border-line-interactive bg-ground px-[var(--space-3)] text-[length:var(--text-body)] leading-[var(--text-body--line-height)] text-ink transition-[border-color,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-line-strong focus:border-accent aria-invalid:border-danger aria-invalid:focus:border-danger disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line-interactive read-only:text-muted pointer-coarse:text-[16px] ${focusRing}`;
 
 function FieldMessages({
   hint,
@@ -108,12 +128,12 @@ function FieldMessages({
   return (
     <>
       {hint ? (
-        <p id={hintId} className="text-[13px] text-muted">
+        <p id={hintId} className="text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} role="alert" className="text-[13px] text-danger">
+        <p id={errorId} role="alert" className="text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-danger">
           {error}
         </p>
       ) : null}
@@ -135,8 +155,8 @@ export function TextField({ label, error, hint, id, ...props }: TextFieldProps) 
         aria-invalid={error ? true : undefined}
         aria-describedby={cn(hintId, errorId) || undefined}
         className={cn(
-          controlStyles,
-          "h-10 pointer-coarse:h-11",
+          fieldFrame,
+          "h-[var(--field-fine)] pointer-coarse:h-[var(--field-coarse)]",
           error && "border-danger",
         )}
         {...props}
@@ -174,7 +194,11 @@ export function TextAreaField({
         rows={rows}
         aria-invalid={error ? true : undefined}
         aria-describedby={cn(hintId, errorId) || undefined}
-        className={cn(controlStyles, "py-2 leading-[1.55]", error && "border-danger")}
+        className={cn(
+          fieldFrame,
+          "min-h-[var(--field-fine)] py-[var(--space-2)] leading-[var(--text-body--line-height)] pointer-coarse:min-h-[var(--field-coarse)]",
+          error && "border-danger",
+        )}
         {...props}
       />
       <FieldMessages hint={hint} error={error} hintId={hintId} errorId={errorId} />
@@ -226,7 +250,10 @@ export function SelectField({
       >
         <Select.Trigger
           id={fieldId}
-          className={cn(controlStyles, "flex h-10 items-center justify-between gap-2 text-left pointer-coarse:h-11")}
+          className={cn(
+            fieldFrame,
+            "flex h-[var(--field-fine)] items-center justify-between gap-[var(--space-2)] text-left pointer-coarse:h-[var(--field-coarse)]",
+          )}
         >
           <Select.Value />
           <Select.Icon className="text-muted">
@@ -235,12 +262,12 @@ export function SelectField({
         </Select.Trigger>
         <Select.Portal>
           <Select.Positioner sideOffset={4} className="z-50">
-            <Select.Popup className="max-h-64 min-w-[var(--anchor-width)] overflow-auto overscroll-contain rounded-field border border-line bg-surface p-1 text-[14px]">
+            <Select.Popup className="max-h-64 min-w-[var(--anchor-width)] overflow-auto overscroll-contain rounded-field border border-line bg-surface p-[var(--space-1)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)]">
               {options.map((option) => (
                 <Select.Item
                   key={option.value}
                   value={option.value}
-                  className="cursor-pointer rounded-[4px] px-3 py-2 text-ink data-[highlighted]:bg-raised"
+                  className="cursor-pointer rounded-[4px] px-[var(--space-3)] py-[var(--space-2)] text-ink data-[highlighted]:bg-accent-wash data-[highlighted]:text-accent"
                 >
                   <Select.ItemText>{option.label}</Select.ItemText>
                 </Select.Item>
@@ -259,7 +286,7 @@ export function FormError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <p role="alert" className="border-l border-danger pl-3 text-[13px] text-danger">
+    <p role="alert" className="border-l border-danger pl-[var(--space-3)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-danger">
       {message}
     </p>
   );

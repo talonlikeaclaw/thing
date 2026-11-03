@@ -237,7 +237,7 @@ function MemberList({
                   </p>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="danger"
+                      variant="destructive"
                       className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                       disabled={removeMember.isPending}
                       onClick={() => confirmRemoval(member)}

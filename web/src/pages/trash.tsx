@@ -326,7 +326,7 @@ function TrashList({
                   {bulkRestore.isPending ? "Restoring…" : "Restore"}
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="destructive"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                   disabled={selectedIds.length === 0 || bulkPurge.isPending}
                   onClick={() => setBulkConfirm(true)}
@@ -378,7 +378,7 @@ function TrashList({
                   Cancel
                 </Button>
                 <Button
-                  variant="danger"
+                  variant="destructive"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                   disabled={!purgeConfirmed || bulkPurge.isPending}
                   onClick={() => void purgeSelected()}
@@ -512,7 +512,7 @@ function TrashList({
                               Cancel
                             </Button>
                             <Button
-                              variant="danger"
+                              variant="destructive"
                               className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                               disabled={!rowPurgeConfirmed || isPending}
                               onClick={() => void purgeOne(item)}

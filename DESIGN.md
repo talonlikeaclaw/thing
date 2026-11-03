@@ -3,35 +3,50 @@ name: thing
 description: A self-hosted, markdown-backed tracker whose schema you own.
 colors:
   ground: "#121512"
+  inset: "#0d100d"
   surface: "#1a1e1a"
   raised: "#212621"
   line: "#2d332d"
   line-strong: "#3a423a"
+  line-interactive: "#667066"
   ink: "#e8ece4"
   muted: "#9aa398"
   faint: "#868e84"
   accent: "#c8d96b"
   accent-ink: "#14180f"
+  accent-wash: "#c8d96b1e"
   danger: "#f08a72"
   warning: "#dcaa54"
 typography:
   display:
-    fontFamily: "IBM Plex Sans Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "28px"
-    fontWeight: 500
-    lineHeight: 1.15
-    letterSpacing: "-0.02em"
+    fontFamily: "IBM Plex Serif, ui-serif, Georgia, serif"
+    fontSize: "40px"
+    fontWeight: 400
+    lineHeight: 1.05
+    letterSpacing: "-0.015em"
   title:
+    fontFamily: "IBM Plex Serif, ui-serif, Georgia, serif"
+    fontSize: "30px"
+    fontWeight: 400
+    lineHeight: 1.1
+    letterSpacing: "-0.012em"
+  heading:
     fontFamily: "IBM Plex Sans Variable, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "26px"
+    fontSize: "18px"
     fontWeight: 500
-    lineHeight: 1.2
-    letterSpacing: "-0.02em"
+    lineHeight: 1.35
+    letterSpacing: "normal"
   body:
     fontFamily: "IBM Plex Sans Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "15px"
     fontWeight: 400
-    lineHeight: 1.55
+    lineHeight: 1.6
+    letterSpacing: "normal"
+  small:
+    fontFamily: "IBM Plex Sans Variable, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.5
     letterSpacing: "normal"
   label:
     fontFamily: "IBM Plex Mono, ui-monospace, monospace"
@@ -43,12 +58,25 @@ rounded:
   field: "6px"
   sheet: "10px"
 spacing:
-  xs: "6px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-  xl: "48px"
-  xxl: "64px"
+  space-1: "4px"
+  space-2: "8px"
+  space-3: "12px"
+  space-4: "16px"
+  space-5: "24px"
+  space-6: "32px"
+  space-7: "48px"
+  space-8: "64px"
+control:
+  fine: "36px"
+  standard: "40px"
+  coarse: "44px"
+  field-fine: "40px"
+  field-coarse: "44px"
+motion:
+  ease-out: "cubic-bezier(0.16, 1, 0.3, 1)"
+  fast: "120ms"
+  base: "180ms"
+  slow: "240ms"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
@@ -65,6 +93,18 @@ components:
     rounded: "{rounded.field}"
     padding: "10px 16px"
     height: "40px"
+  button-quiet:
+    backgroundColor: "transparent"
+    textColor: "{colors.muted}"
+    rounded: "{rounded.field}"
+    padding: "10px 16px"
+    height: "40px"
+  button-destructive:
+    backgroundColor: "transparent"
+    textColor: "{colors.danger}"
+    rounded: "{rounded.field}"
+    padding: "10px 16px"
+    height: "40px"
   input:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.ink}"
@@ -72,7 +112,6 @@ components:
     padding: "8px 12px"
     height: "40px"
 ---
-
 # Design System: thing
 
 ## Overview
@@ -91,12 +130,16 @@ the working default; a light mode inherits the same hierarchy on bone stock, wit
 for contrast.
 
 **Key Characteristics:**
-- Dark ground with near-neutral, slightly green-black surfaces.
+- Dark ground with near-neutral, slightly green-black surfaces, inset one step below the ground.
 - Hairline 1px rules instead of shadows or cards.
-- Mono for keys, ids, timestamps and counts; sans for prose and controls.
+- IBM Plex Serif for display and page titles; IBM Plex Sans for prose and controls; IBM Plex Mono
+  for keys, ids, timestamps, counts and labels. The serif is a voice, never a body face.
 - One accent per space, chosen by an owner from six contrast-tested palettes and shared by every
-  member, used only for state (selection, focus, primary action); Lichen is the default.
+  member, used only for state (selection, focus, primary action); Lichen is the default. One 12%
+  accent wash is the only tint and marks selection, the active row, the search match and drag.
 - A keyed index as the recurring structure: a short mono key leads every entry.
+- A real margin at `xl` for annotations, counts, folios and properties; it collapses when it has
+  nothing to say. Motion explains change and is absent under reduced motion.
 
 ## Colors
 
@@ -109,7 +152,9 @@ The palette is functional: no color appears without a job.
 - **Lichen Ink** (`{colors.accent-ink}`): text and glyphs on a lichen surface.
 
 ### Neutral
-- **Night Ground** (`{colors.ground}`): page background and input fields.
+- **Night Ground** (`{colors.ground}`): page background.
+- **Night Inset** (`{colors.inset}`): one step below the ground for wells, table headers and recessed
+  bands. It never replaces the ground as the page surface.
 - **Understory** (`{colors.surface}`): the signed-out sheet and raised panels.
 - **Canopy Shadow** (`{colors.raised}`): hover fill and quiet emphasis.
 - **Hairline** (`{colors.line}`): every divider, input border, and table rule.
@@ -117,6 +162,12 @@ The palette is functional: no color appears without a job.
 - **Moon Ink** (`{colors.ink}`): primary text.
 - **Fog** (`{colors.muted}`): secondary text, labels, annotations.
 - **Distant Fog** (`{colors.faint}`): placeholders and the quietest metadata; kept at ≥4.5:1 against every ground.
+
+### The Tint
+- **Accent Wash** (`{colors.accent-wash}`): the only tint in the system, drawn from the chosen accent
+  at 12% alpha. It marks selection, the active row, the search match and a drag target. It is never
+  a decorative panel, never a gradient and never a second accent. Body ink on the composited wash
+  stays at ≥4.5:1 over ground, inset, surface and raised in both schemes.
 
 ### Semantic
 - **Ember** (`{colors.danger}`): validation errors and destructive intent; text only.
@@ -138,29 +189,29 @@ owner's space, deleted only after that PATCH succeeds, and never read again. A n
 value is ignored — the owner owns the shared appearance. Signed-out routes and every non-space
 route render Lichen.
 
-| id | label | dark accent | dark ink | light accent | light ink |
-|---|---|---|---|---|---|
-| `lichen` | Lichen | `#c8d96b` | `#14180f` | `#5f6f1e` | `#f7f8f0` |
-| `yellow` | Yellow | `#f2d64b` | `#1a1503` | `#6f5d00` | `#fbf9ea` |
-| `orange` | Orange | `#f5a24a` | `#1c1204` | `#9a4a00` | `#fdf6ee` |
-| `cyan` | Cyan | `#6fdbe8` | `#04181a` | `#00646e` | `#eefcfe` |
-| `green` | Green | `#7fe08a` | `#051706` | `#256b33` | `#f0fbf2` |
-| `pink` | Pink | `#f49ac1` | `#1d0711` | `#96325f` | `#fdf1f6` |
+| id | label | dark accent | dark ink | dark wash | light accent | light ink | light wash |
+|---|---|---|---|---|---|---|---|
+| `lichen` | Lichen | `#c8d96b` | `#14180f` | `#c8d96b1e` | `#5f6f1e` | `#f7f8f0` | `#5f6f1e1e` |
+| `yellow` | Yellow | `#f2d64b` | `#1a1503` | `#f2d64b1e` | `#6f5d00` | `#fbf9ea` | `#6f5d001e` |
+| `orange` | Orange | `#f5a24a` | `#1c1204` | `#f5a24a1e` | `#9a4a00` | `#fdf6ee` | `#9a4a001e` |
+| `cyan` | Cyan | `#6fdbe8` | `#04181a` | `#6fdbe81e` | `#00646e` | `#eefcfe` | `#00646e1e` |
+| `green` | Green | `#7fe08a` | `#051706` | `#7fe08a1e` | `#256b33` | `#f0fbf2` | `#256b331e` |
+| `pink` | Pink | `#f49ac1` | `#1d0711` | `#f49ac11e` | `#96325f` | `#fdf1f6` | `#96325f1e` |
 
 `web/src/lib/accent.ts` is the single source for the picker and the contrast test; the core's
 `accent.rs` owns the ids the API accepts, and `globals.css` mirrors the palettes as
-`:root[data-accent=…]` overrides of `--color-accent` and `--color-accent-ink`. Components keep using
-those two tokens and never branch on the accent id.
+`:root[data-accent=…]` overrides of `--color-accent`, `--color-accent-ink` and
+`--color-accent-wash`. Components keep using those three tokens and never branch on the accent id.
 
 **The Shared Accent Rule.** The accent is one shared property of a space, not a per-person skin. An
 owner sets it, every member sees the same state colour, and no client keeps a second local choice
-after the one-time seed. Every palette clears
-4.5:1 for accent text on ground and ink on accent in both schemes, enforced by
-`lib/accent.test.ts`.
+after the one-time seed. Every palette clears 4.5:1 for accent text on ground, ink on accent, and
+body ink on its composited 12% wash in both schemes, enforced by `lib/accent.test.ts`.
 
 **The One Accent Rule.** The chosen accent marks state: focus, selection, the primary action, the
 wordmark, the active rail and view tabs. It never fills large areas and never appears twice in one
-row for two different meanings. Choosing Yellow does not add a second accent.
+row for two different meanings. Choosing Yellow does not add a second accent. The 12% wash is the
+only permitted fill; at full strength the accent stays text, a glyph or a primary surface.
 
 **The Light Is Not a Theme Skin Rule.** Light mode keeps the same type scale, rules and hierarchy.
 It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or
@@ -168,28 +219,34 @@ new ornament.
 
 ## Typography
 
-**Display Font:** IBM Plex Sans Variable (fallbacks: ui-sans-serif, system-ui)
+**Display Font:** IBM Plex Serif (fallbacks: ui-serif, Georgia) — 400 and 500 only
 **Body Font:** IBM Plex Sans Variable
 **Label/Mono Font:** IBM Plex Mono
 
-**Character:** Humanist sans for reading and controls; a technical mono for every identifier,
-measurement, count and label. The pairing reads as a field notebook, not a terminal.
+**Character:** A serif voice for display and page titles, a humanist sans for reading and controls,
+and a technical mono for every identifier, measurement, count and label. The pairing reads as a
+field notebook printed on good stock, not a terminal and not a marketing site.
 
 ### Hierarchy
-- **Display** (500, 28px/1.15, -0.02em): auth page titles and page-level headings.
-- **Title** (500, 26px/1.2, -0.02em): the space list heading and a space's name.
-- **Heading** (500, 17px/1.4): section headings such as "Start a space" and "Members".
-- **Body** (400, 15px/1.55): prose and form values; keep measure at 34–52ch.
-- **Label** (500, 11px, 0.09em, uppercase, mono): column headers, field labels, roles, keys.
+- **Display** (400, 40px/1.05, -0.015em, serif): the space name, auth and page titles, one per
+  screen. On a phone it steps to 32px/1.08.
+- **Title** (400, 30px/1.1, -0.012em, serif): the record title and a type page's name. On a phone it
+  steps to 26px/1.12.
+- **Heading** (500, 18px/1.35, sans): section headings such as "Properties", "Body" and "Members".
+- **Body** (400, 15px/1.6, sans): prose and form values; keep the reading measure at 65–75ch.
+- **Small** (400, 13px/1.5, sans): secondary rows, hints, metadata sentences and errors.
+- **Label** (500, 11px/1.5, 0.09em, uppercase, mono): column headers, field labels, roles, keys.
 - **Data** (400–500, 12px, mono): ids, timestamps, counts; always tabular numerals.
+
+**The Serif Is a Voice Rule.** IBM Plex Serif sets display and page titles, the record title and one
+pull-quote or empty-state line per surface. Body, controls, tables, cards and prose stay sans; keys,
+counts, dates and annotations stay mono. A serif paragraph is a defect.
 
 **The Keys Are Mono Rule.** Anything the system treats as an identifier or measurement is mono and
 tabular. Anything a person reads as a sentence is sans.
 
-**The 11px Floor.** No functional text renders below 11px. The one smaller step is the mono property
-key echoed under a table header on a fine pointer at 10px; on a phone that line is removed, because
-it repeats the label above it and cannot fit beside it. Detector findings below 11px are defects,
-not style.
+**The 11px Floor.** No functional text renders below 11px. The label token is 11px; keys and counts
+never shrink to fit. Detector findings below 11px are defects, not style.
 
 Coarse pointers raise every input to at least 16px so focusing one never zooms the page, and every
 control to at least 44 × 44.
@@ -205,8 +262,12 @@ types (64px), role (96px) — and a three-column grid on mobile (key, name, role
 into the entry's annotation. Rows are separated by full-width hairlines, never cards. The create form
 sits below the index under a 48px gap, so the next action stays visible without a modal.
 
-Spacing rhythm: 6px inside a label group, 16px between fields, 24px between sections, 48px between
-the index and the create form. Use 40px minimum control height; coarse pointers get 44px targets.
+Spacing uses one 4px scale: `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16,
+`--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64. Tight groups use 4–8px, a label
+group 8px, fields 16px, sections 32px, page bands 48–64px.
+
+Control heights are tokens: 36px fine, 40px standard, 44px coarse. Fields are 40px fine and 44px
+coarse. Nothing interactive is smaller than 44 × 44 under a coarse pointer.
 
 ### Sheets and the on-screen keyboard
 
@@ -237,6 +298,19 @@ drop shadow.
 **The Hairline Rule.** A divider is 1px of `{colors.line}`. Never a 2px border, never a colored side
 stripe, never a shadow standing in for a rule.
 
+## Motion
+
+Motion explains a change; it never decorates. Only `transform` and `opacity` animate, with explicit
+properties and one exponential ease-out.
+
+- **Ease:** `--ease-out` = `cubic-bezier(0.16, 1, 0.3, 1)`.
+- **Fast 120ms:** result changes, hover colour and the palette's result entrance.
+- **Base 180ms:** every overlay entrance and the sheet rise.
+- **Slow 240ms:** the one page-content settle.
+- **Reduced motion:** every entrance is instant. Colour feedback remains, because it explains state
+  rather than movement.
+- **Not animated:** tables, prose, layout, width and height. A page route never transitions.
+
 ## Shapes
 
 Fields and buttons use a 6px radius; the auth sheet may use 10px. Nothing is pill-shaped except a
@@ -246,28 +320,53 @@ space, type and record icons, never as interface iconography.
 
 ## Components
 
+### Primitive States
+
+Defined once in `components/ui/controls.tsx` and inherited by every consumer. A page never invents
+its own button, field, focus ring or error treatment.
+
+| State | Buttons | Fields |
+|---|---|---|
+| Hover | primary brightens; ghost/quiet fill `{colors.raised}`; destructive stays ember | border lifts to `{colors.line-strong}` |
+| Focus-visible | 2px accent outline, 2px offset | accent border plus the same outline |
+| Active | one tonal step darker or `{colors.raised}` | n/a |
+| Selected | ghost/quiet take the accent wash and accent text | n/a |
+| Disabled | 50% opacity, not-allowed, hover inert | 60% opacity, not-allowed, hover inert |
+| Loading | `aria-busy`, wait cursor, second submit blocked | n/a |
+| Error | destructive intent in ember, never colour alone | ember border, `aria-invalid`, message in ember with `role="alert"` |
+| Read-only | n/a | muted text, no edit affordance |
+
 ### Buttons
-- **Shape:** 6px radius, 40px minimum height, 16px horizontal padding.
-- **Primary:** lichen ground, accent-ink text, 500 weight, 14px. One per view.
-- **Hover / Focus:** brightness shift on hover; a 2px lichen outline with 2px offset on focus.
-- **Ghost:** transparent ground, 1px hairline border, ink text; hover lifts the border to
-  `{colors.line-strong}` and fills `{colors.raised}`.
+- **Shape:** 6px radius, 40px standard height, 16px horizontal padding. Compact controls are 36px;
+  coarse pointers are 44px.
+- **Primary:** lichen ground, accent-ink text, 500 weight, 13px. One per view.
+- **Ghost:** transparent ground, 1px `{colors.line-interactive}` border, ink text; hover lifts the
+  border to `{colors.line-strong}` and fills `{colors.raised}`.
+- **Quiet:** no border, fog text; hover fills `{colors.raised}` and lifts the text to ink. Pressed
+  takes the accent wash and accent text.
+- **Destructive:** transparent ground, ember border and text; hover fills `{colors.raised}` and
+  keeps the ember border. The label names the loss, not the colour.
+- **Focus:** one 2px accent outline with a 2px offset on every variant; no variant removes it.
 - **Disabled:** 50% opacity, no hover change, not-allowed cursor.
 - **Inline editor actions:** the bar under a compact editor — cadence, multi-select, relation,
   date shortcuts — puts the primary action at the **thumb edge**: last in the DOM at the right edge
   by default, and first in the DOM at the left edge in Left-handed mode. Clear and Cancel precede
   it in right-handed mode and follow it on the left; the row reverses in the DOM so paint, Tab and
   screen-reader order agree. **The primary action sits at the thumb edge and moves in the DOM in
-  left-handed mode**; it is never pinned to the right edge by CSS alone. Mouse-dense 28px buttons
-  grow to 44px minimum targets on a coarse pointer or a phone-width window. The same thumb edge
-  applies to text actions under a field (date Clear/Today, Clear relation). Do not left-align a
-  commit inside a cell or sheet on a right-handed layout.
+  left-handed mode**; it is never pinned to the right edge by CSS alone. Mouse-dense controls start
+  at 36px and grow to 44px minimum targets on a coarse pointer or a phone-width window. The same
+  thumb edge applies to text actions under a field (date Clear/Today, Clear relation). Do not
+  left-align a commit inside a cell or sheet on a right-handed layout.
 
 ### Inputs / Fields
-- **Style:** 40px height, 1px `{colors.line}` border, `{colors.ground}` ground, 6px radius, 15px text.
-- **Focus:** border turns lichen; the global 2px focus outline remains.
-- **Error:** border and message in ember, message at 13px with `role="alert"`.
-- **Labels:** uppercase mono 11px above the field, 6px gap; hints and errors sit below at 13px.
+- **Style:** 40px height on a fine pointer (44px coarse), 1px `{colors.line-interactive}` border,
+  `{colors.ground}` ground, 6px radius, 15px body text (16px on coarse).
+- **Focus:** border turns accent; the 2px accent outline with 2px offset remains.
+- **Error:** border and message in ember; `aria-invalid` keeps the ember border on focus; the
+  message is 13px with `role="alert"`.
+- **Disabled / read-only:** disabled drops to 60% opacity and ignores hover; read-only keeps the
+  frame but sets its value in fog.
+- **Labels:** uppercase mono 11px above the field, 8px gap; hints and errors sit below at 13px.
 
 ### Navigation
 - **App header:** 64px tall, hairline bottom rule; at `lg` it is the page's rail-and-content grid
@@ -713,6 +812,10 @@ space, type and record icons, never as interface iconography.
 - **Do** keep the signed-out margin notes factual: they describe what the files and schema are.
 - **Do** let a view tab read as text plus a bottom rule, and let the calendar's today read as a
   hairline and a mono label; colour never carries the state alone.
+- **Do** reserve IBM Plex Serif for display and page titles, and set one pull-quote or empty-state
+  line per surface at most.
+- **Do** use the 12% accent wash for selection, the active row and the search match, and keep full
+  accent for text, glyphs and the primary surface.
 
 ### Don't:
 - **Don't** introduce shadows, glass, gradients, glows or colored side stripes.
@@ -721,4 +824,6 @@ space, type and record icons, never as interface iconography.
   record icons.
 - **Don't** turn the index into a card grid, add a sidebar before the space exists, or hide the
   create action behind a modal.
-- **Don't** set prose in mono or identifiers in sans.
+- **Don't** set prose in mono, identifiers in sans, or a paragraph in the display serif.
+- **Don't** use the accent wash as a decorative panel, a gradient or a second accent.
+- **Don't** animate layout, tables or prose; only transform and opacity explain a change.
