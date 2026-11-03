@@ -112,7 +112,7 @@ export function LocalGraph({ spaceId, center, links, backlinks, typeNames }: Loc
         resetKey={center.id}
         hint={
           coarse
-            ? "drag to pan · drag a node to move"
+            ? "drag to pan · tap a record · ± to zoom"
             : "drag to pan · drag a node to move · scroll to zoom"
         }
         onNodeDrag={(id, dx, dy) =>

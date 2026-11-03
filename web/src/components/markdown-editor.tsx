@@ -142,6 +142,32 @@ export function MarkdownEditor({
   const highlighted = rows.length === 0 ? -1 : Math.min(active, rows.length - 1);
   rowCount.current = rows.length;
 
+  /** Keep the toolbar and field visible; scroll only when the keyboard hides them. */
+  const revealEditor = useCallback(() => {
+    if (!isCoarse()) {
+      return;
+    }
+    const editor = shell.current;
+    if (!editor) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      if (!field.current || document.activeElement !== field.current) {
+        return;
+      }
+      const view = window.visualViewport;
+      const top = view?.offsetTop ?? 0;
+      const bottom = top + (view?.height ?? window.innerHeight);
+      const box = editor.getBoundingClientRect();
+      // Already fully visible: leave the writer's scroll alone. If not, align
+      // the toolbar to the top so a tall field never pushes it offscreen.
+      if (box.top >= top && box.bottom <= bottom) {
+        return;
+      }
+      editor.scrollIntoView({ block: "start" });
+    });
+  }, []);
+
   /* The record panel replaces the draft from the server; the editor follows. */
   useEffect(() => {
     setMode(initialMode(value));
@@ -169,11 +195,12 @@ export function MarkdownEditor({
     }
     const firstWrite = !enteredWrite.current;
     enteredWrite.current = true;
-    textarea.focus();
+    textarea.focus({ preventScroll: true });
     if (firstWrite) {
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
-  }, [mode, disabled]);
+    revealEditor();
+  }, [mode, disabled, revealEditor]);
 
   function changeMode(next: BodyMode) {
     if (next === mode) {
@@ -186,22 +213,9 @@ export function MarkdownEditor({
     setMode(next);
   }
 
-  /** Put the field above the save bar and the keyboard without a blind jump. */
-  function revealField() {
-    const textarea = field.current;
-    if (!textarea) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      if (field.current && document.activeElement === field.current) {
-        field.current.scrollIntoView({ block: "nearest" });
-      }
-    });
-  }
-
-  /* The keyboard changes the visual viewport after focus; keep the field above
-     the save bar it moves up with. Address-bar and orientation resize events
-     leave the keyboard height alone and must not fight a page scroll. */
+  /* The keyboard changes the visual viewport after focus; bring the whole
+     editor back when it grows over the field. A closing keyboard or a browser
+     chrome resize never scrolls the page. */
   useEffect(() => {
     const view = window.visualViewport;
     if (mode !== "write" || !view) {
@@ -211,7 +225,8 @@ export function MarkdownEditor({
     let frame = 0;
     const settle = () => {
       const keyboard = metricsFor(view, window.innerHeight).keyboard;
-      if (keyboard === lastKeyboard) {
+      if (keyboard <= lastKeyboard) {
+        lastKeyboard = keyboard;
         return;
       }
       lastKeyboard = keyboard;
@@ -219,13 +234,8 @@ export function MarkdownEditor({
         window.cancelAnimationFrame(frame);
       }
       frame = window.requestAnimationFrame(() => {
-        frame = window.requestAnimationFrame(() => {
-          frame = 0;
-          const textarea = field.current;
-          if (textarea && document.activeElement === textarea) {
-            textarea.scrollIntoView({ block: "nearest" });
-          }
-        });
+        frame = 0;
+        revealEditor();
       });
     };
     view.addEventListener("resize", settle);
@@ -235,7 +245,7 @@ export function MarkdownEditor({
       }
       view.removeEventListener("resize", settle);
     };
-  }, [mode]);
+  }, [mode, revealEditor]);
 
   /* Apply the selection a toolbar action or command produced, after the value. */
   useLayoutEffect(() => {
@@ -564,7 +574,7 @@ export function MarkdownEditor({
   }
 
   return (
-    <div ref={shell} className="relative mt-2">
+    <div ref={shell} className="relative mt-2 scroll-mt-2">
       <div
         role="toolbar"
         aria-label="Body editor"
@@ -626,7 +636,7 @@ export function MarkdownEditor({
             onChange={onInput}
             onFocus={() => {
               enteredWrite.current = true;
-              revealField();
+              revealEditor();
             }}
             onKeyDown={onKeyDown}
             onScroll={place}

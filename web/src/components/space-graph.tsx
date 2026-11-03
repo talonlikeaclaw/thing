@@ -91,7 +91,7 @@ export function SpaceGraph({ spaceId, centerId, nodes, edges, typeNames }: Space
       resetKey={centerId}
       hint={
           coarse
-            ? "drag to pan · drag a node to move"
+            ? "drag to pan · tap a record · ± to zoom"
             : "drag to pan · drag a node to move · scroll to zoom"
         }
       onNodeDrag={(id, dx, dy) =>

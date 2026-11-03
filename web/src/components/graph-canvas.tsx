@@ -124,7 +124,7 @@ export function GraphCanvas({
         role="group"
         aria-label={label}
         className={cn(
-          "mx-auto block h-auto w-full max-w-[44rem] touch-pan-y select-none",
+          "mx-auto block h-auto w-full max-w-[44rem] touch-none select-none",
           dragging ? "cursor-grabbing" : "cursor-grab",
         )}
         onClickCapture={(event) => {
@@ -139,13 +139,20 @@ export function GraphCanvas({
           if (event.pointerType === "mouse" && event.button !== 0) {
             return;
           }
+          if (drag.current && drag.current.pointer !== event.pointerId) {
+            return;
+          }
           const box = event.currentTarget.getBoundingClientRect();
           if (box.width === 0 || box.height === 0) {
             return;
           }
           const target = event.target as Element;
+          // A finger always pans. Node dragging is a precision gesture for a
+          // mouse or pen; on touch it would race the page and the pan.
           const nodeId =
-            onNodeDrag && target.closest?.("[data-node-id]")?.getAttribute("data-node-id");
+            onNodeDrag && event.pointerType !== "touch"
+              ? (target.closest?.("[data-node-id]")?.getAttribute("data-node-id") ?? null)
+              : null;
           drag.current = {
             pointer: event.pointerId,
             clientX: event.clientX,

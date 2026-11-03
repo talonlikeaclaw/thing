@@ -17,6 +17,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Phone editor and map fixes",
+    upcoming: true,
+    highlights: [
+      "Opening the editor on a phone keeps the formatting toolbar in view instead of scrolling it away.",
+      "Dragging the map on a phone always pans it.",
+      "A tap on a map node still opens the record.",
+    ],
+    details: [
+      "Page scrolling on a phone starts outside the map, so the drawing no longer guesses between the page, a pan and a node.",
+      "A node can still be dragged with a mouse or pen.",
+      "The map's phone hint names drag, tap and the zoom controls.",
+    ],
+  },
+  {
     version: "0.5.0",
     title: "Search, links and writing",
     highlights: [

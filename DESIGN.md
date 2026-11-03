@@ -464,7 +464,9 @@ space, type and record icons, never as interface iconography.
   so the toolbar, field and save bar fit above the keyboard; from `sm` up they are 22rem. The
   textarea stays mounted while Preview is showing, so returning to Write keeps the native undo
   history and the caret, and the first tap on Write raises the field with the caret at the end of the
-  draft. The preview is the read renderer, so it cannot disagree with the saved record.
+  draft. On a coarse pointer the editor is revealed as one block: if the keyboard would hide the
+  toolbar or the field, the toolbar is aligned to the top, so the caret never scrolls the toolbar
+  offscreen. The preview is the read renderer, so it cannot disagree with the saved record.
 - **Caret menu:** `/` commands and `[[` record completion are one popup, anchored under the caret
   and flipped above it when the window's room below is short, measured to the visual viewport (not
   the field) so the keyboard never covers it, and ended at the phone bar's top so its last row is
@@ -520,7 +522,10 @@ space, type and record icons, never as interface iconography.
   never rewritten. The legend and the pan/zoom hint sit on their own line above
   the zoom controls; the controls alone follow the thumb edge — right by default, left in
   Left-handed mode — so the legend reads the same in both modes. The drawing itself never mirrors.
-  On a phone the open graph keeps vertical page scrolling, and the rows remain the primary path.
+  On a touch pointer a drag anywhere in the drawing pans the graph, so the map owns its gesture
+  instead of racing the page; dragging never moves a node there, while a tap still opens the
+  record. Node dragging stays a mouse or pen gesture. Page scrolling starts on the rows, legend or
+  controls around the drawing, and the rows remain the primary path.
 
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a

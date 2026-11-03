@@ -312,15 +312,6 @@
     bottom: calc(var(--kb-height, 0px) + 0.5rem);
   }
 
-  /*
-   * Focusing the body pans the page. Reserve the keyboard, the phone bar, the
-   * save bar and the focused line so the browser cannot settle the caret behind
-   * either bar: 3.5rem nav + 1px hairline + 4.5rem save bar, rounded up.
-   */
-  .record-body-input {
-    scroll-margin-bottom: calc(var(--kb-height, 0px) + 8rem);
-  }
-
   @media (min-width: 64rem) {
     .record-save-bar {
       bottom: 0;
