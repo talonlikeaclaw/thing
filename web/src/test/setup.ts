@@ -20,4 +20,6 @@ if (typeof window !== "undefined") {
   if (typeof HTMLElement.prototype.scrollIntoView !== "function") {
     HTMLElement.prototype.scrollIntoView = () => undefined;
   }
+  // jsdom defines the method but logs "not implemented" when it is called.
+  window.scrollTo = () => undefined;
 }

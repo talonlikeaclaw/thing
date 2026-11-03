@@ -445,28 +445,53 @@ space, type and record icons, never as interface iconography.
   opens the record in place. A link with no unique target uses a dotted warning underline and a
   `title` naming the reason; it never navigates. Syntax inside a fenced block or inline code stays
   literal, and a valid link typed but not yet saved reads as its title until the save resolves it.
+- **Search landing:** opening a record from a search result keeps the query in the address as
+  `?q=`. Every matched occurrence in the rendered body carries the same accent mark, the first one
+  is centred once after the preview paints, and the body header shows a quiet `Match: “<query>”`
+  annotation with a clear control that removes `q` without leaving the record. Focus is never
+  stolen, and re-opening the same query does not fight a reader's own scroll.
+- **Rename repair:** a title change on a record that other bodies mention opens one dialog before
+  the write. It names the old and new title, lists each source with its type and mention count, and
+  offers **Update links**, **Rename only** and **Cancel**. Update links renames the record and then
+  rewrites only the occurrences that resolved to it before the rename, each through the ordinary
+  source PATCH; a source edited since the preview is skipped and named in the final count. Rename
+  only leaves the old mentions unresolved. Cancel writes nothing. The dialog follows the sheet
+  geometry and its actions follow the thumb edge.
 - **Keyboard:** the markdown body and the sticky save bar measure against the visual viewport, so the
   bar sits above the on-screen keyboard rather than behind it. The field's scroll margin reserves the
   keyboard, the phone bar and the save bar, so a focused caret settles above them instead of behind
   the bar; the bar's bottom sits on the phone bar's hairline rather than 1px behind it.
 - **Body header:** the label, its unsaved dot and the Revert action share one row whose height and
   spacing are fixed; the dot and Revert slots are reserved while the body is clean, so a change
-  never moves the toolbar or the field below it.
-- **Body toolbar:** one hairline row above the textarea — bold, italic, inline code, heading,
-  bulleted list, numbered list, quote, link and record link — 32px on a fine pointer and 44px on a
-  coarse one. On a phone the row wraps into two rows so every tool is visible without horizontal
-  guessing: seven tools, then the two link tools closing the second row with the Write/Preview switch
-  pinned at its right edge. From `sm` up it is one row with the switch pinned at the trailing edge.
-  A press keeps the selection and the focus in the textarea.
+  never moves the toolbar or the field below it. A search match adds the `Match:` annotation and
+  clear control on the same row without moving the tools.
+- **Body toolbar:** one hairline row above the textarea — bold, italic, inline code, a heading menu
+  for H1–H3, bulleted list, numbered list, quote, link and record link — 32px on a fine pointer and
+  44px on a coarse one. The heading control applies the chosen level and removes it when the same
+  level is chosen again. On a phone the controls form two rows of six columns so every tool is
+  visible without horizontal guessing: six tools on the first row, then the remaining three tools
+  and Save. From `sm` up it is one row with the switch pinned at the trailing edge. A press
+  keeps the selection and the focus in the textarea.
 - **Writing surface:** Write mode is a split from `lg` up: the textarea on the left and a scrollable
   rendered preview of the same text on the right, capped at 70vh. Below `lg` there is one pane and
   the Write/Preview switch. On a phone the field and the preview start at 14rem (about seven lines),
   so the toolbar, field and save bar fit above the keyboard; from `sm` up they are 22rem. The
   textarea stays mounted while Preview is showing, so returning to Write keeps the native undo
   history and the caret, and the first tap on Write raises the field with the caret at the end of the
-  draft. On a coarse pointer the editor is revealed as one block: if the keyboard would hide the
-  toolbar or the field, the toolbar is aligned to the top, so the caret never scrolls the toolbar
-  offscreen. The preview is the read renderer, so it cannot disagree with the saved record.
+  draft. On a coarse pointer Write becomes a fixed writing sheet that owns the visual viewport: the
+  page, its navigation and its save bar step aside, and Save lives in the writing toolbar. A visible
+  Done action closes the sheet and returns the page at the scroll position it had; Escape does the
+  same with a hardware keyboard. The sheet sits against the
+  visual viewport, so the keyboard shrinks the textarea rather than covering it, and the page behind
+  never scrolls it. The preview is the read renderer, so it cannot disagree with the saved record.
+- **Paste and preview tap:** pasting one http(s) URL over a non-empty selection turns the selection
+  into `[selected text](url)` and keeps it selected; with no selection the paste is untouched.
+  Tapping rendered prose that is not a link, button or field enters Write mode at the end of the
+  draft. A link keeps navigating. The existing labelled Write control remains the keyboard and
+  screen-reader path; no duplicate Edit button is added.
+- **Create from completion:** when a `[[type/Title` fragment names a live type and a new title, the
+  record menu appends one `Create “Title” Type` row after its results. Activating it creates the
+  record and inserts the canonical link without opening the new record; a refusal stays in the menu.
 - **Caret menu:** `/` commands and `[[` record completion are one popup, anchored under the caret
   and flipped above it when the window's room below is short, measured to the visual viewport (not
   the field) so the keyboard never covers it, and ended at the phone bar's top so its last row is
@@ -475,8 +500,9 @@ space, type and record icons, never as interface iconography.
   scrolls, ArrowUp/Down keep the highlighted row inside the visible rows, and the next row peeks
   below the last full one on a coarse pointer so the list reads as continuing. Rows are 32px fine
   and 44px coarse; wiki rows show the record's title and its type name, slash rows show the command
-  and the marker it inserts in muted mono. The textarea keeps focus and names the active row through
-  `aria-activedescendant`.
+  and the marker it inserts in muted mono. The create row is the same height as a result, sits last
+  and is never offered without a live type prefix or for an existing title. The textarea keeps focus
+  and names the active row through `aria-activedescendant`.
 - **Slash commands:** a command opens only at the start of a line, with nothing but whitespace before
   it and never inside a fenced block, so a path, a date or a ratio stays text. Enter or Tab accepts
   the highlighted row, Escape leaves the typed text alone, and Space never accepts. With no menu
@@ -490,14 +516,17 @@ space, type and record icons, never as interface iconography.
   surface. Every section header starts with one 13px muted line icon — sliders for properties,
   lines for the body, a chain for links, a network for the graph row and a clock for history — so a
   long record can be scanned by shape; the icon is `aria-hidden` and never replaces the label.
-- **Links:** the heading carries a mono count of every row. `Linked from` lists relations — type
-  glyph, the source title at 15px, then `Type · via Property` at 12px muted — and `Mentioned in`
-  lists body mentions — title, type name, a two-line snippet at 13px muted and a mono `×N` when a
+- **Links:** the heading carries a mono count of every row in both directions. `Links to` lists the
+  resolved records this one points at, relations first with `Type · via Property`, then body
+  mentions with `Type · mentioned in this body`; `Linked from` lists incoming relations — type glyph,
+  the source title at 15px, then `Type · via Property` at 12px muted — and `Mentioned in` lists
+  incoming body mentions — title, type name, a two-line snippet at 13px muted and a mono `×N` when a
   source links more than once. Each group renders only when it has a row, and the whole row is the
   navigation target: 44px on a coarse pointer, no per-row action, so left-handed mode does not
   mirror it. An empty panel is one muted sentence naming the two ways to make a link.
 - **Graph bar:** a full-width `Graph` row, closed by default at every width, above a drawing placed
-  below the panel's rows and centred in the column at no more than 44rem. The row is 44px, folds
+  below the panel's rows and centred in the column at no more than 44rem. The bar appears when
+  either direction has a row, so a record that only links out still opens its map. The row is 44px, folds
   into `Hide graph`, keeps its title at the left and its chevron at the right in both handedness
   modes; the whole row is the target, not a small word.
 - **Graph:** the opened body carries a `Local` / `Space` scope switch, aligned to the thumb edge.
@@ -513,7 +542,8 @@ space, type and record icons, never as interface iconography.
   and holding more. Records with no edge still appear, so the map is the whole space. Up to ten
   records show labels; past that only the current record and the hovered or focused one do, with
   the rest in tooltips and the rows.
-- **Graph edges:** `rule` hairlines, solid for a relation and dashed for a mention. Every neighbour
+- **Graph edges:** `rule` hairlines, solid for a relation and dashed for a mention; the local map
+  draws outgoing and incoming edges from the same rows the panel lists. Every neighbour
   is a link with an accent focus ring; the centre is `aria-current` and not a link. Dragging the
   canvas pans, dragging a node moves just that node with its edges following, the wheel zooms
   around the pointer between 0.6× and 2.6×, and `+` / `−` / reset controls do the same without a
@@ -593,7 +623,9 @@ space, type and record icons, never as interface iconography.
 - **Copy:** the description and placeholder say **Search every record's title and text, plus types,
   spaces and actions**. Record results are the server's ranked matches over every live title and
   body, shown in server order with the matching sentence beneath the title; an unsettled or empty
-  query names what was searched and keeps the previous rows visible while it moves.
+  query names what was searched and keeps the previous rows visible while it moves. Opening a record
+  result carries the query to the record, where the matched sentence is marked and brought into
+  view. The footer pluralises its count as `1 result` / `N results`.
 - **Rows:** title left, mono hint right, a raised ground and accent text for the active row; 44px
   minimum on coarse pointers. The footer states the result count and, on keyboard screens only,
   the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger. The

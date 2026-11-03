@@ -16,9 +16,10 @@ Two claims drive design:
 
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
 v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-through
-(`0.4.3`), v0.4.4 usability sweep (`0.4.4`), v0.4.5 schedule views (`0.4.5`) and M5 search,
-links and the writing surface (`0.5.0`, schema 4) are implemented, not yet tagged or deployed;
-CI is green. The v0.4.3 physical-iPhone pass is still open.**
+(`0.4.3`), v0.4.4 usability sweep (`0.4.4`), v0.4.5 schedule views (`0.4.5`), M5 search,
+links and the writing surface (`0.5.0`, schema 4) and the v0.5.1 links, search-landing and rename
+repair patch (`0.5.1`, schema 4) are implemented, not yet tagged or deployed; CI is green. The
+v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
@@ -26,7 +27,7 @@ grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `se
 `store` (`SpaceStore` trait + `FsSpaceStore`), `validate` (objects, filters, sorts and
 `validate_views`), `filter`, `query` and `index` (`SpaceIndex`, including the derived search
 index, the folded title map that resolves `[[Type/Title]]` links, `outgoing_links`,
-`backlinks_of` and `view_problems`), with fixture round-trip tests, filesystem tests over
+`outgoing_relations`, `backlinks_of` and `view_problems`), with fixture round-trip tests, filesystem tests over
 `tempfile::TempDir`, schedule tests over a fixed clock and explicit zone, and table-view tests over
 a space built on disk.
 `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`, `state`), its auth and
@@ -36,8 +37,8 @@ vocabulary), `routes/views` (named views: create, patch,
 delete, default), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
 filter/sort/search/view selection, raw, history, trash, restore, purge, the `with=links,backlinks`
-detail extension, the space graph, Complete, snooze
-and the agenda's window, range and type parameters) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
+detail extension — where `with=links` now also carries the read-only `links_to` projection — the
+space graph, Complete, snooze and the agenda's window, range and type parameters) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
 builds the Garden demo space against a running server, with relative due dates in
 `America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is
 a Vite + React 19 SPA with the signed-out surfaces (sign in, register, invite join), the space list,
@@ -157,6 +158,26 @@ view-only node offsets (`lib/graph.ts`, `components/graph-section.tsx`,
 `components/graph-canvas.tsx`). No dependency was added, no object file gains a key, and the
 physical-iPhone gate still precedes any keyboard claim.
 
+v0.5.1 is the trust patch, still at schema 4 and with no new route or dependency: `with=links`
+gains `links_to`, a stable projection of resolved outgoing relations and body mentions, and the
+Links panel renders `Links to`, `Linked from` and `Mentioned in` from that one read while the local
+graph draws both directions (`routes/objects.rs`, `components/links-panel.tsx`, `lib/graph.ts`).
+Search results carry `?q=` to the record, `MarkdownView` marks every occurrence and scrolls the
+first one into view without stealing focus (`pages/object.tsx`, `components/markdown-view.tsx`).
+The editor gains an H1–H3 heading menu, paste-a-URL-over-selection, tap-preview-to-write and a
+create row for an unresolved `[[type/Title]]` (`components/markdown-editor.tsx`,
+`lib/markdown-edit.ts`, `lib/wiki-links.ts`). A title change that would strand mentions opens a
+preview listing each source, and `Update links` rewrites exactly the occurrences that resolved to
+the record before the rename through independent ordinary PATCHes; stale sources are skipped and
+reported (`components/rename-links-dialog.tsx`, `lib/wiki-links.ts::rewriteMentions`,
+`components/object-panel.tsx`). On a coarse pointer, Write becomes a fixed writing sheet against
+the visual viewport: the page, navigation and page save bar step aside, Save moves into the toolbar,
+and a visible Done action returns the page at its prior scroll; a toolbar edit keeps its
+caret inside the textarea's scrollport for both typing and toolbar edits, with a three-line lower
+margin and a re-reveal while Safari's keyboard settles. `web/src/test/harness.tsx` adds a component-test layer over the real editor, palette, links
+panel and rename flow. No object file gains a key, `FORMAT_VERSION` stays
+`4`, and the visual system is unchanged; v0.5.2 owns the redesign.
+
 ## Where the plan lives
 
 | File | Role |
@@ -172,6 +193,7 @@ physical-iPhone gate still precedes any keyboard claim.
 | `docs/plan/m4.4-usability-sweep.md` | The v0.4.4 patch spec: undo parity, whole-row Schedule targets, phone saved-view wrapping and view order, labels and cards, the phone column panel and CSV import door, calendar-today, record relation chips and first-run/loose ends. Landed as `0.4.4`, schema 4. |
 | `docs/plan/m4.5-schedule-views.md` | The v0.4.5 patch spec: one agenda read with rows, a date range and a type filter; the Schedule Calendar across scheduled types; URL-backed and remembered view, horizon, month and types; the type-filter popover/sheet; the shared month grid; snooze for 1–90 days with Undo. Landed as `0.4.5`, schema 4. |
 | `docs/plan/m5-search-links-writing.md` | The v0.5.0 spec: the derived search index, the search route and palette, wiki-link parsing and resolution, rendered links, the writing surface, the links panel, the local and space graph, docs and the release pass. Landed as `0.5.0`, schema 4. |
+| `docs/plan/m5.1-craft-and-hardening.md` | The v0.5.1 spec: the component test harness and seeded audit, links in both directions, search landing on its match, the heading/paste/preview/create editor actions, and previewed rename link repair. Landed as `0.5.1`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -198,7 +220,9 @@ shared month grid; the Calendar and page state; the type filter; snooze; version
 device pass) are landed at workspace `0.4.5`, and checkpoints 1–8 of M5 (the derived search index;
 the search route and palette; wiki links in the core and on the record read; rendered links and
 navigation; the writing surface; the links panel; the local and space graph; version, docs and the
-release pass) are landed at workspace `0.5.0`.** M1 is deployed; M2–M5 are not deployed. The
+release pass) are landed at workspace `0.5.0`, and checkpoints 1–6 of M5.1 (the component test
+harness and seeded audit; links in both directions; search landing on its match; the editor actions;
+previewed rename link repair; version, docs and the release pass) are landed at workspace `0.5.1`.** M1 is deployed; M2–M5 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
 carries the v0.4.2 keyboard gate and the v0.4.4 device pass.
@@ -493,9 +517,11 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/lib/search.ts` | The in-memory action/type/space scorer and `matchRanges` for palette highlights; record results come from the server and keep its order |
 | `web/src/lib/markdown-edit.ts` | Every writing-surface transform as a pure `{value, selection}` edit: wrapping, line prefixes, list continuation, indent, links, fences, slash and wiki triggers, and slash application |
 | `web/src/lib/graph.ts` | `buildLocalGraph` (deduped nodes, capped at 24, relation/mention edges) and `layoutLocalGraph` / `layoutSpaceGraph`, deterministic ring placement with clipped edges |
-| `web/src/components/markdown-editor.tsx` | The textarea writing surface: toolbar, shortcuts, Write/Preview split, and the one caret popup for `/` commands and `[[` completion |
-| `web/src/components/links-panel.tsx` | The record's Links section: the mono count, relation `Linked from` rows, mention `Mentioned in` rows, and the empty sentence |
+| `web/src/components/markdown-editor.tsx` | The textarea writing surface: toolbar with the H1–H3 menu, shortcuts, paste-link, preview-tap-to-write, Write/Preview split, and the one caret popup for `/` commands, `[[` completion and the create row |
+| `web/src/components/links-panel.tsx` | The record's Links section: the mono count across both directions, `Links to` relation and mention rows, `Linked from` relation rows, `Mentioned in` rows, and the empty sentence |
+| `web/src/components/rename-links-dialog.tsx` | The pre-rename preview: reads each mentioning source before the title changes, lists it with its type and count, and offers Update links, Rename only or Cancel |
 | `web/src/components/graph-section.tsx` | The Graph disclosure, Local/Space scope and the shared SVG canvas with legend, zoom, pan and node offsets |
+| `web/src/test/harness.tsx` | The component-test layer: a fresh QueryClient, MemoryRouter, ToastProvider, fetch stub and JSON response helper |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
 | `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
@@ -564,7 +590,7 @@ When the UI changes, update them; never let them describe a different world.
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 561 tests (209 `thing-core`, 15 `tests/roundtrip.rs`, 102 `thing-server`, 235
+- **Current coverage:** 729 tests (238 `thing-core`, 15 `tests/roundtrip.rs`, 103 `thing-server`, 373
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

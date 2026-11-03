@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { caretPoint } from "@/lib/caret";
+import { caretPoint, scrollTopForCaret } from "@/lib/caret";
 
 describe("caretPoint", () => {
   it("keeps a caret that is already inside the field", () => {
@@ -49,5 +49,23 @@ describe("caretPoint", () => {
       left: 0,
       height: 0,
     });
+  });
+});
+
+describe("scrollTopForCaret", () => {
+  it("leaves an already visible caret alone", () => {
+    expect(scrollTopForCaret({ top: 40, left: 0, height: 20 }, 20, 200)).toBe(20);
+  });
+
+  it("scrolls up to a caret above the viewport", () => {
+    expect(scrollTopForCaret({ top: 10, left: 0, height: 20 }, 80, 200)).toBe(10);
+  });
+
+  it("scrolls down by the smallest amount that reveals the caret", () => {
+    expect(scrollTopForCaret({ top: 300, left: 0, height: 20 }, 40, 200)).toBe(120);
+  });
+
+  it("keeps a soft margin below the caret", () => {
+    expect(scrollTopForCaret({ top: 300, left: 0, height: 20 }, 40, 200, 60)).toBe(180);
   });
 });

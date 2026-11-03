@@ -72,6 +72,26 @@ const MIRROR_PROPERTIES = [
  * of zeros, which the caller clamps).
  */
 export function caretRect(field: HTMLTextAreaElement, offset: number): CaretPoint | null {
+  const measured = caretContent(field, offset);
+  if (!measured) {
+    return null;
+  }
+  return caretPoint(
+    measured,
+    { top: field.scrollTop, left: field.scrollLeft },
+    { width: field.clientWidth, height: field.clientHeight },
+  );
+}
+
+/**
+ * The caret's box in the field's content coordinates, before scroll is
+ * removed. This is what a scroll adjustment needs; `caretRect` is the
+ * on-screen version a menu uses.
+ */
+export function caretContent(
+  field: HTMLTextAreaElement,
+  offset: number,
+): CaretPoint | null {
   if (typeof document === "undefined") {
     return null;
   }
@@ -102,9 +122,28 @@ export function caretRect(field: HTMLTextAreaElement, offset: number): CaretPoin
   };
   mirror.remove();
 
-  return caretPoint(
-    measured,
-    { top: field.scrollTop, left: field.scrollLeft },
-    { width: field.clientWidth, height: field.clientHeight },
-  );
+  return measured;
+}
+
+/**
+ * The scrollTop that brings a content-coordinate caret fully inside a field of
+ * height `boxHeight`. It moves by the smallest amount needed, so a visible
+ * caret never jumps.
+ */
+export function scrollTopForCaret(
+  caret: CaretPoint,
+  scrollTop: number,
+  boxHeight: number,
+  margin = 0,
+): number {
+  const top = Math.max(0, caret.top);
+  const height = Math.max(0, caret.height);
+  const soft = Math.max(0, margin);
+  if (top - soft < scrollTop) {
+    return Math.max(0, top - soft);
+  }
+  if (top + height + soft > scrollTop + boxHeight) {
+    return Math.max(0, top + height + soft - boxHeight);
+  }
+  return scrollTop;
 }

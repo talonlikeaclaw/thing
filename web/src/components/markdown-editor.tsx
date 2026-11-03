@@ -9,6 +9,7 @@ import {
   List,
   ListOrdered,
   Quote,
+  Save,
 } from "lucide-react";
 import {
   useCallback,
@@ -20,9 +21,11 @@ import {
   type ReactNode,
 } from "react";
 
+import { createPortal } from "react-dom";
+
 import { useCreateObject, useSearch, useTypes } from "@/api/queries";
-import { useHandedness } from "@/components/handedness";
-import { caretRect } from "@/lib/caret";
+import { ThumbRow, useHandedness } from "@/components/handedness";
+import { caretContent, caretRect, scrollTopForCaret } from "@/lib/caret";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
 import { readError } from "@/lib/display";
@@ -42,7 +45,8 @@ import {
   type Edit,
   type SlashCommand,
 } from "@/lib/markdown-edit";
-import { metricsFor, subscribeVisualViewport } from "@/lib/viewport";
+import { subscribeVisualViewport } from "@/lib/viewport";
+import { useCoarsePointer } from "@/lib/media";
 import { createSuggestion } from "@/lib/wiki-links";
 
 type BodyMode = "write" | "preview";
@@ -64,6 +68,12 @@ interface MarkdownEditorProps {
   resetToken: number;
   /** The read-mode renderer, so writing and reading use one markdown view. */
   preview: (text: string) => ReactNode;
+  /** The record write, available in the phone writing surface. */
+  onSave?: () => void;
+  dirty?: boolean;
+  saving?: boolean;
+  /** A save refusal, shown inside the phone writing surface. */
+  error?: string | null;
 }
 
 /** Wiki rows keep the type key they insert; the title is the display label. */
@@ -124,6 +134,10 @@ export function MarkdownEditor({
   spaceId,
   resetToken,
   preview,
+  onSave,
+  dirty = false,
+  saving = false,
+  error = null,
 }: MarkdownEditorProps) {
   const [mode, setMode] = useState<BodyMode>(() => initialMode(value));
   const [menu, setMenu] = useState<CaretMenu | null>(null);
@@ -151,6 +165,12 @@ export function MarkdownEditor({
   const listId = useId();
   menuRef.current = menu;
 
+  const coarse = useCoarsePointer();
+  const immersed = coarse && mode === "write";
+  const pageScroll = useRef(0);
+  const wasImmersed = useRef(false);
+  /** A programmatic edit may wait for Safari's keyboard animation to settle. */
+  const revealUntil = useRef(0);
   const create = useCreateObject(spaceId);
   const types = useTypes(spaceId);
   const typeByKey = new Map((types.data ?? []).map((type) => [type.key, type]));
@@ -189,32 +209,6 @@ export function MarkdownEditor({
   const highlighted = rows.length === 0 ? -1 : Math.min(active, rows.length - 1);
   rowCount.current = rows.length;
 
-  /** Keep the toolbar and field visible; scroll only when the keyboard hides them. */
-  const revealEditor = useCallback(() => {
-    if (!isCoarse()) {
-      return;
-    }
-    const editor = shell.current;
-    if (!editor) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      if (!field.current || document.activeElement !== field.current) {
-        return;
-      }
-      const view = window.visualViewport;
-      const top = view?.offsetTop ?? 0;
-      const bottom = top + (view?.height ?? window.innerHeight);
-      const box = editor.getBoundingClientRect();
-      // Already fully visible: leave the writer's scroll alone. If not, align
-      // the toolbar to the top so a tall field never pushes it offscreen.
-      if (box.top >= top && box.bottom <= bottom) {
-        return;
-      }
-      editor.scrollIntoView({ block: "start" });
-    });
-  }, []);
-
   /* The record panel replaces the draft from the server; the editor follows. */
   useEffect(() => {
     setMode(initialMode(value));
@@ -224,6 +218,21 @@ export function MarkdownEditor({
     // Only a server replacement resets the surface; typing must not, so the
     // value is deliberately read here without joining the dependency list.
   }, [resetToken]);
+
+  /* A phone in Write is a writing surface, not a page with a form: the bottom
+     navigation and the save bar must not stack over the editor. The flag lets
+     the shell hide the bar and dock the save row at the keyboard edge. */
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (!coarse || mode !== "write") {
+      delete root.dataset.writing;
+      return;
+    }
+    root.dataset.writing = "on";
+    return () => {
+      delete root.dataset.writing;
+    };
+  }, [coarse, mode]);
 
   /* Tapping Write raises the field. The first entry appends to the draft, so a
      phone writer starts where the note ends rather than at offset zero. */
@@ -242,13 +251,74 @@ export function MarkdownEditor({
     }
     const firstWrite = !enteredWrite.current;
     enteredWrite.current = true;
-    textarea.focus({ preventScroll: true });
     if (firstWrite || caretToEnd.current) {
       caretToEnd.current = false;
       textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
-    revealEditor();
-  }, [mode, disabled, revealEditor]);
+    textarea.focus({ preventScroll: true });
+    revealCaretSoon(textarea);
+  }, [mode, disabled]);
+
+  /** Keep a programmatic caret inside the textarea's own scrollport. */
+  const revealCaret = useCallback((textarea: HTMLTextAreaElement, offset: number) => {
+    const caret = caretContent(textarea, offset);
+    if (!caret) {
+      return;
+    }
+    // The end of the document has no lower context to reveal; scroll to the
+    // true bottom so a trailing line can never sit under the keyboard edge.
+    if (offset >= textarea.value.length - 1) {
+      textarea.scrollTop = textarea.scrollHeight;
+      return;
+    }
+    const margin = caret.height * 3;
+    textarea.scrollTop = scrollTopForCaret(
+      caret,
+      textarea.scrollTop,
+      textarea.clientHeight,
+      margin,
+    );
+  }, []);
+
+  /**
+   * Safari can settle a textarea's geometry after the selection commit, so
+   * reveal again after that frame, after the keyboard starts, and for any
+   * visual-viewport resize while the keyboard finishes opening.
+   */
+  function revealCaretSoon(textarea: HTMLTextAreaElement) {
+    revealUntil.current = performance.now() + 500;
+    revealCaret(textarea, textarea.selectionEnd);
+    window.requestAnimationFrame(() => {
+      if (textarea.isConnected) {
+        revealCaret(textarea, textarea.selectionEnd);
+      }
+    });
+    window.setTimeout(() => {
+      if (textarea.isConnected) {
+        revealCaret(textarea, textarea.selectionEnd);
+      }
+    }, 180);
+  }
+
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (!view) {
+      return;
+    }
+    const settle = () => {
+      if (performance.now() > revealUntil.current) {
+        return;
+      }
+      const textarea = field.current;
+      if (textarea) {
+        revealCaret(textarea, textarea.selectionEnd);
+      }
+    };
+    view.addEventListener("resize", settle);
+    return () => {
+      view.removeEventListener("resize", settle);
+    };
+  }, [revealCaret]);
 
   function changeMode(next: BodyMode) {
     if (next === mode) {
@@ -258,43 +328,26 @@ export function MarkdownEditor({
     setCreateError(null);
     if (next === "write") {
       requestFocus.current = true;
+      if (coarse) {
+        pageScroll.current = window.scrollY;
+      }
     }
     setMode(next);
   }
 
-  /* The keyboard changes the visual viewport after focus; bring the whole
-     editor back when it grows over the field. A closing keyboard or a browser
-     chrome resize never scrolls the page. */
-  useEffect(() => {
-    const view = window.visualViewport;
-    if (mode !== "write" || !view) {
+  /* The writing surface is fixed, so the page behind it can reflow without
+     being seen. Restore the page's own scroll when Preview brings it back. */
+  useLayoutEffect(() => {
+    if (immersed) {
+      wasImmersed.current = true;
       return;
     }
-    let lastKeyboard = metricsFor(view, window.innerHeight).keyboard;
-    let frame = 0;
-    const settle = () => {
-      const keyboard = metricsFor(view, window.innerHeight).keyboard;
-      if (keyboard <= lastKeyboard) {
-        lastKeyboard = keyboard;
-        return;
-      }
-      lastKeyboard = keyboard;
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        revealEditor();
-      });
-    };
-    view.addEventListener("resize", settle);
-    return () => {
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
-      view.removeEventListener("resize", settle);
-    };
-  }, [mode, revealEditor]);
+    if (!wasImmersed.current) {
+      return;
+    }
+    wasImmersed.current = false;
+    window.scrollTo(0, pageScroll.current);
+  }, [immersed]);
 
   /* Apply the selection a toolbar action or command produced, after the value. */
   useLayoutEffect(() => {
@@ -306,6 +359,7 @@ export function MarkdownEditor({
     pendingSelection.current = null;
     textarea.focus();
     textarea.setSelectionRange(target.start, target.end);
+    revealCaretSoon(textarea);
   }, [value, applyToken]);
 
   function apply(edit: Edit) {
@@ -481,10 +535,19 @@ export function MarkdownEditor({
 
   function onInput(event: React.ChangeEvent<HTMLTextAreaElement>) {
     const next = event.target.value;
+    const caret = event.target.selectionEnd ?? next.length;
     onChange(next);
     setCreateError(null);
     setMenu(detect(next, event.target.selectionStart ?? next.length));
     setActive(0);
+    // A new line can move the caret below the visible textarea before Safari
+    // decides to scroll it; follow the caret after this commit as well.
+    window.requestAnimationFrame(() => {
+      const textarea = field.current;
+      if (textarea) {
+        revealCaret(textarea, caret);
+      }
+    });
   }
 
   /** One URL pasted over a selection becomes a markdown link; anything else is a normal paste. */
@@ -564,7 +627,11 @@ export function MarkdownEditor({
     // page's Escape-to-go-back handler and discarding the draft.
     if (event.key === "Escape") {
       event.preventDefault();
-      textarea.blur();
+      if (immersed) {
+        changeMode("preview");
+      } else {
+        textarea.blur();
+      }
       return;
     }
 
@@ -682,39 +749,53 @@ export function MarkdownEditor({
     apply(run());
   }
 
-  return (
-    <div ref={shell} className="relative mt-2 scroll-mt-2">
+  const editor = (
+    <div
+      ref={shell}
+      className={cn(
+        "scroll-mt-2 [overflow-anchor:none]",
+        immersed ? "record-writing-surface" : "relative mt-2",
+      )}
+    >
+      {immersed ? (
+        <ThumbRow className="mb-2 items-center gap-3">
+          <span className="label mr-auto">Writing</span>
+          <button
+            type="button"
+            className="min-h-11 rounded-field px-3 text-[13px] text-ink transition-colors hover:bg-raised"
+            onClick={() => changeMode("preview")}
+          >
+            Done
+          </button>
+        </ThumbRow>
+      ) : null}
       <div
         role="toolbar"
         aria-label="Body editor"
         className="flex flex-wrap items-center gap-x-0.5 gap-y-1 sm:flex-nowrap sm:gap-2"
       >
         {mode === "write" ? (
-          <div className="grid w-full grid-cols-4 justify-items-center gap-1 sm:contents">
-              <HeadingMenu
+          <div className="grid w-full grid-cols-6 justify-items-center gap-1 sm:contents">
+            <HeadingMenu
+              disabled={disabled}
+              onPick={(level) =>
+                apply(toggleLinePrefix(value, ...range(), `${"#".repeat(level)} `))
+              }
+            />
+            {tools.map((tool) => (
+              <button
+                key={tool.label}
+                type="button"
+                aria-label={tool.label}
+                title={tool.label}
                 disabled={disabled}
-                onPick={(level) =>
-                  apply(toggleLinePrefix(value, ...range(), `${"#".repeat(level)} `))
-                }
-              />
-              {tools.map((tool) => (
-                <button
-                  key={tool.label}
-                  type="button"
-                  aria-label={tool.label}
-                  title={tool.label}
-                  disabled={disabled}
-                  className={TOOL}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => runTool(tool.run)}
-                >
-                  <tool.icon aria-hidden className="h-4 w-4" />
-                </button>
-              ))}
-          </div>
-        ) : null}
-        <div className="ml-auto flex items-center gap-2">
-          {mode === "write" ? (
+                className={TOOL}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => runTool(tool.run)}
+              >
+                <tool.icon aria-hidden className="h-4 w-4" />
+              </button>
+            ))}
             <button
               type="button"
               aria-label="Link to a record"
@@ -726,18 +807,57 @@ export function MarkdownEditor({
             >
               <Brackets aria-hidden className="h-4 w-4" />
             </button>
-          ) : null}
-          <BodyModeSwitch mode={mode} onChange={changeMode} />
-        </div>
+            {immersed && onSave ? (
+              <button
+                type="button"
+                aria-label={saving ? "Saving" : "Save changes"}
+                title={saving ? "Saving…" : "Save changes"}
+                disabled={disabled || saving || !dirty}
+                className={TOOL}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onSave}
+              >
+                <Save aria-hidden className="h-4 w-4" />
+              </button>
+            ) : null}
+            {immersed ? null : (
+              <BodyModeSwitch
+                mode={mode}
+                onChange={changeMode}
+                className="col-span-2 sm:col-span-1 sm:ml-auto"
+              />
+            )}
+          </div>
+        ) : (
+          <div className="ml-auto flex items-center gap-2">
+            <BodyModeSwitch mode={mode} onChange={changeMode} />
+          </div>
+        )}
       </div>
+
+      {immersed && error ? (
+        <p
+          role="alert"
+          className="mt-2 rounded-field border border-danger px-3 py-2 text-[13px] text-danger"
+        >
+          {error}
+        </p>
+      ) : null}
 
       <div
         className={cn(
           "mt-1.5",
-          mode === "write" && "lg:grid lg:grid-cols-2 lg:items-start lg:gap-4",
+          mode === "write" && !immersed && "lg:grid lg:grid-cols-2 lg:items-start lg:gap-4",
+          immersed && "mt-2 flex min-h-0 flex-1 flex-col",
         )}
       >
-        <div className={cn("relative", mode === "preview" && "hidden")}>
+        <div
+          className={cn(
+            "relative",
+            mode === "preview" && "hidden",
+            immersed && "flex min-h-0 flex-1",
+          )}
+        >
           <textarea
             ref={field}
             aria-label="Markdown body"
@@ -748,7 +868,10 @@ export function MarkdownEditor({
               menu && highlighted >= 0 ? `${listId}-${highlighted}` : undefined
             }
             disabled={disabled}
-            className="record-body-input min-h-[14rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:resize-none pointer-coarse:text-[16px] sm:min-h-[22rem]"
+            className={cn(
+              "record-body-input min-h-[14rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:resize-none pointer-coarse:text-[16px] sm:min-h-[22rem]",
+              immersed && "min-h-0 flex-1 resize-none",
+            )}
             placeholder="Write in markdown. Saves with the rest of the record."
             spellCheck
             value={value}
@@ -756,7 +879,6 @@ export function MarkdownEditor({
             onPaste={onPaste}
             onFocus={() => {
               enteredWrite.current = true;
-              revealEditor();
             }}
             onKeyDown={onKeyDown}
             onScroll={place}
@@ -858,6 +980,10 @@ export function MarkdownEditor({
 
     </div>
   );
+
+  // A fixed surface inside the page would be trapped by an animated ancestor;
+  // the phone writing sheet belongs to the body, beside the navigation.
+  return immersed ? createPortal(editor, document.body) : editor;
 }
 
 /** The toolbar's heading trigger: one level per row, applied to the selection. */
@@ -910,12 +1036,18 @@ function HeadingMenu({
 function BodyModeSwitch({
   mode,
   onChange,
+  className,
 }: {
   mode: BodyMode;
   onChange: (mode: BodyMode) => void;
+  className?: string;
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Body mode">
+    <div
+      className={cn("flex shrink-0 items-center gap-1", className)}
+      role="group"
+      aria-label="Body mode"
+    >
       {(["write", "preview"] as const).map((choice) => (
         <button
           key={choice}

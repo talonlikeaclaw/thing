@@ -1083,6 +1083,10 @@ export function ObjectPanel({
             disabled={update.isPending}
             spaceId={spaceId}
             resetToken={resetToken}
+            dirty={dirty}
+            saving={update.isPending}
+            error={saveError ?? conflict}
+            onSave={() => void save()}
             preview={(text) => (
               <MarkdownView
                 text={text}

@@ -79,8 +79,17 @@ commands, `[[` autocomplete and a split live preview; a Links panel on every rec
 deterministic local and whole-space graph drawn as plain SVG over that same read. Checkpoints 1–8
 are committed at workspace `0.5.0`; `FORMAT_VERSION` stays `4`, no object frontmatter key is added,
 and no dependency is added. Its device pass had emulation only, and the physical-iPhone gate still
-precedes any keyboard claim. The next milestone starts its own
-`docs/plan/mN-*.md`, written the way these were. M6–M10 are recorded here so the format does not
+precedes any keyboard claim. The trust patch, v0.5.1, is implemented in
+[`docs/plan/m5.1-craft-and-hardening.md`](plan/m5.1-craft-and-hardening.md): a component-test layer
+over the real editor, palette, links panel and rename flow; a seeded audit with a written defect
+ledger; `links_to` on the existing record read, with a `Links to` group and local graph edges in
+both directions; search results that carry `?q=` to the record, mark the matched sentence and scroll
+it into view; an H1–H3 heading menu, paste-link, preview-tap-to-write and create-from-`[[` editor
+actions; and a previewed rename repair that rewrites only the mentions that resolved to the record
+before the rename, skipping and reporting stale sources. Checkpoints 1–6 are landed at workspace
+`0.5.1`; `FORMAT_VERSION` stays `4`, `with=links` is the only API addition, and there is no new
+route or dependency. Its device pass had emulation only, and the physical-iPhone gate remains open.
+The next milestone starts its own `docs/plan/mN-*.md`, written the way these were. M6–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
 
 **Revised 2026-11-02:** M5 shipped as v0.5.0 with the space graph included; the roadmap's
@@ -254,8 +263,8 @@ usability move ahead of search.
   until space-level views exist. The v0.4.5 device pass had emulation only, and the v0.4.3
   physical-iPhone gate still precedes any keyboard claim.
 
-- **M5 — Search, linking and the writing surface.** **Landed** (workspace `0.5.0`, not yet
-  deployed; checkpoints 1–8 implemented, schema 4); spec:
+- **M5 — Search, linking and the writing surface.** **Landed** (workspace `0.5.1`, not yet
+  deployed; checkpoints 1–8 implemented plus the v0.5.1 trust patch, schema 4); spec:
   [`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md). Full-text search over
   titles and bodies within a space, reachable from the command palette, over an **in-memory inverted
   index derived from the markdown files**, rebuilt at boot and updated per changed object; in-body
@@ -265,7 +274,9 @@ usability move ahead of search.
   toolbar, keyboard shortcuts, a `/` command menu, list continuation, live preview and `[[`
   autocomplete — because it is where links are typed; markdown remains the canonical source, with no
   WYSIWYG HTML. Relation properties already existed in M1, so this was UI plus a derived index and
-  one read route. No dependency is added and no object file gains a key.
+  one read route. No dependency is added and no object file gains a key. The v0.5.1 patch adds
+  bidirectional link rows, search landing, the remaining editor actions, previewed rename repair
+  and a component-test layer without changing the format or adding a route.
 
 - **M6 — Files and images.** Attachments stored beside the object under `files/`, referenced from
   frontmatter; thumbnails; a `file`/`image` property format; cover images. Bytes stay on disk and in

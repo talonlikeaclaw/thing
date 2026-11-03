@@ -312,6 +312,39 @@
     bottom: calc(var(--kb-height, 0px) + 0.5rem);
   }
 
+  /*
+   * Writing on a touch device is its own surface: the page, its navigation and
+   * its save row step aside while this fixed sheet has the viewport. Save lives
+   * in the writing toolbar, so there is never a second bar over the textarea.
+   */
+  :root[data-writing="on"] body {
+    overflow: hidden;
+  }
+
+  :root[data-writing="on"] [data-phone-bar],
+  :root[data-writing="on"] .record-save-bar {
+    display: none !important;
+  }
+
+  .record-writing-surface {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--vv-top, 0px);
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    height: var(--vv-height, 100dvh);
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    background: var(--color-ground);
+  }
+
+  .record-writing-surface .record-body-input {
+    overscroll-behavior: contain;
+  }
+
   @media (min-width: 64rem) {
     .record-save-bar {
       bottom: 0;

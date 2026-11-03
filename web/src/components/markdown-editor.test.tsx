@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { jsonResponse, renderWithProviders, requestUrl, stubFetch } from "@/test/harness";
@@ -71,7 +71,15 @@ function stubEditor({
   });
 }
 
-function EditorHost({ initial = "" }: { initial?: string }) {
+function EditorHost({
+  initial = "",
+  dirty,
+  onSave,
+}: {
+  initial?: string;
+  dirty?: boolean;
+  onSave?: () => void;
+}) {
   const [value, setValue] = useState(initial);
   return (
     <>
@@ -81,6 +89,8 @@ function EditorHost({ initial = "" }: { initial?: string }) {
         disabled={false}
         spaceId="s1"
         resetToken={0}
+        dirty={dirty}
+        onSave={onSave}
         preview={(text) => <div data-testid="preview">{text}</div>}
       />
       <output data-testid="body">{value}</output>
@@ -370,5 +380,62 @@ describe("MarkdownEditor", () => {
       expect(screen.getByText("No records match.")).toBeInTheDocument();
     });
     expect(screen.queryByRole("option", { name: /Create/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("MarkdownEditor on a coarse pointer", () => {
+  it("marks the page as writing in Write and clears the mark in Preview", async () => {
+    const media = vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(pointer: coarse)",
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+    stubEditor();
+    renderWithProviders(<EditorHost initial={"Watered this week."} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /write/i }));
+    await waitFor(() => expect(document.documentElement.dataset.writing).toBe("on"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(document.documentElement.dataset.writing).toBeUndefined());
+
+    media.mockRestore();
+  });
+
+  it("saves from the writing toolbar instead of a separate banner", async () => {
+    const media = vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(pointer: coarse)",
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+    const onSave = vi.fn();
+    stubEditor();
+    renderWithProviders(
+      <EditorHost initial={"Watered this week."} dirty onSave={onSave} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /write/i }));
+    const save = await screen.findByRole("button", { name: "Save changes" });
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+
+    media.mockRestore();
   });
 });
