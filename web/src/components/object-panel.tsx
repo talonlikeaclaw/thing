@@ -19,12 +19,18 @@ import {
   useTrashObject,
   useUpdateObject,
 } from "@/api/queries";
-import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
+import type {
+  MentionBacklink,
+  ObjectDetail,
+  PropertyDef,
+  TypeDef,
+} from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
+import { RenameLinksDialog, type MentionSource } from "@/components/rename-links-dialog";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -35,6 +41,7 @@ import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { effectiveMembers, sameJson } from "@/lib/schema";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { useRecordRecent } from "@/lib/use-record-recent";
+import { rewriteMentions } from "@/lib/wiki-links";
 
 interface ObjectPanelProps {
   spaceId: string;
@@ -74,6 +81,14 @@ interface Baseline {
   icon: string;
   body: string;
   values: Record<string, unknown | null>;
+}
+
+/** The title change held back while the reader decides about inbound links. */
+interface RenamePrompt {
+  base: Baseline;
+  oldTitle: string;
+  newTitle: string;
+  mentions: MentionBacklink[];
 }
 
 function rawValues(object: ObjectDetail): Record<string, unknown | null> {
@@ -254,6 +269,9 @@ export function ObjectPanel({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmingTrash, setConfirmingTrash] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
+  const [renamePrompt, setRenamePrompt] = useState<RenamePrompt | null>(null);
+  const [renamePending, setRenamePending] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   /** Bumped only when the draft is replaced from the server, never on save. */
   const [resetToken, setResetToken] = useState(0);
@@ -337,11 +355,39 @@ export function ObjectPanel({
     }
   }
 
-  function save(revOverride?: number, baseOverride?: Baseline): Promise<boolean> {
+  const mentionBacklinks = (object.backlinks ?? []).filter(
+    (row): row is MentionBacklink => row.kind === "mention",
+  );
+
+  /**
+   * Saves the draft. A title change that would strand inbound mentions stops
+   * first at the preview; `renameConfirmed` is how the preview's own actions
+   * get past the gate to the ordinary write.
+   */
+  function save(
+    revOverride?: number,
+    baseOverride?: Baseline,
+    renameConfirmed = false,
+  ): Promise<boolean> {
     if (!canEdit || update.isPending || invalid.size > 0) {
       return Promise.resolve(false);
     }
     const base = baseOverride ?? baseline;
+    const nextTitle = draft.title.trim();
+    if (
+      !renameConfirmed &&
+      nextTitle !== base.title &&
+      mentionBacklinks.length > 0
+    ) {
+      setRenamePrompt({
+        base,
+        oldTitle: base.title,
+        newTitle: nextTitle,
+        mentions: mentionBacklinks,
+      });
+      setRenameError(null);
+      return Promise.resolve(false);
+    }
     const nextChanges = changesAgainst(base);
     focusBeforeSave.current =
       document.activeElement instanceof HTMLElement &&
@@ -537,6 +583,93 @@ export function ObjectPanel({
         },
         onError: (error) => setSaveError(readError(error)),
       },
+    );
+  }
+
+  async function renameOnly() {
+    const prompt = renamePrompt;
+    if (!prompt || renamePending) {
+      return;
+    }
+    setRenamePending(true);
+    setRenameError(null);
+    const saved = await save(prompt.base.rev, prompt.base, true);
+    setRenamePending(false);
+    if (!saved) {
+      setRenameError("The rename was not saved. Nothing was changed.");
+      return;
+    }
+    setRenamePrompt(null);
+    toast.showToast(`Renamed to “${prompt.newTitle}”.`);
+  }
+
+  /**
+   * Renames the record, then repairs the sources the preview listed. Each
+   * source is an independent ordinary PATCH: a stale revision or a failed
+   * write is reported and left alone, never retried or rolled back.
+   */
+  async function updateLinks(sources: MentionSource[]) {
+    const prompt = renamePrompt;
+    if (!prompt || renamePending) {
+      return;
+    }
+    setRenamePending(true);
+    setRenameError(null);
+    const saved = await save(prompt.base.rev, prompt.base, true);
+    if (!saved) {
+      setRenamePending(false);
+      setRenameError("The rename was not saved. No links were changed.");
+      return;
+    }
+
+    let updated = 0;
+    let skipped = 0;
+    for (const source of sources) {
+      const detail = source.detail;
+      if (!detail) {
+        skipped += 1;
+        continue;
+      }
+      const resolved = new Map<string, string>();
+      for (const link of detail.links ?? []) {
+        if (link.status === "ok" && link.id) {
+          resolved.set(link.raw, link.id);
+        }
+      }
+      const rewritten = rewriteMentions(
+        detail.body,
+        objectId,
+        object.type,
+        prompt.oldTitle,
+        prompt.newTitle,
+        (raw) => resolved.get(raw),
+      );
+      if (rewritten.count === 0) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        await update.mutateAsync({
+          id: detail.id,
+          rev: detail.rev,
+          body: rewritten.body,
+        });
+        updated += 1;
+      } catch {
+        skipped += 1;
+      }
+    }
+
+    setRenamePending(false);
+    setRenamePrompt(null);
+    const records = updated === 1 ? "record" : "records";
+    toast.showToast(
+      skipped === 0
+        ? `Updated ${updated} ${records} that link here.`
+        : `Updated ${updated} ${records} that link here; skipped ${skipped} changed ${
+            skipped === 1 ? "record" : "records"
+          }.`,
+      "plain",
     );
   }
 
@@ -1058,6 +1191,24 @@ export function ObjectPanel({
             {update.isPending ? "Saving…" : "Save"}
           </Button>
         </StickyActionBar>
+      ) : null}
+      {renamePrompt ? (
+        <RenameLinksDialog
+          spaceId={spaceId}
+          oldTitle={renamePrompt.oldTitle}
+          newTitle={renamePrompt.newTitle}
+          mentions={renamePrompt.mentions}
+          pending={renamePending}
+          error={renameError}
+          onUpdateLinks={(sources) => void updateLinks(sources)}
+          onRenameOnly={() => void renameOnly()}
+          onCancel={() => {
+            if (!renamePending) {
+              setRenamePrompt(null);
+              setRenameError(null);
+            }
+          }}
+        />
       ) : null}
       {guard}
     </div>

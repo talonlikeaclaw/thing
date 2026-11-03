@@ -30,6 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Opening the editor on a phone keeps the formatting toolbar in view instead of scrolling it away.",
       "Dragging the map on a phone always pans it.",
       "A tap on a map node still opens the record.",
+      "Renaming a record offers to update the records that mention it before anything is written.",
     ],
     details: [
       "The record's address keeps the search query, so a refresh or a shared link lands in the same place.",
@@ -48,6 +49,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Page scrolling on a phone starts outside the map, so the drawing no longer guesses between the page, a pan and a node.",
       "A node can still be dragged with a mouse or pen.",
       "The map's phone hint names drag, tap and the zoom controls.",
+      "The rename preview lists each record that mentions this one and how many times.",
+      "Renaming only leaves those mentions unresolved, and cancel leaves the title unchanged.",
+      "A record edited since the preview is skipped and reported instead of overwritten.",
     ],
   },
   {

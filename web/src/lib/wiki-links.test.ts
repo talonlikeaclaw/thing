@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { ObjectLink } from "@/api/types";
-import { createSuggestion, splitWikiText, wikiLinks, type WikiNode } from "@/lib/wiki-links";
+import {
+  createSuggestion,
+  rewriteMentions,
+  splitWikiText,
+  wikiLinks,
+  type WikiNode,
+} from "@/lib/wiki-links";
 
 const space = "space-1";
 const monstera: ObjectLink = {
@@ -170,5 +176,92 @@ describe("wikiLinks", () => {
       url: "#broken",
       title: "No record matches plant/Ghost.",
     });
+  });
+});
+
+describe("rewriteMentions", () => {
+  const target = "object-1";
+  const resolved = new Map([
+    ["plant/Monstera", target],
+    ["plant/monstera", target],
+    ["chore/Water", "object-2"],
+  ]);
+  const resolve = (raw: string) => resolved.get(raw);
+
+  it("rewrites duplicate mentions from the end, keeping surrounding text", () => {
+    const body = "First [[plant/Monstera]], then [[plant/Monstera]] and [[chore/Water]].";
+    expect(rewriteMentions(body, target, "plant", "Monstera", "Monstera deliciosa", resolve)).toEqual({
+      body: "First [[plant/Monstera deliciosa]], then [[plant/Monstera deliciosa]] and [[chore/Water]].",
+      count: 2,
+    });
+  });
+
+  it("matches a title typed in another case and writes the canonical title", () => {
+    expect(
+      rewriteMentions(
+        "See [[plant/monstera]].",
+        target,
+        "plant",
+        "Monstera",
+        "Monstera deliciosa",
+        resolve,
+      ),
+    ).toEqual({ body: "See [[plant/Monstera deliciosa]].", count: 1 });
+  });
+
+  it("leaves a link alone when it no longer resolves to the target", () => {
+    expect(
+      rewriteMentions("See [[plant/Monstera]].", target, "plant", "Monstera", "New", () => undefined),
+    ).toEqual({ body: "See [[plant/Monstera]].", count: 0 });
+    expect(
+      rewriteMentions("See [[plant/Monstera]].", target, "plant", "Monstera", "New", () => "other"),
+    ).toEqual({ body: "See [[plant/Monstera]].", count: 0 });
+  });
+
+  it("skips fenced code and inline code", () => {
+    const body = [
+      "[[plant/Monstera]] in prose.",
+      "`[[plant/Monstera]]` stays a code span.",
+      "```md",
+      "[[plant/Monstera]]",
+      "```",
+      "~~~",
+      "[[plant/Monstera]]",
+      "~~~",
+    ].join("\n");
+    expect(rewriteMentions(body, target, "plant", "Monstera", "Renamed", resolve)).toEqual({
+      body: [
+        "[[plant/Renamed]] in prose.",
+        "`[[plant/Monstera]]` stays a code span.",
+        "```md",
+        "[[plant/Monstera]]",
+        "```",
+        "~~~",
+        "[[plant/Monstera]]",
+        "~~~",
+      ].join("\n"),
+      count: 1,
+    });
+  });
+
+  it("rewrites every source independently", () => {
+    const first = rewriteMentions(
+      "[[plant/Monstera]]",
+      target,
+      "plant",
+      "Monstera",
+      "Renamed",
+      resolve,
+    );
+    const second = rewriteMentions(
+      "A word, [[plant/Monstera]], another word.",
+      target,
+      "plant",
+      "Monstera",
+      "Renamed",
+      resolve,
+    );
+    expect(first).toEqual({ body: "[[plant/Renamed]]", count: 1 });
+    expect(second).toEqual({ body: "A word, [[plant/Renamed]], another word.", count: 1 });
   });
 });

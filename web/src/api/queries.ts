@@ -636,13 +636,17 @@ export function useObjects(spaceId: string | undefined, query: ObjectsQuery | un
   });
 }
 
+/** The record read every surface uses; the same bytes whether cached or fresh. */
+export function fetchObjectDetail(spaceId: string, objectId: string): Promise<ObjectDetail> {
+  return request<ObjectDetail>(
+    `/api/spaces/${spaceId}/objects/${objectId}?with=links,backlinks`,
+  );
+}
+
 export function useObject(spaceId: string | undefined, objectId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.object(spaceId ?? "", objectId ?? ""),
-    queryFn: () =>
-      request<ObjectDetail>(
-        `/api/spaces/${spaceId}/objects/${objectId}?with=links,backlinks`,
-      ),
+    queryFn: () => fetchObjectDetail(spaceId ?? "", objectId ?? ""),
     enabled: Boolean(spaceId && objectId),
   });
 }
