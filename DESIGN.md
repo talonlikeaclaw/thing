@@ -19,17 +19,17 @@ colors:
   warning: "#dcaa54"
 typography:
   display:
-    fontFamily: "IBM Plex Serif, ui-serif, Georgia, serif"
-    fontSize: "40px"
+    fontFamily: "Maple Mono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: "36px"
     fontWeight: 400
     lineHeight: 1.05
-    letterSpacing: "-0.015em"
+    letterSpacing: "-0.03em"
   title:
-    fontFamily: "IBM Plex Serif, ui-serif, Georgia, serif"
-    fontSize: "30px"
+    fontFamily: "Maple Mono, ui-monospace, SFMono-Regular, monospace"
+    fontSize: "26px"
     fontWeight: 400
     lineHeight: 1.1
-    letterSpacing: "-0.012em"
+    letterSpacing: "-0.02em"
   heading:
     fontFamily: "IBM Plex Sans Variable, ui-sans-serif, system-ui, sans-serif"
     fontSize: "18px"
@@ -49,7 +49,7 @@ typography:
     lineHeight: 1.5
     letterSpacing: "normal"
   label:
-    fontFamily: "IBM Plex Mono, ui-monospace, monospace"
+    fontFamily: "Maple Mono, ui-monospace, monospace"
     fontSize: "11px"
     fontWeight: 500
     lineHeight: 1.5
@@ -132,8 +132,8 @@ for contrast.
 **Key Characteristics:**
 - Dark ground with near-neutral, slightly green-black surfaces, inset one step below the ground.
 - Hairline 1px rules instead of shadows or cards.
-- IBM Plex Serif for display and page titles; IBM Plex Sans for prose and controls; IBM Plex Mono
-  for keys, ids, timestamps, counts and labels. The serif is a voice, never a body face.
+- Maple Mono for display, page titles, the wordmark, keys, ids, timestamps, counts and labels; IBM
+  Plex Sans for prose, controls and tables. The mono is a voice, never a body face.
 - One accent per space, chosen by an owner from six contrast-tested palettes and shared by every
   member, used only for state (selection, focus, primary action); Lichen is the default. One 12%
   accent wash is the only tint and marks selection, the active row, the search match and drag.
@@ -219,28 +219,40 @@ new ornament.
 
 ## Typography
 
-**Display Font:** IBM Plex Serif (fallbacks: ui-serif, Georgia) — 400 and 500 only
+**Display Font:** Maple Mono (fallbacks: ui-monospace, SFMono-Regular) — 400 and 500 only
 **Body Font:** IBM Plex Sans Variable
-**Label/Mono Font:** IBM Plex Mono
+**Label/Mono Font:** Maple Mono
 
-**Character:** A serif voice for display and page titles, a humanist sans for reading and controls,
-and a technical mono for every identifier, measurement, count and label. The pairing reads as a
-field notebook printed on good stock, not a terminal and not a marketing site.
+**Character:** One technical face carries the voice: Maple Mono sets the wordmark, the space name,
+page titles, the record title and every identifier, measurement, count and label, while IBM Plex
+Sans carries everything read as a sentence. Soft terminals against squarish bowls give the contrast;
+the result reads as a specimen sheet typed on an instrument, not a terminal and not a marketing
+site.
+
+The web build ships upstream Maple Mono (`@fontsource/maple-mono`), not the Nerd Font patch: the
+letterforms are identical, and the interface draws its pictograms with Lucide, so the patched
+private-use glyph layer would add roughly a megabyte of subset for nothing. `Maple Mono NF` remains
+the desktop/editor build of the same family.
 
 ### Hierarchy
-- **Display** (400, 40px/1.05, -0.015em, serif): the space name, auth and page titles, one per
-  screen. On a phone it steps to 32px/1.08.
-- **Title** (400, 30px/1.1, -0.012em, serif): the record title and a type page's name. On a phone it
-  steps to 26px/1.12.
+- **Display** (400, 36px/1.05, -0.03em, mono): the space name, auth and page titles, one per screen.
+  On a phone it steps to 30px/1.08.
+- **Title** (400, 26px/1.1, -0.02em, mono): the record title and a type page's name. On a phone it
+  steps to 22px/1.15.
 - **Heading** (500, 18px/1.35, sans): section headings such as "Properties", "Body" and "Members".
 - **Body** (400, 15px/1.6, sans): prose and form values; keep the reading measure at 65–75ch.
 - **Small** (400, 13px/1.5, sans): secondary rows, hints, metadata sentences and errors.
 - **Label** (500, 11px/1.5, 0.09em, uppercase, mono): column headers, field labels, roles, keys.
 - **Data** (400–500, 12px, mono): ids, timestamps, counts; always tabular numerals.
 
-**The Serif Is a Voice Rule.** IBM Plex Serif sets display and page titles, the record title and one
-pull-quote or empty-state line per surface. Body, controls, tables, cards and prose stay sans; keys,
-counts, dates and annotations stay mono. A serif paragraph is a defect.
+**The Mono Is a Voice Rule.** Maple Mono sets display and page titles, the record title and one
+pull-quote or empty-state line per surface, at 400 with negative tracking. Body, controls, tables and
+prose stay sans. A monospaced paragraph is a defect: the fixed advance turns a sentence into a
+printout.
+
+**The Ligatures Stay Home Rule.** Maple Mono carries programming ligatures (`->`, `=>`, `!=`). They
+belong in the body editor. The display role sets `font-variant-ligatures: none`; a key, a date, a
+count or a title renders the characters it was given.
 
 **The Keys Are Mono Rule.** Anything the system treats as an identifier or measurement is mono and
 tabular. Anything a person reads as a sentence is sans.
@@ -812,8 +824,8 @@ its own button, field, focus ring or error treatment.
 - **Do** keep the signed-out margin notes factual: they describe what the files and schema are.
 - **Do** let a view tab read as text plus a bottom rule, and let the calendar's today read as a
   hairline and a mono label; colour never carries the state alone.
-- **Do** reserve IBM Plex Serif for display and page titles, and set one pull-quote or empty-state
-  line per surface at most.
+- **Do** reserve Maple Mono for display, page titles and the wordmark, and set one pull-quote or
+  empty-state line per surface at most.
 - **Do** use the 12% accent wash for selection, the active row and the search match, and keep full
   accent for text, glyphs and the primary surface.
 
@@ -824,6 +836,6 @@ its own button, field, focus ring or error treatment.
   record icons.
 - **Don't** turn the index into a card grid, add a sidebar before the space exists, or hide the
   create action behind a modal.
-- **Don't** set prose in mono, identifiers in sans, or a paragraph in the display serif.
+- **Don't** set prose in mono, identifiers in sans, or a paragraph in the display face.
 - **Don't** use the accent wash as a decorative panel, a gradient or a second accent.
 - **Don't** animate layout, tables or prose; only transform and opacity explain a change.

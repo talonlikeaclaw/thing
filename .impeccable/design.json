@@ -324,16 +324,16 @@
       "sheetClose": "Right-handed keeps the platform-standard trailing close; left-handed puts the same control first in the title or search row, with focus order and margin following the DOM.",
       "searchLanding": "Opening a record from a search result keeps ?q= in the address. MarkdownView marks every rendered occurrence with the accent and scrolls the first one into view once after the preview paints, without stealing focus. The body header shows Match: \u201c<query>\u201d with a clear control that removes q via replace so Back returns to the search. Code and fences stay unmarked, and re-opening the same query does not fight a reader's scroll.",
       "renameRepair": "A title change on a record with inbound body mentions opens one preview dialog before the write: old and new title, each source with its type and mention count, and Update links / Rename only / Cancel. Sources are read while the old title still resolves. Update links renames first, then rewrites only occurrences that resolved to the record before the rename, each through an ordinary source PATCH; a stale source is skipped and reported, never retried. Rename only leaves old mentions unresolved; Cancel writes nothing. The dialog uses the sheet geometry and its action row follows the thumb edge.",
-      "foundation": "Six type roles with IBM Plex Serif for display/title; the neutral scale adds Night Inset below the ground; one 12% accent wash marks selection, the active row and the search match; 4px spacing scale; 36/40/44 control heights and 40/44 fields; 120/180/240ms motion on one exponential ease-out."
+      "foundation": "Six type roles with Maple Mono for display, title and every mono role over IBM Plex Sans body; the neutral scale adds Night Inset below the ground; one 12% accent wash marks selection, the active row and the search match; 4px spacing scale; 36/40/44 control heights and 40/44 fields; 120/180/240ms motion on one exponential ease-out."
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Space name, auth and page titles; IBM Plex Serif 40/1.05, 32/1.08 on a phone."
+        "purpose": "Space name, auth and page titles; Maple Mono 36/1.05 with -0.03em, 30/1.08 on a phone, ligatures off."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Record title and type page name; IBM Plex Serif 30/1.1, 26/1.12 on a phone."
+        "purpose": "Record title and type page name; Maple Mono 26/1.1 with -0.02em, 22/1.15 on a phone."
       },
       "body": {
         "displayName": "Body",
@@ -341,7 +341,7 @@
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Column headers, field labels, roles and keys; uppercase IBM Plex Mono 11/1.5, 0.09em."
+        "purpose": "Column headers, field labels, roles and keys; uppercase Maple Mono 11/1.5, 0.09em."
       },
       "heading": {
         "displayName": "Heading",
@@ -450,30 +450,30 @@
       "refersTo": "input",
       "description": "Labeled input with hint and error slots.",
       "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input class=\"ds-input\" value=\"Garden\" /></label>",
-      "css": ".ds-field { display:grid; gap:8px; font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-field-label { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:11px; line-height:1.5; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-input { height:var(--field-fine,40px); padding:8px 12px; border:1px solid var(--color-line-interactive,#667066); border-radius:var(--radius-field,6px); background:var(--color-ground,#121512); color:var(--color-ink,#e8ece4); font:400 var(--text-body,15px)/1.6 var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); transition:border-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-input:hover { border-color:var(--color-line-strong,#3a423a); } .ds-input:focus { border-color:var(--color-accent,#c8d96b); } .ds-input:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-input[aria-invalid=true] { border-color:var(--color-danger,#f08a72); } .ds-input:disabled { opacity:.6; cursor:not-allowed; } .ds-input:read-only { color:var(--color-muted,#9aa398); }"
+      "css": ".ds-field { display:grid; gap:8px; font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-field-label { font-family:var(--font-mono,'Maple Mono',monospace); font-size:11px; line-height:1.5; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-input { height:var(--field-fine,40px); padding:8px 12px; border:1px solid var(--color-line-interactive,#667066); border-radius:var(--radius-field,6px); background:var(--color-ground,#121512); color:var(--color-ink,#e8ece4); font:400 var(--text-body,15px)/1.6 var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); transition:border-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-input:hover { border-color:var(--color-line-strong,#3a423a); } .ds-input:focus { border-color:var(--color-accent,#c8d96b); } .ds-input:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-input[aria-invalid=true] { border-color:var(--color-danger,#f08a72); } .ds-input:disabled { opacity:.6; cursor:not-allowed; } .ds-input:read-only { color:var(--color-muted,#9aa398); }"
     },
     {
       "name": "App Header",
       "kind": "nav",
       "description": "The signed-in navigation: wordmark at left, account and sign-out at right.",
       "html": "<header class=\"ds-header\"><a class=\"ds-wordmark\" href=\"/\"><span class=\"ds-mark\"></span>thing</a><span class=\"ds-email\">you@example.com</span><button class=\"ds-btn-ghost\">Sign out</button></header>",
-      "css": ".ds-header { display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-wordmark { display:inline-flex; align-items:baseline; gap:8px; font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:15px; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-mark { width:10px; height:10px; border-radius:2px; background:var(--color-accent,#c8d96b); } .ds-email { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:12px; color:var(--color-muted,#9aa398); }"
+      "css": ".ds-header { display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-wordmark { display:inline-flex; align-items:baseline; gap:8px; font-family:var(--font-mono,'Maple Mono',monospace); font-size:15px; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-mark { width:10px; height:10px; border-radius:2px; background:var(--color-accent,#c8d96b); } .ds-email { font-family:var(--font-mono,'Maple Mono',monospace); font-size:12px; color:var(--color-muted,#9aa398); }"
     },
     {
       "name": "Space Index Entry",
       "kind": "custom",
       "description": "The signature row: mono key, name, counts, role, and an annotation that opens beneath it.",
       "html": "<div class=\"ds-entry\"><button class=\"ds-entry-key\">92F49F</button><a class=\"ds-entry-name\" href=\"#\">Garden</a><span class=\"ds-entry-count\">1</span><span class=\"ds-entry-count\">0</span><span class=\"ds-entry-role\">OWNER</span></div>",
-      "css": ".ds-entry { display:grid; grid-template-columns:80px minmax(0,1fr) 64px 64px 96px; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-entry-key, .ds-entry-count, .ds-entry-role { font-family:var(--font-mono,'IBM Plex Mono',monospace); font-size:11px; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-entry-key { background:none; border:0; padding:0; text-align:left; cursor:pointer; } .ds-entry-key:hover { color:var(--color-accent,#c8d96b); } .ds-entry-name { font-size:17px; font-weight:500; letter-spacing:-.01em; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-entry-name:hover { text-decoration:underline; text-underline-offset:3px; } .ds-entry-count { text-align:right; font-variant-numeric:tabular-nums; } .ds-entry-role { text-align:right; }"
+      "css": ".ds-entry { display:grid; grid-template-columns:80px minmax(0,1fr) 64px 64px 96px; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-entry-key, .ds-entry-count, .ds-entry-role { font-family:var(--font-mono,'Maple Mono',monospace); font-size:11px; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-entry-key { background:none; border:0; padding:0; text-align:left; cursor:pointer; } .ds-entry-key:hover { color:var(--color-accent,#c8d96b); } .ds-entry-name { font-size:17px; font-weight:500; letter-spacing:-.01em; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-entry-name:hover { text-decoration:underline; text-underline-offset:3px; } .ds-entry-count { text-align:right; font-variant-numeric:tabular-nums; } .ds-entry-role { text-align:right; }"
     }
   ],
   "narrative": {
     "northStar": "Nocturnal Field Guide",
-    "overview": "The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono, annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet \u2014 the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a working tool first. The v0.5.2 foundation adds a display serif voice, a six-step type scale, one accent wash, a 4px space scale and named primitive states. The world still contributes type, palette, density and one signature move (the keyed entry), never the navigation model or the controls.",
+    "overview": "The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono, annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet \u2014 the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a working tool first. The v0.5.2 foundation adds a display mono voice (Maple Mono), a six-step type scale, one accent wash, a 4px space scale and named primitive states. The world still contributes type, palette, density and one signature move (the keyed entry), never the navigation model or the controls.",
     "keyCharacteristics": [
       "Dark ground with near-neutral, slightly green-black surfaces and one inset step below the ground.",
       "Hairline 1px rules instead of shadows or cards.",
-      "IBM Plex Serif for display and page titles; IBM Plex Sans for prose and controls; IBM Plex Mono for keys, ids, timestamps, counts and labels.",
+      "Maple Mono for display, page titles, the wordmark, keys, ids, timestamps, counts and labels; IBM Plex Sans for prose, controls and tables.",
       "One accent per space, chosen by an owner from six contrast-tested palettes and shared by every member, used only for state; one 12% accent wash is the only tint.",
       "A keyed index as the recurring structure: a short mono key leads every entry.",
       "A real margin at xl for annotations, counts and properties; motion explains change and is absent under reduced motion."
@@ -530,8 +530,8 @@
         "section": "layout"
       },
       {
-        "name": "The Serif Is a Voice Rule",
-        "body": "IBM Plex Serif sets display and page titles, the record title and one pull-quote or empty-state line per surface. Body, controls, tables and prose stay sans; keys, counts, dates and annotations stay mono. A serif paragraph is a defect.",
+        "name": "The Mono Is a Voice Rule",
+        "body": "Maple Mono sets display and page titles, the record title and one pull-quote or empty-state line per surface, at 400 with negative tracking and contextual alternates off so a title shows the characters it was given. Body, controls, tables and prose stay sans; keys, counts, dates and annotations stay mono. A monospaced paragraph is a defect.",
         "section": "typography"
       },
       {

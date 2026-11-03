@@ -23,15 +23,20 @@
   --color-warning: #dcaa54;
 
   --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-display: "IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: "Maple Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Maple Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --text-display: 2.5rem;
+  /*
+   * Maple Mono advances every glyph at 0.6em, a serif at roughly 0.5em, so the
+   * same pixel size reads about a fifth wider. Display and title are sized down
+   * to keep the optical width a cover sheet and a record header want.
+   */
+  --text-display: 2.25rem;
   --text-display--line-height: 1.05;
-  --text-display--letter-spacing: -0.015em;
-  --text-title: 1.875rem;
+  --text-display--letter-spacing: -0.03em;
+  --text-title: 1.625rem;
   --text-title--line-height: 1.1;
-  --text-title--letter-spacing: -0.012em;
+  --text-title--letter-spacing: -0.02em;
   --text-heading: 1.125rem;
   --text-heading--line-height: 1.35;
   --text-body: 0.9375rem;
@@ -269,16 +274,27 @@
     color: var(--color-muted);
   }
 
+  /*
+   * Maple Mono carries programming ligatures (`->`, `=>`, `!=`). They belong in
+   * the body editor; a space name, a page title or a record title must show the
+   * characters it was given, so the display role keeps contextual alternates
+   * off. Keys and labels are unaffected: their glyphs have no ligature pairs.
+   */
+  .display {
+    font-family: var(--font-display);
+    font-variant-ligatures: none;
+  }
+
   .rule {
     border-color: var(--color-line);
   }
 
   @media (max-width: 39.99rem) {
     :root {
-      --text-display: 2rem;
+      --text-display: 1.875rem;
       --text-display--line-height: 1.08;
-      --text-title: 1.625rem;
-      --text-title--line-height: 1.12;
+      --text-title: 1.375rem;
+      --text-title--line-height: 1.15;
     }
   }
 }

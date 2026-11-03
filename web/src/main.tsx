@@ -1,8 +1,6 @@
 import "@fontsource-variable/ibm-plex-sans/index.css";
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
-import "@fontsource/ibm-plex-serif/400.css";
-import "@fontsource/ibm-plex-serif/500.css";
+import "@fontsource/maple-mono/400.css";
+import "@fontsource/maple-mono/500.css";
 
 import { createRoot } from "react-dom/client";
 
