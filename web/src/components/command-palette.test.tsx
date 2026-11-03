@@ -129,7 +129,7 @@ describe("CommandPalette", () => {
     fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
-      expect(screen.getByTestId("location")).toHaveTextContent("/s/s1/o/o1");
+      expect(screen.getByTestId("location")).toHaveTextContent("/s/s1/o/o1?q=unfurling");
     });
   });
 
@@ -170,8 +170,7 @@ describe("CommandPalette", () => {
     fireEvent.change(input, { target: { value: "unfurling" } });
     await screen.findByText("Monstera in the study");
 
-    // The singular is checkpoint 3's edit; this pin makes that change visible.
-    expect(screen.getByText("1 results")).toBeInTheDocument();
+    expect(screen.getByText("1 result")).toBeInTheDocument();
   });
 
   it("prints a plural count for more than one result", async () => {

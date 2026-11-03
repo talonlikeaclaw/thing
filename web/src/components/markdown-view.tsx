@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Markdown from "react-markdown";
 import { Link } from "react-router";
 import remarkGfm from "remark-gfm";
 
 import type { ObjectLink } from "@/api/types";
+import { matchRanges } from "@/lib/search";
 import { wikiLinks } from "@/lib/wiki-links";
 
 interface MarkdownViewProps {
@@ -12,19 +13,121 @@ interface MarkdownViewProps {
   links?: ObjectLink[];
   /** The space an internal link opens in. */
   spaceId?: string;
+  /** A search query whose occurrences are marked and the first scrolled into view. */
+  highlight?: string;
+}
+
+/** The minimal hast shape the highlight plugin walks; no dependency on the types. */
+interface HastNode {
+  type: string;
+  value?: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+}
+
+/** Markdown that is shown verbatim is not prose to mark. */
+const SKIP_TAGS = new Set(["code", "pre"]);
+
+/** The palette's marker, reused so search looks the same everywhere. */
+const MARK_CLASSES = [
+  "bg-transparent",
+  "text-inherit",
+  "underline",
+  "decoration-accent",
+  "decoration-2",
+  "underline-offset-2",
+];
+
+/**
+ * A rehype plugin that wraps query matches in `<mark>` text nodes. It walks the
+ * rendered tree, so attribute values and code are never touched.
+ */
+function highlightMatches(query: string) {
+  return () => (tree: unknown) => {
+    const root = tree as HastNode;
+    if (root.children) {
+      root.children = splitChildren(root.children, query);
+    }
+  };
+}
+
+function splitChildren(children: HastNode[], query: string): HastNode[] {
+  return children.flatMap((child) => {
+    if (child.type === "text") {
+      return markText(child.value ?? "", query);
+    }
+    if (
+      (child.type === "element" || child.type === "root") &&
+      !(child.tagName !== undefined && SKIP_TAGS.has(child.tagName)) &&
+      child.children
+    ) {
+      child.children = splitChildren(child.children, query);
+    }
+    return [child];
+  });
+}
+
+function markText(text: string, query: string): HastNode[] {
+  const ranges = matchRanges(text, query);
+  if (ranges.length === 0) {
+    return [{ type: "text", value: text }];
+  }
+  const nodes: HastNode[] = [];
+  let cursor = 0;
+  for (const [start, end] of ranges) {
+    if (start > cursor) {
+      nodes.push({ type: "text", value: text.slice(cursor, start) });
+    }
+    nodes.push({
+      type: "element",
+      tagName: "mark",
+      properties: { className: MARK_CLASSES, "data-search-match": "" },
+      children: [{ type: "text", value: text.slice(start, end) }],
+    });
+    cursor = end;
+  }
+  if (cursor < text.length) {
+    nodes.push({ type: "text", value: text.slice(cursor) });
+  }
+  return nodes;
 }
 
 /**
  * The body as prose: GFM via `remark-gfm`, every element mapped to the field
  * guide's type scale. Read mode never edits; the textarea owns writing.
  */
-export function MarkdownView({ text, links, spaceId }: MarkdownViewProps) {
+export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewProps) {
   const plugins = useMemo(() => {
     if (!links || !spaceId) {
       return [];
     }
     return [wikiLinks(new Map(links.map((link) => [link.raw, link])), spaceId)];
   }, [links, spaceId]);
+  const query = highlight?.trim() ?? "";
+  const highlightPlugins = useMemo(() => {
+    if (query === "") {
+      return [];
+    }
+    return [highlightMatches(query)];
+  }, [query]);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  /** The query this view already centred, so the same search does not fight a scroll. */
+  const scrolledFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (query === "" || scrolledFor.current === query) {
+      return;
+    }
+    const mark = rootRef.current?.querySelector<HTMLElement>("[data-search-match]");
+    if (!mark) {
+      return;
+    }
+    scrolledFor.current = query;
+    const relaxed =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    mark.scrollIntoView({ block: "center", behavior: relaxed ? "auto" : "smooth" });
+  }, [query]);
 
   if (text.trim() === "") {
     return (
@@ -35,9 +138,10 @@ export function MarkdownView({ text, links, spaceId }: MarkdownViewProps) {
   }
 
   return (
-    <div className="max-w-[68ch] py-2 text-[15px] leading-[1.65]">
+    <div ref={rootRef} className="max-w-[68ch] py-2 text-[15px] leading-[1.65]">
       <Markdown
         remarkPlugins={[remarkGfm, ...plugins]}
+        rehypePlugins={highlightPlugins}
         components={{
           h1: ({ children }) => (
             <h1 className="mt-6 mb-2 text-[24px] font-medium tracking-[-0.02em] first:mt-0">

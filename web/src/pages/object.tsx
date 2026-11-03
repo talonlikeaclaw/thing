@@ -1,4 +1,4 @@
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 
 import { useObject, useProperties, useSpace, useType } from "@/api/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -13,6 +13,8 @@ import { useRouteMeta } from "@/lib/route";
 /** `/s/:spaceId/o/:objectId` — one record, its properties and its markdown body. */
 export function ObjectPage() {
   const { spaceId, objectId } = useParams();
+  const [params, setParams] = useSearchParams();
+  const highlight = (params.get("q") ?? "").trim();
   const space = useSpace(spaceId);
   const properties = useProperties(spaceId);
   const object = useObject(spaceId, objectId);
@@ -70,6 +72,16 @@ export function ObjectPage() {
         canEdit={detail.role !== "viewer"}
         timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
+        highlight={highlight}
+        onClearHighlight={
+          highlight === ""
+            ? undefined
+            : () => {
+                const next = new URLSearchParams(params);
+                next.delete("q");
+                setParams(next, { replace: true });
+              }
+        }
       />
       <LinksPanel spaceId={detail.id} object={record} />
       <HistoryPanel

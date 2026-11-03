@@ -23,7 +23,7 @@ import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
 import { readError } from "@/lib/display";
-import { relativeTime, typeLabel } from "@/lib/format";
+import { plural, relativeTime, typeLabel } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { matchRanges, rank } from "@/lib/search";
 
@@ -206,7 +206,9 @@ export function CommandPalette({
     hint: `${record.type_name} · ${relativeTime(record.updated_at)}`,
     ...(record.snippet ? { detail: record.snippet } : {}),
     ...(record.icon ? { icon: record.icon } : {}),
-    to: `/s/${spaceId}/o/${record.id}`,
+    to: `/s/${spaceId}/o/${record.id}${
+      trimmed === "" ? "" : `?q=${encodeURIComponent(trimmed)}`
+    }`,
   }));
 
   const sections: PaletteSection[] = [];
@@ -443,7 +445,7 @@ export function CommandPalette({
             <div className="sheet-footer flex items-center justify-between gap-3 border-t rule px-4 pt-2 text-[11px] text-faint">
               <span className="hidden font-mono sm:inline pointer-coarse:hidden">↑↓ move · Enter open · Esc close</span>
               <span aria-live="polite" className="font-mono tnum">
-                {flat.length} results
+                {plural(flat.length, "result")}
               </span>
             </div>
           </SheetPopup>

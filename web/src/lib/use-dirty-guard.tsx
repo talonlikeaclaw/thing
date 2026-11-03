@@ -15,7 +15,12 @@ export function useDirtyGuard(
   dirty: boolean,
   save: () => Promise<boolean>,
 ): React.ReactNode {
-  const blocker = useBlocker(dirty);
+  // A search-parameter change is view state, not a move away from the draft;
+  // blocking it would make "clear the match" or a tab change ask to discard.
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty && nextLocation.pathname !== currentLocation.pathname,
+  );
   const saveRef = useRef(save);
   saveRef.current = save;
   const [saving, setSaving] = useState(false);

@@ -12,6 +12,11 @@ export function isBlank(value: unknown): boolean {
   );
 }
 
+/** `1 record`, `2 records`; an explicit plural for an irregular noun. */
+export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
 /** An option's display name, or its key when the property no longer defines it. */
 export function optionName(property: PropertyDef, key: string): string {
   return property.options?.find((option) => option.key === key)?.name ?? key;

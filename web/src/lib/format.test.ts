@@ -7,6 +7,7 @@ import {
   isBlank,
   optionName,
   parseCellText,
+  plural,
   relationChips,
   relativeTime,
   typeLabel,
@@ -19,6 +20,19 @@ const status: PropertyDef = {
   format: "select",
   options: [{ key: "todo", name: "To do", color: "#c8d96b" }],
 };
+
+describe("plural", () => {
+  it("uses the singular for one and the plural otherwise", () => {
+    expect(plural(0, "result")).toBe("0 results");
+    expect(plural(1, "result")).toBe("1 result");
+    expect(plural(2, "result")).toBe("2 results");
+  });
+
+  it("accepts an irregular plural", () => {
+    expect(plural(1, "entry", "entries")).toBe("1 entry");
+    expect(plural(3, "entry", "entries")).toBe("3 entries");
+  });
+});
 
 describe("cell labels", () => {
   it("renders options by name and unknown keys as themselves", () => {

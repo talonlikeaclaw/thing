@@ -46,6 +46,10 @@ interface ObjectPanelProps {
   timeZone: string;
   /** Refetches the record from the server; the panel replaces its draft on success. */
   reloadObject: () => Promise<ObjectDetail | undefined>;
+  /** A search query that opened this record; its body occurrences are marked. */
+  highlight?: string;
+  /** Removes the query from the URL without leaving the record. */
+  onClearHighlight?: () => void;
 }
 
 const STATUS_LABELS = {
@@ -240,6 +244,8 @@ export function ObjectPanel({
   canEdit,
   timeZone,
   reloadObject,
+  highlight,
+  onClearHighlight,
 }: ObjectPanelProps) {
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
   const [draft, setDraft] = useState<Draft>(() => draftOf(object));
@@ -896,18 +902,34 @@ export function ObjectPanel({
 
       <section aria-label="Body" className="mt-10">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="label flex items-center gap-1.5">
-            <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
-            <span
-              aria-label="Unsaved change"
-              title="Unsaved change"
-              className={cn(
-                "h-1.5 w-1.5 rounded-full bg-accent",
-                !bodyChanged && "invisible",
-              )}
-            />
-            Body
-          </h2>
+          <div className="min-w-0">
+            <h2 className="label flex items-center gap-1.5">
+              <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
+              <span
+                aria-label="Unsaved change"
+                title="Unsaved change"
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full bg-accent",
+                  !bodyChanged && "invisible",
+                )}
+              />
+              Body
+            </h2>
+            {highlight ? (
+              <p className="mt-0.5 flex items-center gap-2 text-[11px] text-faint">
+                <span className="truncate">Match: “{highlight}”</span>
+                {onClearHighlight ? (
+                  <button
+                    type="button"
+                    className="shrink-0 underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                    onClick={onClearHighlight}
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
           {canEdit ? (
             <button
               type="button"
@@ -928,11 +950,23 @@ export function ObjectPanel({
             disabled={update.isPending}
             spaceId={spaceId}
             resetToken={resetToken}
-            preview={(text) => <MarkdownView text={text} links={object.links} spaceId={spaceId} />}
+            preview={(text) => (
+              <MarkdownView
+                text={text}
+                links={object.links}
+                spaceId={spaceId}
+                highlight={highlight}
+              />
+            )}
           />
         ) : (
           <div className="mt-2 min-h-[22rem] rounded-field border border-line px-3">
-            <MarkdownView text={draft.body} links={object.links} spaceId={spaceId} />
+            <MarkdownView
+              text={draft.body}
+              links={object.links}
+              spaceId={spaceId}
+              highlight={highlight}
+            />
           </div>
         )}
       </section>

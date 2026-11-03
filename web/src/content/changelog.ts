@@ -22,11 +22,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     upcoming: true,
     highlights: [
       "A record shows the records it points at, not only the records that point at it.",
+      "Opening a record from search lands on the sentence that matched, with the query marked.",
       "Opening the editor on a phone keeps the formatting toolbar in view instead of scrolling it away.",
       "Dragging the map on a phone always pans it.",
       "A tap on a map node still opens the record.",
     ],
     details: [
+      "The record's address keeps the search query, so a refresh or a shared link lands in the same place.",
+      "The matched sentence is centred in view when the record opens.",
+      "Clearing the match from the body header leaves the record open without the mark.",
+      "The search footer counts one result as “1 result”.",
       "A record that only links out opens its map.",
       "The link count totals both directions.",
       "Outgoing relation rows name the property that makes the connection.",
