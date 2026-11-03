@@ -16,21 +16,27 @@ Two claims drive design:
 
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
 v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-through
-(`0.4.3`), v0.4.4 usability sweep (`0.4.4`) and v0.4.5 schedule views (`0.4.5`, schema 4) are
-implemented, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is still
-open.**
+(`0.4.3`), v0.4.4 usability sweep (`0.4.4`), v0.4.5 schedule views (`0.4.5`) and M5 search,
+links and the writing surface (`0.5.0`, schema 4) are implemented, not yet tagged or deployed;
+CI is green. The v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
-grammar next to the filename slugs), `value`, `markdown`, `schedule`, `store` (`SpaceStore` trait +
-`FsSpaceStore`), `validate` (objects, filters, sorts and `validate_views`), `filter`, `query` and
-`index` (`SpaceIndex`, including `view_problems`), with fixture round-trip tests, filesystem tests over `tempfile::TempDir`, schedule
-tests over a fixed clock and explicit zone, and table-view tests over a space built on disk.
+grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
+`SearchIndex` and `snippet`), `links` (`parse`, `LinkStatus`, the link and backlink views),
+`store` (`SpaceStore` trait + `FsSpaceStore`), `validate` (objects, filters, sorts and
+`validate_views`), `filter`, `query` and `index` (`SpaceIndex`, including the derived search
+index, the folded title map that resolves `[[Type/Title]]` links, `outgoing_links`,
+`backlinks_of` and `view_problems`), with fixture round-trip tests, filesystem tests over
+`tempfile::TempDir`, schedule tests over a fixed clock and explicit zone, and table-view tests over
+a space built on disk.
 `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`, `state`), its auth and
 membership surface (`accounts`, `auth`, `routes/auth`, `routes/spaces`), and its schema and object
-APIs: `routes/types` (types and schedule vocabulary), `routes/views` (named views: create, patch,
+APIs: `routes/search` (the ranked title-and-body read), `routes/types` (types and schedule
+vocabulary), `routes/views` (named views: create, patch,
 delete, default), `routes/properties`
 (properties and options, key rename, forced removal), `routes/objects` (records, list with
-filter/sort/search/view selection, raw, history, trash, restore, purge, backlinks, the space graph, Complete, snooze
+filter/sort/search/view selection, raw, history, trash, restore, purge, the `with=links,backlinks`
+detail extension, the space graph, Complete, snooze
 and the agenda's window, range and type parameters) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
 builds the Garden demo space against a running server, with relative due dates in
 `America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is
@@ -39,7 +45,9 @@ the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-ty
 (`pages/type-table.tsx`, `components/type-table.tsx`, `components/views/`) with URL-backed view
 selection, filters and sorts, inline cell editing with optimistic writes and `409` recovery, the
 recurrence editor, WebSocket invalidation through `lib/use-space-events.ts`, the object panel with
-per-format inputs, a markdown body and Complete (`pages/object.tsx`, `components/object-panel.tsx`),
+per-format inputs, a markdown body, Complete and the `Links` panel and graph
+(`pages/object.tsx`, `components/object-panel.tsx`, `components/links-panel.tsx`,
+`components/graph-section.tsx`),
 the Schedule page's List and Calendar over one agenda read, its type filter and snooze
 (`pages/agenda.tsx`, `components/agenda/`), the shared month grid
 (`components/views/month-grid.tsx`) and the nav badge (`components/space-nav.tsx`), space settings
@@ -48,7 +56,7 @@ with name, searchable emoji icon, timezone and confirmed deletion (`pages/settin
 (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
 `.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
 Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
-same app with live reload. M2, M3 and M4 are not tagged or deployed yet.
+same app with live reload. M2–M5 are not tagged or deployed yet.
 
 M4 added the everyday-use layer: quick capture and a command palette with global hotkeys
 (`components/quick-capture.tsx`, `components/command-palette.tsx`, `lib/hotkeys.ts`), the space
@@ -131,6 +139,24 @@ only `due_date` as `max(due, today) + days`, sharing `complete`'s base-day rule,
 date. No body-format or schema change, one new route, no new dependency. The v0.4.5 device pass had
 emulation only; the physical-iPhone gate stays open.
 
+M5 adds search, links and the writing surface at schema 4: `search.rs` tokenizes lowercase
+alphanumeric runs and keeps one in-memory inverted index per space (folded title phrase, title
+tokens and capped body counts, updated per object), exposed through
+`GET /api/spaces/{space}/search` and the palette's debounced `useSearch` with server order and
+snippets (`crates/core/src/search.rs`, `routes/search.rs`, `components/command-palette.tsx`,
+`lib/debounce.ts`). `links.rs` parses `[[Type/Title]]` outside fences, inline code and escapes;
+`SpaceIndex` folds live titles into a resolution map, and the record read takes `with=links`
+(outgoing `LinkView`s) and enriches `with=backlinks` with relation and mention rows
+(`crates/core/src/links.rs`, `crates/core/src/index.rs`, `routes/objects.rs`,
+`components/links-panel.tsx`). The record body gains a textarea editor whose toolbar, shortcuts,
+list continuation, `/` commands and `[[` autocomplete are pure functions over value and selection,
+with the read renderer as a split preview from `lg` (`lib/markdown-edit.ts`,
+`components/markdown-editor.tsx`). The links panel adds `Local` and `Space` graph scopes in plain
+SVG over the same detail read, with deterministic ring layout, a 24-node local cap, pan/zoom and
+view-only node offsets (`lib/graph.ts`, `components/graph-section.tsx`,
+`components/graph-canvas.tsx`). No dependency was added, no object file gains a key, and the
+physical-iPhone gate still precedes any keyboard claim.
+
 ## Where the plan lives
 
 | File | Role |
@@ -145,6 +171,7 @@ emulation only; the physical-iPhone gate stays open.
 | `docs/plan/m4.3-touch-follow-through.md` | The v0.4.3 patch spec: the touch emoji picker sheet and recents, toast clearance, the five-control phone toolbar and View band, capture context, the truthful count and text floor, docs and the device pass. Landed as `0.4.3`, schema 4. |
 | `docs/plan/m4.4-usability-sweep.md` | The v0.4.4 patch spec: undo parity, whole-row Schedule targets, phone saved-view wrapping and view order, labels and cards, the phone column panel and CSV import door, calendar-today, record relation chips and first-run/loose ends. Landed as `0.4.4`, schema 4. |
 | `docs/plan/m4.5-schedule-views.md` | The v0.4.5 patch spec: one agenda read with rows, a date range and a type filter; the Schedule Calendar across scheduled types; URL-backed and remembered view, horizon, month and types; the type-filter popover/sheet; the shared month grid; snooze for 1–90 days with Undo. Landed as `0.4.5`, schema 4. |
+| `docs/plan/m5-search-links-writing.md` | The v0.5.0 spec: the derived search index, the search route and palette, wiki-link parsing and resolution, rendered links, the writing surface, the links panel, the local and space graph, docs and the release pass. Landed as `0.5.0`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -168,7 +195,10 @@ docs written, and checkpoints 1–9 of M4.4 (undo parity; Schedule targets; phon
 order; cards and names; phone columns and import; calendar-today; record relations; first-run and
 version/docs) are landed at workspace `0.4.4`, and checkpoints 1–6 of M4.5 (one agenda read; the
 shared month grid; the Calendar and page state; the type filter; snooze; version, docs and the
-device pass) are landed at workspace `0.4.5`.** M1 is deployed; M2–M4.5 are not deployed. The
+device pass) are landed at workspace `0.4.5`, and checkpoints 1–8 of M5 (the derived search index;
+the search route and palette; wiki links in the core and on the record read; rendered links and
+navigation; the writing surface; the links panel; the local and space graph; version, docs and the
+release pass) are landed at workspace `0.5.0`.** M1 is deployed; M2–M5 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
 carries the v0.4.2 keyboard gate and the v0.4.4 device pass.
@@ -207,10 +237,11 @@ out of scope.
   parsing, tracing. Must not reimplement domain rules.
 - **Files are the source of truth.** External edits are watched and reflected; never serve or
   overwrite stale state. Writes are atomic.
-- **Core modules:** `model`, `markdown`, `schedule`, `store`, `validate`, `filter`, `query`, `index`
-  exist. The server shell, auth, the schema, view and object APIs (including Complete and the
-  agenda), and the event bus exist; the SPA covers auth, the space list, the schema editor, the four
-  view renderers, the object panel, the Schedule page, history and trash.
+- **Core modules:** `model`, `markdown`, `schedule`, `csv`, `store`, `validate`, `filter`, `query`,
+  `index`, `search` and `links` exist. The server shell, auth, the schema, view, search and object
+  APIs (including Complete, the agenda and `with=links`), and the event bus exist; the SPA covers
+  auth, the space list, the schema editor, the four view renderers, the object panel with its
+  writing surface, links panel and graph, the Schedule page, history and trash.
 
 ## Key Directories
 
@@ -359,6 +390,11 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 - **Layout writes immediately, queries save explicitly.** Column visibility, order and table widths
   PATCH the view as the control commits; filter and sort edits live in the URL until **Save view**.
   Switching views clears those overrides.
+- **Search and links are derived, never stored.** The search index and the folded `(type, title)`
+  map live only in `SpaceIndex` and rebuild from the markdown; no object file gains a key for a
+  search hit or a `[[Type/Title]]` link. A wiki link is body text, not a relation value. Exactly one
+  live record of that type and title resolves; zero or many report `unknown`/`ambiguous`, and a
+  trashed target never resolves.
 - **One spelling per concept.** No aliases, shims or parallel grammars.
 - **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
   does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
@@ -425,17 +461,20 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
-| `crates/core/src/markdown.rs` | The on-disk format (schema 3): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
+| `crates/core/src/markdown.rs` | The on-disk format (schema 4): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
 | `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, `snooze` (with the shared `rephase_base`), `MAX_SNOOZE_DAYS`, recurrence labels |
+| `crates/core/src/search.rs` | The derived inverted index: `tokens` (lowercased alphanumeric runs, 64-char cap), `SearchIndex::upsert`/`remove`/`rebuild`/`query` with the pinned score and total order, and `snippet` for the matching body window |
+| `crates/core/src/links.rs` | The `[[Type/Title]]` grammar: `parse` (fences, inline code and escapes excluded, first slash, 200-char cap), `LinkStatus`/`LinkView`, relation and mention backlink shapes, and `excerpt` |
 | `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`) and the property rename/removal rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
-| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,types,views,properties,objects,values}` |
+| `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,search,types,views,properties,objects,values}` |
 | `crates/server/src/events.rs` | The per-space broadcast channel, `SpaceEvent`, and the `/events` WebSocket: origin check, `hello`, then every event; data frames close it, a lagged listener is disconnected, and a removed member or deleted space closes its sockets. API broadcast plus the watcher's echo duplicate an invalidation; that is harmless by design |
 | `crates/server/src/watcher.rs` | Debounced reload of changed paths. Forwards only Create/Modify/Remove (Access events would feed a read loop), sorts the batch so `objects/` precedes `trash/`, and announces created/updated/deleted/restored/purged plus membership diffs from `space.yml` |
 | `crates/server/src/routes/types.rs` | Type CRUD and detail, schedule enable/disable, and the property-removal and dependency guards that keep saved views valid |
 | `crates/server/src/routes/views.rs` | Named-view create, patch, delete and default; mints keys once, protects the last view, promotes the default |
-| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint resolving `?view=` and projecting its fields, Complete, the agenda and the trash, restore and history routes |
+| `crates/server/src/routes/search.rs` | `GET /api/spaces/{space}/search`: validates `q` (1–200), `limit` (1–50) and an optional type key, reads `SpaceIndex::search`, then resolves type/record metadata and the body snippet; `total` is pre-limit |
+| `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint resolving `?view=` and projecting its fields, the detail read's `?with=history,backlinks,links`, Complete, the agenda and the trash, restore and history routes |
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `web/src/api/client.ts` | The one request path: same-origin cookies, JSON, error envelope → `ApiError` |
 | `web/src/api/types.ts` | TypeScript mirrors of the Rust DTOs the SPA speaks to |
@@ -451,6 +490,12 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/components/views/` | The view tab row, inline new-view form, view settings, column panel, and the four renderers (`table`, `board`, `gallery`, `calendar`) over one `useObjects` result |
 | `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
 | `web/src/pages/agenda.tsx` | The Schedule page: List/Calendar switch, horizon, month and type filter in the URL with storage as fallback, one loading/error path for both views, and one completion/snooze handler with their toasts and Undo |
+| `web/src/lib/search.ts` | The in-memory action/type/space scorer and `matchRanges` for palette highlights; record results come from the server and keep its order |
+| `web/src/lib/markdown-edit.ts` | Every writing-surface transform as a pure `{value, selection}` edit: wrapping, line prefixes, list continuation, indent, links, fences, slash and wiki triggers, and slash application |
+| `web/src/lib/graph.ts` | `buildLocalGraph` (deduped nodes, capped at 24, relation/mention edges) and `layoutLocalGraph` / `layoutSpaceGraph`, deterministic ring placement with clipped edges |
+| `web/src/components/markdown-editor.tsx` | The textarea writing surface: toolbar, shortcuts, Write/Preview split, and the one caret popup for `/` commands and `[[` completion |
+| `web/src/components/links-panel.tsx` | The record's Links section: the mono count, relation `Linked from` rows, mention `Mentioned in` rows, and the empty sentence |
+| `web/src/components/graph-section.tsx` | The Graph disclosure, Local/Space scope and the shared SVG canvas with legend, zoom, pan and node offsets |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
 | `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |

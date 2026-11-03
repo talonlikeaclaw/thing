@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-27T00:00:00Z",
+  "generatedAt": "2026-11-02T00:00:00Z",
   "title": "Design System: thing",
   "extensions": {
     "colorMeta": {
@@ -31,7 +31,7 @@
       ]
     },
     "surfaces": {
-      "commandPalette": "Bottom sheet below sm, 40rem centred above; one search row, grouped results, 44px rows on coarse pointers; keyboard footer only on keyboard screens; focus trapped and returned.",
+      "commandPalette": "Bottom sheet below sm, 40rem centred above; one search row and grouped results in server order for records, with the matching sentence as a second line; 44px rows on coarse pointers; keyboard footer only on keyboard screens; focus trapped and returned.",
       "quickCapture": "Two-mode sheet, 34rem wide; type, title, required properties only; Create keeps the sheet, Create and open navigates; refusals stay inline with Retry.",
       "bulkBar": "Hairline band inside the table scrollport, not a floating card; names count and property, previews the value, keeps failed rows selected, Undo runs from the page.",
       "rowActions": "Line icons at one weight; 32px fine pointer, 44px coarse; phones fold Complete/Duplicate/Trash into one 44px menu and keep Open separate.",
@@ -39,6 +39,9 @@
       "tablePhones": "Below 640px the checkbox and title are pinned at the left (136px), property columns paint 104px and swipe in one document scroller with the thead stuck to the top, and a trailing spacer lets the last column clear the opaque 56px action rail. No resize handles on a coarse pointer; Select preserves scrollLeft; the header drops the mono key line.",
       "recordPhone": "The title input owns its line at 26px; the sticky save bar is the only save indicator; the id and revision sit behind one mono disclosure (last six characters, full id plus copy); one UPDATED line; a property's mono key echo is hidden below sm.",
       "recordLinks": "A resolved [[Type/Title]] reads as its title with the accent underline and opens in place; an unknown or ambiguous target uses a dotted warning underline and a title, never a navigation; code spans and fences stay literal; an unsaved valid link reads as plain text until saved.",
+      "bodyEditor": "One hairline toolbar above a textarea edits only text: bold, italic, inline code, heading, lists, quote and the two link tools; 32px fine and 44px coarse, wrapping into two rows on a phone. Write is a split from lg up with the read renderer beside it; below lg one pane and a Write/Preview switch, with the textarea kept mounted so undo and selection survive. / and [[ share one caret popup clamped to the visual viewport; Enter or Tab accepts, Space never does, and a slash command opens only at line start outside a fence.",
+      "linksPanel": "Below the body and above history: a mono count, Linked from rows (type glyph, source title, Type · via Property) and Mentioned in rows (title, type name, two-line snippet, ×N); a group renders only when non-empty; the whole row navigates, 44px on a coarse pointer; empty is one sentence naming relation properties and [[Type/Title]].",
+      "graph": "A full-width Graph row, closed by default, above a drawing capped at 44rem with Local/Space scope and a solid-relation / dashed-mention legend; local rings hold 24 nodes (12 inner) and the space map places every live record by degree. Nodes are links with accent focus rings and the centre is aria-current; wheel zoom runs 0.6x to 2.6x and a drag pans or moves one node with its edges. Offsets are view-only and reset when the record or scope changes; the drawing never mirrors, only the zoom controls follow the thumb edge.",
       "sheetGeometry": ".sheet-viewport is fixed against the visual viewport, bottom-aligned below sm and a 12vh-top centred dialog above; .sheet-popup is capped at --vv-height minus a margin; no overlay uses inset:0 or 100dvh; viewport-fit=cover makes env(safe-area-inset-*) real.",
       "addProperty": "A ruled dialog from the trailing table header or the Columns panel: an existing library property or a new name and format; property, type member (featured) and current-view column write in order, staying open with a named stage and Retry on failure. Editor-only, no wizard, one toast on success.",
       "recordIcons": "One optional user-authored emoji in frontmatter (schema 4), never a property or interface icon. A fixed slot in the record header, table title cell, home recents, palette results, board cards, gallery tiles and Trash; absent means no empty box.",

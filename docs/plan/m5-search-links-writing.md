@@ -1,9 +1,8 @@
 # Milestone 5 — search, links and the writing surface
 
-**Status: PLANNED 2026-11-01. Not started.** The workspace is at `0.4.5`; this file is the execution
-spec for **v0.5.0**. M1 is deployed as `v0.1.0`; M2–M4.5 are implemented on the tree (`0.2.0`–`0.4.5`),
-with the v0.4.3 physical-iPhone keyboard gate still open. Nothing here re-opens a locked decision in
-`docs/ROADMAP.md`.
+**Status: LANDED 2026-11-02 at workspace `0.5.0`.** M1 is deployed as `v0.1.0`; M2–M5 are
+implemented on the tree (`0.2.0`–`0.5.0`), with the v0.4.3 physical-iPhone keyboard gate still open.
+Nothing here re-opens a locked decision in `docs/ROADMAP.md`.
 
 **Scoping note, recorded now.** M5 adds one derived structure (an inverted index), one API read (search)
 and one API extension (links and mentions on a record), plus body-syntax parsing and a richer editor
@@ -39,7 +38,7 @@ In scope:
 - **A links panel on the record page.** Incoming relations and mentions, grouped and navigable, with
   a truthful empty state.
 - **A local graph.** The record and its one-hop neighborhood as a deterministic SVG; no force
-  simulation, no new dependency. A space-wide graph is explicitly `0.5.1`, as the roadmap allows.
+  simulation, no new dependency. A space-wide scope over the same edges ships in the same release.
 - **A real writing surface.** A formatting toolbar, keyboard shortcuts, list continuation, list
   indentation, a live preview beside the editor on wide screens, and `[[` autocomplete that inserts
   a link whose target exists. A `/` menu at the start of a line applies the same formatting without
@@ -62,8 +61,8 @@ Out of scope, deliberately:
 - **No duplicate-title disambiguation syntax.** A wiki link resolves only when exactly one live
   record matches the type and title. Two records with the same title make the link **ambiguous**,
   which the UI says out loud. A `#short-id` or alias grammar is a later decision, not a quiet rule.
-- **No space graph in `0.5.0`.** Local graph only; the space graph can ship as `0.5.1` without a
-  format change because every edge it needs is already derivable.
+- **No second graph endpoint or separate save.** The local and whole-space scopes read the record
+  detail's existing links and backlinks; node offsets are view-only and never written.
 - **No search page, saved searches, filters or operators.** Search is reached from the palette; it
   searches the current space only. On the spaces list there is no search read.
 - **No table-search change.** The type table's `q` stays a per-type title/body substring filter with
@@ -701,6 +700,11 @@ primary path. The same record opened twice draws the identical layout.
 both handedness modes: a record with one edge, one with >24, one with none; click and keyboard
 navigation; the disclosure; determinism by reopening.
 
+**Shipped extension (2026-11-02).** The same drawing gained a `Local` / `Space` scope switch:
+`layoutSpaceGraph` places every live record by degree around the current one, pan/zoom and node
+offsets are view-only, and no extra read or route was added. This is why §7's graph entry and
+`docs/ROADMAP.md` record the whole-space map in `0.5.0` rather than `0.5.1`.
+
 ### Checkpoint 8 — Version, docs and the release pass
 
 **Files:** `Cargo.toml`, `Cargo.lock`, `web/package.json`, `web/package-lock.json`,
@@ -803,7 +807,8 @@ physical-iPhone gap.
 - **The local graph is deterministic and capped.** A force layout would be non-reproducible, hard
   to test and prone to overlap; rings by node order are legible for the one-hop neighborhood this
   milestone promises. The cap and the overflow line keep a hub record from drawing an unreadable
-  hairball. The space graph is `0.5.1`, as the roadmap allows, and needs no format change.
+  hairball. The space scope reuses the same ring layout over every live record, ordered by degree
+  so the record being read stays at the centre; it needs no format change and no extra route.
 - **No graph endpoint.** The record detail already carries both directions through `with`; a graph
   endpoint would be a second read of the same edges with its own cache and no new fact.
 - **The slash menu is line-start only.** A formatting command is a block decision, and `/` in prose
@@ -839,8 +844,8 @@ physical-iPhone gap.
    decisions; neither belongs in this cut silently.
 2. **Rename repair.** A previewed, explicit "update links to this record" action is the honest way
    to repair a rename. Not in `0.5.0`; the broken-link treatment makes the need measurable.
-3. **Space graph timing.** If the local graph lands cleanly, the space graph can be `0.5.1`; if the
-   local layout is not legible at 390, the space graph waits until it is.
+3. **Space graph timing.** Settled: the local layout landed legibly at 390, so the whole-space
+   scope shipped in `0.5.0`; there is no `0.5.1` graph split.
 4. **Index persistence.** Only if boot-time tokenization becomes measurable on a large space; the
    cache must remain deletable and non-canonical.
 5. **The physical-iPhone gate** from v0.4.3 remains open and is the only thing that can turn the
@@ -849,7 +854,6 @@ physical-iPhone gap.
 ## 9. Beyond this patch
 
 - **M6 — files and images.** Attachments under `files/`, thumbnails, file/image properties, covers.
-- **Space graph (`0.5.1`)** over the same title-resolved edges, without a format change.
 - **Space-level views** — cross-type saved views, boards by type, custom filter/sort builders; still
   the gap behind the Schedule page's page state.
 - **Explicit link repair** after a rename, if §8.2 is asked for.
@@ -862,20 +866,22 @@ physical-iPhone gap.
 
 ## 10. Release checklist
 
-- [ ] Checkpoints 1–8 landed, one per commit, gates green after each.
-- [ ] `FORMAT_VERSION` still `4`; no object file gains a key; no new revision action.
-- [ ] No new dependency; one new route (`GET /search`) and one extended detail read
+- [x] Checkpoints 1–8 landed, one per commit, gates green after each.
+- [x] `FORMAT_VERSION` still `4`; no object file gains a key; no new revision action.
+- [x] No new dependency; one new route (`GET /search`) and one extended detail read
       (`with=links`); the graph has no endpoint.
-- [ ] `web/package.json` and `Cargo.toml` at `0.5.0`; changelog and footer agree; the `Unreleased`
+- [x] `web/package.json` and `Cargo.toml` at `0.5.0`; changelog and footer agree; the `Unreleased`
       entry opened in checkpoint 2 was promoted, not rewritten from scratch.
-- [ ] `AGENTS.md` current state, crate surface and route description updated; `docs/ROADMAP.md`
+- [x] `AGENTS.md` current state, crate surface and route description updated; `docs/ROADMAP.md`
       v0.5.0 paragraph added, the M5 index wording corrected, and this file marked LANDED.
-- [ ] `DESIGN.md` and `.impeccable/design.json` describe the shipped editor, links panel and graph.
-- [ ] Both handedness modes checked at 390 and 1440 on every new surface.
-- [ ] Full Rust and web gates run, not merely claimed; `npm run build` included.
-- [ ] Device pass attempted; emulation-only items and the open physical-iPhone gate reported, not
-      hand-waved.
-- [ ] Commit message prepared for the user (proposed below); nothing staged, committed, tagged or
+- [x] `DESIGN.md` and `.impeccable/design.json` describe the shipped editor, links panel and graph.
+- [x] Both handedness modes checked at 390 and 1440 on every new surface — in Chromium emulation,
+      not on hardware.
+- [x] Full Rust and web gates run, not merely claimed; `npm run build` included.
+- [x] Device pass attempted; emulation-only items and the open physical-iPhone gate reported, not
+      hand-waved. Emulation covered 390 × 844 and 1440 × 900 in both handedness modes; a coarse
+      pointer could not be emulated, so the 44 px and toolbar-wrap claims still wait on hardware.
+- [x] Commit message prepared for the user (proposed below); nothing staged, committed, tagged or
       pushed.
 
-**Proposed commit:** `Add the v0.5.0 plan for search, links and the writing surface`
+**Proposed commit:** `Ship v0.5.0 with search, links and the writing surface`

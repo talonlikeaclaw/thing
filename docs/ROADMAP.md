@@ -48,9 +48,9 @@ M1 is specified in full in [`docs/plan/m1-engine-core.md`](plan/m1-engine-core.m
 [`docs/plan/m2-scheduling-recurrence.md`](plan/m2-scheduling-recurrence.md), M3 in
 [`docs/plan/m3-views.md`](plan/m3-views.md) and M4 in
 [`docs/plan/m4-everyday-usability.md`](plan/m4-everyday-usability.md). M5 is specified in
-[`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md); it is planned, not
-started. M1–M4 are landed; M1 is
-deployed and M2–M4.5 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
+[`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md) and is landed at
+workspace `0.5.0`. M1–M5 are landed; M1 is
+deployed and M2–M5 are not. M4 is complete: checkpoints 1–13 are committed at workspace `0.4.0`.
 The patch after it, v0.4.1, is implemented in
 [`docs/plan/m4.1-follow-ups.md`](plan/m4.1-follow-ups.md): checkpoints 1–8 are committed at
 workspace `0.4.1`, and the format is schema 4 for record icons, the shared space accent and the
@@ -69,9 +69,23 @@ physical-iPhone pass is still open. The schedule follow-up, v0.4.5, is implement
 workspace `0.4.5` — list and calendar views over one agenda read, a range and type filter,
 remembered horizon/month carried in the URL, and snooze for a record — with no saved space-level
 views and no format change; one object sub-route is new. Its device pass had emulation only, and
-the physical-iPhone gate stays open. The next milestone starts its own
-`docs/plan/mN-*.md`, written the way these were. M5–M10 are recorded here so the format does not
+the physical-iPhone gate stays open. The search, links and writing milestone, v0.5.0, is implemented
+in [`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md): search every live
+title and body from the command palette through a derived in-memory inverted index and one new
+route, with snippets and server order; `[[Type/Title]]` body links whose type/title resolution,
+outgoing links and relation/mention backlinks are exposed on the existing record read through
+`with=links`; a textarea writing surface with a toolbar, shortcuts, list continuation, `/`
+commands, `[[` autocomplete and a split live preview; a Links panel on every record; and a
+deterministic local and whole-space graph drawn as plain SVG over that same read. Checkpoints 1–8
+are committed at workspace `0.5.0`; `FORMAT_VERSION` stays `4`, no object frontmatter key is added,
+and no dependency is added. Its device pass had emulation only, and the physical-iPhone gate still
+precedes any keyboard claim. The next milestone starts its own
+`docs/plan/mN-*.md`, written the way these were. M6–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
+
+**Revised 2026-11-02:** M5 shipped as v0.5.0 with the space graph included; the roadmap's
+"on-disk inverted index" wording is corrected to the derived index over the markdown files. The
+plan's `0.5.1` space-graph split is not used.
 
 **Revised 2026-11-01:** v0.4.5 ships snooze as a sixth checkpoint, ahead of its release step, so a
 record can be put off for 1–90 days without a hidden-until field; the milestone gains one core
@@ -240,15 +254,18 @@ usability move ahead of search.
   until space-level views exist. The v0.4.5 device pass had emulation only, and the v0.4.3
   physical-iPhone gate still precedes any keyboard claim.
 
-- **M5 — Search, linking and the writing surface.** Full-text search over titles and bodies within
-  a space, reachable from the command palette, with an on-disk inverted index rebuilt on change;
-  in-body `[[Type/Title]]` wiki links that create a relation; a backlinks panel on every object; and
-  a graph view. The record body gains a real markdown writing surface — toolbar, keyboard shortcuts,
-  a `/` command menu, list continuation, live preview and `[[` autocomplete — because it is where
-  links are typed; markdown remains the canonical source, with no WYSIWYG HTML. The graph starts as
-  a local graph (record plus backlinks and relations) and grows to the space graph; if M5 runs long,
-  the space graph can ship as `0.5.1` without changing the format. Relation properties already exist
-  in M1, so this is UI plus an index.
+- **M5 — Search, linking and the writing surface.** **Landed** (workspace `0.5.0`, not yet
+  deployed; checkpoints 1–8 implemented, schema 4); spec:
+  [`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md). Full-text search over
+  titles and bodies within a space, reachable from the command palette, over an **in-memory inverted
+  index derived from the markdown files**, rebuilt at boot and updated per changed object; in-body
+  `[[Type/Title]]` wiki links whose edges are derived rather than written into frontmatter; a links
+  panel on every object with relation backlinks and body mentions; and a deterministic local graph
+  that also switches to the whole space. The record body gains a real markdown writing surface —
+  toolbar, keyboard shortcuts, a `/` command menu, list continuation, live preview and `[[`
+  autocomplete — because it is where links are typed; markdown remains the canonical source, with no
+  WYSIWYG HTML. Relation properties already existed in M1, so this was UI plus a derived index and
+  one read route. No dependency is added and no object file gains a key.
 
 - **M6 — Files and images.** Attachments stored beside the object under `files/`, referenced from
   frontmatter; thumbnails; a `file`/`image` property format; cover images. Bytes stay on disk and in

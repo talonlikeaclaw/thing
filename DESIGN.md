@@ -585,8 +585,10 @@ space, type and record icons, never as interface iconography.
 ### Command Palette
 - **Shape:** a bottom sheet below `sm` and a 40rem centred sheet above; one 56px search row with
   the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.
-- **Copy:** the description and placeholder say **Search titles, types, spaces and actions**, because
-  the palette reads the newest hundred titles per type; M5 replaces that bounded lookup.
+- **Copy:** the description and placeholder say **Search every record's title and text, plus types,
+  spaces and actions**. Record results are the server's ranked matches over every live title and
+  body, shown in server order with the matching sentence beneath the title; an unsettled or empty
+  query names what was searched and keeps the previous rows visible while it moves.
 - **Rows:** title left, mono hint right, a raised ground and accent text for the active row; 44px
   minimum on coarse pointers. The footer states the result count and, on keyboard screens only,
   the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger. The
