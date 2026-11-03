@@ -274,6 +274,11 @@ types (64px), role (96px) — and a three-column grid on mobile (key, name, role
 into the entry's annotation. Rows are separated by full-width hairlines, never cards. The create form
 sits below the index under a 48px gap, so the next action stays visible without a modal.
 
+A space home is a cover sheet on a 12-column grid from `xl`: the type ledger holds 8 columns and the
+recent margin 4, separated by a hairline and a 40px gutter. Under `xl` the grid collapses to one
+column in reading order — masthead, ledger, recent — so nothing moves that a reader would have to
+re-find.
+
 Spacing uses one 4px scale: `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16,
 `--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64. Tight groups use 4–8px, a label
 group 8px, fields 16px, sections 32px, page bands 48–64px.
@@ -386,18 +391,19 @@ its own button, field, focus ring or error treatment.
   so an action keeps one x whether or not a space is open. The first group is the global chrome,
   Search with the platform shortcut cap, then the space's Capture with its `C` cap, then the
   keyboard-only Shortcuts control — the least-used action sits last — followed by the space's
-  connection status, so opening a space appends to the zone instead of pushing Search sideways. The second group is the account email, an
-  **Account** link and a ghost **Sign out**, which always closes the row at the container's
-  trailing edge. Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
-  only the wordmark, a 44px Account and a 44px Sign out; the email is hidden and the two groups sit
-  together at the right. A phone keeps a connection cue the text cannot give: when the socket is
-  not live, an 8px amber dot with `role="status"` sits beside the wordmark below `sm`, titled
-  **Offline, reconnecting** or **Connecting…**, and leaves on reconnect without moving Search or
-  Capture. The row shapes itself in one order when it runs out of room: the email
-  holds from `sm` to `lg` and again from `xl` up, and the space's connection status truncates
-  rather than pushing the action or account buttons. The Shortcuts control does not render below
-  `sm` or on a coarse pointer, and neither does the palette's key-hint footer. No sidebar in the
-  signed-out surface; the space list is the navigation.
+  connection status, so opening a space appends to the zone instead of pushing Search sideways.
+  The second group is one labelled **Account menu** at the container's trailing edge: the trigger
+  carries the account glyph and the signed-in email at `sm` and up, and opens a 15rem popup with
+  **Account settings** and **Sign out**. Arrow keys rove the items, Escape closes the menu, and a
+  cancelled sign-out returns focus to the trigger rather than to the item the closed menu already
+  unmounted. Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
+  only the wordmark and the same 44px menu trigger with its email hidden. A phone keeps a
+  connection cue the text cannot give: when the socket is not live, an 8px amber dot with
+  `role="status"` sits beside the wordmark below `sm`, titled **Offline, reconnecting** or
+  **Connecting…**, and leaves on reconnect without moving Search or Capture. The space's
+  connection status truncates rather than pushing the actions or the account menu. The Shortcuts
+  control does not render below `sm` or on a coarse pointer, and neither does the palette's
+  key-hint footer. No sidebar in the signed-out surface; the space list is the navigation.
 - **Account page:** a single centred column at a 52ch measure; it holds no rail and no table, so it
   never runs to the container's trailing edge.
 - **Sign out confirmation:** a dialog titled **Sign out?** whose body names the loss — any unsaved
@@ -420,32 +426,59 @@ its own button, field, focus ring or error treatment.
   their Cancel action as the exits in both modes. Dialogs stay centred; only the close position and
   the action rows move.
 - **Wordmark:** mono "thing" with a 10px lichen square. It is the only decorative use of the accent.
-- **Space rail:** the switcher leads under its own hairline, then **All spaces**, **Overview** and
-  one ordered list — Schema, Schedule, Members, Trash and Settings — and **Types** closes the rail
-  under a separating hairline. A ghost **Reorder links** control
-  reveals a 32px up/down pair on each row (44px on coarse pointers), and the order persists per user
-  and space in the browser. The active row is lichen text, never a filled chip. The phone sheet
-  keeps the same order.
+- **Space rail:** the switcher leads under a quiet label, then **All spaces**, **Overview** and one
+  ordered list — Schema, Schedule, Members, Trash and Settings — and **Types** closes the rail under
+  a separating hairline with the type count. Every row is 14px text with a 14px line icon: muted at
+  rest, ink on hover, and the current page is ink text behind a 2px accent rule at the row's leading
+  edge, never a filled chip and never a whole row of accent text. Type rows carry the plural name
+  and the record count. A ghost **Reorder links** control reveals a 32px up/down pair on each row
+  (44px on coarse pointers), and the order persists per user and space in the browser. The phone
+  sheet keeps the same order, the same rows and the same marker.
 - **Footer:** the files sentence, a **Changelog** link and mono `v<version>` on one hairline; the
   version comes from the build, not a hand-typed string.
 
 ### Space Index Entry
+- **Masthead:** the all-spaces page opens with the same grammar as a space cover: **Spaces** in the
+  display face, one sentence naming what a space is, and the count at the trailing edge. A hairline
+  closes the band.
 - **Shape:** a full-width row separated by hairlines, never a card.
 - **Key:** the last six characters of the space UUID, uppercase mono 11px. It is a button that
   toggles the entry's annotation (`aria-expanded`, `aria-controls`).
-- **Name:** 17px medium sans with the user's emoji icon, linked to the space.
-- **Counts:** tabular mono 11px, right-aligned under MEMBERS and TYPES headers.
+- **Name:** 15px medium sans with the user's emoji icon, linked to the space; it takes the accent
+  on hover instead of an underline.
+- **Counts:** tabular mono 11px, right-aligned under MEMBERS and TYPES headers; the header labels
+  are faint mono, never ink.
 - **Role:** uppercase mono 11px, right-aligned.
 - **Annotation:** opens directly beneath the row as a 5rem/1fr definition list in mono 12px, with a
   single hairline left border. It carries the full id, member count and type count.
 
 ### Space Home
-- **Order:** the action row first, then **Recent** with its count when the browser has records it
-  still has, then **Types**. A fresh browser hides the Recent section entirely, including its empty
-  sentence, so a new person lands on Types and the onboarding block rather than a blank heading.
-- **Recent rows:** each names the record with its icon and the type's display name, never the key;
-  the list is browser-local, trashed records are filtered out, and there is no server recents
-  fallback.
+- **The sheet:** three bands on one ground — masthead, body, colophon — separated by hairlines, with
+  no cards and no page-level surface.
+- **Masthead:** the space icon at 40px, the name in the display face at `--text-display`, and one
+  factual line under it: `2 types · 8 records · 2 members · owner`. Every number comes from a read
+  the page already makes; nothing is counted twice for the look of it. The actions sit in a thumb
+  row at the trailing edge — **Open schedule** as a ghost button, **Capture a record** as the
+  primary — and wrap under the name on a phone.
+- **Type ledger:** the body. One row per type: icon, name, the mono key in a 5rem column, the
+  record count in the type's own plural (`24 plants`), a **Scheduled** label when the type is
+  scheduled, and a quiet arrow that takes the accent with the row. The whole row is the link at
+  44px on a coarse pointer; the key moves under the name below `sm`. A quiet **New type** row
+  closes the ledger for anyone who can edit, so the create action never competes with the name.
+- **Activity margin:** at `xl`, the five most recently written records sit behind a hairline in the
+  4-column margin. Each row names the record with its icon, then a mono line of type and time ago,
+  then the keys its last write changed (`room · status`, or `created`, `completed`, `restored`).
+  Property keys keep the spelling their owner gave them — the same string the schema editor and the
+  record's history show. Past three fields the rest become a count (`+2`). Under `xl` the column
+  collapses beneath the ledger in the same order; a space nothing has been written to yet renders
+  no margin at all, and the ledger keeps the full width.
+- **Graph band:** under the body and above the colophon, the whole space drawn as one map behind a
+  hairline: the record count at the trailing edge, the same force layout the record's Space scope
+  uses, with no centre ring because no record is current on this page. Nodes are links, the legend
+  names relation and mention, and the phone keeps drag-to-pan and the zoom controls.
+- **Colophon:** a hairline, then `space.yml · <timezone> · <key>` in mono on the leading edge and
+  **Settings** on the trailing edge. It names the files the space actually lives in; it does not
+  restate the masthead.
 
 ### Members
 - **Rows:** name and email, then the role select and Remove for an owner; a viewer sees the role as

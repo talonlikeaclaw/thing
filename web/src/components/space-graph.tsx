@@ -17,8 +17,12 @@ const NODE_CLEARANCE = 6;
 
 interface SpaceGraphProps {
   spaceId: string;
-  /** The record the page shows, marked so its place in the space is visible. */
-  centerId: string;
+  /**
+   * The record the page shows, marked so its place in the space is visible.
+   * Absent on the space home, where no record is current: the layout then takes
+   * its own middle instead of centring a record the page is not about.
+   */
+  centerId?: string;
   nodes: SpaceGraphNode[];
   edges: SpaceGraphEdge[];
   typeNames: ReadonlyMap<string, string>;
@@ -88,7 +92,7 @@ export function SpaceGraph({ spaceId, centerId, nodes, edges, typeNames }: Space
       width={width}
       height={HEIGHT}
       label="Every record in this space and how they connect"
-      resetKey={centerId}
+      resetKey={centerId ?? "space"}
       hint={
           coarse
             ? "drag to pan · tap a record · ± to zoom"

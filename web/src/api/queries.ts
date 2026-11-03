@@ -20,6 +20,7 @@ import type {
   Revision,
   Role,
   SearchResponse,
+  SpaceActivity,
   SpaceDetail,
   SpaceGraph,
   SpaceSummary,
@@ -52,6 +53,7 @@ export const queryKeys = {
   invites: (id: string) => ["space", id, "invites"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
   graph: (id: string) => ["space", id, "graph"] as const,
+  activity: (id: string) => ["space", id, "activity"] as const,
   search: (id: string, query: string, limit?: number) =>
     ["space", id, "search", query, limit ?? null] as const,
 };
@@ -253,6 +255,15 @@ export function useTypes(spaceId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.types(spaceId ?? ""),
     queryFn: () => request<TypeSummary[]>(`/api/spaces/${spaceId}/types`),
+    enabled: Boolean(spaceId),
+  });
+}
+
+/** What was written in this space last, and which keys each write changed. */
+export function useSpaceActivity(spaceId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.activity(spaceId ?? ""),
+    queryFn: () => request<SpaceActivity>(`/api/spaces/${spaceId}/activity`),
     enabled: Boolean(spaceId),
   });
 }

@@ -1043,6 +1043,69 @@ mod tests {
     }
 
     #[test]
+    fn the_activity_feed_names_the_newest_writes_and_what_they_changed() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("activity@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            let second = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "plant", "title": "Fern by the window" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(second.status, StatusCode::CREATED, "{:?}", second.body);
+            let second_id = second.body["id"].as_str().expect("an id").to_owned();
+
+            // Writes are ordered by their own timestamps, so let the clock move.
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({ "rev": 1, "properties": { "room": "study" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            let feed = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/activity", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(feed.status, StatusCode::OK, "{:?}", feed.body);
+            let entries = feed.body["entries"].as_array().expect("entries");
+            assert_eq!(entries.len(), 2);
+            assert_eq!(entries[0]["id"], garden.plant.as_str());
+            assert_eq!(entries[0]["action"], "update");
+            assert_eq!(entries[0]["rev"], 2);
+            assert_eq!(entries[0]["changed"], json!(["room"]));
+            assert_eq!(entries[0]["type"], "plant");
+            assert_eq!(entries[1]["id"], second_id.as_str());
+            assert_eq!(entries[1]["action"], "create");
+
+            let one = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/activity?limit=1", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(one.body["entries"].as_array().expect("entries").len(), 1);
+        });
+    }
+
+    #[test]
     fn exporting_a_type_writes_csv_and_a_header_only_template() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

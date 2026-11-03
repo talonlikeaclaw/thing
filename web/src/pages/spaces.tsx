@@ -37,7 +37,7 @@ function SpaceRow({ space }: { space: SpaceSummary }) {
         >
           <span className="flex min-w-0 items-baseline gap-2">
             <ThingIcon icon={space.icon} size="md" />
-            <span className="truncate text-[17px] font-medium tracking-[-0.01em] group-hover:underline">
+            <span className="truncate text-[15px] font-medium group-hover:text-accent">
               {space.name}
             </span>
           </span>
@@ -115,26 +115,33 @@ export function SpaceListPage() {
 
   return (
     <div className="settle">
-      <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-[26px] font-medium tracking-[-0.02em]">Spaces</h1>
-        {count !== undefined ? (
-          <span className="label tnum">
-            {count} {count === 1 ? "space" : "spaces"}
-          </span>
-        ) : null}
-      </div>
+      <header className="border-b rule pb-5">
+        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+          <div className="min-w-0">
+            <h1 className="display text-display">Spaces</h1>
+            <p className="mt-2 max-w-[60ch] text-[13px] text-muted">
+              Every space is its own set of tables, saved as markdown in your files.
+            </p>
+          </div>
+          {count !== undefined ? (
+            <span className="label tnum text-faint">
+              {count} {count === 1 ? "space" : "spaces"}
+            </span>
+          ) : null}
+        </div>
+      </header>
 
-      <div className="mt-6">
+      <div className="mt-8">
         <div
           aria-hidden
           className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-b rule pb-2 md:grid-cols-[5rem_minmax(0,1fr)]"
         >
-          <span className="label">key</span>
+          <span className="label text-faint">key</span>
           <span className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 md:grid-cols-[minmax(0,1fr)_4rem_4rem_6rem]">
-            <span className="label">space</span>
-            <span className="label hidden text-right md:block">members</span>
-            <span className="label hidden text-right md:block">types</span>
-            <span className="label text-right">role</span>
+            <span className="label text-faint">space</span>
+            <span className="label hidden text-right text-faint md:block">members</span>
+            <span className="label hidden text-right text-faint md:block">types</span>
+            <span className="label text-right text-faint">role</span>
           </span>
         </div>
 
@@ -163,7 +170,7 @@ export function SpaceListPage() {
 
       <section aria-labelledby="new-space" className="mt-12">
         <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2 id="new-space" className="text-[17px] font-medium tracking-[-0.01em]">
+          <h2 id="new-space" className="text-[17px] font-medium">
             Start a space
           </h2>
           <p className="text-[13px] text-muted">Name it for what you track.</p>

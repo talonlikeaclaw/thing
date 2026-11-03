@@ -53,6 +53,19 @@ const UTILITY: Record<NavLink, { label: string; path: string; icon: typeof House
 };
 
 /**
+ * One rail row. Quiet at rest; the current page is ink text behind a 2px
+ * accent rule, never a filled chip, so the rail stays a list rather than a
+ * toolbar.
+ */
+function railItem(active: boolean) {
+  return cn(
+    "relative flex min-h-9 min-w-0 items-center gap-2 rounded-field py-2 pl-3 pr-2 text-[14px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11",
+    active &&
+      "text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent before:content-['']",
+  );
+}
+
+/**
  * The space switcher and the space's tables, plus the utility links.
  *
  * The current link comes from the pathname, so every surface under a space
@@ -474,7 +487,7 @@ function SpaceSwitcher({
   const navigate = useNavigate();
   return (
     <div className="border-b rule pb-3">
-      <label className="label" htmlFor={id}>
+      <label className="label text-faint" htmlFor={id}>
         Space
       </label>
       <select
@@ -518,10 +531,10 @@ function TypesList({
     <div>
       <div className="flex items-baseline justify-between">
         <span className="flex items-center gap-1.5">
-          <Table2 aria-hidden size={14} className="shrink-0 text-muted" />
-          <span className="label">Types</span>
+          <Table2 aria-hidden size={14} className="shrink-0 text-faint" />
+          <span className="label text-faint">Types</span>
         </span>
-        <span className="label tnum">{types.length}</span>
+        <span className="label tnum text-faint">{types.length}</span>
       </div>
       {types.length === 0 ? (
         <p className="mt-2 text-[12px] text-muted">No types yet.</p>
@@ -536,10 +549,7 @@ function TypesList({
                   to={to}
                   aria-current={active ? "page" : undefined}
                   onClick={onNavigate}
-                  className={cn(
-                    "flex min-h-9 items-center justify-between gap-2 px-1 py-2 text-[14px] transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11",
-                    active && "text-accent",
-                  )}
+                  className={cn(railItem(active), "justify-between")}
                 >
                   <span className="flex min-w-0 items-center gap-1.5">
                     <ThingIcon icon={type.icon} size="sm" />
@@ -562,9 +572,9 @@ function AllSpacesLink({ onNavigate }: { onNavigate?: () => void }) {
       <Link
         to="/"
         onClick={onNavigate}
-        className="label flex min-h-9 items-center gap-2 px-1 py-2 transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11"
+        className={railItem(false)}
       >
-        <LayoutGrid aria-hidden size={14} className="shrink-0" />
+        <LayoutGrid aria-hidden size={14} className="shrink-0 text-faint" />
         All spaces
       </Link>
     </div>
@@ -588,12 +598,9 @@ function OverviewLink({
         to={to}
         aria-current={active ? "page" : undefined}
         onClick={onNavigate}
-        className={cn(
-          "label flex min-h-9 items-center gap-2 px-1 py-2 transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11",
-          active && "text-accent",
-        )}
+        className={railItem(active)}
       >
-        <House aria-hidden size={14} className="shrink-0" />
+        <House aria-hidden size={14} className={cn("shrink-0", active ? "text-accent" : "text-faint")} />
         Overview
       </Link>
     </div>
@@ -637,13 +644,14 @@ function UtilityLinks({
                 to={to}
                 aria-current={active ? "page" : undefined}
                 onClick={onNavigate}
-                className={cn(
-                  "label flex min-h-9 min-w-0 flex-1 items-center justify-between gap-2 px-1 py-2 transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11",
-                  active && "text-accent",
-                )}
+                className={cn(railItem(active), "flex-1 justify-between")}
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <Icon aria-hidden size={14} className="shrink-0" />
+                  <Icon
+                    aria-hidden
+                    size={14}
+                    className={cn("shrink-0", active ? "text-accent" : "text-faint")}
+                  />
                   <span>{item.label}</span>
                 </span>
                 {key === "schedule" && overdue > 0 ? (

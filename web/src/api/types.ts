@@ -392,6 +392,25 @@ export interface SpaceGraph {
   edges: SpaceGraphEdge[];
 }
 
+/** One live record's most recent write, with the keys that write changed. */
+export interface ActivityEntry {
+  id: Uuid;
+  type: string;
+  title: string;
+  icon?: string;
+  action: RevisionAction;
+  at: IsoDate;
+  by: Uuid;
+  rev: number;
+  /** `title`, `body` and every property key the last write changed. */
+  changed: string[];
+}
+
+/** Most recently written records, newest first. */
+export interface SpaceActivity {
+  entries: ActivityEntry[];
+}
+
 /** One row of the Schedule page; the server owns its bucket. */
 export interface AgendaRow {
   id: Uuid;

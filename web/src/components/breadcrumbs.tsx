@@ -18,7 +18,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
           return (
             <li key={`${item.label}:${index}`} className="flex min-w-0 items-baseline gap-2">
               {index > 0 ? (
-                <span aria-hidden className="text-faint">
+                <span aria-hidden className="font-mono text-[11px] text-faint">
                   /
                 </span>
               ) : null}
@@ -26,7 +26,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
                 <span
                   aria-current={current ? "page" : undefined}
                   className={cn(
-                    "max-w-[46ch] truncate text-[12px]",
+                    "max-w-[46ch] truncate font-mono text-[11px] uppercase tracking-[0.06em]",
                     current ? "text-ink" : "text-muted",
                   )}
                 >
@@ -35,7 +35,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
               ) : (
                 <Link
                   to={item.to}
-                  className="inline-flex max-w-[46ch] items-center truncate text-[12px] text-muted transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+                  className="inline-flex max-w-[46ch] items-center truncate font-mono text-[11px] uppercase tracking-[0.06em] text-muted transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                 >
                   {item.label}
                 </Link>

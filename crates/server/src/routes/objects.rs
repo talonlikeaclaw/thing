@@ -46,6 +46,10 @@ const MAX_LIMIT: usize = 500;
 const BODY_KEY: &str = "body";
 /// The change-list name of an object's icon, next to `title`.
 const ICON_KEY: &str = "icon";
+/// Entries the activity feed returns when the caller does not say.
+const DEFAULT_ACTIVITY: usize = 8;
+/// Most entries one activity read will return.
+const MAX_ACTIVITY: usize = 40;
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -74,6 +78,7 @@ pub fn routes() -> Router<SharedState> {
             get(history_at),
         )
         .route("/api/spaces/{space}/graph", get(graph))
+        .route("/api/spaces/{space}/activity", get(activity))
         .route("/api/spaces/{space}/agenda", get(agenda))
         .route("/api/spaces/{space}/trash", get(trash))
         .route("/api/spaces/{space}/trash/{object}", delete(purge))
@@ -752,6 +757,86 @@ async fn graph(
         })
         .collect();
     Ok(Json(json!({ "nodes": nodes, "edges": edges })))
+}
+
+/// One row of the space's activity feed.
+#[derive(Serialize)]
+struct ActivityEntry {
+    id: Uuid,
+    #[serde(rename = "type")]
+    type_key: String,
+    title: String,
+    /// The record's glyph; absent when it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    icon: Option<String>,
+    action: RevisionAction,
+    #[serde(with = "time::serde::rfc3339")]
+    at: OffsetDateTime,
+    by: Uuid,
+    rev: u64,
+    /// The keys its last revision changed, by the same grammar as a history line.
+    changed: Vec<String>,
+}
+
+/// `GET /api/spaces/{space}/activity` [viewer]
+///
+/// The live records written most recently, newest first, each with what its
+/// last revision changed. The order comes from the index's `updated_at`, so only
+/// the rows the response carries have their history file read: a space with
+/// thousands of records costs one read per entry, not one per record.
+async fn activity(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path(space): Path<String>,
+    mut query: ApiQuery,
+) -> Result<Json<Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Viewer)?;
+    let limit = query
+        .parse::<usize>("limit")?
+        .unwrap_or(DEFAULT_ACTIVITY)
+        .clamp(1, MAX_ACTIVITY);
+    query.finish()?;
+
+    let mut recent: Vec<(Uuid, OffsetDateTime)> = handle.with_index(|index| {
+        index
+            .objects()
+            .map(|doc| (doc.id, doc.updated_at))
+            .collect()
+    });
+    recent.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
+    recent.truncate(limit);
+
+    let mut entries = Vec::with_capacity(recent.len());
+    for (id, _) in recent {
+        let facts = handle.with_index(|index| {
+            index
+                .object(id)
+                .map(|doc| (doc.type_key.clone(), doc.title.clone(), doc.icon.clone()))
+        });
+        let Some((type_key, title, icon)) = facts else {
+            continue;
+        };
+        // A record can be written between the index read and this one; a record
+        // with no history line is left out rather than reported with no change.
+        let revisions = handle.store.read_revisions(id)?;
+        let Some(last) = revisions.last() else {
+            continue;
+        };
+        let previous = revisions.len().checked_sub(2).map(|at| &revisions[at]);
+        entries.push(ActivityEntry {
+            id,
+            type_key,
+            title,
+            icon,
+            action: last.action,
+            at: last.at,
+            by: last.by,
+            rev: last.rev,
+            changed: changed_keys(previous, last),
+        });
+    }
+    Ok(Json(json!({ "entries": entries })))
 }
 
 /// `DELETE /api/spaces/{space}/objects/{object}` [editor]

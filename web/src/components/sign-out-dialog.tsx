@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { useState, type ReactNode } from "react";
+import { useState, type RefObject } from "react";
 import { useNavigate } from "react-router";
 
 import { useLogout } from "@/api/queries";
@@ -9,9 +9,10 @@ import { SheetPopup, SheetTitle, SheetViewport } from "@/components/ui/sheet";
 import { readError } from "@/lib/display";
 
 /**
- * The header's Sign out control and its confirmation, in one place: Base UI's
- * trigger keeps `aria-expanded`, Escape and the focus return to the button
- * without this component tracking any of it.
+ * The confirmation behind the account menu's **Sign out**. The menu item owns
+ * the trigger, so the dialog is controlled: closing without signing out
+ * returns focus to the menu's button through `finalFocus` rather than to an
+ * item the closed menu has already unmounted.
  *
  * An unsaved draft lives only in this browser and a sign out discards it, so a
  * failure keeps the dialog open with the error and Retry beside the action.
@@ -19,11 +20,12 @@ import { readError } from "@/lib/display";
 export function SignOutDialog({
   open,
   onOpenChange,
-  children,
+  finalFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  children: ReactNode;
+  /** Where focus lands when the dialog closes without signing out. */
+  finalFocus?: RefObject<HTMLElement | null>;
 }) {
   const logout = useLogout();
   const navigate = useNavigate();
@@ -49,22 +51,13 @@ export function SignOutDialog({
 
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen}>
-      <Dialog.Trigger
-        render={
-          <Button
-            variant="ghost"
-            aria-label="Sign out"
-            aria-haspopup="dialog"
-            className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-          />
-        }
-      >
-        {children}
-      </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
         <SheetViewport placement="center">
-          <SheetPopup className="max-w-[26rem] rounded-sheet px-4 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <SheetPopup
+            finalFocus={finalFocus}
+            className="max-w-[26rem] rounded-sheet px-4 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <SheetTitle>Sign out?</SheetTitle>
             <Dialog.Description className="mt-1 text-[13px] text-muted">
               Any unsaved draft in this browser will be lost.

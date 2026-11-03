@@ -1,4 +1,5 @@
-import { Keyboard, LogOut, Plus, Search, UserRound } from "lucide-react";
+import { Menu } from "@base-ui/react/menu";
+import { ChevronDown, Keyboard, LogOut, Plus, Search, UserRound } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -45,6 +46,12 @@ import {
   type Handedness,
 } from "@/lib/handedness";
 import { useSpaceEvents } from "@/lib/use-space-events";
+
+const ACCOUNT_TRIGGER_ID = "account-menu-trigger";
+
+/** One row in the account menu, on the same 9/11 heights as every control. */
+const menuItem =
+  "flex min-h-9 cursor-default items-center gap-2 rounded-[4px] px-2 text-[13px] text-ink outline-none select-none data-highlighted:bg-accent-wash data-highlighted:text-accent pointer-coarse:min-h-11";
 
 /** Signed-out requests go to the form, and come back to where they were. */
 export function AuthGate() {
@@ -176,6 +183,12 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   const [tableShortcuts, setTableShortcuts] = useState<ShortcutDescriptor[]>([]);
   const connection = useSpaceEvents(spaceId);
   const previousPath = useRef(location.pathname);
+  const accountTriggerRef = useRef<HTMLElement | null>(null);
+  // The menu's trigger is rendered through Base UI, so the element is read
+  // back by id; the dialog returns focus to it after a cancelled sign-out.
+  useLayoutEffect(() => {
+    accountTriggerRef.current = document.getElementById(ACCOUNT_TRIGGER_ID);
+  }, [me.data?.id]);
   const [announcement, setAnnouncement] = useState("");
 
   // The sheet stays mounted, so this runs before React commits the open: the
@@ -356,22 +369,55 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     </span>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-                  <span className="hidden min-w-0 truncate font-mono text-[12px] text-muted sm:inline lg:hidden xl:inline">
-                    {me.data?.email}
-                  </span>
-                  <Link
-                    to="/settings"
-                    aria-label="Account settings"
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-field border border-line-interactive px-2 text-[13px] font-medium text-ink transition-colors hover:border-line-strong hover:bg-raised sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-                  >
-                    <UserRound aria-hidden size={15} />
-                    <span className="hidden sm:inline">Account</span>
-                  </Link>
-                  <SignOutDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
-                    <LogOut aria-hidden size={15} className="sm:hidden" />
-                    <span className="hidden sm:inline">Sign out</span>
-                  </SignOutDialog>
+                {/*
+                  One labelled menu closes the row: the trigger names the
+                  signed-in account, and Account settings and Sign out are its
+                  two items. Base UI keeps the arrow-key roving, Escape and the
+                  focus return; closing without signing out returns focus to the
+                  trigger, because the menu item that opened the dialog is gone.
+                */}
+                <div className="flex shrink-0 items-center gap-2">
+                  <Menu.Root>
+                    <Menu.Trigger
+                      id={ACCOUNT_TRIGGER_ID}
+                      render={
+                        <Button
+                          variant="ghost"
+                          aria-label="Account menu"
+                          className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
+                        />
+                      }
+                    >
+                      <UserRound aria-hidden size={15} />
+                      <span className="hidden max-w-[15rem] truncate sm:inline">
+                        {me.data?.email ?? "Account"}
+                      </span>
+                      <ChevronDown aria-hidden size={13} className="hidden text-faint sm:inline" />
+                    </Menu.Trigger>
+                    <Menu.Portal>
+                      <Menu.Positioner sideOffset={6} align="end" className="z-50">
+                        <Menu.Popup className="min-w-[15rem] rounded-sheet border border-line bg-surface p-1 text-[13px] text-ink outline-none">
+                          <Menu.LinkItem
+                            render={<Link to="/settings" />}
+                            closeOnClick
+                            className={menuItem}
+                          >
+                            Account settings
+                          </Menu.LinkItem>
+                          <Menu.Separator className="my-1 h-px bg-line" />
+                          <Menu.Item className={menuItem} onClick={() => setSignOutOpen(true)}>
+                            <LogOut aria-hidden size={14} className="text-faint" />
+                            Sign out
+                          </Menu.Item>
+                        </Menu.Popup>
+                      </Menu.Positioner>
+                    </Menu.Portal>
+                  </Menu.Root>
+                  <SignOutDialog
+                    open={signOutOpen}
+                    onOpenChange={setSignOutOpen}
+                    finalFocus={accountTriggerRef}
+                  />
                 </div>
               </div>
             </div>

@@ -17,6 +17,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "A cover sheet for every space",
+    highlights: [
+      "A space opens on a cover sheet: its name set large, what it holds in one line, and its types as a keyed ledger.",
+      "The margin reports what was written most recently in the space and which fields each write changed.",
+      "The whole space is drawn as one map at the bottom of the page.",
+    ],
+    upcoming: true,
+  },
+  {
     version: "0.5.1",
     title: "Links, search landing and rename repair",
     highlights: [

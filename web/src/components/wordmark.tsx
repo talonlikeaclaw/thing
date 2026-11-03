@@ -8,11 +8,11 @@ export function Wordmark({ className }: { className?: string }) {
     <Link
       to="/"
       className={cn(
-        "inline-flex items-center gap-2 font-mono text-[15px] leading-none tracking-[-0.01em] pointer-coarse:min-h-11",
+        "display inline-flex items-center gap-2 text-[15px] leading-none tracking-[-0.03em] pointer-coarse:min-h-11",
         className,
       )}
     >
-      <span aria-hidden className="size-2.5 shrink-0 rounded-[2px] bg-accent" />
+      <span aria-hidden className="size-2.5 shrink-0 rounded-[1px] bg-accent" />
       <span>thing</span>
     </Link>
   );
