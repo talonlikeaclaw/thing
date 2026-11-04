@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Dates on a record read in one grammar whether they are typed, scheduled or shown in history.",
       "Tags are chips you can toggle instead of a column of checkboxes.",
       "Tables read as ledgers: the title stays pinned, headers keep their labels, rows show hover and selection, and board, gallery and calendar share the same rhythm.",
+      "The palette groups what it finds with counts, marks the active result and moves only the rows between searches; capture, shortcuts and confirmations share one sheet rhythm.",
     ],
     upcoming: true,
   },

@@ -1,10 +1,16 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Popover } from "@base-ui/react/popover";
-import { AlarmClock, X } from "lucide-react";
+import { AlarmClock } from "lucide-react";
 import { useState } from "react";
 
 import { useHandedness } from "@/components/handedness";
-import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
 import {
@@ -78,25 +84,9 @@ export function SnoozeMenu({
     );
   }
 
-  const close = (
-    <Dialog.Close
-      key="close"
-      aria-label="Close snooze"
-      className={cn(
-        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-    >
-      <X aria-hidden size={15} />
-    </Dialog.Close>
-  );
+  const close = <SheetCloseButton label="Close snooze" />;
   const heading = (
-    <Dialog.Title
-      key="title"
-      className="min-w-0 flex-1 truncate text-[17px] font-medium"
-    >
-      Snooze “{title}”
-    </Dialog.Title>
+    <SheetTitle className="min-w-0 flex-1 truncate">Snooze “{title}”</SheetTitle>
   );
 
   return (
@@ -118,9 +108,9 @@ export function SnoozeMenu({
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
           <SheetViewport>
             <SheetPopup className="sm:w-[26rem]">
-              <div
+              <SheetHeader
                 className={cn(
-                  "flex items-center gap-3 border-b rule px-4 py-3",
+                  "gap-[var(--space-3)]",
                   handedness === "left" ? "justify-start" : "justify-between",
                 )}
               >
@@ -135,8 +125,8 @@ export function SnoozeMenu({
                     {close}
                   </>
                 )}
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              </SheetHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <SnoozeBody onSnooze={apply} />
               </div>
             </SheetPopup>

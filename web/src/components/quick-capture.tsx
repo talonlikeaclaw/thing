@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   createContext,
   use,
@@ -28,9 +28,12 @@ import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
 import {
   focusSheetField,
+  SheetCloseButton,
   SheetFooter,
+  SheetHeader,
   SheetPopup,
   sheetReturnFocus,
+  SheetTitle,
   SheetViewport,
 } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
@@ -57,7 +60,11 @@ interface QuickCaptureApi {
 const QuickCaptureContext = createContext<QuickCaptureApi | null>(null);
 
 const control =
-  "h-10 w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-[var(--field-fine)] w-full rounded-field border border-line-interactive bg-ground px-[var(--space-3)] text-[length:var(--text-body)] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-[var(--field-coarse)] pointer-coarse:text-[16px]";
+
+/** The type picker is a quiet select: a rule and a value, not a second boxed field. */
+const quietSelect =
+  "h-[var(--field-fine)] w-full rounded-field border border-line bg-transparent px-[var(--space-3)] text-[length:var(--text-body)] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-[var(--field-coarse)] pointer-coarse:text-[16px]";
 
 /**
  * The app-wide quick capture sheet: one title, the type's required fields and
@@ -396,25 +403,14 @@ function QuickCaptureDialog({
   const optionalInvalid = optional.some((property) => invalid.has(property.key));
   const otherOpen = showOptional || optionalInvalid;
   const captureTitle = (
-    <div>
-      <Dialog.Title className="text-[17px] font-medium">Quick capture</Dialog.Title>
-      <Dialog.Description className="mt-1 text-[13px] text-muted max-sm:sr-only">
+    <div className="min-w-0 flex-1">
+      <SheetTitle>Quick capture</SheetTitle>
+      <Dialog.Description className="mt-1 text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted max-sm:sr-only">
         Required fields first; the type's other fields sit behind Other fields.
       </Dialog.Description>
     </div>
   );
-  const captureClose = (
-    <Dialog.Close
-      key="close"
-      aria-label="Close quick capture"
-      className={cn(
-        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-    >
-      <X aria-hidden size={15} />
-    </Dialog.Close>
-  );
+  const captureClose = <SheetCloseButton label="Close quick capture" />;
   const noTypes = types.data !== undefined && typeList.length === 0;
   const canTeachSchema = space.data ? space.data.role !== "viewer" : false;
   const mod = isApplePlatform() ? "⌘" : "Ctrl";
@@ -433,7 +429,7 @@ function QuickCaptureDialog({
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
         <SheetViewport>
           <SheetPopup
-            className="sm:w-[34rem]"
+            className="sm:w-[32rem]"
             inert={!open}
             initialFocus={() => titleRef.current ?? true}
             finalFocus={() => returnFocusRef.current ?? false}
@@ -449,9 +445,9 @@ function QuickCaptureDialog({
               submit(event.shiftKey ? "open" : "stay");
             }}
           >
-            <div
+            <SheetHeader
               className={cn(
-                "flex items-baseline gap-4 border-b rule px-4 py-1.5 sm:py-3",
+                "gap-[var(--space-4)] py-1.5 sm:py-[var(--space-3)]",
                 handedness === "left" ? "justify-start" : "justify-between",
               )}
             >
@@ -466,7 +462,7 @@ function QuickCaptureDialog({
                   {captureClose}
                 </>
               )}
-            </div>
+            </SheetHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2.5 sm:py-4">
               {confirmDiscard ? (
@@ -572,7 +568,7 @@ function QuickCaptureDialog({
                     </label>
                     <select
                       id="capture-type"
-                      className={cn(control, "sm:mt-1.5")}
+                      className={cn(quietSelect, "sm:mt-1.5")}
                       value={selected ?? ""}
                       disabled={pending}
                       onChange={(event) => chooseType(event.target.value)}
@@ -754,14 +750,12 @@ function QuickCaptureDialog({
                 <ThumbRow className="flex-wrap items-center gap-2">
                   <Button
                     variant="ghost"
-                    className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                     disabled={disabled || noTypes}
                     onClick={() => submit("open")}
                   >
                     Create and open
                   </Button>
                   <Button
-                    className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
                     disabled={disabled || noTypes}
                     onClick={() => submit("stay")}
                   >

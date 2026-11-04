@@ -302,6 +302,13 @@ the keyboard. The last row of a sheet (footer or action row) carries
 insets real. Sheets animate in over 180ms (8px rise plus fade), fade out over 120ms, and are static
 under `prefers-reduced-motion: reduce`. Scrollports contain their overscroll.
 
+From `sm` up every overlay is a story-width dialog: 36rem for the palette, 32rem for capture, 34rem
+for shortcuts and filters, 26rem for the sign-out confirmation. They share one title role (Maple
+Mono at the heading size, never a second display scale), one X close target (32px fine, 44px
+coarse) whose DOM position follows handedness, and one footer rule. The palette is the only overlay
+without a visible title: its field is the command line, and its close is the trailing end of that
+row.
+
 The emoji picker joins the set on a compact width or a coarse pointer: it is a bottom sheet on the
 same geometry, so it opens **in front of** the capture sheet or the record page instead of above the
 trigger, and its footer stays clear of the keyboard. It deliberately does not raise the keyboard on
@@ -325,8 +332,9 @@ Motion explains a change; it never decorates. Only `transform` and `opacity` ani
 properties and one exponential ease-out.
 
 - **Ease:** `--ease-out` = `cubic-bezier(0.16, 1, 0.3, 1)`.
-- **Fast 120ms:** result changes, hover colour and the palette's result entrance.
-- **Base 180ms:** every overlay entrance and the sheet rise.
+- **Fast 120ms:** result changes, hover colour and the palette's result entrance — opacity plus a
+  4px rise on the result set, never a height or row-position animation.
+- **Base 180ms:** every overlay entrance, the sheet rise and the toast entrance.
 - **Slow 240ms:** the one page-content settle.
 - **Reduced motion:** every entrance is instant. Colour feedback remains, because it explains state
   rather than movement.
@@ -398,9 +406,11 @@ its own button, field, focus ring or error treatment.
   connection status, so opening a space appends to the zone instead of pushing Search sideways.
   The second group is one labelled **Account menu** at the container's trailing edge: the trigger
   carries the account glyph and the signed-in email at `sm` and up, and opens a 15rem popup with
-  **Account settings** and **Sign out**. Arrow keys rove the items, Escape closes the menu, and a
-  cancelled sign-out returns focus to the trigger rather than to the item the closed menu already
-  unmounted. Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
+  **Account settings** and **Sign out**, each led by the same 14px line icon. Arrow keys rove the
+  items, Escape closes the menu, and a cancelled sign-out returns focus to the trigger rather than
+  to the item the closed menu already unmounted. An auto-highlighted first row paints only for
+  keyboard focus or pointer hover, never for the automatic highlight a touch-opened menu sets.
+  Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
   only the wordmark and the same 44px menu trigger with its email hidden. A phone keeps a
   connection cue the text cannot give: when the socket is not live, an 8px amber dot with
   `role="status"` sits beside the wordmark below `sm`, titled **Offline, reconnecting** or
@@ -807,25 +817,34 @@ its own button, field, focus ring or error treatment.
   handedness edge; the stack already clears the phone bar and the keyboard.
 
 ### Command Palette
-- **Shape:** a bottom sheet below `sm` and a 40rem centred sheet above; one 56px search row with
+- **Shape:** a bottom sheet below `sm` and a 36rem centred sheet above; one 56px search row with
   the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.
+  Each group header carries its item count in mono at the trailing edge.
 - **Copy:** the description and placeholder say **Search every record's title and text, plus types,
   spaces and actions**. Record results are the server's ranked matches over every live title and
   body, shown in server order with the matching sentence beneath the title; an unsettled or empty
   query names what was searched and keeps the previous rows visible while it moves. Opening a record
   result carries the query to the record, where the matched sentence is marked and brought into
   view. The footer pluralises its count as `1 result` / `N results`.
-- **Rows:** title left, mono hint right, a raised ground and accent text for the active row; 44px
-  minimum on coarse pointers. The footer states the result count and, on keyboard screens only,
-  the arrow/Enter/Escape keys. Focus is trapped; Escape closes; focus returns to the trigger. The
-  search field takes focus inside the commit that opens the sheet, so a phone raises the keyboard
-  on the first tap, and it is the initial focus in both handedness modes regardless of where the
-  close control sits. The same rule applies to Quick capture's title field.
+- **Rows:** one line each. A leading 16px slot carries the record, type or space icon, or a return
+  glyph for an action; the primary label follows, then the type/path as a mono annotation under it,
+  and a body-only match keeps its snippet and marked sentence between the two. The active row takes
+  the accent wash, accent text and a 2px accent marker at its leading edge; the return glyph is
+  right-aligned on a keyboard screen. Rows are 44px minimum on coarse pointers.
+- **Motion:** a changed result set fades and rises 4px over 120ms; the rows never reflow, and the
+  entrance is absent under reduced motion.
+- **Footer:** pinned to the sheet's last row, with the count at the trailing edge and, on keyboard
+  screens only, the arrow/Enter/Escape keys.
+- **Focus:** trapped; Escape closes; focus returns to the trigger. The search field takes focus
+  inside the commit that opens the sheet, so a phone raises the keyboard on the first tap, and it is
+  the initial focus in both handedness modes regardless of where the close control sits. The same
+  rule applies to Quick capture's title field.
 
 ### Quick Capture
-- **Shape:** the same two-mode sheet as the palette, 34rem wide on desktop; type, title, then only
-  the type's required properties. Create keeps the sheet open and resets the title; Create and open
-  navigates. Fields are 16px on coarse pointers and actions 44px.
+- **Shape:** the same two-mode sheet as the palette, 32rem wide on desktop; title and a quiet type
+  select, then only the type's required properties, with the rest behind **Other fields**. Create
+  keeps the sheet open and resets the title; Create and open stays a ghost action beside it. The
+  action row follows the thumb edge. Fields are 16px on coarse pointers and actions 44px.
 - **Refusal:** the sheet stays open with the attempted values and an inline error with Retry; a
   second Create is blocked while one is in flight. A space with no types offers the link to make
   one instead of a form.
@@ -834,6 +853,14 @@ its own button, field, focus ring or error treatment.
   restores the form and focuses the title with the draft intact; Discard clears it and closes, and
   Escape during the question means keep editing. Create and Create and open bypass the guard, and
   there is no browser `beforeunload` prompt.
+
+### Shortcuts and Sign Out
+- **Shortcuts:** the `?` sheet is a key/action ledger. From `sm` each row is two columns — the key
+  cap in a 7rem column and the action with its scope at the trailing edge; on a phone the key sits
+  above the action in one column. The same X close sits at the handedness edge.
+- **Sign out:** a centred 26rem confirmation with the shared title role, the loss named in one
+  small sentence, and Cancel before the action in right-handed reading order (reversed by
+  `ThumbRow` in left mode). It has no close control: Escape and Cancel are its exits.
 
 ### Bulk Bar
 - **Shape:** one floating band over the table scrollport, never a card with a shadow. The selection
@@ -849,9 +876,9 @@ its own button, field, focus ring or error treatment.
   coarse pointers; on phones they collapse into the actions menu above. Hover turns Duplicate and
   Open to the accent, Move to trash to ember.
 - **Toasts:** pinned to the thumb edge — bottom-right by default, bottom-left in left-handed mode —
-  24rem maximum, hairline border on `surface`; danger uses ember text and never auto-dismisses.
-  Hover or focus pauses the timer, an Undo toast is not evicted, and action text is 44px tall on
-  coarse pointers. Safe-area insets keep either edge clear of a notch, and the message, action and
+  24rem maximum, hairline border on `surface`, entering over 180ms (6px rise plus fade); danger
+  uses ember text and never auto-dismisses. Hover or focus pauses the timer, an Undo toast is not
+  evicted, and the action label is uppercase mono at the label size, 44px tall on coarse pointers. Safe-area insets keep either edge clear of a notch, and the message, action and
   dismiss order never reverses. On phones the stack sits above the bottom space bar; with the
   keyboard up it lifts above the keyboard instead, so a confirmation raised from a sheet stays
   visible.

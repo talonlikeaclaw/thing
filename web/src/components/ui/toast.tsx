@@ -112,7 +112,7 @@ function ToastRow({ toast, dismiss }: ToastRowProps) {
     <div
       role={toast.tone === "danger" ? "alert" : "status"}
       className={cn(
-        "pointer-events-auto flex items-start gap-3 rounded-sheet border bg-surface px-4 py-3 text-[13px] shadow-none",
+        "toast pointer-events-auto flex items-start gap-[var(--space-3)] rounded-sheet border bg-surface px-[var(--space-4)] py-[var(--space-3)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] shadow-none",
         toast.tone === "danger" ? "border-danger text-danger" : "border-line text-ink",
       )}
       onMouseEnter={() => setPaused(true)}
@@ -125,7 +125,7 @@ function ToastRow({ toast, dismiss }: ToastRowProps) {
         <button
           key={action.label}
           type="button"
-          className="shrink-0 text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
+          className="shrink-0 font-mono text-[length:var(--text-label)] uppercase tracking-[0.09em] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
           onClick={() => {
             action.onAction();
             dismiss(toast.id);

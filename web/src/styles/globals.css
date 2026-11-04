@@ -476,6 +476,40 @@
 }
 
 /*
+ * A result set changes under a fixed field, so only the rows move: one short
+ * fade plus 4px, never the list's height or the active row's position.
+ */
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.palette-results {
+  animation: result-in var(--duration-fast) var(--ease-out);
+}
+
+.toast {
+  animation: toast-in var(--duration-base) var(--ease-out);
+}
+
+/*
  * `backwards`, not `both`: the fill mode must not keep the keyframe's transform
  * applied after the animation ends. A finished animation that still declares a
  * transform makes the wrapper a containing block for every `position: fixed`
@@ -487,7 +521,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .settle,
-  .sheet-popup[data-open] {
+  .sheet-popup[data-open],
+  .palette-results,
+  .toast {
     animation: none;
   }
 }

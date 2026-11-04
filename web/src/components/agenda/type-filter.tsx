@@ -1,12 +1,18 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Popover } from "@base-ui/react/popover";
-import { Filter, X } from "lucide-react";
+import { Filter } from "lucide-react";
 import { useState } from "react";
 
 import type { TypeSummary } from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
-import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { normalizeAgendaTypes } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
@@ -67,22 +73,9 @@ export function TypeFilter({
     );
   }
 
-  const close = (
-    <Dialog.Close
-      key="close"
-      aria-label="Close filter"
-      className={cn(
-        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-    >
-      <X aria-hidden size={15} />
-    </Dialog.Close>
-  );
+  const close = <SheetCloseButton label="Close filter" />;
   const title = (
-    <Dialog.Title key="title" className="min-w-0 flex-1 truncate text-[17px] font-medium">
-      Filter the schedule
-    </Dialog.Title>
+    <SheetTitle className="min-w-0 flex-1 truncate">Filter the schedule</SheetTitle>
   );
 
   return (
@@ -102,9 +95,9 @@ export function TypeFilter({
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
           <SheetViewport>
             <SheetPopup className="sm:w-[34rem]">
-              <div
+              <SheetHeader
                 className={cn(
-                  "flex items-center gap-3 border-b rule px-4 py-3",
+                  "gap-[var(--space-3)]",
                   handedness === "left" ? "justify-start" : "justify-between",
                 )}
               >
@@ -119,8 +112,8 @@ export function TypeFilter({
                     {close}
                   </>
                 )}
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              </SheetHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 {body}
               </div>
             </SheetPopup>

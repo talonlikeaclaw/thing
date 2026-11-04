@@ -1,5 +1,13 @@
 import { Menu } from "@base-ui/react/menu";
-import { ChevronDown, Keyboard, LogOut, Plus, Search, UserRound } from "lucide-react";
+import {
+  ChevronDown,
+  Keyboard,
+  LogOut,
+  Plus,
+  Search,
+  Settings,
+  UserRound,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -51,7 +59,7 @@ const ACCOUNT_TRIGGER_ID = "account-menu-trigger";
 
 /** One row in the account menu, on the same 9/11 heights as every control. */
 const menuItem =
-  "flex min-h-9 cursor-default items-center gap-2 rounded-[4px] px-2 text-[13px] text-ink outline-none select-none data-highlighted:bg-accent-wash data-highlighted:text-accent pointer-coarse:min-h-11";
+  "flex min-h-9 cursor-default items-center gap-2 rounded-[4px] px-2 text-[13px] text-ink outline-none select-none [&[data-highlighted]:focus-visible]:bg-accent-wash [&[data-highlighted]:focus-visible]:text-accent [&[data-highlighted]:hover]:bg-accent-wash [&[data-highlighted]:hover]:text-accent pointer-coarse:min-h-11";
 
 /** Signed-out requests go to the form, and come back to where they were. */
 export function AuthGate() {
@@ -402,10 +410,14 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                             closeOnClick
                             className={menuItem}
                           >
+                            <Settings aria-hidden size={14} className="text-faint" />
                             Account settings
                           </Menu.LinkItem>
                           <Menu.Separator className="my-1 h-px bg-line" />
-                          <Menu.Item className={menuItem} onClick={() => setSignOutOpen(true)}>
+                          <Menu.Item
+                            className={menuItem}
+                            onClick={() => setSignOutOpen(true)}
+                          >
                             <LogOut aria-hidden size={14} className="text-faint" />
                             Sign out
                           </Menu.Item>

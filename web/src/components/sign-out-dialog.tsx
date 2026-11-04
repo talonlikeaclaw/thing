@@ -59,7 +59,7 @@ export function SignOutDialog({
             className="max-w-[26rem] rounded-sheet px-4 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <SheetTitle>Sign out?</SheetTitle>
-            <Dialog.Description className="mt-1 text-[13px] text-muted">
+            <Dialog.Description className="mt-1 text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
               Any unsaved draft in this browser will be lost.
             </Dialog.Description>
             {error ? (

@@ -1,6 +1,8 @@
 import { Dialog } from "@base-ui/react/dialog";
+import { X } from "lucide-react";
 import { useEffect, type ComponentProps } from "react";
 
+import { useHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 import { applyViewportMetrics, subscribeVisualViewport } from "@/lib/viewport";
 
@@ -60,11 +62,37 @@ export function SheetTitle({ className, ...props }: ComponentProps<typeof Dialog
   return (
     <Dialog.Title
       className={cn(
-        "text-[length:var(--text-heading)] leading-[var(--text-heading--line-height)] font-medium text-ink",
+        "display text-[length:var(--text-heading)] leading-[var(--text-heading--line-height)] font-medium text-ink",
         className,
       )}
       {...props}
     />
+  );
+}
+
+/**
+ * One close control for every overlay. The icon is always an X at the same
+ * target size; only its edge follows handedness, so the first tab stop and the
+ * paint order agree with the sheet's action rows.
+ */
+export function SheetCloseButton({
+  label,
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Dialog.Close>, "children"> & { label: string }) {
+  const { handedness } = useHandedness();
+  return (
+    <Dialog.Close
+      aria-label={label}
+      className={cn(
+        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        handedness === "left" ? "-ml-1" : "-mr-1",
+        className,
+      )}
+      {...props}
+    >
+      <X aria-hidden size={15} />
+    </Dialog.Close>
   );
 }
 

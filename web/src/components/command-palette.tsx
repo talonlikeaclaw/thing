@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { Search, X } from "lucide-react";
+import { CornerDownLeft, Search } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
@@ -19,7 +19,11 @@ import {
 } from "@/api/queries";
 import { useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
-import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import {
+  SheetCloseButton,
+  SheetPopup,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
 import { readError } from "@/lib/display";
@@ -300,18 +304,7 @@ export function CommandPalette({
   }
 
   const { handedness } = useHandedness();
-  const close = (
-    <Dialog.Close
-      key="close"
-      aria-label="Close search"
-      className={cn(
-        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-    >
-      <X aria-hidden size={15} />
-    </Dialog.Close>
-  );
+  const close = <SheetCloseButton label="Close search" />;
 
   let offset = 0;
   return (
@@ -323,7 +316,7 @@ export function CommandPalette({
         <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
         <SheetViewport>
           <SheetPopup
-            className="sm:w-[40rem]"
+            className="sm:w-[36rem]"
             inert={!open}
             initialFocus={() => inputRef.current ?? true}
             finalFocus={() => returnFocusRef.current ?? false}
@@ -333,7 +326,7 @@ export function CommandPalette({
               Search every record's title and text, plus types, spaces and actions.
             </Dialog.Description>
 
-            <div className="flex items-center gap-3 border-b rule px-4">
+            <div className="flex items-center gap-3 border-b rule px-[var(--space-4)]">
               {handedness === "left" ? close : null}
               <Search aria-hidden size={16} className="shrink-0 text-faint" />
               <input
@@ -356,7 +349,7 @@ export function CommandPalette({
                 onKeyDown={onInputKeyDown}
                 className="h-14 min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint pointer-coarse:text-base"
               />
-              <kbd className="hidden shrink-0 rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[11px] text-faint sm:block">
+              <kbd className="hidden shrink-0 rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[length:var(--text-label)] text-faint sm:block">
                 Esc
               </kbd>
               {handedness === "right" ? close : null}
@@ -385,64 +378,89 @@ export function CommandPalette({
                         : `No record or action matches “${trimmed}”.`}
                 </p>
               ) : (
-                sections.map((section) => {
-                  const base = offset;
-                  offset += section.items.length;
-                  return (
-                    <div key={section.id} role="group" aria-label={section.label}>
-                      <p aria-hidden className="label px-3 pt-2 pb-1">
-                        {section.label}
-                      </p>
-                      {section.items.map((item, index) => {
-                        const flatIndex = base + index;
-                        const selected = flatIndex === activeIndex;
-                        return (
-                          <div
-                            key={item.id}
-                            id={`palette-option-${flatIndex}`}
-                            role="option"
-                            aria-selected={selected}
-                            aria-disabled={item.disabled || undefined}
-                            className={cn(
-                              "flex items-start gap-3 rounded-[4px] px-3 py-2 text-[14px] transition-colors pointer-coarse:min-h-11",
-                              item.disabled
-                                ? "cursor-default text-faint"
-                                : "cursor-pointer",
-                              !item.disabled && (selected ? "bg-raised text-accent" : "text-ink"),
-                            )}
-                            onMouseEnter={() => setActive(flatIndex)}
-                            onClick={() => select(item)}
+                <div key={trimmed} role="presentation" className="palette-results">
+                  {sections.map((section) => {
+                    const base = offset;
+                    offset += section.items.length;
+                    return (
+                      <div key={section.id} role="group" aria-label={section.label}>
+                        <div className="flex items-baseline justify-between px-3 pt-2 pb-1">
+                          <p aria-hidden className="label">
+                            {section.label}
+                          </p>
+                          <span
+                            aria-hidden
+                            className="font-mono text-[length:var(--text-label)] tnum text-faint"
                           >
-                            <span className="flex min-w-0 flex-1 flex-col">
-                              <span className="flex min-w-0 items-baseline gap-2">
-                                {item.icon ? (
-                                  <ThingIcon icon={item.icon} size="sm" />
-                                ) : null}
-                                <span className="min-w-0 truncate">
+                            {section.items.length}
+                          </span>
+                        </div>
+                        {section.items.map((item, index) => {
+                          const flatIndex = base + index;
+                          const selected = flatIndex === activeIndex;
+                          return (
+                            <div
+                              key={item.id}
+                              id={`palette-option-${flatIndex}`}
+                              role="option"
+                              aria-selected={selected}
+                              aria-disabled={item.disabled || undefined}
+                              className={cn(
+                                "flex items-start gap-3 rounded-[4px] border-l-2 px-3 py-2 transition-colors pointer-coarse:min-h-11",
+                                item.disabled
+                                  ? "cursor-default border-transparent text-faint"
+                                  : "cursor-pointer",
+                                !item.disabled &&
+                                  (selected
+                                    ? "border-accent bg-accent-wash text-accent"
+                                    : "border-transparent text-ink"),
+                              )}
+                              onMouseEnter={() => setActive(flatIndex)}
+                              onClick={() => select(item)}
+                            >
+                              {item.icon ? (
+                                <ThingIcon icon={item.icon} size="sm" className="mt-0.5" />
+                              ) : (
+                                <CornerDownLeft
+                                  aria-hidden
+                                  size={14}
+                                  className="mt-0.5 shrink-0 text-faint"
+                                />
+                              )}
+                              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span className="min-w-0 truncate text-[length:var(--text-body)]">
                                   <Highlighted text={item.label} query={trimmed} />
                                 </span>
+                                {item.detail ? (
+                                  <span className="line-clamp-2 text-[12px] leading-[1.5] text-muted">
+                                    <Highlighted text={item.detail} query={trimmed} />
+                                  </span>
+                                ) : null}
+                                <span className="truncate font-mono text-[length:var(--text-label)] text-faint">
+                                  {item.hint}
+                                </span>
                               </span>
-                              {item.detail ? (
-                                <span className="mt-0.5 line-clamp-2 text-[12px] leading-[1.5] text-muted">
-                                  <Highlighted text={item.detail} query={trimmed} />
+                              {selected && !item.disabled ? (
+                                <span
+                                  aria-hidden
+                                  className="hidden shrink-0 pt-0.5 font-mono text-[length:var(--text-label)] text-faint sm:inline"
+                                >
+                                  ↵
                                 </span>
                               ) : null}
-                            </span>
-                            <span className="shrink-0 font-mono text-[11px] text-faint">
-                              {item.hint}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
             {/* The footer is the sheet's last row, so the home indicator
                 inset belongs here rather than on the popup. */}
-            <div className="sheet-footer flex items-center justify-between gap-3 border-t rule px-4 pt-2 text-[11px] text-faint">
+            <div className="sheet-footer flex items-center justify-between gap-3 border-t rule bg-surface px-[var(--space-4)] pt-2 text-[length:var(--text-label)] text-faint">
               <span className="hidden font-mono sm:inline pointer-coarse:hidden">↑↓ move · Enter open · Esc close</span>
               <span aria-live="polite" className="font-mono tnum">
                 {plural(flat.length, "result")}
