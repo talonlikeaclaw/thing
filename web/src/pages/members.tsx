@@ -13,9 +13,10 @@ import {
 import type { Invite, Member, Role, SpaceDetail } from "@/api/types";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
-import { ThingIcon } from "@/components/thing-icon";
-import { Button, FormError, SelectField } from "@/components/ui/controls";
+import { Button, FormError, SelectField, fieldFrame } from "@/components/ui/controls";
+import { EmptyState, PageHeader, SectionRule } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import { formatDate, readError } from "@/lib/display";
 import { useRouteMeta } from "@/lib/route";
 
@@ -24,6 +25,19 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "editor", label: "Editor" },
   { value: "viewer", label: "Viewer" },
 ];
+
+/** The ledger's leading glyph: the person's first letter, never a photo. */
+function MemberAvatar({ name }: { name: string }) {
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  return (
+    <span
+      aria-hidden
+      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-line font-mono text-[11px] text-muted"
+    >
+      {initial}
+    </span>
+  );
+}
 
 /** `/s/:spaceId/members` — people, their roles and the owner's invites. */
 export function MembersPage() {
@@ -55,17 +69,20 @@ export function MembersPage() {
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Members" }]}
       />
 
-      <div className="flex items-baseline gap-3">
-        <ThingIcon icon={detail.icon} size="lg" />
-        <h1 className="text-[26px] font-medium tracking-[-0.02em]">{detail.name}</h1>
-        <span className="label">{detail.role}</span>
-      </div>
+      <PageHeader
+        title="Members"
+        sentence="Owner manages the space and people; editor creates and edits content; viewer reads only."
+        meta={`${detail.members.length} ${detail.members.length === 1 ? "member" : "members"}`}
+        actions={
+          owner ? (
+            <Button variant="ghost" render={<a href="#invites" />}>
+              Invite people
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
-        Owner manages the space and people; editor creates and edits content; viewer reads only.
-      </p>
-
-      <dl className="mt-8 grid gap-x-6 gap-y-3 border-t rule pt-6 sm:grid-cols-[8rem_minmax(0,1fr)]">
+      <dl className="mt-6 grid gap-x-6 gap-y-3 border-t rule pt-6 sm:grid-cols-[8rem_minmax(0,1fr)]">
         <dt className="label">Space id</dt>
         <dd className="font-mono text-[12px] break-all text-muted">{detail.id}</dd>
         <dt className="label">Created</dt>
@@ -148,12 +165,7 @@ function MemberList({
 
   return (
     <section aria-labelledby="members" className="mt-10">
-      <div className="flex items-baseline justify-between border-b rule pb-2">
-        <h2 id="members" className="text-[17px] font-medium">
-          Members
-        </h2>
-        <span className="label tnum">{detail.members.length}</span>
-      </div>
+      <SectionRule id="members" title="Members" count={detail.members.length} />
       <ul>
         {detail.members.map((member) => {
           const self = member.user === currentUser;
@@ -162,14 +174,17 @@ function MemberList({
           const lastOwner = member.role === "owner" && ownerCount <= 1;
           return (
             <li key={member.user} className="grid gap-2 border-b rule py-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-                <span className="min-w-0">
-                  <span className="block truncate text-[15px]">
-                    {member.name}
-                    {self ? <span className="label ml-2">you</span> : null}
-                  </span>
-                  <span className="block font-mono text-[11px] break-all text-muted">
-                    {member.email ?? member.user}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <span className="flex min-w-0 items-center gap-3">
+                  <MemberAvatar name={member.name} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px]">
+                      {member.name}
+                      {self ? <span className="label ml-2">you</span> : null}
+                    </span>
+                    <span className="block font-mono text-[11px] break-all text-muted">
+                      {member.email ?? member.user}
+                    </span>
                   </span>
                 </span>
                 <span className="flex items-center gap-2">
@@ -177,7 +192,10 @@ function MemberList({
                   {owner ? (
                     <select
                       aria-label={`Role for ${member.name}`}
-                      className="h-8 rounded-field border border-line-interactive bg-ground px-2 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                      className={cn(
+                        fieldFrame,
+                        "h-8 w-auto px-2 text-[13px] pointer-coarse:h-11",
+                      )}
                       value={member.role}
                       disabled={saving || removeMember.isPending || lastOwner}
                       title={
@@ -285,13 +303,12 @@ function InvitePanel({ spaceId, timeZone }: { spaceId: string; timeZone: string 
   const used = (invites.data ?? []).filter((invite) => invite.used_at !== null);
 
   return (
-    <section aria-labelledby="invites" className="mt-10">
-      <div className="flex items-baseline justify-between border-b rule pb-2">
-        <h2 id="invites" className="text-[17px] font-medium">
-          Invite people
-        </h2>
-        <span className="label tnum">{pending.length} pending</span>
-      </div>
+    <section aria-labelledby="invites" id="invites" className="mt-10 scroll-mt-6">
+      <SectionRule
+        id="invites"
+        title="Invite people"
+        count={`${pending.length} pending`}
+      />
 
       <form
         className="mt-4 grid gap-3 sm:grid-cols-[12rem_auto_minmax(0,1fr)] sm:items-end"
@@ -388,12 +405,9 @@ function InviteList({
 }) {
   return (
     <div className="mt-6">
-      <div className="flex items-baseline justify-between border-b rule pb-1.5">
-        <h3 className="text-[15px] font-medium">{title}</h3>
-        <span className="label tnum">{invites.length}</span>
-      </div>
+      <SectionRule level={3} title={title} count={invites.length} />
       {invites.length === 0 ? (
-        empty ? <p className="py-3 text-[13px] text-muted">{empty}</p> : null
+        empty ? <EmptyState sentence={empty} /> : null
       ) : (
         <ul>
           {invites.map((invite) => (

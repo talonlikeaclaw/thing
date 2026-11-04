@@ -29,6 +29,13 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Tables read as ledgers: the title stays pinned, headers keep their labels, rows show hover and selection, and board, gallery and calendar share the same rhythm.",
       "The palette groups what it finds with counts, marks the active result and moves only the rows between searches; capture, shortcuts and confirmations share one sheet rhythm.",
       "A phone gets one composed top bar with the space it is in, a labelled bottom bar, and a save indicator that stays a quiet pill until there is something to save.",
+      "Schema, members, settings, trash and the sign-in screens share one page header, one section rhythm and keyed ledgers.",
+    ],
+    details: [
+      "The type list counts each type's properties and records.",
+      "The schema editor saves only what changed and keeps Save out of the way until something has.",
+      "Settings offers its six highlight colours as a row of named swatches with the current one ringed.",
+      "The record editor keeps the full column while you write; Preview is its own full-width pane instead of a permanent split.",
     ],
     upcoming: true,
   },

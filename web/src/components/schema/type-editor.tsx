@@ -22,6 +22,7 @@ import {
   TextAreaField,
   TextField,
 } from "@/components/ui/controls";
+import { EmptyState, FieldRow, FormatChip, SectionRule } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
@@ -217,24 +218,33 @@ export function TypeEditor({
 
   return (
     <section aria-labelledby="type-editor" className="settle">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b rule pb-2">
-        <h2 id="type-editor" className="text-[17px] font-medium">
-          {type.name}
-        </h2>
-        <span className="font-mono text-[11px] text-faint">types/{type.key}.yml</span>
-      </div>
+      <SectionRule
+        id="type-editor"
+        title={type.name}
+        action={
+          <span className="flex flex-wrap items-baseline gap-3">
+            {!dirty && update.isSuccess ? <span className="label text-accent">saved</span> : null}
+            <span className="font-mono text-[11px] text-faint">types/{type.key}.yml</span>
+          </span>
+        }
+      />
 
-      <div className="mt-4 grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-[7rem_minmax(0,1fr)_minmax(0,1fr)]">
-          <IconPicker
-            label="Icon"
-            id={`type-${type.key}-icon`}
-            value={icon}
-            onChange={setIcon}
-            disabled={!canEdit}
-          />
+      <div className="mt-2 grid divide-y divide-line border-b rule">
+        <FieldRow label="Icon" htmlFor={`type-${type.key}-icon`}>
+          <div>
+            <IconPicker
+              variant="glyph"
+              label="Icon"
+              id={`type-${type.key}-icon`}
+              value={icon}
+              onChange={setIcon}
+              disabled={!canEdit}
+            />
+          </div>
+        </FieldRow>
+        <FieldRow label="Name" htmlFor={`type-${type.key}-name`}>
           <TextField
-            label="Name"
+            id={`type-${type.key}-name`}
             name={`type-${type.key}-name`}
             required
             maxLength={200}
@@ -242,8 +252,10 @@ export function TypeEditor({
             disabled={!canEdit}
             onChange={(event) => setName(event.target.value)}
           />
+        </FieldRow>
+        <FieldRow label="Plural" htmlFor={`type-${type.key}-plural`}>
           <TextField
-            label="Plural"
+            id={`type-${type.key}-plural`}
             name={`type-${type.key}-plural`}
             required
             maxLength={200}
@@ -251,40 +263,41 @@ export function TypeEditor({
             disabled={!canEdit}
             onChange={(event) => setPlural(event.target.value)}
           />
-        </div>
-        <TextAreaField
-          label="Description"
-          name={`type-${type.key}-description`}
-          rows={2}
-          maxLength={500}
-          value={description}
-          disabled={!canEdit}
-          onChange={(event) => setDescription(event.target.value)}
-        />
-
-        <div>
-          <label className="flex min-h-10 items-center gap-2 text-[14px] pointer-coarse:min-h-11">
+        </FieldRow>
+        <FieldRow label="Description" htmlFor={`type-${type.key}-description`}>
+          <TextAreaField
+            id={`type-${type.key}-description`}
+            name={`type-${type.key}-description`}
+            rows={2}
+            maxLength={500}
+            value={description}
+            disabled={!canEdit}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </FieldRow>
+        <FieldRow label="Scheduling" htmlFor={`type-${type.key}-schedule`}>
+          <div className="flex min-h-10 items-center gap-2 pointer-coarse:min-h-11">
             <input
+              id={`type-${type.key}-schedule`}
               type="checkbox"
               checked={schedule}
               disabled={!canEdit}
               onChange={(event) => setSchedule(event.target.checked)}
             />
-            Schedule
-          </label>
-          <p className="mt-1 max-w-[62ch] text-[13px] text-muted">
-            Records of this type carry a due date and repeat. Values live on each record;
-            Complete writes the last completion and advances a recurring due date.
+            <label htmlFor={`type-${type.key}-schedule`} className="text-[14px]">
+              Due dates, repeats and Complete
+            </label>
+          </div>
+          <p className="max-w-[62ch] text-[13px] text-muted">
+            Values live on each record. Complete writes the last completion and advances a
+            recurring due date.
           </p>
-        </div>
+        </FieldRow>
       </div>
 
       {schedule ? (
         <div className="mt-6">
-          <div className="flex items-baseline justify-between border-b rule pb-2">
-            <h3 className="text-[15px] font-medium">From scheduling</h3>
-            <span className="label">generated</span>
-          </div>
+          <SectionRule level={3} title="From scheduling" count="generated" />
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <TextField
               label="Complete button"
@@ -411,14 +424,9 @@ export function TypeEditor({
       ) : null}
 
       <div className="mt-8">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h3 className="text-[15px] font-medium">Properties</h3>
-          <span className="label tnum">{members.length}</span>
-        </div>
+        <SectionRule level={3} title="Properties" count={members.length} />
         {members.length === 0 ? (
-          <p className="border-b rule py-3 text-[13px] text-muted">
-            This type has no properties yet. Add one below.
-          </p>
+          <EmptyState sentence="This type has no properties yet. Add one below." />
         ) : (
           <ul>
             {members.map((member, index) => (
@@ -426,12 +434,13 @@ export function TypeEditor({
                 key={member.key}
                 className="flex flex-wrap items-center justify-between gap-2 border-b rule py-2"
               >
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <span className="font-mono text-[11px] text-faint">{member.key}</span>
+                <div className="grid min-w-0 gap-0.5">
                   <span className="truncate text-[15px]">{titleProperty(member.key)}</span>
-                  <span className="label">{formatOf(member.key)}</span>
+                  <span className="font-mono text-[11px] leading-4 text-faint">{member.key}</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <FormatChip>{formatOf(member.key)}</FormatChip>
+                  <div className="flex items-center gap-1">
                   <SmallButton
                     label={`Move ${member.key} up`}
                     disabled={!canEdit || index === 0}
@@ -453,6 +462,7 @@ export function TypeEditor({
                   >
                     <X aria-hidden size={15} />
                   </SmallButton>
+                  </div>
                 </div>
               </li>
             ))}
@@ -506,29 +516,27 @@ export function TypeEditor({
       </div>
 
       {canEdit ? (
-        <StickyActionBar>
-          <div className="min-w-[12rem] flex-1">
-            <FormError
-              message={update.error && !conflict ? readError(update.error) : null}
-            />
-          </div>
-          {dirty ? (
+        dirty ? (
+          <StickyActionBar>
+            <div className="min-w-[12rem] flex-1">
+              <FormError
+                message={update.error && !conflict ? readError(update.error) : null}
+              />
+            </div>
             <span className="label flex items-center gap-1.5 text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
               Unsaved changes
             </span>
-          ) : update.isSuccess ? (
-            <span className="label">Saved</span>
-          ) : null}
-          <Button
-            type="button"
-            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-            disabled={!dirty || invalid || update.isPending}
-            onClick={() => void saveDraft()}
-          >
-            {update.isPending ? "Saving…" : "Save type"}
-          </Button>
-        </StickyActionBar>
+            <Button
+              type="button"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={invalid || update.isPending}
+              onClick={() => void saveDraft()}
+            >
+              {update.isPending ? "Saving…" : "Save type"}
+            </Button>
+          </StickyActionBar>
+        ) : null
       ) : (
         <p className="mt-5 text-[13px] text-muted">
           Viewers can read the schema but not change it.
@@ -540,12 +548,12 @@ export function TypeEditor({
           aria-labelledby={`type-${type.key}-danger`}
           className="mt-10 border-t border-danger/60 pt-4"
         >
-          <h3
+          <SectionRule
             id={`type-${type.key}-danger`}
-            className="border-b border-danger/40 pb-2 text-[15px] font-medium text-danger"
-          >
-            Delete type
-          </h3>
+            level={3}
+            tone="danger"
+            title="Delete type"
+          />
           <p className="mt-3 max-w-[62ch] text-[13px] text-muted">
             Deletes <span className="font-mono">types/{type.key}.yml</span>.
             {recordCount > 0 ? (

@@ -12,6 +12,7 @@ import type { PropertyDef, TypeSummary } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
+import { FieldRow, SectionRule } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
@@ -113,19 +114,23 @@ export function PropertyEditor({
 
   return (
     <section aria-labelledby="property-editor" className="settle">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b rule pb-2">
-        <h2 id="property-editor" className="text-[17px] font-medium">
-          {property.name}
-        </h2>
-        <span className="font-mono text-[11px] text-faint">
-          properties/{property.key}.yml
-        </span>
-      </div>
+      <SectionRule
+        id="property-editor"
+        title={property.name}
+        action={
+          <span className="flex flex-wrap items-baseline gap-3">
+            {!dirty && update.isSuccess ? <span className="label text-accent">saved</span> : null}
+            <span className="font-mono text-[11px] text-faint">
+              properties/{property.key}.yml
+            </span>
+          </span>
+        }
+      />
 
-      <div className="mt-4 grid gap-4">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+      <div className="mt-2 grid divide-y divide-line border-b rule">
+        <FieldRow label="Name" htmlFor={`property-${property.key}-name`}>
           <TextField
-            label="Name"
+            id={`property-${property.key}-name`}
             name={`property-${property.key}-name`}
             required
             maxLength={200}
@@ -133,73 +138,67 @@ export function PropertyEditor({
             disabled={!canEdit}
             onChange={(event) => setName(event.target.value)}
           />
-          <div className="grid content-start gap-1.5">
-            <span className="label">Format</span>
-            <p className="flex h-10 items-center font-mono text-[12px] text-muted">
-              {formatLabel(property.format)}
-            </p>
-            <p className="text-[12px] text-faint">Fixed once values exist.</p>
-          </div>
-        </div>
-
-        {property.format === "relation" ? (
-          <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px]">
-            <dt className="label">Target</dt>
-            <dd className="font-mono text-[12px] text-muted">
-              {property.target_type ?? "any type"}
-            </dd>
-            <dt className="label">Holds</dt>
-            <dd className="font-mono text-[12px] text-muted">
-              {property.multi ? "several targets" : "one target"}
-            </dd>
-          </dl>
-        ) : null}
-        {property.format === "relation" ? (
-          <p className="text-[12px] text-faint">
-            Target and target count are fixed when the property is created.
+        </FieldRow>
+        <FieldRow label="Format" hint="Fixed once values exist.">
+          <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
+            {formatLabel(property.format)}
           </p>
+        </FieldRow>
+        {property.format === "relation" ? (
+          <>
+            <FieldRow label="Target">
+              <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
+                {property.target_type ?? "any type"}
+              </p>
+            </FieldRow>
+            <FieldRow label="Holds" hint="Target and target count are fixed when the property is created.">
+              <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
+                {property.multi ? "several targets" : "one target"}
+              </p>
+            </FieldRow>
+          </>
         ) : null}
-
         {showsOptions ? (
-          <div>
-            <div className="flex items-baseline justify-between border-b rule pb-1">
-              <span className="label">Options</span>
-              <span className="label tnum">{options.length}</span>
-            </div>
-            <div className="mt-2">
-              <OptionEditor
-                drafts={options}
-                onChange={setOptions}
-                canEdit={canEdit}
-                idPrefix={property.key}
-              />
-            </div>
-          </div>
+          <FieldRow
+            label={
+              <>
+                Options{" "}
+                <span className="font-mono text-[length:var(--text-label)] tnum text-faint">
+                  {options.length}
+                </span>
+              </>
+            }
+          >
+            <OptionEditor
+              drafts={options}
+              onChange={setOptions}
+              canEdit={canEdit}
+              idPrefix={property.key}
+            />
+          </FieldRow>
         ) : null}
       </div>
 
       {canEdit ? (
-        <StickyActionBar>
-          <div className="min-w-[12rem] flex-1">
-            <FormError message={update.error ? readError(update.error) : null} />
-          </div>
-          {dirty ? (
+        dirty ? (
+          <StickyActionBar>
+            <div className="min-w-[12rem] flex-1">
+              <FormError message={update.error ? readError(update.error) : null} />
+            </div>
             <span className="label flex items-center gap-1.5 text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
               Unsaved changes
             </span>
-          ) : update.isSuccess ? (
-            <span className="label">Saved</span>
-          ) : null}
-          <Button
-            type="button"
-            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-            disabled={!dirty || invalid || update.isPending}
-            onClick={() => void saveDraft()}
-          >
-            {update.isPending ? "Saving…" : "Save property"}
-          </Button>
-        </StickyActionBar>
+            <Button
+              type="button"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={invalid || update.isPending}
+              onClick={() => void saveDraft()}
+            >
+              {update.isPending ? "Saving…" : "Save property"}
+            </Button>
+          </StickyActionBar>
+        ) : null
       ) : (
         <p className="mt-5 text-[13px] text-muted">
           Viewers can read the schema but not change it.
@@ -211,12 +210,11 @@ export function PropertyEditor({
           aria-labelledby={`property-${property.key}-key`}
           className="mt-10 border-t rule pt-4"
         >
-          <h3
+          <SectionRule
             id={`property-${property.key}-key`}
-            className="border-b rule pb-2 text-[15px] font-medium"
-          >
-            Key
-          </h3>
+            level={3}
+            title="Key"
+          />
           <p className="mt-3 max-w-[62ch] text-[13px] text-muted">
             The current key is <span className="font-mono">{property.key}</span>. Renaming it
             rewrites every file that names it; keys appear in file paths and CSV headers.
@@ -265,12 +263,12 @@ export function PropertyEditor({
           aria-labelledby={`property-${property.key}-danger`}
           className="mt-10 border-t border-danger/60 pt-4"
         >
-          <h3
+          <SectionRule
             id={`property-${property.key}-danger`}
-            className="border-b border-danger/40 pb-2 text-[15px] font-medium text-danger"
-          >
-            Delete property
-          </h3>
+            level={3}
+            tone="danger"
+            title="Delete property"
+          />
           <p className="mt-3 text-[13px] text-muted">
             Used by{" "}
             <span className="font-mono tnum">

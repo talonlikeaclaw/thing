@@ -121,8 +121,8 @@ function initialMode(value: string): BodyMode {
 
 /**
  * The record body's writing surface: a formatting toolbar, keyboard shortcuts,
- * list continuation, a live preview beside the text on wide screens, and one
- * caret menu shared by `/` commands and `[[` wiki-link completion.
+ * list continuation, a Write/Preview switch (one full-width pane at a time),
+ * and one caret menu shared by `/` commands and `[[` wiki-link completion.
  *
  * The text is markdown throughout: every action edits the textarea's value and
  * selection, and the preview renders the same text the server stores.
@@ -847,7 +847,6 @@ export function MarkdownEditor({
       <div
         className={cn(
           "mt-1.5",
-          mode === "write" && !immersed && "lg:grid lg:grid-cols-2 lg:items-start lg:gap-4",
           immersed && "mt-2 flex min-h-0 flex-1 flex-col",
         )}
       >
@@ -888,9 +887,8 @@ export function MarkdownEditor({
 
         <div
           className={cn(
-            "min-h-[14rem] rounded-field border border-line px-3 sm:min-h-[22rem]",
-            mode === "write" &&
-              "hidden lg:block lg:max-h-[70vh] lg:overflow-y-auto",
+            "mt-2 min-h-[14rem] rounded-field border border-line px-3 sm:min-h-[22rem]",
+            mode === "write" && "hidden",
           )}
           onClick={editFromPreview}
         >

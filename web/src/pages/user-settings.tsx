@@ -1,5 +1,6 @@
 import { useMe } from "@/api/queries";
 import { useHandedness } from "@/components/handedness";
+import { PageHeader, SectionRule } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { useRouteMeta } from "@/lib/route";
 
@@ -26,18 +27,14 @@ export function UserSettingsPage() {
   const user = me.data;
 
   return (
-    <div className="settle mx-auto max-w-[52ch]">
-      <h1 className="text-[26px] font-medium tracking-[-0.02em]">Account settings</h1>
-      <p className="mt-2 text-[13px] text-muted">
-        This preference follows this browser and account. It never reaches a space.
-      </p>
+    <div className="settle mx-auto max-w-[64ch]">
+      <PageHeader
+        title="Account settings"
+        sentence="This preference follows this browser and account; it never reaches a space."
+      />
 
       <section aria-labelledby="account-identity" className="mt-10">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h2 id="account-identity" className="text-[17px] font-medium">
-            Account
-          </h2>
-        </div>
+        <SectionRule id="account-identity" title="Account" />
         {user ? (
           <div className="mt-4 grid gap-2">
             <p className="text-[17px]">{user.name}</p>
@@ -53,11 +50,7 @@ export function UserSettingsPage() {
       </section>
 
       <section aria-labelledby="account-appearance" className="mt-10">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h2 id="account-appearance" className="text-[17px] font-medium">
-            Appearance
-          </h2>
-        </div>
+        <SectionRule id="account-appearance" title="Appearance" />
         <fieldset className="mt-4">
           <legend className="label">Handedness</legend>
           <div className="mt-2 grid grid-cols-2 gap-2">

@@ -267,7 +267,9 @@ control to at least 44 × 44.
 
 A single content column capped at 1080px, with 24px side padding. The signed-out screen splits at
 the `md` breakpoint into a 400px form column and a flexible margin column separated by a hairline;
-below it, the margin moves off-canvas and only the form remains.
+the form opens on an `--text-display` title and one sentence, and the margin is three short
+file-backed lines, not marketing or an illustration. Below `md`, the margin moves off-canvas and
+only the form remains.
 
 The space index is a five-column grid on desktop — key (80px), name (flexible), members (64px),
 types (64px), role (96px) — and a three-column grid on mobile (key, name, role) with counts moved
@@ -502,9 +504,37 @@ its own button, field, focus ring or error treatment.
   **Settings** on the trailing edge. It names the files the space actually lives in; it does not
   restate the masthead.
 
+### Quiet Surfaces
+- **Shared header:** every quiet surface — schema, members, space settings, account settings, trash
+  and the signed-out split — opens on one header: the page title in the display face at
+  `--text-display`, one factual sentence, one mono annotation at the trailing edge, and at most one
+  primary action at the thumb edge. Breadcrumbs sit above it, never inside it.
+- **Section rules:** each group is introduced by one hairline row: the section heading in the
+  heading role, an optional mono count and an optional quiet action at the trailing edge. A danger
+  group swaps the hairline for the ember rule and the heading for ember text.
+- **Field rows:** a long editor is a label/value grid from `sm` — a 10rem label column, the control
+  beside it — separated by hairlines, so every form reads as one ledger instead of a pile of boxes.
+- **Empty states:** one muted sentence that names what is missing and the next action, with the
+  action below it when there is one. No illustration.
+- **Space settings:** identity (icon, name, timezone) is one ruled form with one Save action;
+  appearance holds the shared highlight; deletion is a danger group with its typed confirmation.
+  The accent chooser is a wrapping row of named circular swatches; the chosen one keeps a 2px
+  accent ring with a ground-coloured offset, and the colour name is always visible.
+- **Account settings:** the person's name and email, then one browser-local Appearance group for
+  handedness. It never presents a space setting.
+- **Trash:** a ledger with a `Record / Type / Deleted / Actions` header from `md`, one hairline per
+  record, a checkbox for owners and editors, and Restore before Purge. The purge confirmation keeps
+  its typed space name or count. The empty state links back to the space.
+
 ### Members
-- **Rows:** name and email, then the role select and Remove for an owner; a viewer sees the role as
-  a label. A confirmation states the loss before the write.
+- **Header:** the display title, one sentence naming the three roles, the member count and, for an
+  owner, one ghost **Invite people** action that jumps to the invite group.
+- **Rows:** a 32px ringed initial, then name (with `you` when it is the reader) and email, then the
+  role select and Remove for an owner; a viewer sees the role as a label. Roles change inline. A
+  confirmation states the loss before the write. The member's join date is not shown: no read
+  carries it.
+- **Invites:** the invite group is one section rule, a role select and **Create invite**, then
+  Pending and Used ledgers with their links, Copy link and Revoke.
 - **The last owner:** the role select and Remove are disabled with **The last owner cannot be
   removed or step down** as the row's title and an inline sentence, so the server's guard is
   never the first thing the person hears.
@@ -512,8 +542,10 @@ its own button, field, focus ring or error treatment.
 ### Schema Editor
 - **Shape:** two columns at `lg` — a keyed list of types or properties on the left, the selected
   editor on the right; on narrow screens the editor follows its list. Hairlines only.
-- **List row:** 15px name, mono 11px key, format or count right-aligned. The selected row's text
-  turns lichen (`aria-current`); no background fill and no side stripe.
+- **List row:** a keyed ledger. Types show the icon, name, mono key, `n props · n records` in mono
+  and a **Scheduled** label; properties show the name, mono key and a bordered format chip. The
+  selected row takes the accent wash and accent text (`aria-current`) as its only marker — no
+  side stripe.
 - **Ordering:** membership order is explicit up/down 32px ghost icon buttons, 44px on coarse
   pointers. Column order belongs to a view and lives on the type page, not in this editor.
 - **Options:** each row is a colour swatch input, the name field, its mono key once saved, then the
@@ -521,8 +553,12 @@ its own button, field, focus ring or error treatment.
   Option colours are user data; the lichen accent is not implied.
 - **Create actions:** "New type" and "New property" reveal an inline form directly under their
   list, never a modal.
-- **Save state:** Save stays disabled until something changed; a successful write shows `SAVED` in
-  lichen. A viewer sees the same definitions with the controls disabled and no Save.
+- **Field grid:** the editor body is one label/value ledger from `sm`: icon, name, plural,
+  description and scheduling sit in a 10rem label column with their controls beside it, on
+  hairlines. Generated scheduling fields and property membership are `h3` section rules.
+- **Save state:** the sticky save row appears only while the draft is dirty and carries the
+  unsaved count and Save; after a write the header shows a quiet `SAVED` in lichen and the row is
+  gone. A viewer sees the same definitions with the controls disabled and no Save.
 
 ### Type Page
 - **Header:** one band holds the type icon, the name in `--text-title` mono, a mono record count and
@@ -680,9 +716,10 @@ its own button, field, focus ring or error treatment.
   visible without horizontal guessing: six tools on the first row, then the remaining three tools
   and Save. From `sm` up it is one row with the switch pinned at the trailing edge. A press
   keeps the selection and the focus in the textarea.
-- **Writing surface:** Write mode is a split from `lg` up: the textarea on the left and a scrollable
-  rendered preview of the same text on the right, capped at 70vh. Below `lg` there is one pane and
-  the Write/Preview switch. On a phone the field and the preview start at 14rem (about seven lines),
+- **Writing surface:** Write and Preview are two full-width panes, one at a time; the toolbar's
+  Write/Preview switch chooses between them. The 8-column record column never splits in half, so
+  the textarea keeps the record's whole reading width. On a phone the field and the preview start
+  at 14rem (about seven lines),
   so the toolbar, field and save bar fit above the keyboard; from `sm` up they are 22rem. The
   textarea stays mounted while Preview is showing, so returning to Write keeps the native undo
   history and the caret, and the first tap on Write raises the field with the caret at the end of the

@@ -9,13 +9,13 @@ import {
 } from "@/api/queries";
 import { AccentPicker } from "@/components/accent-picker";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ThingIcon } from "@/components/thing-icon";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { Button, FormError, TextField } from "@/components/ui/controls";
+import { FieldRow, PageHeader, SectionRule } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
-import { cn } from "@/lib/cn";
 import {
   ACCENTS,
   DEFAULT_ACCENT,
@@ -36,7 +36,6 @@ export function SettingsPage() {
   const remove = useDeleteSpace(spaceId ?? "");
   const navigate = useNavigate();
   const toast = useToast();
-  const { handedness } = useHandedness();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [zone, setZone] = useState("UTC");
@@ -77,11 +76,6 @@ export function SettingsPage() {
     accentUpdate.mutate({ accent: null });
   };
 
-  const appearanceTitle = (
-    <h2 key="title" id="space-appearance" className="text-[17px] font-medium">
-      Appearance
-    </h2>
-  );
   const defaultAccentLabel =
     ACCENTS.find((preset) => preset.id === DEFAULT_ACCENT)?.label ?? DEFAULT_ACCENT;
   const accentReset =
@@ -152,35 +146,40 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="settle max-w-[52ch]">
+    <div className="settle max-w-[64ch]">
       <Breadcrumbs
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Space settings" }]}
       />
 
-      <div className="flex items-baseline gap-3">
-        <ThingIcon icon={detail.icon} size="lg" />
-        <h1 className="text-[26px] font-medium tracking-[-0.02em]">Space settings</h1>
-        <span className="label">{detail.role}</span>
-      </div>
+      <PageHeader
+        title="Space settings"
+        sentence="The space's name, icon, timezone and shared highlight are written to the space file."
+        meta={detail.role}
+      />
 
       <section aria-labelledby="space-identity" className="mt-10">
-        <div className="flex items-baseline justify-between border-b rule pb-2">
-          <h2 id="space-identity" className="text-[17px] font-medium">
-            Identity
-          </h2>
-          {update.isPending ? <span className="label">saving</span> : null}
-        </div>
+        <SectionRule
+          id="space-identity"
+          title="Identity"
+          count={update.isPending ? "saving" : undefined}
+        />
         {owner ? (
-          <form className="mt-4 grid gap-4" onSubmit={onSave}>
-            <div className="grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start">
-              <IconPicker
-                label="Icon"
-                value={icon}
-                onChange={setIcon}
-                disabled={update.isPending}
-              />
+          <form className="mt-2 grid divide-y divide-line border-b rule" onSubmit={onSave}>
+            <FieldRow label="Icon" htmlFor="space-icon">
+              <div>
+                <IconPicker
+                  variant="glyph"
+                  id="space-icon"
+                  label="Icon"
+                  value={icon}
+                  onChange={setIcon}
+                  disabled={update.isPending}
+                />
+              </div>
+            </FieldRow>
+            <FieldRow label="Name" htmlFor="space-name">
               <TextField
-                label="Name"
+                id="space-name"
                 name="space-name"
                 required
                 maxLength={200}
@@ -188,24 +187,37 @@ export function SettingsPage() {
                 disabled={update.isPending}
                 onChange={(event) => setName(event.target.value)}
               />
-            </div>
-            <TimezonePicker
+            </FieldRow>
+            <FieldRow
               label="Timezone"
-              value={zone}
-              zones={timezoneNames(zone)}
-              onValueChange={setZone}
-              disabled={update.isPending}
-            />
-            <p className="text-[13px] text-muted">
-              Due and overdue are calendar days in this zone.
-            </p>
-            <FormError message={update.error ? readError(update.error) : null} />
-            <ThumbRow className="flex-wrap items-baseline gap-3">
-              {dirty ? <span className="label">unsaved changes</span> : null}
-              <Button type="submit" disabled={!dirty || invalid || update.isPending}>
-                {update.isPending ? "Saving…" : "Save changes"}
-              </Button>
-            </ThumbRow>
+              htmlFor="space-timezone"
+              hint="Due and overdue are calendar days in this zone."
+            >
+              <TimezonePicker
+                id="space-timezone"
+                label="Timezone"
+                hideLabel
+                value={zone}
+                zones={timezoneNames(zone)}
+                onValueChange={setZone}
+                disabled={update.isPending}
+              />
+            </FieldRow>
+            <div className="py-3">
+              <FormError message={update.error ? readError(update.error) : null} />
+              <ThumbRow className="mt-2 flex-wrap items-baseline gap-3">
+                {dirty ? (
+                  <>
+                    <span className="label">unsaved changes</span>
+                    <Button type="submit" disabled={invalid || update.isPending}>
+                      {update.isPending ? "Saving…" : "Save changes"}
+                    </Button>
+                  </>
+                ) : update.isSuccess ? (
+                  <span className="label text-accent">saved</span>
+                ) : null}
+              </ThumbRow>
+            </div>
           </form>
         ) : (
           <div className="mt-4 grid gap-2">
@@ -222,24 +234,11 @@ export function SettingsPage() {
       </section>
 
       <section aria-labelledby="space-appearance" className="mt-10">
-        <div
-          className={cn(
-            "flex items-baseline gap-3 border-b rule pb-2",
-            handedness === "left" ? "justify-start" : "justify-between",
-          )}
-        >
-          {handedness === "left" ? (
-            <>
-              {accentReset}
-              {appearanceTitle}
-            </>
-          ) : (
-            <>
-              {appearanceTitle}
-              {accentReset}
-            </>
-          )}
-        </div>
+        <SectionRule
+          id="space-appearance"
+          title="Appearance"
+          action={accentReset}
+        />
         <p className="mt-4 text-[13px] text-muted">
           The highlight is shared with everyone in this space and marks focus, selection and the
           primary action.{" "}
@@ -258,11 +257,7 @@ export function SettingsPage() {
 
       {owner ? (
         <section aria-labelledby="space-danger" className="mt-10">
-          <div className="flex items-baseline justify-between border-b border-danger/60 pb-2">
-            <h2 id="space-danger" className="text-[17px] font-medium text-danger">
-              Delete space
-            </h2>
-          </div>
+          <SectionRule id="space-danger" tone="danger" title="Delete space" />
           <p className="mt-4 text-[13px] text-muted">
             Deletes <span className="font-mono">{detail.id}</span> and every file inside it. This
             cannot be undone; restore the data directory from a backup to get it back.

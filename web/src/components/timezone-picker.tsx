@@ -2,6 +2,7 @@ import { Combobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown } from "lucide-react";
 import { useId } from "react";
 
+import { fieldFrame } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import { defaultSpaceTimezone } from "@/lib/timezone";
 
@@ -12,6 +13,8 @@ interface TimezonePickerProps {
   id?: string;
   disabled?: boolean;
   label?: string;
+  /** Omitted when a `FieldRow` supplies the visible label and ties it by `id`. */
+  hideLabel?: boolean;
   /** Hide the device-zone action where the value already starts there. */
   showDeviceZone?: boolean;
 }
@@ -31,6 +34,7 @@ export function TimezonePicker({
   id,
   disabled,
   label = "Timezone",
+  hideLabel = false,
   showDeviceZone = true,
 }: TimezonePickerProps) {
   const generated = useId();
@@ -39,9 +43,11 @@ export function TimezonePicker({
 
   return (
     <div className="grid gap-1.5">
-      <label className="label" htmlFor={fieldId}>
-        {label}
-      </label>
+      {hideLabel ? null : (
+        <label className="label" htmlFor={fieldId}>
+          {label}
+        </label>
+      )}
       <Combobox.Root
         items={zones}
         value={value}
@@ -59,7 +65,8 @@ export function TimezonePicker({
             onFocus={(event) => event.currentTarget.select()}
             onClick={(event) => event.currentTarget.select()}
             className={cn(
-              "h-10 w-full rounded-field border border-line-interactive bg-ground pr-10 pl-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]",
+              fieldFrame,
+              "h-[var(--field-fine)] pr-10 pl-3 pointer-coarse:h-[var(--field-coarse)]",
             )}
           />
           <Combobox.Trigger

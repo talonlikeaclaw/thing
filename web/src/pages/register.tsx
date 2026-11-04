@@ -102,7 +102,7 @@ export function RegisterPage() {
   return (
     <AuthScaffold
       title="Create your account"
-      subtitle="The first account on this install needs no invite. Your first space is one step away."
+      subtitle="The first account on this install needs no invite; your first space is one step away."
       footer={
         <>
           Already have an account?{" "}

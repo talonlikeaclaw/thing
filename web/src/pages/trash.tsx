@@ -11,9 +11,10 @@ import {
   useTypes,
 } from "@/api/queries";
 import type { TrashItem } from "@/api/types";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, TextField } from "@/components/ui/controls";
+import { EmptyState, PageHeader } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
@@ -99,7 +100,6 @@ function TrashList({
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [bulkConfirmText, setBulkConfirmText] = useState("");
   const [bulkError, setBulkError] = useState<string | null>(null);
-  const { handedness } = useHandedness();
 
   const selectedIds = items.filter((item) => selection.has(item.id)).map((item) => item.id);
   const selectionKey = selectedIds.join("\u0000");
@@ -277,29 +277,25 @@ function TrashList({
 
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-[26px] font-medium tracking-[-0.02em]">Trash</h1>
-        <span className="label tnum">
-          {items.length} {items.length === 1 ? "record" : "records"}
-        </span>
-      </div>
-      <p className="mt-2 max-w-[52ch] text-[13px] text-muted">
-        A trashed record keeps its file and its history. Restore it to the table it came from, or
-        purge it — purging deletes the file and every revision for good.
-      </p>
+      <PageHeader
+        title="Trash"
+        sentence="A trashed record keeps its file and its history; restore it to its table, or purge it to delete the file and every revision for good."
+        meta={`${items.length} ${items.length === 1 ? "record" : "records"}`}
+      />
 
       {items.length === 0 ? (
-        <div className="mt-8 grid gap-3 border-t rule pt-4">
-          <p className="text-muted">
-            The trash is empty. Deleting a record from its panel moves it here.
-          </p>
-          <Link
-            to={`/s/${spaceId}`}
-            className="w-fit text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
-          >
-            Back to the space
-          </Link>
-        </div>
+        <EmptyState
+          className="mt-8 border-t rule pt-4"
+          sentence="The trash is empty. Deleting a record from its panel moves it here."
+          action={
+            <Link
+              to={`/s/${spaceId}`}
+              className="w-fit text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+            >
+              Back to the space
+            </Link>
+          }
+        />
       ) : (
         <>
           {canEdit ? (
@@ -389,16 +385,38 @@ function TrashList({
             </div>
           ) : null}
 
-          <ul className="mt-6 border-t rule">
+          <div
+            className={cn(
+              "mt-6 hidden items-baseline border-b rule pb-1.5 md:grid md:gap-4",
+              canEdit
+                ? "md:grid-cols-[auto_minmax(0,1fr)_9rem_9rem_auto]"
+                : "md:grid-cols-[minmax(0,1fr)_9rem_9rem]",
+            )}
+          >
+            {canEdit ? <span aria-hidden /> : null}
+            <span className="label">Record</span>
+            <span className="label">Type</span>
+            <span className="label">Deleted</span>
+            {canEdit ? <span className="label text-right">Actions</span> : null}
+          </div>
+
+          <ul className="border-t rule md:border-t-0">
             {items.map((item) => {
               const isConfirming = confirming === item.id;
               const isPending = pending.has(item.id);
               const error = rowErrors[item.id];
               return (
-                <li key={item.id} className="grid gap-2 border-b rule py-3">
-                  <div className="flex items-start gap-3">
+                <li key={item.id} className="border-b rule py-3">
+                  <div
+                    className={cn(
+                      "grid gap-2 md:items-center md:gap-4",
+                      canEdit
+                        ? "md:grid-cols-[auto_minmax(0,1fr)_9rem_9rem_auto]"
+                        : "md:grid-cols-[minmax(0,1fr)_9rem_9rem]",
+                    )}
+                  >
                     {canEdit ? (
-                      <label className="flex min-h-11 items-center">
+                      <label className="flex min-h-11 items-center md:min-h-0">
                         <input
                           type="checkbox"
                           checked={selection.has(item.id)}
@@ -407,123 +425,109 @@ function TrashList({
                         />
                       </label>
                     ) : null}
-                    <div className="grid min-w-0 flex-1 gap-2">
-                      <div
-                        className={cn(
-                          "grid gap-x-4 gap-y-1 sm:items-start",
-                          handedness === "left"
-                            ? "sm:grid-cols-[auto_minmax(0,1fr)]"
-                            : "sm:grid-cols-[minmax(0,1fr)_auto]",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "min-w-0",
-                            handedness === "left" && "sm:col-start-2 sm:row-start-1",
-                          )}
-                        >
-                          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                            {item.icon ? (
-                              <ThingIcon icon={item.icon} size="sm" />
-                            ) : null}
-                            <span className="text-[15px] font-medium">{item.title}</span>
-                            <span className="font-mono text-[11px] text-faint">
-                              {typeNames.get(item.type) ?? item.type} · {item.type}
-                            </span>
-                          </div>
-                          <p className="mt-1 font-mono text-[11px] text-faint">
-                            rev {item.rev} · trashed{" "}
-                            {item.trashed_at ? formatDate(item.trashed_at, timeZone) : "unknown"}
-                            {item.trashed_from ? (
-                              <>
-                                {" · "}
-                                <span className="break-all text-muted" title={item.trashed_from}>
-                                  {item.trashed_from}
-                                </span>
-                              </>
-                            ) : null}
-                          </p>
-                        </div>
-                        {canEdit && !isConfirming ? (
-                          <div
-                            className={cn(
-                              "flex flex-wrap items-center gap-2",
-                              handedness === "left"
-                                ? "justify-start sm:col-start-1 sm:row-start-1"
-                                : "justify-end",
-                            )}
-                          >
-                            <Button
-                              variant="ghost"
-                              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                              disabled={isPending}
-                              onClick={() => void restoreOne(item)}
-                            >
-                              {isPending ? "Working…" : "Restore"}
-                            </Button>
-                            <button
-                              type="button"
-                              className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"
-                              disabled={isPending}
-                              onClick={() => {
-                                setRowConfirmText("");
-                                setConfirming(item.id);
-                              }}
-                            >
-                              Purge
-                            </button>
-                          </div>
-                        ) : null}
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                        {item.icon ? <ThingIcon icon={item.icon} size="sm" /> : null}
+                        <span className="text-[15px] font-medium">{item.title}</span>
+                        <span className="font-mono text-[11px] text-faint tnum">
+                          rev {item.rev}
+                        </span>
                       </div>
-
-                      {error ? <FormError message={error} /> : null}
-
-                      {canEdit && isConfirming ? (
-                        <div
-                          role="group"
-                          aria-label={`Purge ${item.title}`}
-                          className="grid gap-3 border-l border-danger pl-3"
+                      {item.trashed_from ? (
+                        <p
+                          className="mt-0.5 truncate font-mono text-[11px] text-faint"
+                          title={item.trashed_from}
                         >
-                          <p className="text-[13px] text-muted">
-                            Purge “{item.title}” and every revision of it? This cannot be undone.
-                            Type the space name or the count to confirm.
-                          </p>
-                          <div className="max-w-[22rem]">
-                            <TextField
-                              label="Space name or count"
-                              name={`trash-purge-${item.id}`}
-                              autoComplete="off"
-                              autoFocus
-                              value={rowConfirmText}
-                              disabled={isPending}
-                              onChange={(event) => setRowConfirmText(event.target.value)}
-                            />
-                          </div>
-                          <ThumbRow className="flex-wrap items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                              disabled={isPending}
-                              onClick={() => {
-                                setConfirming(null);
-                                setRowConfirmText("");
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                              disabled={!rowPurgeConfirmed || isPending}
-                              onClick={() => void purgeOne(item)}
-                            >
-                              {isPending ? "Purging…" : "Purge forever"}
-                            </Button>
-                          </ThumbRow>
-                        </div>
+                          {item.trashed_from}
+                        </p>
                       ) : null}
                     </div>
+
+                    <div className="min-w-0">
+                      <span className="block truncate text-[13px] text-muted">
+                        {typeNames.get(item.type) ?? item.type}
+                      </span>
+                      <span className="block font-mono text-[11px] text-faint">{item.type}</span>
+                    </div>
+
+                    <div className="font-mono text-[11px] text-muted tnum">
+                      {item.trashed_at ? formatDate(item.trashed_at, timeZone) : "unknown"}
+                    </div>
+
+                    {canEdit && !isConfirming ? (
+                      <ThumbRow className="flex-wrap items-center gap-2 md:justify-end">
+                        <Button
+                          variant="ghost"
+                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                          disabled={isPending}
+                          onClick={() => void restoreOne(item)}
+                        >
+                          {isPending ? "Working…" : "Restore"}
+                        </Button>
+                        <button
+                          type="button"
+                          className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"
+                          disabled={isPending}
+                          onClick={() => {
+                            setRowConfirmText("");
+                            setConfirming(item.id);
+                          }}
+                        >
+                          Purge
+                        </button>
+                      </ThumbRow>
+                    ) : canEdit ? (
+                      <span aria-hidden />
+                    ) : null}
                   </div>
+
+                  {error ? <FormError message={error} /> : null}
+
+                  {canEdit && isConfirming ? (
+                    <div
+                      role="group"
+                      aria-label={`Purge ${item.title}`}
+                      className="mt-3 grid gap-3 border-l border-danger pl-3"
+                    >
+                      <p className="text-[13px] text-muted">
+                        Purge “{item.title}” and every revision of it? This cannot be undone.
+                        Type the space name or the count to confirm.
+                      </p>
+                      <div className="max-w-[22rem]">
+                        <TextField
+                          label="Space name or count"
+                          name={`trash-purge-${item.id}`}
+                          autoComplete="off"
+                          autoFocus
+                          value={rowConfirmText}
+                          disabled={isPending}
+                          onChange={(event) => setRowConfirmText(event.target.value)}
+                        />
+                      </div>
+                      <ThumbRow className="flex-wrap items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                          disabled={isPending}
+                          onClick={() => {
+                            setConfirming(null);
+                            setRowConfirmText("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                          disabled={!rowPurgeConfirmed || isPending}
+                          onClick={() => void purgeOne(item)}
+                        >
+                          {isPending ? "Purging…" : "Purge forever"}
+                        </Button>
+                      </ThumbRow>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

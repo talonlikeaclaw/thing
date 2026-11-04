@@ -6,6 +6,7 @@ import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, TextField } from "@/components/ui/controls";
+import { EmptyState, SectionRule } from "@/components/ui/page";
 import { readError } from "@/lib/display";
 
 interface TypeListProps {
@@ -61,12 +62,7 @@ export function TypeList({
 
   return (
     <section aria-labelledby="schema-types">
-      <div className="flex items-baseline justify-between border-b rule pb-2">
-        <h2 id="schema-types" className="text-[17px] font-medium">
-          Types
-        </h2>
-        <span className="label tnum">{types.length}</span>
-      </div>
+      <SectionRule id="schema-types" title="Types" count={types.length} />
 
       {createdKey ? (
         <p role="status" className="border-b rule py-2 text-[12px] text-muted">
@@ -76,9 +72,7 @@ export function TypeList({
       ) : null}
 
       {types.length === 0 ? (
-        <p className="border-b rule py-4 text-[13px] text-muted">
-          No types yet. A type is a table. Its properties are columns; its records are rows.
-        </p>
+        <EmptyState sentence="No types yet. A type is a table; its properties are columns and its records are rows." />
       ) : (
         <ul>
           {types.map((type) => (
@@ -86,18 +80,27 @@ export function TypeList({
               <button
                 type="button"
                 aria-current={type.key === selectedKey ? "true" : undefined}
-                className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:text-accent pointer-coarse:min-h-11"
+                className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:bg-accent-wash aria-[current=true]:text-accent pointer-coarse:min-h-11"
                 onClick={() => onSelect(type.key)}
               >
-                <span className="flex min-w-0 items-baseline gap-2">
+                <span className="mt-0.5">
                   <ThingIcon icon={type.icon} size="sm" />
-                  <span className="truncate text-[15px]">{type.name}</span>
-                  <span className="font-mono text-[11px] text-faint">{type.key}</span>
-                  {type.schedule ? (
-                    <span className="label shrink-0 text-accent">scheduled</span>
-                  ) : null}
                 </span>
-                <span className="label tnum shrink-0">{type.object_count}</span>
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="flex min-w-0 items-baseline gap-2">
+                    <span className="truncate text-[15px]">{type.name}</span>
+                    {type.schedule ? (
+                      <span className="label shrink-0 text-accent">scheduled</span>
+                    ) : null}
+                  </span>
+                  <span className="flex flex-wrap items-baseline justify-between gap-x-2 font-mono text-[11px] leading-4 text-faint">
+                    <span className="truncate">{type.key}</span>
+                    <span className="tnum shrink-0">
+                      {type.property_count} {type.property_count === 1 ? "prop" : "props"} ·{" "}
+                      {type.object_count} {type.object_count === 1 ? "record" : "records"}
+                    </span>
+                  </span>
+                </span>
               </button>
             </li>
           ))}

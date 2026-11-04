@@ -28,7 +28,7 @@ export function JoinPage() {
     return (
       <AuthScaffold
         title="You're already signed in"
-        subtitle="An invite is redeemed while creating a new account. Sign out first if this invite is for you; the code stays in this page."
+        subtitle="An invite is redeemed while creating a new account; sign out first if this invite is for you, and the code stays in this page."
         footer={
           <Link to="/" className="text-ink underline decoration-line-strong">
             Go to your spaces

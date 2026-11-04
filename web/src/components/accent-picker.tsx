@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ACCENTS, type AccentId } from "@/lib/accent";
@@ -58,7 +57,7 @@ export function AccentPicker({ value, onChange, labelledBy, disabled = false }: 
       role="radiogroup"
       aria-labelledby={labelledBy}
       aria-disabled={disabled}
-      className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
+      className="mt-4 flex flex-wrap gap-x-[var(--space-2)] gap-y-[var(--space-1)]"
     >
       {ACCENTS.map((accent, index) => {
         const scheme = light ? accent.light : accent.dark;
@@ -91,22 +90,20 @@ export function AccentPicker({ value, onChange, labelledBy, disabled = false }: 
               }
             }}
             className={cn(
-              "flex min-h-11 items-center gap-3 rounded-field border px-3 py-2 text-left transition-colors pointer-coarse:min-h-12",
-              checked
-                ? "border-accent bg-raised"
-                : "border-line hover:border-line-strong",
-              disabled && "cursor-default opacity-70 hover:border-line",
+              "flex min-h-11 items-center gap-2.5 rounded-field px-1 py-1 text-left transition-colors pointer-coarse:min-h-12",
+              checked ? "text-accent" : "text-muted hover:text-ink",
+              disabled && "cursor-default opacity-70",
             )}
           >
             <span
               aria-hidden
-              className="size-11 shrink-0 rounded-[4px] border border-line"
+              className={cn(
+                "size-6 shrink-0 rounded-full border",
+                checked && "ring-2 ring-accent ring-offset-2 ring-offset-ground",
+              )}
               style={{ backgroundColor: scheme.accent, borderColor: scheme.accent }}
             />
-            <span className="flex min-w-0 items-center gap-1.5 text-[14px]">
-              <span className="truncate">{accent.label}</span>
-              {checked ? <Check aria-hidden size={13} className="shrink-0 text-accent" /> : null}
-            </span>
+            <span className="text-[13px]">{accent.label}</span>
           </button>
         );
       })}

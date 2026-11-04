@@ -26,13 +26,12 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
       </header>
       <main className="grid flex-1 content-start gap-12 py-12 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-20 md:py-20">
         <section aria-labelledby="auth-title" className="settle">
-          <h1
-            id="auth-title"
-            className="text-[28px] leading-[1.15] font-medium tracking-[-0.02em]"
-          >
+          <h1 id="auth-title" className="display text-display break-words">
             {title}
           </h1>
-          <p className="mt-2 max-w-[36ch] text-muted">{subtitle}</p>
+          <p className="mt-2 max-w-[36ch] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
+            {subtitle}
+          </p>
           <div className="mt-8">{children}</div>
           {footer ? <div className="mt-6 text-[13px] text-muted">{footer}</div> : null}
         </section>
@@ -61,22 +60,6 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
               </dd>
             </div>
           </dl>
-
-          <div className="mt-10 border-t rule pt-4">
-            <p className="label">Example index</p>
-            <ul className="mt-2 font-mono text-[12px] text-muted">
-              <li className="flex justify-between border-b rule py-1.5">
-                <span>7f3a</span>
-                <span className="text-ink">Garden</span>
-                <span className="tnum">2 types</span>
-              </li>
-              <li className="flex justify-between border-b rule py-1.5">
-                <span>b104</span>
-                <span className="text-ink">Chores</span>
-                <span className="tnum">1 type</span>
-              </li>
-            </ul>
-          </div>
         </aside>
       </main>
     </div>

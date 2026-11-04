@@ -2,7 +2,8 @@ import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { SmallButton } from "@/components/schema/small-button";
-import { Button } from "@/components/ui/controls";
+import { Button, fieldFrame } from "@/components/ui/controls";
+import { cn } from "@/lib/cn";
 import {
   colorValue,
   DEFAULT_OPTION_COLOR,
@@ -17,8 +18,10 @@ interface OptionEditorProps {
   idPrefix: string;
 }
 
-const optionFieldStyles =
-  "h-9 min-w-0 rounded-field border border-line-interactive bg-ground px-2 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+const optionFieldStyles = cn(
+  fieldFrame,
+  "h-9 min-w-0 px-2 pointer-coarse:h-11",
+);
 
 /** Options in display order, with inline creation; nothing is saved until Save. */
 export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEditorProps) {

@@ -117,7 +117,8 @@ export function StickyActionBar({
 }
 
 interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "className"> {
-  label: ReactNode;
+  /** Omitted when a `FieldRow` supplies the visible label and ties it by `id`. */
+  label?: ReactNode;
   error?: string;
   hint?: ReactNode;
 }
@@ -158,9 +159,11 @@ export function TextField({ label, error, hint, id, ...props }: TextFieldProps) 
   const errorId = error ? `${fieldId}-error` : undefined;
   return (
     <Field.Root className="grid gap-1.5">
-      <Field.Label className="label" htmlFor={fieldId}>
-        {label}
-      </Field.Label>
+      {label ? (
+        <Field.Label className="label" htmlFor={fieldId}>
+          {label}
+        </Field.Label>
+      ) : null}
       <Field.Control
         id={fieldId}
         aria-invalid={error ? true : undefined}
@@ -178,7 +181,8 @@ export function TextField({ label, error, hint, id, ...props }: TextFieldProps) 
 }
 
 interface TextAreaFieldProps extends Omit<ComponentProps<"textarea">, "className"> {
-  label: string;
+  /** Omitted when a `FieldRow` supplies the visible label and ties it by `id`. */
+  label?: string;
   error?: string;
   hint?: ReactNode;
   rows?: number;
@@ -197,9 +201,11 @@ export function TextAreaField({
   const errorId = error ? `${fieldId}-error` : undefined;
   return (
     <Field.Root className="grid gap-1.5">
-      <Field.Label className="label" htmlFor={fieldId}>
-        {label}
-      </Field.Label>
+      {label ? (
+        <Field.Label className="label" htmlFor={fieldId}>
+          {label}
+        </Field.Label>
+      ) : null}
       <textarea
         id={fieldId}
         rows={rows}

@@ -8,6 +8,7 @@ import { TypeEditor } from "@/components/schema/type-editor";
 import { TypeList } from "@/components/schema/type-list";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
+import { PageHeader } from "@/components/ui/page";
 import { useRouteMeta } from "@/lib/route";
 import { effectiveProperties } from "@/lib/schema";
 
@@ -90,14 +91,11 @@ export function SchemaPage() {
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schema" }]}
       />
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h1 className="text-[26px] font-medium tracking-[-0.02em]">Schema</h1>
-        <span className="label">{detail.role}</span>
-      </div>
-      <p className="mt-2 max-w-[62ch] text-muted">
-        Types are tables and properties are columns. Both are shared by everyone in the space;
-        every change is written to the markdown files on disk.
-      </p>
+      <PageHeader
+        title="Schema"
+        sentence="Types are tables and properties are columns, shared by everyone in the space and written to the markdown files on disk."
+        meta={detail.role}
+      />
 
       <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] lg:gap-10">
         <TypeList

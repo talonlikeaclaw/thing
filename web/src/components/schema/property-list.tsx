@@ -5,6 +5,7 @@ import type { PropertyDef, PropertyFormat, TypeSummary } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
+import { EmptyState, FormatChip, SectionRule } from "@/components/ui/page";
 import { readError } from "@/lib/display";
 import {
   formatLabel,
@@ -74,12 +75,7 @@ export function PropertyList({
 
   return (
     <section aria-labelledby="schema-properties">
-      <div className="flex items-baseline justify-between border-b rule pb-2">
-        <h2 id="schema-properties" className="text-[17px] font-medium">
-          Properties
-        </h2>
-        <span className="label tnum">{properties.length}</span>
-      </div>
+      <SectionRule id="schema-properties" title="Properties" count={properties.length} />
 
       {createdKey ? (
         <p role="status" className="border-b rule py-2 text-[12px] text-muted">
@@ -89,9 +85,7 @@ export function PropertyList({
       ) : null}
 
       {properties.length === 0 ? (
-        <p className="border-b rule py-4 text-[13px] text-muted">
-          No properties yet. A property is a column definition the whole space can use.
-        </p>
+        <EmptyState sentence="No properties yet. A property is a column definition the whole space can use." />
       ) : (
         <ul>
           {properties.map((property) => (
@@ -99,14 +93,16 @@ export function PropertyList({
               <button
                 type="button"
                 aria-current={property.key === selectedKey ? "true" : undefined}
-                className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:text-accent pointer-coarse:min-h-11"
+                className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:bg-accent-wash aria-[current=true]:text-accent pointer-coarse:min-h-11"
                 onClick={() => onSelect(property.key)}
               >
-                <span className="flex min-w-0 items-baseline gap-2">
+                <span className="grid min-w-0 gap-0.5">
                   <span className="truncate text-[15px]">{property.name}</span>
-                  <span className="font-mono text-[11px] text-faint">{property.key}</span>
+                  <span className="truncate font-mono text-[11px] leading-4 text-faint">
+                    {property.key}
+                  </span>
                 </span>
-                <span className="label shrink-0">{formatLabel(property.format)}</span>
+                <FormatChip>{formatLabel(property.format)}</FormatChip>
               </button>
             </li>
           ))}
