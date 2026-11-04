@@ -16,7 +16,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router";
 
@@ -37,6 +37,7 @@ import {
   writeNavOrder,
   type NavLink,
 } from "@/lib/nav-order";
+import { PHONE_SPACE_SLOT_ID } from "@/lib/phone";
 
 interface SpaceNavProps {
   spaceId: string;
@@ -81,7 +82,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const agenda = useAgenda(spaceId, { days: 14 });
   const me = useMe();
   const capture = useQuickCapture();
-  const openPalette = usePalette();
+  const palette = usePalette();
   const { handedness } = useHandedness();
   const connection = useConnection();
   const list: SpaceSummary[] = spaces.data ?? [];
@@ -95,6 +96,13 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const [typesBelow, setTypesBelow] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const typesRef = useRef<HTMLDivElement | null>(null);
+  // The shell owns the header; the space sheet owns its trigger. The trigger
+  // is portalled into the header slot after mount, because the header is not
+  // in the DOM yet when this component first renders.
+  const [phoneSlot, setPhoneSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setPhoneSlot(document.getElementById(PHONE_SPACE_SLOT_ID));
+  }, []);
 
   // When the type list sits below the sheet's fold, say so at the bottom edge
   // and make that strip a jump to it. The section heading alone is not enough:
@@ -169,58 +177,57 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
 
   const close = () => setMobileOpen(false);
 
-  // The chevron belongs to the name, not to the row's far edge: it shows the
-  // name opens a sheet without detaching from it.
-  const spaceChevron = <ChevronUp aria-hidden size={16} className="shrink-0 text-muted" />;
-
-  const spaceLabel = (
-    <span
-      key="label"
-      className={cn(
-        "flex min-w-0 flex-1 items-center gap-3",
-        handedness === "left" && "flex-row-reverse",
-      )}
+  // The header names the space and opens the same sheet. The chevron points
+  // down because the sheet rises from the bottom of the screen.
+  const phoneSpaceTrigger = (
+    <Dialog.Trigger
+      key="space-header"
+      aria-label={`Switch space, currently ${space.data?.name ?? "this space"}`}
+      className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-field px-1.5 text-left transition-colors hover:bg-raised data-[popup-open]:text-ink"
     >
-      <ThingIcon icon={space.data?.icon} size="md" />
-      <span className={cn("min-w-0 flex-1", handedness === "left" && "text-right")}>
-        <span
-          className={cn(
-            "flex min-w-0 items-center gap-1",
-            handedness === "left" && "flex-row-reverse",
-          )}
-        >
-          <span className="truncate text-[15px] font-medium">
-            {space.data?.name ?? "This space"}
-          </span>
-          {spaceChevron}
-        </span>
-        <span className="label">{role}</span>
+      <ThingIcon icon={space.data?.icon} size="sm" />
+      <span className="min-w-0 flex-1 truncate text-[14px] text-ink">
+        {space.data?.name ?? "This space"}
       </span>
-    </span>
+      <ChevronDown aria-hidden size={14} className="shrink-0 text-faint" />
+    </Dialog.Trigger>
   );
 
+  // The bottom bar keeps the sheet within thumb reach. It is a labelled
+  // destination, not a second bare icon, so it reads apart from Capture and
+  // Search and shares their active marker.
   const spaceTrigger = (
     <Dialog.Trigger
       key="space"
       aria-label={`Space menu for ${space.data?.name ?? "this space"}`}
-      className={cn(
-        "flex min-h-14 min-w-0 flex-1 items-center gap-3 text-left",
-        handedness === "left" ? "pl-1" : "pr-1",
-      )}
+      className={barTab(mobileOpen)}
     >
-      {spaceLabel}
+      <ThingIcon icon={space.data?.icon} size="sm" />
+      <span>Space</span>
     </Dialog.Trigger>
   );
 
   const captureAction = (
-    <BarAction key="capture" label="Capture a record (C)" onClick={() => capture.open()}>
+    <BarAction
+      key="capture"
+      label="Capture a record (C)"
+      active={capture.isOpen}
+      onClick={() => capture.open()}
+    >
       <Plus aria-hidden size={17} />
+      <span>Capture</span>
     </BarAction>
   );
 
   const searchAction = (
-    <BarAction key="search" label="Search and commands" onClick={openPalette}>
+    <BarAction
+      key="search"
+      label="Search and commands"
+      active={palette.isOpen}
+      onClick={palette.open}
+    >
       <Search aria-hidden size={17} />
+      <span>Search</span>
     </BarAction>
   );
 
@@ -305,7 +312,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
             data-phone-bar
             className="fixed inset-x-0 bottom-0 z-40 border-t rule bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
           >
-            <div className="flex items-center gap-1 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
+            <div className="flex min-h-14 items-center justify-between gap-2 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
               {handedness === "left" ? (
                 <>
                   {barActions}
@@ -321,6 +328,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
           </div>,
           document.body,
         )}
+        {phoneSlot ? createPortal(phoneSpaceTrigger, phoneSlot) : null}
 
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85 lg:hidden" />
@@ -447,23 +455,33 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   );
 }
 
-/** A 44px icon action in the phone's bottom bar. */
+/**
+ * One labelled destination in the phone's bottom bar: icon over a readable
+ * label, a 44px target, and a 2px accent marker at the top edge while its
+ * surface is open. Never a row of identical bare icons.
+ */
+function barTab(active: boolean) {
+  return cn(
+    "relative flex min-h-11 min-w-[3.5rem] flex-col items-center justify-center gap-0.5 rounded-field px-2 text-[11px] leading-none text-muted transition-colors hover:bg-raised hover:text-ink",
+    active &&
+      "text-ink before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-accent before:content-['']",
+  );
+}
+
+/** A labelled action in the phone's bottom bar. */
 function BarAction({
   label,
+  active,
   onClick,
   children,
 }: {
   label: string;
+  active: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-field text-muted transition-colors hover:bg-raised hover:text-ink"
-      onClick={onClick}
-    >
+    <button type="button" aria-label={label} className={barTab(active)} onClick={onClick}>
       {children}
     </button>
   );

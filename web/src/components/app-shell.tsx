@@ -53,6 +53,7 @@ import {
   writeHandedness,
   type Handedness,
 } from "@/lib/handedness";
+import { PHONE_SPACE_SLOT_ID } from "@/lib/phone";
 import { useSpaceEvents } from "@/lib/use-space-events";
 
 const ACCOUNT_TRIGGER_ID = "account-menu-trigger";
@@ -289,7 +290,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   }, [location.pathname]);
 
   return (
-    <PaletteProvider open={openPalette}>
+    <PaletteProvider open={openPalette} isOpen={paletteOpen}>
       <ConnectionProvider state={connection}>
         <div className="flex min-h-dvh flex-col">
           <ScrollRestoration />
@@ -299,14 +300,14 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
           >
             Skip to content
           </a>
-          <header className="border-b rule">
+          <header className="border-b rule pt-[env(safe-area-inset-top)]">
             {/*
               At `lg` the header is always the page's rail-and-content grid,
               inside a space or not, so the action zone keeps one x on every
               route instead of jumping between the content edge and the right.
             */}
-            <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 px-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
+              <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
                 <Wordmark />
                 {/* The text below is `sm` and up; a phone still needs to see
                     that the socket is down, without moving Search or Capture. */}
@@ -320,6 +321,9 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     className="size-2 shrink-0 rounded-full bg-warning sm:hidden"
                   />
                 ) : null}
+                {/* The space navigation portals its phone trigger here, so the
+                    top bar names the space without duplicating the sheet. */}
+                <div id={PHONE_SPACE_SLOT_ID} className="min-w-0 flex-1 lg:hidden" />
               </div>
               <div
                 // Two groups: global chrome at the content edge and the space's

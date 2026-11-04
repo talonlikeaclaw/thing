@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Tags are chips you can toggle instead of a column of checkboxes.",
       "Tables read as ledgers: the title stays pinned, headers keep their labels, rows show hover and selection, and board, gallery and calendar share the same rhythm.",
       "The palette groups what it finds with counts, marks the active result and moves only the rows between searches; capture, shortcuts and confirmations share one sheet rhythm.",
+      "A phone gets one composed top bar with the space it is in, a labelled bottom bar, and a save indicator that stays a quiet pill until there is something to save.",
     ],
     upcoming: true,
   },

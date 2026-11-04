@@ -398,7 +398,7 @@ its own button, field, focus ring or error treatment.
 - **Labels:** uppercase mono 11px above the field, 8px gap; hints and errors sit below at 13px.
 
 ### Navigation
-- **App header:** 64px tall, hairline bottom rule; at `lg` it is the page's rail-and-content grid
+- **App header:** 64px tall plus the top safe-area inset on a phone, hairline bottom rule; at `lg` it is the page's rail-and-content grid
   on every route — a 13rem column holding the wordmark and a content column holding two groups —
   so an action keeps one x whether or not a space is open. The first group is the global chrome,
   Search with the platform shortcut cap, then the space's Capture with its `C` cap, then the
@@ -410,14 +410,17 @@ its own button, field, focus ring or error treatment.
   items, Escape closes the menu, and a cancelled sign-out returns focus to the trigger rather than
   to the item the closed menu already unmounted. An auto-highlighted first row paints only for
   keyboard focus or pointer hover, never for the automatic highlight a touch-opened menu sets.
-  Below `lg`, Capture and Search live in the bottom bar instead, so the header keeps
-  only the wordmark and the same 44px menu trigger with its email hidden. A phone keeps a
-  connection cue the text cannot give: when the socket is not live, an 8px amber dot with
-  `role="status"` sits beside the wordmark below `sm`, titled **Offline, reconnecting** or
-  **Connecting…**, and leaves on reconnect without moving Search or Capture. The space's
-  connection status truncates rather than pushing the actions or the account menu. The Shortcuts
-  control does not render below `sm` or on a coarse pointer, and neither does the palette's
-  key-hint footer. No sidebar in the signed-out surface; the space list is the navigation.
+  Below `lg`, the header becomes the phone's one composed bar: the wordmark and, when the socket
+  is down, an 8px amber dot on the leading edge; the current space as a switcher chip — its icon,
+  truncated name and a down chevron — in the middle, opening the same space sheet as the bottom
+  bar; and the same 44px labelled account menu at the trailing edge with its email hidden. The
+  header carries the top safe-area inset and horizontal safe-area padding, and Capture and Search
+  live in the bottom bar instead. The dot carries `role="status"`, is titled **Offline,
+  reconnecting** or **Connecting…**, and leaves on reconnect without moving the switcher or the
+  account menu. The space's connection status truncates rather than pushing the actions or the
+  account menu. The Shortcuts control does not render below `sm` or on a coarse pointer, and
+  neither does the palette's key-hint footer. No sidebar in the signed-out surface; the space
+  list is the navigation.
 - **Account page:** a single centred column at a 52ch measure; it holds no rail and no table, so it
   never runs to the container's trailing edge.
 - **Sign out confirmation:** a dialog titled **Sign out?** whose body names the loss — any unsaved
@@ -426,13 +429,18 @@ its own button, field, focus ring or error treatment.
   **Retry**. The row follows the thumb edge like every action row: the action is last on the right
   and first on the left, so the first tab stop matches the paint order. The dialog itself stays
   centred in both modes.
-- **Mobile space drawer:** below `lg` the rail is a fixed bottom bar. Right-handed: space icon
-  and name, role and an up chevron leading, then 44px Capture and Search trailing. Left-handed:
-  Search and Capture lead (Search on the outer edge) and the space trigger trails with the chevron
-  inward and the icon/name pinned to the right. The left area opens a bottom sheet
-  with the same space switcher, All spaces, Overview, the five space pages and Types last, a close
-  control, focus trapped and returned to the bar, closing on selection or Escape. It is portaled to `body` so the page's
-  settle transform cannot trap it.
+- **Mobile space drawer:** below `lg` the rail is a fixed bottom bar, 56px of content plus the
+  home-indicator inset, holding three labelled destinations — two for a viewer, who has no
+  Capture — a vertical icon over an 11px label,
+  each a 44px target and never a row of identical bare icons. Right-handed: **Space** leads at the
+  left edge and **Capture** and **Search** trail, with Search on the outer edge. Left-handed:
+  Search and Capture lead (Search outermost) and Space trails. A destination whose surface is open
+  marks itself with the 2px accent rule at its top edge; no other fill is used. The Space tab opens
+  a bottom sheet with the same space switcher, All spaces, Overview, the five space pages and Types
+  last, a close control, focus trapped and returned to the bar, closing on selection or Escape. The
+  sheet is portalled to `body` so the page's settle transform cannot trap it. The header's space
+  chip opens the same sheet, so the current space is named at the top and reachable by thumb at the
+  bottom without a second navigation model.
 - **Dialog and sheet close:** close controls follow the sheet's handedness. Right-handed keeps the
   platform-standard trailing close (the title row ends at the right edge, the palette's search row
   ends with its X); left-handed puts the same close control first in the row, with margin and focus
@@ -608,6 +616,13 @@ its own button, field, focus ring or error treatment.
   scrolls; it is never a second scroll container. Below `xl` the grid collapses to one column in
   reading order, so the property block comes before the body. The sticky save row spans the content
   and, from `lg`, puts its status at the leading edge and Save at the trailing edge.
+- **Save indicator:** a clean record shows one quiet 32px `Saved` pill at the thumb edge — right
+  in right-handed mode, left in left-handed mode — with no full-width rule, no bar and no disabled
+  Save. The first unsaved change expands the pill into the action row: the change count in mono
+  with an accent dot, and Save at the thumb edge, disabled only while invalid or pending. An error
+  keeps the row with its message and Retry. Read-only records show neither. The sticky row's
+  bottom still sits on the phone bar's hairline (or above the keyboard) and its flow position at
+  the end of the record keeps the last line clear.
 - **Identity band:** the type glyph and type name lead, the title follows in `--text-title` mono
   (editable in place), and the mono folio — `PLANT · REV 1` — sits at the trailing edge before the
   icon and overflow controls. The folio disclosure holds the full record id and its copy control. One

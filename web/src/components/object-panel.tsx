@@ -1206,47 +1206,55 @@ export function ObjectPanel({
       </div>
 
       {canEdit ? (
-        <StickyActionBar className="lg:justify-between">
-          {saveError ? (
-            <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
-              <FormError message={saveError} />
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-                disabled={update.isPending}
-                onClick={() => void save()}
-              >
-                Retry
-              </Button>
+        dirty || saveError ? (
+          <StickyActionBar className="lg:justify-between">
+            {saveError ? (
+              <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
+                <FormError message={saveError} />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                  disabled={update.isPending}
+                  onClick={() => void save()}
+                >
+                  Retry
+                </Button>
+              </span>
+            ) : null}
+            <span
+              role="status"
+              className={cn(
+                "label flex items-center gap-1.5",
+                dirty && "text-accent",
+              )}
+            >
+              {dirty ? (
+                <>
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
+                </>
+              ) : (
+                "Saved"
+              )}
             </span>
-          ) : null}
-          <span
-            role="status"
-            className={cn(
-              "label flex items-center gap-1.5",
-              dirty && "text-accent",
-            )}
-          >
-            {dirty ? (
-              <>
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-                {changeCount} unsaved {changeCount === 1 ? "change" : "changes"}
-              </>
-            ) : (
-              "Saved"
-            )}
-          </span>
-          <Button
-            type="button"
-            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-            disabled={!dirty || update.isPending || invalid.size > 0}
-            title="Save (Cmd/Ctrl+S or Cmd/Ctrl+Enter)"
-            onClick={() => void save()}
-          >
-            {update.isPending ? "Saving…" : "Save"}
-          </Button>
-        </StickyActionBar>
+            <Button
+              type="button"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={!dirty || update.isPending || invalid.size > 0}
+              title="Save (Cmd/Ctrl+S or Cmd/Ctrl+Enter)"
+              onClick={() => void save()}
+            >
+              {update.isPending ? "Saving…" : "Save"}
+            </Button>
+          </StickyActionBar>
+        ) : (
+          <ThumbRow className="record-save-bar sticky z-20 mt-8">
+            <span role="status" className="record-save-pill">
+              Saved
+            </span>
+          </ThumbRow>
+        )
       ) : null}
       {renamePrompt ? (
         <RenameLinksDialog

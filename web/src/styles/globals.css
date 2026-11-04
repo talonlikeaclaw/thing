@@ -387,6 +387,27 @@
     bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom));
   }
 
+  /*
+   * A clean record has nothing to ask for: one quiet pill at the thumb edge,
+   * never a full bar and never a disabled Save. It expands into the action row
+   * only when a change exists.
+   */
+  .record-save-pill {
+    display: inline-flex;
+    height: var(--space-6);
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-surface);
+    padding-inline: var(--space-3);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    line-height: 1;
+    letter-spacing: var(--text-label--letter-spacing);
+    text-transform: uppercase;
+  }
+
   :root[data-keyboard="on"] .record-save-bar {
     bottom: calc(var(--kb-height, 0px) + 0.5rem);
   }
