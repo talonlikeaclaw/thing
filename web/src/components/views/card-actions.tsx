@@ -27,7 +27,7 @@ interface CardActionsProps {
 }
 
 const button =
-  "inline-flex h-7 w-7 items-center justify-center rounded-[3px] bg-surface/90 text-faint transition-colors hover:bg-raised hover:text-accent disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11";
+  "inline-flex h-8 w-8 items-center justify-center rounded-full border border-glass-edge bg-glass/85 text-muted shadow-[0_6px_16px_-12px_rgba(0,0,0,0.8)] backdrop-blur-md transition-colors hover:bg-raised/80 hover:text-accent disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11";
 
 const MENU_WIDTH = 168;
 const MENU_GAP = 4;
@@ -199,7 +199,7 @@ export function CardActions({
               ref={menu}
               role="menu"
               aria-label={`Actions for ${row.title}`}
-              className="fixed z-50 min-w-[10rem] rounded-field border border-line bg-surface p-1 text-[13px]"
+              className="glass-strong fixed z-50 min-w-[10rem] rounded-card p-1.5 text-[13px]"
               style={{ top: position.top, left: position.left, width: MENU_WIDTH }}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -212,7 +212,7 @@ export function CardActions({
               <Link
                 role="menuitem"
                 to={`/s/${spaceId}/o/${row.id}`}
-                className="block rounded-[3px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none pointer-coarse:min-h-11"
+                className="block rounded-[8px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none pointer-coarse:min-h-11"
                 onClick={() => setOpen(false)}
               >
                 Open
@@ -221,7 +221,7 @@ export function CardActions({
                 <button
                   type="button"
                   role="menuitem"
-                  className="hidden w-full rounded-[3px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:block pointer-coarse:min-h-11"
+                  className="hidden w-full rounded-[8px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:block pointer-coarse:min-h-11"
                   disabled={completing || pending}
                   onClick={() => {
                     setOpen(false);
@@ -235,7 +235,7 @@ export function CardActions({
                 type="button"
                 role="menuitem"
                 className={cn(
-                  "block w-full rounded-[3px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none pointer-coarse:min-h-11",
+                  "block w-full rounded-[8px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none pointer-coarse:min-h-11",
                 )}
                 disabled={pending}
                 onClick={() => {
@@ -248,7 +248,7 @@ export function CardActions({
               <button
                 type="button"
                 role="menuitem"
-                className="block w-full rounded-[3px] px-2 py-1.5 text-left text-danger hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:min-h-11"
+                className="block w-full rounded-[8px] px-2 py-1.5 text-left text-danger hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:min-h-11"
                 disabled={pending}
                 onClick={() => {
                   setOpen(false);

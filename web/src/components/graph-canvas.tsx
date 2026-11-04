@@ -242,7 +242,7 @@ export function GraphCanvas({
             type="button"
             aria-label="Zoom in"
             title="Zoom in"
-            className="inline-flex size-8 items-center justify-center rounded-field border border-line text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:size-11"
+            className="inline-flex size-8 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:size-11"
             onClick={() => zoomBy(1.25)}
           >
             <Plus aria-hidden size={14} />
@@ -251,7 +251,7 @@ export function GraphCanvas({
             type="button"
             aria-label="Zoom out"
             title="Zoom out"
-            className="inline-flex size-8 items-center justify-center rounded-field border border-line text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:size-11"
+            className="inline-flex size-8 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:size-11"
             onClick={() => zoomBy(0.8)}
           >
             <Minus aria-hidden size={14} />
@@ -260,7 +260,7 @@ export function GraphCanvas({
             type="button"
             aria-label="Reset graph view"
             title="Reset graph view"
-            className="inline-flex size-8 items-center justify-center rounded-field border border-line text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:size-11"
+            className="inline-flex size-8 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:size-11"
             onClick={() => setView(RESET_VIEW)}
           >
             <RotateCcw aria-hidden size={14} />

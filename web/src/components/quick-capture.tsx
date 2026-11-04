@@ -26,6 +26,7 @@ import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
+import { FormatChip } from "@/components/ui/page";
 import {
   focusSheetField,
   SheetCloseButton,
@@ -46,6 +47,7 @@ import {
 import { cn } from "@/lib/cn";
 import { readApiProblems, readError } from "@/lib/display";
 import { isBlank, valueLabel } from "@/lib/format";
+import { formatLabel } from "@/lib/schema";
 import { isApplePlatform } from "@/lib/hotkeys";
 
 interface QuickCaptureApi {
@@ -60,7 +62,7 @@ interface QuickCaptureApi {
 const QuickCaptureContext = createContext<QuickCaptureApi | null>(null);
 
 const control =
-  "h-[var(--field-fine)] w-full rounded-field border border-line-interactive bg-ground px-[var(--space-3)] text-[length:var(--text-body)] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-[var(--field-coarse)] pointer-coarse:text-[16px]";
+  "h-[var(--field-fine)] w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-[var(--space-3)] text-[length:var(--text-body)] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-[var(--field-coarse)] pointer-coarse:text-[16px]";
 
 /** The type picker is a quiet select: a rule and a value, not a second boxed field. */
 const quietSelect =
@@ -426,7 +428,7 @@ function QuickCaptureDialog({
       {/* Kept mounted: the title exists before the tap so that tap can focus it
           and raise the keyboard, and sits off-canvas while closed. */}
       <Dialog.Portal keepMounted>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
         <SheetViewport>
           <SheetPopup
             className="sm:w-[32rem]"
@@ -531,14 +533,17 @@ function QuickCaptureDialog({
                 <div className="grid gap-2.5 sm:gap-4">
                   {/* The title is what the keyboard is for, so it leads and
                       shares its row with the icon instead of giving the
-                      picker a labelled row of its own. */}
-                  <div className="flex min-w-0 items-end gap-2">
+                      picker a labelled row of its own. Both this row and the
+                      Type row below use the same 44px leading column, so the
+                      two inputs start on one left edge. */}
+                  <div className="grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)] items-end gap-2 sm:flex">
                     <IconPicker
                       label="Icon"
                       value={icon}
                       onChange={setIcon}
                       disabled={pending}
                       variant="glyph"
+                      tone="accent"
                     />
                     <div className="grid min-w-0 flex-1 gap-1.5">
                       <label htmlFor="capture-title" className="label max-sm:sr-only">
@@ -561,9 +566,10 @@ function QuickCaptureDialog({
 
                   {/* A keyed row on a phone — the label beside the select
                       instead of above it — so the fields below get the height
-                      the keyboard leaves. Stacked from `sm` up. */}
-                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:block">
-                    <label htmlFor="capture-type" className="label">
+                      the keyboard leaves. Stacked from `sm` up. The label
+                      column matches the icon column above. */}
+                  <div className="grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-2 sm:block">
+                    <label htmlFor="capture-type" className="label text-accent">
                       Type
                     </label>
                     <select
@@ -674,57 +680,54 @@ function QuickCaptureDialog({
                             </span>
                           </button>
                           {otherOpen ? (
-                            <div
-                              id="capture-other-fields-body"
-                              className="mt-3 grid gap-3 sm:grid-cols-2"
-                            >
+                            <div id="capture-other-fields-body" className="mt-1">
                               {optional.map((property) => (
-                              <div
-                                key={`${property.key}:${epoch}`}
-                                id={`capture-field-${property.key}`}
-                                className="grid content-start gap-1"
-                              >
-                                <span className="flex items-baseline justify-between gap-2">
-                                  <span
-                                    className="label min-w-0 truncate"
-                                    title={property.name}
-                                  >
-                                    {property.name}
+                                <div
+                                  key={`${property.key}:${epoch}`}
+                                  id={`capture-field-${property.key}`}
+                                  className="grid gap-2 border-b rule py-3 first:pt-2 last:border-b-0 last:pb-0"
+                                >
+                                  <span className="flex min-w-0 items-baseline justify-between gap-3">
+                                    <span
+                                      className="min-w-0 truncate text-[13px] font-medium text-accent"
+                                      title={property.name}
+                                    >
+                                      {property.name}
+                                    </span>
+                                    <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+                                      {formatLabel(property.format)}
+                                    </FormatChip>
                                   </span>
-                                  <span className="shrink-0 font-mono text-[11px] text-faint">
-                                    {property.key}
-                                  </span>
-                                </span>
-                                <PropertyField
-                                  spaceId={spaceId ?? ""}
-                                  property={property}
-                                  value={values[property.key] ?? null}
-                                  label={valueLabel(
-                                    property.format,
-                                    values[property.key],
-                                    property,
-                                  )}
-                                  timeZone={space.data?.timezone}
-                                  canEdit
-                                  onChange={(value) =>
-                                    setValues((current) => ({
-                                      ...current,
-                                      [property.key]: value,
-                                    }))
-                                  }
-                                  onInvalid={(isInvalid) =>
-                                    setInvalid((current) => {
-                                      const next = new Set(current);
-                                      if (isInvalid) {
-                                        next.add(property.key);
-                                      } else {
-                                        next.delete(property.key);
-                                      }
-                                      return next;
-                                    })
-                                  }
-                                />
-                              </div>
+                                  <PropertyField
+                                    spaceId={spaceId ?? ""}
+                                    property={property}
+                                    value={values[property.key] ?? null}
+                                    label={valueLabel(
+                                      property.format,
+                                      values[property.key],
+                                      property,
+                                    )}
+                                    timeZone={space.data?.timezone}
+                                    canEdit
+                                    onChange={(value) =>
+                                      setValues((current) => ({
+                                        ...current,
+                                        [property.key]: value,
+                                      }))
+                                    }
+                                    onInvalid={(isInvalid) =>
+                                      setInvalid((current) => {
+                                        const next = new Set(current);
+                                        if (isInvalid) {
+                                          next.add(property.key);
+                                        } else {
+                                          next.delete(property.key);
+                                        }
+                                        return next;
+                                      })
+                                    }
+                                  />
+                                </div>
                               ))}
                             </div>
                           ) : null}

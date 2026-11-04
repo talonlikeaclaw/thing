@@ -14,16 +14,22 @@ import {
 } from "@/lib/accent";
 
 /** The surfaces the palettes are measured against (see `globals.css`). */
-const DARK_GROUND = "#121512";
-const DARK_SURFACE = "#1a1e1a";
-const DARK_RAISED = "#212621";
-const DARK_INSET = "#0d100d";
-const LIGHT_GROUND = "#f4f3ec";
-const LIGHT_SURFACE = "#fbfaf6";
-const LIGHT_RAISED = "#efeee6";
-const LIGHT_INSET = "#eae9e0";
-const DARK_INK = "#e8ece4";
+const DARK_GROUND = "#0a0e0b";
+const DARK_SURFACE = "#151a16";
+const DARK_RAISED = "#1d231e";
+const DARK_INSET = "#070a08";
+const LIGHT_GROUND = "#f1efe7";
+const LIGHT_SURFACE = "#fbfaf5";
+const LIGHT_RAISED = "#efede4";
+const LIGHT_INSET = "#e7e4da";
+const DARK_INK = "#edf1e8";
 const LIGHT_INK = "#1b1d19";
+const DARK_MUTED = "#a2ab9f";
+const LIGHT_MUTED = "#5f665c";
+/* Chrome composites over the lightest point of the ground gradient, which is
+   where glass body text is at its weakest. */
+const DARK_GLASS_OVER_LIFT = "#1a221c";
+const LIGHT_GLASS_OVER_LIFT = "#fcfbf5";
 
 function memoryStorage(values: Record<string, string> = {}): AccentStorage & {
   values: Map<string, string>;
@@ -104,6 +110,15 @@ describe("ACCENTS", () => {
     expect(contrast(light.ink, light.accent)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it.each(ACCENTS)("keeps $id on-wash text readable on its wash", ({ dark, light }) => {
+    for (const ground of [DARK_GROUND, DARK_SURFACE, DARK_RAISED, DARK_INSET]) {
+      expect(contrast(dark.onWash, washOver(dark.wash, ground))).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const ground of [LIGHT_GROUND, LIGHT_SURFACE, LIGHT_RAISED, LIGHT_INSET]) {
+      expect(contrast(light.onWash, washOver(light.wash, ground))).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it.each(ACCENTS)("keeps $id body ink readable on its wash", ({ dark, light }) => {
     for (const ground of [DARK_GROUND, DARK_SURFACE, DARK_RAISED, DARK_INSET]) {
       expect(contrast(DARK_INK, washOver(dark.wash, ground))).toBeGreaterThanOrEqual(4.5);
@@ -111,6 +126,13 @@ describe("ACCENTS", () => {
     for (const ground of [LIGHT_GROUND, LIGHT_SURFACE, LIGHT_RAISED, LIGHT_INSET]) {
       expect(contrast(LIGHT_INK, washOver(light.wash, ground))).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it("keeps body and metadata text readable on the glass chrome", () => {
+    expect(contrast(DARK_INK, DARK_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(DARK_MUTED, DARK_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(LIGHT_INK, LIGHT_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(LIGHT_MUTED, LIGHT_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(ACCENTS)("keeps $id wash tinted by its accent at the 12% ceiling", ({ dark, light }) => {

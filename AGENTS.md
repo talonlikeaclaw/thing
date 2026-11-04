@@ -17,9 +17,10 @@ Two claims drive design:
 **Current state: M1 is deployed as v0.1.0; M2 (`0.2.0`), M3 (`0.3.0`), M4 (`0.4.0`), the
 v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-through
 (`0.4.3`), v0.4.4 usability sweep (`0.4.4`), v0.4.5 schedule views (`0.4.5`), M5 search,
-links and the writing surface (`0.5.0`, schema 4) and the v0.5.1 links, search-landing and rename
-repair patch (`0.5.1`, schema 4) are implemented, not yet tagged or deployed; CI is green. The
-v0.4.3 physical-iPhone pass is still open.**
+links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-landing and rename
+repair patch (`0.5.1`, schema 4) and the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4),
+are implemented, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is
+still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
@@ -176,7 +177,11 @@ and a visible Done action returns the page at its prior scroll; a toolbar edit k
 caret inside the textarea's scrollport for both typing and toolbar edits, with a three-line lower
 margin and a re-reveal while Safari's keyboard settles. `web/src/test/harness.tsx` adds a component-test layer over the real editor, palette, links
 panel and rename flow. No object file gains a key, `FORMAT_VERSION` stays
-`4`, and the visual system is unchanged; v0.5.2 owns the redesign.
+`4`. The v0.5.2 visual refresh is Night Glass: frosted chrome over matte data surfaces, a floating
+phone dock, a cover-sheet space home, a specimen-sheet record, ledger tables, one command surface,
+one page header for the quiet surfaces, and one date grammar (`styles/globals.css`, `components/`,
+`pages/`, `DESIGN.md`, `.impeccable/design.json`). No route, read, permission, format or editor
+command changes; `FORMAT_VERSION` stays `4`.
 
 ## Where the plan lives
 
@@ -194,6 +199,7 @@ panel and rename flow. No object file gains a key, `FORMAT_VERSION` stays
 | `docs/plan/m4.5-schedule-views.md` | The v0.4.5 patch spec: one agenda read with rows, a date range and a type filter; the Schedule Calendar across scheduled types; URL-backed and remembered view, horizon, month and types; the type-filter popover/sheet; the shared month grid; snooze for 1–90 days with Undo. Landed as `0.4.5`, schema 4. |
 | `docs/plan/m5-search-links-writing.md` | The v0.5.0 spec: the derived search index, the search route and palette, wiki-link parsing and resolution, rendered links, the writing surface, the links panel, the local and space graph, docs and the release pass. Landed as `0.5.0`, schema 4. |
 | `docs/plan/m5.1-craft-and-hardening.md` | The v0.5.1 spec: the component test harness and seeded audit, links in both directions, search landing on its match, the heading/paste/preview/create editor actions, and previewed rename link repair. Landed as `0.5.1`, schema 4. |
+| `docs/plan/m5.2-visual-refresh.md` | The v0.5.2 spec: the type, colour and state foundation; the space cover sheet; the record specimen sheet; ledger tables and views; the command surface; the phone shell; the quiet surfaces; and the Night Glass material pass. Landed as `0.5.2`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -308,6 +314,24 @@ npm run lint && npm run typecheck && npm run build
 ```
 
 Build and test verified in this environment.
+
+### The local dev account — fixed, do not rotate
+
+| | |
+|---|---|
+| Email | `a@b.c` |
+| Password | `devpass123` |
+| Space | the seeded **Garden** space in `./data` |
+
+Sign in with that password, or `scripts/seed.sh` with
+`THING_SEED_EMAIL=a@b.c THING_SEED_PASSWORD=devpass123`.
+
+**Never change this password, never reseed to "fix" an auth problem, and never write rows into
+`data/accounts.sqlite`** — no synthetic sessions, no manual `set-password`, no deleted `data/`.
+If a browser session is lost, sign in again with the password above; if the login genuinely fails,
+say so and stop rather than resetting the store. Reseeding destroys the owner's spaces and is a
+manual QA reset the user performs, not the agent.
+
 
 **Tooling:** Nix-provided toolchain (`rustc 1.98.1`, `cargo 1.98.0`), not rustup;
 `rust-toolchain.toml` is inert here. `rustfmt` (1.9.0) and `clippy` (0.1.98) are declared next to
@@ -523,9 +547,9 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/components/graph-section.tsx` | The Graph disclosure, Local/Space scope and the shared SVG canvas with legend, zoom, pan and node offsets |
 | `web/src/test/harness.tsx` | The component-test layer: a fresh QueryClient, MemoryRouter, ToastProvider, fetch stub and JSON response helper |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
-| `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
+| `web/src/styles/globals.css` | The design tokens (`@theme`), dark-first with a light-mode override, the glass materials, the `.sheet-*` keyboard geometry, overscroll containment and the coarse-pointer 44 px / 16 px floor |
 | `web/src/pages/spaces.tsx` | The keyed space index and the create-space form |
-| `DESIGN.md` | **Normative** visual system: Nocturnal Field Guide; tokens are the frontmatter |
+| `DESIGN.md` | **Normative** visual system: Night Glass — a top-lit ground, frosted chrome, matte data cards and a floating dock; tokens are the frontmatter |
 | `.impeccable/design.json` | Design sidecar: tonal ramps, motion, breakpoints, component snippets, narrative |
 | `README.md` | Product summary, layout, dev commands |
 | `PRODUCT.md` | **Normative** product truth: stack, constraints, principles |

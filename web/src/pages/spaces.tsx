@@ -115,13 +115,10 @@ export function SpaceListPage() {
 
   return (
     <div className="settle">
-      <header className="border-b rule pb-5">
+      <header className="px-1 pb-7">
         <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
           <div className="min-w-0">
             <h1 className="display text-display">Spaces</h1>
-            <p className="mt-2 max-w-[60ch] text-[13px] text-muted">
-              Every space is its own set of tables, saved as markdown in your files.
-            </p>
           </div>
           {count !== undefined ? (
             <span className="label tnum text-faint">
@@ -131,7 +128,7 @@ export function SpaceListPage() {
         </div>
       </header>
 
-      <div className="mt-8">
+      <div className="rounded-[22px] border border-line bg-surface p-5 sm:p-6">
         <div
           aria-hidden
           className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-b rule pb-2 md:grid-cols-[5rem_minmax(0,1fr)]"
@@ -168,23 +165,18 @@ export function SpaceListPage() {
         )}
       </div>
 
-      <section aria-labelledby="new-space" className="mt-12">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-          <h2 id="new-space" className="text-[17px] font-medium">
-            Start a space
-          </h2>
-          <p className="text-[13px] text-muted">Name it for what you track.</p>
-        </div>
-        <form
-          className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem_14rem_auto] md:items-end"
-          onSubmit={onCreate}
-        >
+      <section aria-labelledby="new-space" className="glass mt-6 rounded-[22px] p-5 sm:p-6">
+        <h2 id="new-space" className="text-[17px] font-medium">
+          Start a space
+        </h2>
+        <form className="mt-5 grid gap-4" onSubmit={onCreate}>
           <TextField
             label="Name"
             name="name"
             required
             maxLength={200}
             placeholder="Garden"
+            hint="Name it for what you track, not for the app."
           />
           <IconPicker label="Icon" value={icon} onChange={setIcon} />
           <TimezonePicker
@@ -193,11 +185,9 @@ export function SpaceListPage() {
             zones={timezoneNames(timezone)}
             onValueChange={setTimezone}
             showDeviceZone={false}
+            hint="Due and overdue are calendar days in this zone."
           />
-          <p className="text-[13px] text-muted md:col-start-3 md:row-start-2 md:-mt-1">
-            Due and overdue are calendar days in this zone.
-          </p>
-          <Button type="submit" disabled={create.isPending}>
+          <Button type="submit" disabled={create.isPending} className="justify-self-start">
             {create.isPending ? "Creating…" : "Create space"}
           </Button>
         </form>

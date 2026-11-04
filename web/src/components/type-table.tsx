@@ -101,9 +101,9 @@ const LAYOUT_LIMIT = 500;
 
 const NO_SHORTCUTS: ShortcutDescriptor[] = [];
 const SQUARE_BUTTON =
-  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink";
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink";
 const VIEW_MENU_ITEM =
-  "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+  "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
 /** A phone sheet row: 44 px because it is the primary target on a phone. */
 const VIEW_SHEET_ROW =
   "flex min-h-11 w-full items-center gap-3 rounded-field px-3 text-left text-[14px] text-ink transition-colors hover:bg-raised";
@@ -811,7 +811,7 @@ export function TypeTable({
       </div>
       {recordCount}
       {type.description ? (
-        <p className="mt-0.5 max-w-[62ch] truncate text-[length:var(--text-small)] text-muted">
+        <p className="mt-0.5 max-w-[62ch] truncate text-[length:var(--text-small)] text-muted max-sm:hidden">
           {type.description}
         </p>
       ) : null}
@@ -830,27 +830,19 @@ export function TypeTable({
     <Link
       to={`/s/${spaceId}/schema?type=${encodeURIComponent(type.key)}#type-editor`}
       title={`Edit ${type.name} type`}
-      className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-field border border-line-interactive px-2.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0"
+      className="inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0"
     >
       <Pencil aria-hidden size={14} />
       <span className="max-sm:sr-only">Edit type</span>
     </Link>
   ) : null;
-  // New record is the primary action, so it sits at the thumb edge; Edit type
-  // sits inward from it. The whole pair follows the handedness flip.
+  // The header is reading order, not a thumb row: the title leads and the
+  // action pair stays at the trailing edge in both handedness modes. The
+  // primary sits last, so paint, Tab and screen-reader order agree.
   const recordActions = (
     <div className="flex shrink-0 items-center gap-3">
-      {handedness === "left" ? (
-        <>
-          {newRecordButton}
-          {editTypeLink}
-        </>
-      ) : (
-        <>
-          {editTypeLink}
-          {newRecordButton}
-        </>
-      )}
+      {editTypeLink}
+      {newRecordButton}
     </div>
   );
 
@@ -915,12 +907,12 @@ export function TypeTable({
         aria-label={`Columns, ${Math.max(0, view.columns.length - 1)} property columns`}
         aria-expanded={columnsOpen}
         aria-controls="type-columns"
-        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0"
+        className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
         onClick={toggleColumns}
       >
         <Columns3 aria-hidden size={14} />
         <span className="max-sm:hidden">Columns</span>
-        <span className="tnum rounded-[3px] bg-accent-wash px-1 text-[length:var(--text-label)] text-accent">
+        <span className="tnum rounded-full bg-accent-wash px-1 text-[length:var(--text-label)] text-accent-on-wash">
           {Math.max(0, view.columns.length - 1)}
         </span>
       </Button>,
@@ -935,13 +927,13 @@ export function TypeTable({
         aria-label={query.sorts.length > 0 ? `Sort, ${query.sorts.length}` : "Sort"}
         aria-expanded={sortOpen}
         aria-controls="type-sorts"
-        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0"
+        className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
         onClick={toggleSort}
       >
         <ArrowUpDown aria-hidden size={14} />
         <span className="max-sm:hidden">Sort</span>
         {query.sorts.length > 0 ? (
-          <span className="tnum rounded-[3px] bg-accent-wash px-1 text-[length:var(--text-label)] text-accent">
+          <span className="tnum rounded-full bg-accent-wash px-1 text-[length:var(--text-label)] text-accent-on-wash">
             {query.sorts.length}
           </span>
         ) : null}
@@ -962,13 +954,13 @@ export function TypeTable({
       }
       aria-expanded={filterOpen}
       aria-controls="type-filters"
-      className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0"
+      className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
       onClick={toggleFilter}
     >
       <ListFilter aria-hidden size={14} />
       <span className="max-sm:hidden">Filter</span>
       {query.filter.conditions.length > 0 ? (
-        <span className="tnum rounded-[3px] bg-accent-wash px-1 text-[length:var(--text-label)] text-accent">
+        <span className="tnum rounded-full bg-accent-wash px-1 text-[length:var(--text-label)] text-accent-on-wash">
           {query.filter.conditions.length}
         </span>
       ) : null}
@@ -1020,7 +1012,7 @@ export function TypeTable({
       <Popover.Root key="more">
         <Popover.Trigger
           aria-label="More view actions"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
         >
           <MoreHorizontal aria-hidden size={16} />
         </Popover.Trigger>
@@ -1030,7 +1022,7 @@ export function TypeTable({
             align={handedness === "left" ? "start" : "end"}
             className="z-50"
           >
-            <Popover.Popup className="min-w-[12rem] rounded-field border border-line bg-surface p-1">
+            <Popover.Popup className="min-w-[12rem] glass-strong rounded-card p-1.5">
               {canEdit ? (
                 <Popover.Close className={VIEW_MENU_ITEM} onClick={toggleSettings}>
                   <Settings2 aria-hidden size={14} />
@@ -1066,82 +1058,96 @@ export function TypeTable({
     }
   }, [q]);
 
+  const compactStatus =
+    compact && (dirty || hasOverrides) ? (
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+          {dirty ? "View changed" : "Search applied"}
+        </span>
+        <span className="flex shrink-0 items-center gap-1">
+          {hasOverrides ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-11 shrink-0 px-2.5 text-[12px]"
+              onClick={clearQuery}
+              title="Clear search, filters and sorts"
+            >
+              Reset
+            </Button>
+          ) : null}
+          {canEdit && dirty ? (
+            <Button
+              type="button"
+              aria-label="Save view"
+              className="min-h-11 shrink-0 px-3 text-[12px]"
+              disabled={updateView.isPending}
+              onClick={saveQuery}
+            >
+              {updateView.isPending ? "Saving…" : "Save"}
+            </Button>
+          ) : null}
+        </span>
+      </div>
+    ) : undefined;
+
   return (
     <div className="settle">
-      <div className="flex flex-nowrap items-end justify-between gap-x-4">
-        {handedness === "left" ? (
-          <>
-            {recordActions}
+      {/*
+        Two floating panels, not one: identity (title, count, actions) and
+        controls (search, tools, saved views). The records stay on matte stock
+        below. Both scroll with the page instead of parking over it: a sticky
+        panel would cover the ledger's own column labels the moment the page
+        moved.
+      */}
+      <header>
+        <div className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-nowrap items-start justify-between gap-x-4">
             {pageTitle}
-          </>
-        ) : (
-          <>
-            {pageTitle}
             {recordActions}
-          </>
-        )}
-      </div>
-
-      <ViewTabs
-        spaceId={spaceId}
-        type={type}
-        properties={properties}
-        selectedKey={view.key}
-        canEdit={canEdit}
-        onSelect={selectView}
-        onCreated={selectView}
-      />
-
-      <div
-        className={cn(
-          "mt-4 flex items-center",
-          compact && searchExpanded
-            ? "gap-1.5"
-            : cn(
-                "flex-wrap gap-1.5 max-sm:gap-1",
-                compact && (handedness === "left" ? "justify-start" : "justify-end"),
-              ),
-        )}
-      >
-        {compact && searchExpanded ? searchNode : orderedToolbar}
-      </div>
-
-      {compact && (dirty || hasOverrides) ? (
-        <div className="mt-1.5 flex min-h-11 items-center justify-between gap-2 border-y rule px-1">
-          <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-            {dirty ? "View changed" : "Search applied"}
-          </span>
-          <span className="flex shrink-0 items-center gap-1">
-            {hasOverrides ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-11 shrink-0 px-2.5 text-[12px]"
-                onClick={clearQuery}
-                title="Clear search, filters and sorts"
-              >
-                Reset
-              </Button>
-            ) : null}
-            {canEdit && dirty ? (
-              <Button
-                type="button"
-                aria-label="Save view"
-                className="h-11 shrink-0 px-3 text-[12px]"
-                disabled={updateView.isPending}
-                onClick={saveQuery}
-              >
-                {updateView.isPending ? "Saving…" : "Save"}
-              </Button>
-            ) : null}
-          </span>
+          </div>
         </div>
-      ) : null}
 
-      {!compact && canEdit && saveAsOpen ? (
-        <div className="mt-3 border-y rule py-3">{saveAsForm}</div>
-      ) : null}
+        <div className="glass mt-2 rounded-[22px] px-3 py-3 sm:px-4">
+          <div
+            className={cn(
+              "flex items-center",
+              compact && searchExpanded
+                ? "gap-1.5"
+                : cn(
+                    "flex-wrap gap-1.5 max-sm:gap-1",
+                    compact
+                      ? handedness === "left"
+                        ? "justify-start"
+                        : "justify-end"
+                      : "justify-center",
+                  ),
+            )}
+          >
+            {compact && searchExpanded ? searchNode : orderedToolbar}
+          </div>
+
+          {/*
+            The saved views close the panel: the strip sits on the container's
+            bottom edge, so choosing, reordering or adding a view happens where
+            the views meet the records rather than between the title and tools.
+          */}
+          <ViewTabs
+            spaceId={spaceId}
+            type={type}
+            properties={properties}
+            selectedKey={view.key}
+            canEdit={canEdit}
+            onSelect={selectView}
+            onCreated={selectView}
+          />
+
+          {!compact && canEdit && saveAsOpen ? (
+            <div className="mt-3 border-t rule pt-3">{saveAsForm}</div>
+          ) : null}
+        </div>
+      </header>
 
       {canEdit && view.kind !== "calendar" ? (
         <div id="type-columns" hidden={!columnsOpen}>
@@ -1171,7 +1177,7 @@ export function TypeTable({
           onOpenChange={(open) => (open ? setViewSheetOpen(true) : closeViewSheet())}
         >
           <Dialog.Portal>
-            <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
             <SheetViewport>
               <SheetPopup className="sm:w-[34rem]">
                 <div
@@ -1297,7 +1303,7 @@ export function TypeTable({
       <div
         className={
           filterOpen || sortOpen
-            ? "mt-3 w-full rounded-field border border-line bg-surface p-3 sm:max-w-[34rem]"
+            ? "mt-3 w-full rounded-[18px] glass-strong p-3 sm:ml-auto sm:max-w-[34rem]"
             : ""
         }
       >
@@ -1472,9 +1478,10 @@ export function TypeTable({
             onAddProperty={() => setAddPropertyOpen(true)}
             layoutPending={layout.isPending}
             onResize={commitWidth}
+            compactStatus={compactStatus}
           />
           {canEdit && selectedRows.length > 0 ? (
-            <div className="absolute inset-x-2 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] z-20 md:inset-x-3 md:bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <div className="absolute inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 md:inset-x-3 md:bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
               <BulkBar
                 spaceId={spaceId}
                 properties={properties}
@@ -1607,7 +1614,7 @@ function SearchBox({
         type="button"
         aria-label="Search titles and bodies"
         aria-expanded={false}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-field border border-line-interactive bg-ground text-muted transition-colors hover:border-line-strong hover:text-ink"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:text-ink"
         onClick={() => onExpandedChange(true)}
       >
         <Search aria-hidden size={15} />
@@ -1619,7 +1626,7 @@ function SearchBox({
     <div
       className={cn(
         "flex min-w-0 items-center gap-1.5",
-        compact ? "flex-1" : "max-w-[26rem] min-w-[12rem] flex-1",
+        compact ? "flex-1" : "min-w-[12rem] flex-1",
       )}
     >
     <form
@@ -1638,7 +1645,7 @@ function SearchBox({
       <input
         ref={inputRef}
         aria-label="Search titles and bodies"
-        className="h-8 w-full rounded-field border border-line-interactive bg-ground pr-9 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px] max-sm:h-11 max-sm:text-[16px]"
+        className="h-8 w-full rounded-full border border-line-interactive/70 bg-raised/40 pr-9 pl-8 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px] max-sm:h-11 max-sm:text-[16px]"
         placeholder="Search titles and bodies"
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -1647,7 +1654,7 @@ function SearchBox({
         <button
           type="button"
           aria-label="Clear search"
-          className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[3px] text-faint transition-colors hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+          className="absolute top-1/2 right-1 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-faint transition-colors hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
           onClick={clear}
         >
           <X aria-hidden size={13} />

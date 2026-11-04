@@ -1,9 +1,18 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { Check, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
 import { PropertyInput, TitleInput } from "@/components/property-input";
 import { ThingIcon } from "@/components/thing-icon";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
+import { useCompactWidth } from "@/lib/media";
 import { formatDateTime, formatDay } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
@@ -43,6 +52,7 @@ export function PropertyCell({
   const [failure, setFailure] = useState<WriteResult | null>(null);
   const [attempt, setAttempt] = useState<CellCommit | null>(null);
   const [edition, setEdition] = useState(0);
+  const compact = useCompactWidth();
   const button = useRef<HTMLButtonElement | null>(null);
   const returnFocus = useRef(false);
   const value = cell?.value;
@@ -75,19 +85,16 @@ export function PropertyCell({
     }
   }
 
+  /** The overlay editors are wider than a phone's column: open them in a sheet. */
+  const overlayFormat =
+    property.format === "select" ||
+    property.format === "multi_select" ||
+    property.format === "relation" ||
+    property.format === "recurrence";
+
   if (editing && canEdit) {
-    return (
-      // Above the sticky action column: a compact editor is wider than its
-      // cell and must not disappear under that column's background.
-      <div className="relative z-10 grid gap-1">
-        <PropertyInput
-          key={edition}
-          spaceId={spaceId}
-          property={property}
-          value={attempt?.value ?? value}
-          onCommit={(next, nextLabel) => void write({ value: next, label: nextLabel })}
-          onCancel={finish}
-        />
+    const status = (
+      <>
         {writing ? (
           <span role="status" className="text-[11px] text-muted">
             Saving…
@@ -112,6 +119,56 @@ export function PropertyCell({
             </button>
           </div>
         ) : null}
+      </>
+    );
+    const input = (embedded: boolean) => (
+      <PropertyInput
+        key={edition}
+        embedded={embedded}
+        spaceId={spaceId}
+        property={property}
+        value={attempt?.value ?? value}
+        onCommit={(next, nextLabel) => void write({ value: next, label: nextLabel })}
+        onCancel={finish}
+      />
+    );
+    if (compact && overlayFormat) {
+      return (
+        <Dialog.Root
+          open
+          onOpenChange={(next) => {
+            if (!next) {
+              finish();
+            }
+          }}
+        >
+          <Dialog.Portal>
+            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+            <SheetViewport>
+              <SheetPopup>
+                <SheetHeader>
+                  <div className="min-w-0">
+                    <SheetTitle className="truncate">{property.name}</SheetTitle>
+                    <p className="mt-0.5 truncate text-[12px] text-muted">{rowTitle}</p>
+                  </div>
+                  <SheetCloseButton label={`Close ${property.name} editor`} />
+                </SheetHeader>
+                <div className="grid min-h-0 flex-1 gap-2 overflow-y-auto overscroll-contain px-4 py-4">
+                  {input(true)}
+                  {status}
+                </div>
+              </SheetPopup>
+            </SheetViewport>
+          </Dialog.Portal>
+        </Dialog.Root>
+      );
+    }
+    return (
+      // Above the sticky action column: a compact editor is wider than its
+      // cell and must not disappear under that column's background.
+      <div className="relative z-10 grid gap-1">
+        {input(false)}
+        {status}
       </div>
     );
   }
@@ -123,7 +180,7 @@ export function PropertyCell({
       disabled={!canEdit}
       aria-label={`Edit ${property.name} for “${rowTitle}”, currently “${label || "empty"}”`}
       className={cn(
-        "flex min-h-8 w-full items-center gap-1.5 rounded-[3px] px-1.5 py-1 text-left text-[length:var(--text-small)] transition-colors",
+        "flex min-h-8 w-full items-center gap-1.5 rounded-[8px] px-1.5 py-1 text-left text-[length:var(--text-small)] transition-colors",
         property.format === "number" && "justify-end text-right",
         canEdit ? "hover:bg-raised" : "cursor-default",
         "pointer-coarse:min-h-11",
@@ -233,7 +290,7 @@ export function TitleCell({
       disabled={!canEdit}
       aria-label={`Edit title for “${title}”, currently “${title}”`}
       className={cn(
-        "flex min-h-8 w-full items-center rounded-[3px] px-1.5 py-1 text-left text-[14px] font-medium transition-colors",
+        "flex min-h-8 w-full items-center rounded-[8px] px-1.5 py-1 text-left text-[14px] font-medium transition-colors",
         canEdit ? "hover:bg-raised" : "cursor-default",
         "pointer-coarse:min-h-11",
       )}

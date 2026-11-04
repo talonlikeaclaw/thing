@@ -106,7 +106,7 @@ export function BoardView({
                     </div>
                     <Link
                       to={`/s/${spaceId}/o/${row.id}`}
-                      className="block rounded-field border border-line bg-surface px-2.5 py-2 pr-16 transition-colors hover:border-line-strong pointer-coarse:pr-2.5"
+                      className="block rounded-[16px] border border-line bg-surface px-2.5 py-2 pr-[4.75rem] transition-colors hover:border-line-strong pointer-coarse:pr-2.5"
                     >
                       <span className="flex items-start gap-1.5">
                         {row.icon ? (

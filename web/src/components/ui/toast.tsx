@@ -112,8 +112,8 @@ function ToastRow({ toast, dismiss }: ToastRowProps) {
     <div
       role={toast.tone === "danger" ? "alert" : "status"}
       className={cn(
-        "toast pointer-events-auto flex items-start gap-[var(--space-3)] rounded-sheet border bg-surface px-[var(--space-4)] py-[var(--space-3)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] shadow-none",
-        toast.tone === "danger" ? "border-danger text-danger" : "border-line text-ink",
+        "toast glass-strong pointer-events-auto flex items-start gap-[var(--space-3)] rounded-[18px] px-[var(--space-4)] py-[var(--space-3)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)]",
+        toast.tone === "danger" ? "border-danger text-danger" : "text-ink",
       )}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}

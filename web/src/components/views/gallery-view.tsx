@@ -75,7 +75,7 @@ export function GalleryView({
             </div>
             <Link
               to={`/s/${spaceId}/o/${row.id}`}
-              className="flex h-full flex-col rounded-field border border-line bg-surface transition-colors hover:border-line-strong"
+              className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface transition-colors hover:border-line-strong"
             >
               <span
                 className="flex min-h-28 items-end justify-between gap-2 border-b rule bg-raised px-3 py-2.5"

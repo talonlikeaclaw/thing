@@ -11,13 +11,13 @@ export type ButtonVariant = "primary" | "ghost" | "quiet" | "destructive";
 
 const buttonStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent text-accent-ink hover:brightness-105 active:brightness-95 aria-pressed:brightness-95 disabled:hover:brightness-100",
+    "bg-accent text-accent-ink shadow-[0_8px_18px_-12px_rgba(0,0,0,0.55)] hover:brightness-105 active:brightness-95 aria-pressed:brightness-95 disabled:hover:brightness-100",
   ghost:
-    "border border-line-interactive text-ink hover:border-line-strong hover:bg-raised active:bg-raised aria-pressed:border-accent aria-pressed:bg-accent-wash aria-pressed:text-accent",
+    "border border-line-interactive/70 bg-raised/40 text-ink hover:border-line-strong hover:bg-raised active:bg-raised aria-pressed:border-accent/60 aria-pressed:bg-accent-wash aria-pressed:text-accent-on-wash",
   quiet:
-    "border border-transparent text-muted hover:bg-raised hover:text-ink active:bg-raised aria-pressed:bg-accent-wash aria-pressed:text-accent",
+    "border border-transparent text-muted hover:bg-raised hover:text-ink active:bg-raised aria-pressed:bg-accent-wash aria-pressed:text-accent-on-wash",
   destructive:
-    "border border-danger text-danger hover:border-danger hover:bg-raised active:bg-raised",
+    "border border-danger/70 text-danger hover:border-danger hover:bg-raised active:bg-raised",
 };
 
 /** The one focus treatment every control in the app inherits. */
@@ -43,13 +43,56 @@ export function Button({
       data-loading={loading ? "" : undefined}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex min-h-[var(--control-standard)] items-center justify-center gap-[var(--space-2)] rounded-field px-[var(--space-4)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] font-medium transition-[filter,background-color,border-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out)] disabled:cursor-not-allowed disabled:opacity-50 data-loading:cursor-wait pointer-coarse:min-h-[var(--control-coarse)]",
+        "inline-flex min-h-[var(--control-standard)] items-center justify-center gap-[var(--space-2)] rounded-full px-[var(--space-4)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] font-medium transition-[filter,background-color,border-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)] disabled:cursor-not-allowed disabled:opacity-50 data-loading:cursor-wait pointer-coarse:min-h-[var(--control-coarse)]",
         focusRing,
         buttonStyles[variant],
         className,
       )}
       {...props}
     />
+  );
+}
+
+/**
+ * A circular action. The chrome's icon actions are circles — header utilities,
+ * the dock, the command palette's close. `glass` is the resting material,
+ * `quiet` a bare glyph on the parent surface, `accent` the one filled action.
+ */
+export function IconButton({
+  label,
+  size = 40,
+  variant = "glass",
+  active = false,
+  className,
+  children,
+  ...props
+}: Omit<ComponentProps<typeof BaseButton>, "aria-label"> & {
+  label: string;
+  size?: number;
+  variant?: "glass" | "quiet" | "accent";
+  active?: boolean;
+}) {
+  const look =
+    variant === "accent"
+      ? "action-circle"
+      : variant === "quiet"
+        ? "text-muted hover:bg-raised hover:text-ink active:bg-raised"
+        : "border border-glass-edge bg-glass text-ink shadow-[0_8px_22px_-16px_rgba(0,0,0,0.8)] backdrop-blur-xl backdrop-saturate-150 hover:bg-raised/70";
+  return (
+    <BaseButton
+      aria-label={label}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full transition-[background-color,border-color,color,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        look,
+        active && "bg-accent-wash text-accent-on-wash",
+        focusRing,
+        className,
+      )}
+      style={{ width: size, height: size }}
+      {...props}
+    >
+      {children}
+    </BaseButton>
   );
 }
 
@@ -61,7 +104,7 @@ export function Keycap({ children, className }: { children: ReactNode; className
   return (
     <kbd
       className={cn(
-        "rounded-[3px] border border-line px-1.5 py-0.5 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] text-faint",
+        "rounded-[6px] border border-line px-1.5 py-0.5 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] text-faint",
         className,
       )}
     >
@@ -92,10 +135,10 @@ export function InlineActions({ children }: { children: ReactNode }) {
 }
 
 /**
- * The save row of a long editor. It floats at the bottom of the viewport while
- * the editor is on screen, clearing the mobile tab bar, so a save is never a
- * scroll away; the translucent surface keeps the content beneath it readable.
- * The primary action follows the thumb edge like every other action row.
+ * The save row of a long editor. It is pinned above the tab bar so a save is
+ * never a scroll away; from `lg` the record carries the same status and action
+ * in its header, so this row is hidden there and never covers the links,
+ * history or trash. The primary action follows the thumb edge.
  */
 export function StickyActionBar({
   children,
@@ -107,7 +150,7 @@ export function StickyActionBar({
   return (
     <ThumbRow
       className={cn(
-        "record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-[var(--space-3)] border-t rule bg-ground py-[var(--space-3)]",
+        "record-save-bar sticky z-20 mt-8 flex-wrap items-center gap-[var(--space-3)] py-[var(--space-3)]",
         className,
       )}
     >
@@ -124,7 +167,7 @@ interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "cla
 }
 
 /** The one field frame; every text, textarea and select control consumes it. */
-export const fieldFrame = `w-full rounded-field border border-line-interactive bg-ground px-[var(--space-3)] text-[length:var(--text-body)] leading-[var(--text-body--line-height)] text-ink transition-[border-color,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:border-line-strong focus:border-accent aria-invalid:border-danger aria-invalid:focus:border-danger disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line-interactive read-only:text-muted pointer-coarse:text-[16px] ${focusRing}`;
+export const fieldFrame = `w-full rounded-[10px] border border-line-interactive/70 bg-raised/40/70 bg-raised/40 px-[var(--space-3)] text-[length:var(--text-body)] leading-[var(--text-body--line-height)] text-ink transition-[border-color,background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)] placeholder:text-faint hover:border-line-strong focus:border-accent aria-invalid:border-danger aria-invalid:focus:border-danger disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line-interactive/70 read-only:text-muted pointer-coarse:text-[16px] ${focusRing}`;
 
 function FieldMessages({
   hint,
@@ -272,19 +315,19 @@ export function SelectField({
             "flex h-[var(--field-fine)] items-center justify-between gap-[var(--space-2)] text-left pointer-coarse:h-[var(--field-coarse)]",
           )}
         >
-          <Select.Value />
-          <Select.Icon className="text-muted">
+          <Select.Value className="min-w-0 truncate" />
+          <Select.Icon className="shrink-0 text-muted">
             <ChevronDown aria-hidden size={16} />
           </Select.Icon>
         </Select.Trigger>
         <Select.Portal>
           <Select.Positioner sideOffset={4} className="z-50">
-            <Select.Popup className="max-h-64 min-w-[var(--anchor-width)] overflow-auto overscroll-contain rounded-field border border-line bg-surface p-[var(--space-1)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)]">
+            <Select.Popup className="glass-strong max-h-64 min-w-[var(--anchor-width)] overflow-auto overscroll-contain rounded-card p-[var(--space-1)] text-[length:var(--text-small)] leading-[var(--text-small--line-height)]">
               {options.map((option) => (
                 <Select.Item
                   key={option.value}
                   value={option.value}
-                  className="cursor-pointer rounded-[4px] px-[var(--space-3)] py-[var(--space-2)] text-ink data-[highlighted]:bg-accent-wash data-[highlighted]:text-accent"
+                  className="cursor-pointer rounded-[10px] px-[var(--space-3)] py-[var(--space-2)] text-ink data-[highlighted]:bg-accent-wash data-[highlighted]:text-accent-on-wash"
                 >
                   <Select.ItemText>{option.label}</Select.ItemText>
                 </Select.Item>

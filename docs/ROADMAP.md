@@ -89,7 +89,18 @@ actions; and a previewed rename repair that rewrites only the mentions that reso
 before the rename, skipping and reporting stale sources. Checkpoints 1–6 are landed at workspace
 `0.5.1`; `FORMAT_VERSION` stays `4`, `with=links` is the only API addition, and there is no new
 route or dependency. Its device pass had emulation only, and the physical-iPhone gate remains open.
-The next milestone starts its own `docs/plan/mN-*.md`, written the way these were. M6–M10 are recorded here so the format does not
+The visual refresh, v0.5.2, is implemented in
+[`docs/plan/m5.2-visual-refresh.md`](plan/m5.2-visual-refresh.md): a type, colour and state
+foundation with Maple Mono as the display and mono voice; a cover-sheet space home with a type
+ledger, a recent-writes margin over one new space activity read, and the whole-space map; a
+specimen-sheet record with a sticky property margin and one date grammar; ledger tables and views;
+one command surface for palette, capture, sheets and confirmations; a phone shell with a floating
+dock and a quiet save state; shared headers and ledgers on the quiet surfaces; and the Night Glass
+material pass — frosted chrome over matte data, circular actions and pill controls. Checkpoints 1–11
+are landed at workspace `0.5.2`; `FORMAT_VERSION` stays `4`, no route, permission or editor command
+changes, and no dependency is added beyond the font swap. Its device pass had emulation only, and
+the physical-iPhone gate remains open. The next milestone starts its own `docs/plan/mN-*.md`,
+written the way these were. M6–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
 
 **Revised 2026-11-02:** M5 shipped as v0.5.0 with the space graph included; the roadmap's
@@ -263,8 +274,9 @@ usability move ahead of search.
   until space-level views exist. The v0.4.5 device pass had emulation only, and the v0.4.3
   physical-iPhone gate still precedes any keyboard claim.
 
-- **M5 — Search, linking and the writing surface.** **Landed** (workspace `0.5.1`, not yet
-  deployed; checkpoints 1–8 implemented plus the v0.5.1 trust patch, schema 4); spec:
+- **M5 — Search, linking and the writing surface.** **Landed** (workspace `0.5.2`, not yet
+  deployed; checkpoints 1–8 implemented plus the v0.5.1 trust patch and the v0.5.2 visual
+  refresh, schema 4); spec:
   [`docs/plan/m5-search-links-writing.md`](plan/m5-search-links-writing.md). Full-text search over
   titles and bodies within a space, reachable from the command palette, over an **in-memory inverted
   index derived from the markdown files**, rebuilt at boot and updated per changed object; in-body

@@ -23,6 +23,7 @@ import { Link, useNavigate } from "react-router";
 import type {
   ObjectSummary,
   PropertyDef,
+  PropertyFormat,
   Sort,
   TypeDef,
   ValueJson,
@@ -35,6 +36,7 @@ import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
 import { useCoarsePointer } from "@/lib/media";
 import { completeLabel } from "@/lib/schedule";
+import { formatLabel } from "@/lib/schema";
 import {
   dragMoved,
   dragWidth,
@@ -47,9 +49,9 @@ const OPEN_WIDTH_FINE = 134;
 const OPEN_WIDTH_COARSE = 182;
 /** Compact rows keep only the ⋯ menu (Open lives inside it): one 44 px control. */
 const COMPACT_EDITOR_WIDTH_FINE = 44;
-const COMPACT_EDITOR_WIDTH_COARSE = 56;
+const COMPACT_EDITOR_WIDTH_COARSE = 52;
 const COMPACT_VIEWER_WIDTH_FINE = 44;
-const COMPACT_VIEWER_WIDTH_COARSE = 56;
+const COMPACT_VIEWER_WIDTH_COARSE = 52;
 const SELECT_WIDTH = 44;
 /** The trailing add-property header is a control, not a data column. */
 const ADD_PROPERTY_WIDTH = 132;
@@ -96,6 +98,8 @@ interface TableViewProps {
   layoutPending: boolean;
   /** Opens the add-property dialog from the trailing header cell. */
   onAddProperty: () => void;
+  /** The compact dirty/query status, rendered in the hint row so it never shifts the table. */
+  compactStatus?: ReactNode;
 }
 
 /**
@@ -130,6 +134,7 @@ export function TableView({
   onResize,
   layoutPending,
   onAddProperty,
+  compactStatus,
 }: TableViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const columns = view.columns.filter((key) => key !== "title");
@@ -227,7 +232,7 @@ export function TableView({
   const railSeamToneSelected = railBefore
     ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-ground))]"
     : null;
-  const railHeaderClass = cn("sticky z-30 rule py-2", railEdge);
+  const railHeaderClass = cn("sticky z-30 h-11 rule p-0", railEdge);
   const railBodyClass = cn("sticky z-20 rule py-1", railEdge);
 
   // Column 0 is the checkbox for editors, then the title, then properties.
@@ -418,14 +423,14 @@ export function TableView({
   // The rail header travels to whichever edge the rail occupies; the add
   // control on a phone lives there too.
   const railHeaderCell = (
-    <th scope="col" className={cn(railHeaderClass, "bg-ground")}>
+    <th scope="col" className={cn(railHeaderClass, "bg-inset")}>
       <span className="sr-only">Actions</span>
       {compact && canEdit ? (
         <button
           type="button"
           aria-label="Add property"
           title="Add property"
-          className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
+          className="mx-auto inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
           onClick={onAddProperty}
         >
           <Plus aria-hidden size={14} />
@@ -449,24 +454,29 @@ export function TableView({
   return (
     <>
     {compact ? (
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-3 flex min-h-11 items-center gap-3">
         {railBefore ? selectToggle : null}
-        <p
-          className="min-w-0 flex-1 truncate text-[12px] text-muted"
-          title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
-        >
-          {selecting ? "Tap the boxes to select rows" : "Swipe for columns · ⋯ for actions"}
-        </p>
+        {compactStatus ? (
+          <div className="min-w-0 flex-1">{compactStatus}</div>
+        ) : (
+          <p
+            className="min-w-0 flex-1 truncate text-[12px] text-muted"
+            title="Swipe the table sideways to see every column. Use the ⋯ menu for row actions."
+          >
+            {selecting ? "Tap the boxes to select rows" : "Swipe for columns · ⋯ for actions"}
+          </p>
+        )}
         {railBefore ? null : selectToggle}
       </div>
     ) : null}
     <div
       ref={portRef}
       className={cn(
+        "rounded-[20px] border border-line bg-surface",
         compact
           ? "mt-2 overflow-x-auto overscroll-x-contain"
           : "mt-6 max-h-[70dvh] overflow-auto overscroll-contain",
-        bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-16",
+        bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-2",
       )}
       onKeyDown={onGridKeyDown}
       onScroll={(event) => setScrolled(event.currentTarget.scrollLeft > 0)}
@@ -493,13 +503,22 @@ export function TableView({
           <col style={{ width: tailWidth }} />
           {railBefore ? null : <col style={{ width: openWidth }} />}
         </colgroup>
-        <thead className="sticky top-0 z-20 bg-ground">
-          <tr className="border-b rule">
+        <thead
+          className={cn(
+            // The row owns a stacking context above the body's pinned cells
+            // (title and rail carry z-20): at equal z the body, later in the
+            // DOM, painted over the header while the page scrolled.
+            // The card is its own scrollport, so the header parks at its top on
+            // every width; the shell header floats above the card, not inside it.
+            "sticky top-0 z-30 bg-inset",
+          )}
+        >
+          <tr className="h-11 border-b rule">
             {railBefore ? railHeaderCell : null}
             {showSelect ? (
               <th
                 scope="col"
-                className="sticky z-30 bg-ground py-2 text-center"
+                className="sticky z-30 h-11 bg-inset p-0 text-center"
                 style={{ left: railBefore ? openWidth : 0 }}
               >
                 <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
@@ -522,8 +541,8 @@ export function TableView({
             <th
               scope="col"
               className={cn(
-                "label relative sticky z-30 border-r rule py-2 pr-3 font-medium pointer-coarse:py-0",
-                compact ? "bg-ground" : "bg-surface",
+                "label relative sticky z-30 h-11 border-r rule p-0 pl-3 pr-3 font-medium",
+                compact ? "bg-inset" : "bg-surface",
                 scrolled && "border-line-strong",
               )}
               style={{ left: pinnedOffset }}
@@ -556,12 +575,14 @@ export function TableView({
                 <th
                   key={key}
                   scope="col"
-                  className="label relative py-2 pr-3 font-medium pointer-coarse:py-0"
+                  className="label relative h-11 p-0 pr-3 font-medium"
                   {...sortHeader(key)}
                 >
                   <HeaderSort
                     columnKey={key}
                     label={label}
+                    format={property?.format}
+                    accent
                     sort={sortOf(key)}
                     onSort={onSort}
                     showKey={!compact}
@@ -582,11 +603,11 @@ export function TableView({
               );
             })}
             {showAddColumn ? (
-              <th scope="col" className="py-2 pr-2 text-left">
+              <th scope="col" className="h-11 p-0 pr-2 text-left">
                 <button
                   type="button"
                   aria-label="Add property"
-                  className="inline-flex min-h-8 w-full items-center gap-1 rounded-[3px] px-1 text-[12px] whitespace-nowrap text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11"
+                  className="inline-flex min-h-8 w-full items-center gap-1 rounded-[8px] px-1 text-[12px] whitespace-nowrap text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:min-h-11"
                   onClick={onAddProperty}
                 >
                   <Plus aria-hidden size={13} />
@@ -594,7 +615,7 @@ export function TableView({
                 </button>
               </th>
             ) : null}
-            <th scope="col" aria-hidden className="py-2" />
+            <th scope="col" aria-hidden className="h-11 p-0" />
             {railBefore ? null : railHeaderCell}
           </tr>
         </thead>
@@ -620,7 +641,7 @@ export function TableView({
                   <div
                     className={cn(
                       "row-actions flex items-center",
-                      railBefore ? "justify-start" : "justify-end",
+                      railBefore ? "justify-start" : compact ? "justify-center" : "justify-end",
                       compact ? "gap-0" : "gap-0.5",
                     )}
                   >
@@ -676,7 +697,7 @@ export function TableView({
                         aria-label={`Open ${row.title}`}
                         title="Open record"
                         tabIndex={rowActive ? 0 : -1}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
                       >
                         <ArrowUpRight aria-hidden size={14} />
                       </Link>
@@ -826,12 +847,12 @@ function RowActionsMenu({
   const { handedness } = useHandedness();
   const navigate = useNavigate();
   const item =
-    "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+    "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
   return (
     <Popover.Root>
       <Popover.Trigger
         aria-label={`More actions for “${row.title}”`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-accent pointer-coarse:h-11 pointer-coarse:w-11 max-sm:h-11 max-sm:w-11"
       >
         <MoreHorizontal aria-hidden size={16} />
       </Popover.Trigger>
@@ -841,7 +862,7 @@ function RowActionsMenu({
           align={handedness === "left" ? "start" : "end"}
           className="z-50"
         >
-          <Popover.Popup className="min-w-[11rem] rounded-field border border-line bg-surface p-1">
+          <Popover.Popup className="glass-strong min-w-[11rem] rounded-card p-1.5">
             <Popover.Close
               className={item}
               onClick={() => navigate(`/s/${spaceId}/o/${row.id}`)}
@@ -903,7 +924,7 @@ function RowAction({
       disabled={disabled}
       tabIndex={tabIndex}
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11",
+        "inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11",
         danger ? "hover:text-danger" : "hover:text-accent",
       )}
       onClick={onClick}
@@ -1004,18 +1025,27 @@ function ColumnResizer({
 function HeaderSort({
   columnKey,
   label,
+  format,
+  accent = false,
   sort,
   onSort,
   showKey,
 }: {
   columnKey: string;
   label: string;
+  /** A property header names its format under the label; the title column has none. */
+  format?: PropertyFormat;
+  /** Property names carry the accent; the title column stays ink. */
+  accent?: boolean;
   sort: Sort | undefined;
   onSort: (key: string, additive: boolean) => void;
-  /** Phones drop the mono key line; the label alone is the header. */
+  /** Phones drop the key surface; the label alone is the header. */
   showKey: boolean;
 }) {
-  const named = showKey ? label : `${label} (${columnKey})`;
+  // The key is the file format, not the label: it stays in the name and the
+  // tooltip, and appears over the first row only while the header is pointed
+  // at, so a permanent second line never truncates an identifier.
+  const named = `${label} (${columnKey})`;
   const state = sort
     ? sort.direction === "asc"
       ? "currently ascending"
@@ -1030,13 +1060,13 @@ function HeaderSort({
   return (
     <button
       type="button"
-      className="flex w-full min-w-0 flex-col items-start gap-0 text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
+      className="group/head relative flex w-full min-w-0 flex-col items-start justify-center gap-0 text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
       title={`${named} — ${state}; activate to ${next}`}
       aria-label={`Sort by ${named}, ${state}, activate to ${next}`}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
       <span className="flex w-full min-w-0 items-center gap-1">
-        <span className="truncate">{label}</span>
+        <span className={cn("truncate", accent && "text-accent")}>{label}</span>
         <span className="flex w-[11px] shrink-0 items-center">
           {sort ? (
             sort.direction === "asc" ? (
@@ -1049,8 +1079,16 @@ function HeaderSort({
           )}
         </span>
       </span>
+      {format && showKey ? (
+        <span className="mt-0.5 max-w-full min-w-0 truncate font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-accent uppercase">
+          {formatLabel(format)}
+        </span>
+      ) : null}
       {showKey ? (
-        <span className="hidden w-full truncate font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint normal-case xl:block">
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-full left-0 z-40 mt-1 hidden max-w-[18rem] rounded-[6px] border border-line bg-raised px-1.5 py-0.5 font-mono text-[length:var(--text-label)] leading-4 tracking-[0.06em] break-all text-muted normal-case group-focus/head:block group-hover/head:block"
+        >
           {columnKey}
         </span>
       ) : null}

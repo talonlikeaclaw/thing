@@ -12,11 +12,12 @@ import {
 } from "@/api/queries";
 import type { AgendaQuery, AgendaRow } from "@/api/types";
 import { AgendaCalendar } from "@/components/agenda/agenda-calendar";
-import { AgendaHorizons, AgendaList } from "@/components/agenda/agenda-list";
-import { TypeFilter } from "@/components/agenda/type-filter";
+import { AgendaList } from "@/components/agenda/agenda-list";
+import { AgendaToolbar } from "@/components/agenda/agenda-toolbar";
+import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { useToast } from "@/components/ui/toast";
 import {
   agendaParams,
@@ -32,7 +33,7 @@ import {
   type AgendaState,
 } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
-import { readError } from "@/lib/display";
+import { formatDay, readError } from "@/lib/display";
 import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
 import { completeLabel } from "@/lib/schedule";
@@ -112,7 +113,6 @@ export function AgendaPage() {
   const complete = useCompleteObject(spaceId ?? "");
   const snooze = useSnoozeObject(spaceId ?? "");
   const toast = useToast();
-  const { handedness } = useHandedness();
   const compact = useCompactWidth();
 
   function update(patch: Partial<AgendaState>) {
@@ -218,7 +218,7 @@ export function AgendaPage() {
     null;
   const today = schedule?.today || spaceToday;
   const viewSwitch = (
-    <div role="group" aria-label="View" className="flex items-center gap-1">
+    <div role="group" aria-label="View" className={AGENDA_TOOLBAR}>
       {(
         [
           ["list", "List"],
@@ -229,10 +229,7 @@ export function AgendaPage() {
           key={view}
           type="button"
           aria-pressed={state.view === view}
-          className={cn(
-            "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-            state.view === view ? "" : "text-faint",
-          )}
+          className={AGENDA_SEGMENT}
           onClick={() => update({ view })}
         >
           {label}
@@ -240,47 +237,41 @@ export function AgendaPage() {
       ))}
     </div>
   );
-  const titleHeading = (
-    <h1 className="text-[26px] font-medium tracking-[-0.02em]">Schedule</h1>
-  );
-  const headerTitle = (
-    <div
-      className={cn(
-        "flex min-w-0 flex-wrap items-center gap-x-6 gap-y-2",
-        compact && "w-full justify-between",
-      )}
-    >
-      {handedness === "left" ? (
-        <>
-          {viewSwitch}
-          {titleHeading}
-        </>
-      ) : (
-        <>
-          {titleHeading}
-          {viewSwitch}
-        </>
-      )}
-    </div>
-  );
-  // The controls are an action row: canonical order puts the primary filter
-  // last, and `ThumbRow` moves it to the left thumb edge in left mode.
-  const headerTools = (
-    <ThumbRow className={cn("flex-wrap items-center gap-2", compact && "w-full")}>
-      {state.view === "list" ? (
-        <AgendaHorizons
+  // The header is chrome, so it is the page's one glass panel: it floats over
+  // the list while that scrolls under it. The view switch, the range switch
+  // and the filter are three separate pills of one size; the timezone line
+  // closes the panel under them.
+  const header = (
+    <header className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:z-20">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3">
+        <h1 className="display text-display">Schedule</h1>
+        {viewSwitch}
+      </div>
+      {/*
+        A mouse has no thumb edge: on a wide screen the controls start at the
+        leading edge; a phone stretches the range pill across the row and keeps
+        the filter at the thumb edge.
+      */}
+      <ThumbRow
+        className={cn(
+          "mt-3 flex-wrap items-center gap-2",
+          compact ? "w-full" : "justify-start",
+        )}
+      >
+        <AgendaToolbar
+          view={state.view}
           horizon={state.horizon}
-          onChange={(horizon) => update({ horizon })}
-        />
-      ) : null}
-      {scheduledTypes.length > 0 ? (
-        <TypeFilter
+          onHorizonChange={(horizon) => update({ horizon })}
           types={scheduledTypes}
           selected={effectiveTypes}
-          onChange={(nextTypes) => update({ types: nextTypes })}
+          onTypesChange={(nextTypes) => update({ types: nextTypes })}
+          stretch={compact}
         />
-      ) : null}
-    </ThumbRow>
+      </ThumbRow>
+      <p className="mt-2.5 font-mono text-[12px] text-faint">
+        {schedule?.timezone ?? detail.timezone} · today {formatDay(today)}
+      </p>
+    </header>
   );
 
   return (
@@ -289,25 +280,10 @@ export function AgendaPage() {
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schedule" }]}
       />
       <div>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          {handedness === "left" && !compact ? (
-            <>
-              {headerTools}
-              {headerTitle}
-            </>
-          ) : (
-            <>
-              {headerTitle}
-              {headerTools}
-            </>
-          )}
-        </div>
-        <p className="mt-2 font-mono text-[12px] text-faint">
-          {schedule?.timezone ?? detail.timezone} · today {today}
-        </p>
+        {header}
 
         {agenda.error ? (
-          <div className="mt-8">
+          <div className="mt-6">
             <ErrorState
               error={agenda.error}
               subject="Schedule"
@@ -317,19 +293,19 @@ export function AgendaPage() {
             />
           </div>
         ) : scheduledTypes.length === 0 ? (
-          <div className="mt-8 max-w-[52ch] border-t rule pt-4">
+          <div className="mt-6 max-w-[52ch] rounded-[22px] border border-line bg-surface p-4 sm:p-5">
             <p className="text-muted">
               No type is scheduled — open Schema and turn on Schedule for a type.
             </p>
             <Link
               to={`/s/${detail.id}/schema`}
-              className="mt-3 inline-flex min-h-10 w-fit items-center rounded-field border border-line px-4 text-sm text-ink transition-colors hover:border-line-strong pointer-coarse:min-h-11"
+              className="mt-3 inline-flex min-h-10 w-fit items-center rounded-full border border-line-interactive/70 bg-raised/40 px-4 text-sm text-ink transition-colors hover:border-line-strong pointer-coarse:min-h-11"
             >
               Open Schema
             </Link>
           </div>
         ) : !schedule ? (
-          <p className="mt-8 text-[13px] text-muted">Reading the schedule…</p>
+          <p className="mt-6 text-[13px] text-muted">Reading the schedule…</p>
         ) : state.view === "calendar" ? (
           <AgendaCalendar
             spaceId={detail.id}

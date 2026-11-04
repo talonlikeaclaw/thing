@@ -48,7 +48,7 @@ export function GraphSection({
             type="button"
             aria-pressed={scope === value}
             className={cn(
-              "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+              "label rounded-[8px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
               scope === value ? "" : "text-faint",
             )}
             onClick={() => setScope(value)}
@@ -108,7 +108,7 @@ export function GraphSection({
     <ChevronDown
       aria-hidden
       size={14}
-      className="shrink-0 text-muted transition-transform group-open:rotate-180"
+      className="shrink-0 text-muted motion-safe:transition-transform group-open:rotate-180"
     />
   );
 

@@ -60,7 +60,7 @@ const ACCOUNT_TRIGGER_ID = "account-menu-trigger";
 
 /** One row in the account menu, on the same 9/11 heights as every control. */
 const menuItem =
-  "flex min-h-9 cursor-default items-center gap-2 rounded-[4px] px-2 text-[13px] text-ink outline-none select-none [&[data-highlighted]:focus-visible]:bg-accent-wash [&[data-highlighted]:focus-visible]:text-accent [&[data-highlighted]:hover]:bg-accent-wash [&[data-highlighted]:hover]:text-accent pointer-coarse:min-h-11";
+  "flex min-h-9 cursor-default items-center gap-2 rounded-[10px] px-2 text-[13px] text-ink outline-none select-none [&[data-highlighted]:focus-visible]:bg-accent-wash [&[data-highlighted]:focus-visible]:text-accent-on-wash [&[data-highlighted]:hover]:bg-accent-wash [&[data-highlighted]:hover]:text-accent-on-wash pointer-coarse:min-h-11";
 
 /** Signed-out requests go to the form, and come back to where they were. */
 export function AuthGate() {
@@ -296,17 +296,24 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
           <ScrollRestoration />
           <a
             href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-field focus:border focus:border-line-interactive focus:bg-surface focus:px-4 focus:py-2 focus:text-[13px] focus:text-ink"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-full focus:border focus:border-line-interactive focus:bg-surface focus:px-4 focus:py-2 focus:text-[13px] focus:text-ink"
           >
             Skip to content
           </a>
-          <header className="border-b rule pt-[env(safe-area-inset-top)]">
+          {/*
+            Below `lg` the header is part of the page flow: a phone, and a
+            phone on its side in particular, cannot spend a fixed 80px of a
+            short viewport on chrome the reader may already know. From `lg` it
+            sticks, and the rail and page headers offset by
+            `--shell-header-h`.
+          */}
+          <header className="z-30 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-3 lg:sticky lg:top-0">
             {/*
-              At `lg` the header is always the page's rail-and-content grid,
-              inside a space or not, so the action zone keeps one x on every
-              route instead of jumping between the content edge and the right.
+              The header is a floating glass panel, not a full-bleed bar: the
+              page's top light and any scrolling content stay visible around its
+              edge, which is what makes the frost read as a material.
             */}
-            <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
+            <div className="glass mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 rounded-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-6 sm:pr-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10 lg:rounded-[20px]">
               <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
                 <Wordmark />
                 {/* The text below is `sm` and up; a phone still needs to see
@@ -336,7 +343,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     variant="ghost"
                     aria-label={`Search and commands (${shortcutLabel})`}
                     aria-haspopup="dialog"
-                    className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px]"
+                    className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
                     onClick={openPalette}
                   >
                     <Search aria-hidden size={15} />
@@ -349,7 +356,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                       aria-label={`Capture a record (${captureShortcut?.keys ?? "C"})`}
                       aria-keyshortcuts={captureShortcut?.key ?? "c"}
                       aria-haspopup="dialog"
-                      className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px]"
+                      className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
                       onClick={() => capture.open()}
                     >
                       <Plus aria-hidden size={15} />
@@ -408,7 +415,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                     </Menu.Trigger>
                     <Menu.Portal>
                       <Menu.Positioner sideOffset={6} align="end" className="z-50">
-                        <Menu.Popup className="min-w-[15rem] rounded-sheet border border-line bg-surface p-1 text-[13px] text-ink outline-none">
+                        <Menu.Popup className="glass-strong min-w-[15rem] rounded-card p-1.5 text-[13px] text-ink outline-none">
                           <Menu.LinkItem
                             render={<Link to="/settings" />}
                             closeOnClick
@@ -444,17 +451,14 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
           <main
             id="main-content"
             tabIndex={-1}
-            className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-10 focus:outline-none"
+            className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 focus:outline-none sm:px-6 lg:px-8 lg:py-10"
           >
             <TableShortcutsProvider onChange={setTableShortcuts}>
               <Outlet />
             </TableShortcutsProvider>
           </main>
-          <footer className="mx-auto w-full max-w-[1400px] px-6 py-6 max-lg:pb-24">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-t rule pt-4">
-              <p className="font-mono text-[11px] text-faint">
-                Markdown on disk is the source of truth.
-              </p>
+          <footer className="mx-auto w-full max-w-[1400px] px-4 py-6 max-lg:pb-28 sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-2 border-t rule pt-4">
               <div className="flex items-baseline gap-3">
                 <Link
                   to="/changelog"

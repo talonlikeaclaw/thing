@@ -1,9 +1,10 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
-import { useEffect, type ComponentProps } from "react";
+import { useEffect, useRef, type ComponentProps, type RefObject } from "react";
 
 import { useHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
+import { lockDocumentScroll } from "@/lib/scroll-lock";
 import { applyViewportMetrics, subscribeVisualViewport } from "@/lib/viewport";
 
 /**
@@ -39,7 +40,39 @@ export function SheetViewport({ placement = "sheet", className, ...props }: Shee
  * footer. Callers add only their width and their own padding.
  */
 export function SheetPopup({ className, ...props }: ComponentProps<typeof Dialog.Popup>) {
-  return <Dialog.Popup className={cn("sheet-popup", className)} {...props} />;
+  const ref = useRef<HTMLDivElement>(null);
+  useDocumentScrollLock(ref);
+  return <Dialog.Popup ref={ref} className={cn("sheet-popup", className)} {...props} />;
+}
+
+/**
+ * Follow the popup's own open attribute, which Base UI sets in the commit that
+ * mounts its content. A mutation costs one extra lock frame and keeps every
+ * caller from having to pass its `open` state here.
+ */
+function useDocumentScrollLock(ref: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+    let release: (() => void) | null = null;
+    const sync = () => {
+      if (element.hasAttribute("data-open")) {
+        release ??= lockDocumentScroll();
+      } else if (release) {
+        release();
+        release = null;
+      }
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(element, { attributes: true, attributeFilter: ["data-open"] });
+    return () => {
+      observer.disconnect();
+      release?.();
+    };
+  }, [ref]);
 }
 
 /**
@@ -85,7 +118,7 @@ export function SheetCloseButton({
     <Dialog.Close
       aria-label={label}
       className={cn(
-        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        "inline-flex size-9 min-h-9 min-w-9 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised/60 hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         handedness === "left" ? "-ml-1" : "-mr-1",
         className,
       )}

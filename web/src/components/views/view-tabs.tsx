@@ -12,7 +12,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useCreateView, useMoveView } from "@/api/queries";
-import { useHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import type {
   CreateView,
   PropertyDef,
@@ -31,9 +31,13 @@ import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
 import { movedViewSlot } from "@/lib/views";
 
+/** One edge action of the view strip: a circle, 44 px on a coarse pointer. */
+const EDGE_BUTTON =
+  "inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-wash text-accent-on-wash transition-colors hover:bg-[color-mix(in_srgb,var(--color-accent)_20%,transparent)] pointer-coarse:size-11";
+
 /** One step of the reorder arrows; sized like the rail's, 44 px on coarse. */
 const MOVE_BUTTON =
-  "inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11";
+  "inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11";
 
 const KINDS: { value: ViewKind; label: string; icon: typeof Table2 }[] = [
   { value: "table", label: "Table", icon: Table2 },
@@ -79,7 +83,6 @@ export function ViewTabs({
 }: ViewTabsProps) {
   const create = useCreateView(spaceId, type.key);
   const move = useMoveView(spaceId, type.key);
-  const { handedness } = useHandedness();
   const compact = useCompactWidth();
   const [open, setOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -176,67 +179,55 @@ export function ViewTabs({
     });
   }
 
-  const newViewButton = canEdit && !reordering ? (
-    <button
-      type="button"
-      aria-label="New view"
-      aria-expanded={open}
-      className="label inline-flex shrink-0 items-center justify-center gap-1 px-2.5 py-2 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:min-h-11 max-sm:min-w-11"
-      onClick={() => (open ? setOpen(false) : start())}
-    >
-      <Plus aria-hidden size={13} />
-      <span>New view</span>
-    </button>
-  ) : null;
-
-  // Reordering is a mode on the strip it reorders, the same way the space rail
-  // hands its ordered list a Reorder toggle rather than hiding it in a panel.
-  const reorderButton =
-    canEdit && type.views.length > 1 ? (
+  // One cluster in the middle of the strip: Reorder, the saved views, then New
+  // view. Nothing pins to the outer edges, so the family reads as one control
+  // at every width.
+  const reorderSlot = canEdit ? (
+    type.views.length > 1 ? (
       <button
         type="button"
         aria-pressed={reordering}
         aria-label={reordering ? "Finish reordering views" : "Reorder views"}
-        className="label inline-flex shrink-0 items-center justify-center gap-1 px-2 py-2 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:min-h-11 max-sm:min-w-11"
+        title={reordering ? "Finish reordering views" : "Reorder views"}
+        className={cn(EDGE_BUTTON, reordering && "bg-accent/25 ring-1 ring-accent/50")}
         onClick={() => {
           setOpen(false);
           setReordering((current) => !current);
         }}
       >
         {reordering ? (
-          <Check aria-hidden size={13} />
+          <Check aria-hidden size={15} />
         ) : (
-          <ArrowUpDown aria-hidden size={13} />
+          <ArrowUpDown aria-hidden size={15} />
         )}
-        <span>{reordering ? "Done" : "Reorder"}</span>
       </button>
-    ) : null;
+    ) : null
+  ) : null;
 
-  const stripActions = (
-    <span className="flex shrink-0 items-stretch gap-1">
-      {reorderButton}
-      {newViewButton}
-    </span>
-  );
-
-  const handednessFirst = !compact && handedness === "left";
+  const newViewSlot = canEdit ? (
+    reordering ? null : (
+      <button
+        type="button"
+        aria-label="New view"
+        title="New view"
+        aria-expanded={open}
+        className={EDGE_BUTTON}
+        onClick={() => (open ? setOpen(false) : start())}
+      >
+        <Plus aria-hidden size={15} />
+      </button>
+    )
+  ) : null;
 
   return (
-    <div className="mt-5">
-      <div
-        className={cn(
-          "flex items-stretch gap-1 border-b rule",
-          compact && "flex-wrap",
-        )}
-      >
-        {handednessFirst ? stripActions : null}
+    <div className="mt-4">
+      <ThumbRow className="items-center justify-center gap-1.5">
+        <div className="flex min-w-0 max-w-full items-center justify-center gap-1.5">
+        {reorderSlot}
         <div
           role="tablist"
           aria-label="Saved views"
-          className={cn(
-            "flex min-w-0 items-stretch gap-1",
-            compact ? "flex-1 flex-wrap" : "overflow-x-auto overscroll-x-contain",
-          )}
+          className="mx-auto flex w-fit min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain rounded-full border border-line/80 bg-inset/60 p-1"
           onKeyDown={(event) => {
             const index = type.views.findIndex((view) => view.key === selectedKey);
             if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
@@ -274,11 +265,13 @@ export function ViewTabs({
                 tabIndex={selected ? 0 : -1}
                 title={`${viewKindLabel(view.kind)} view`}
                 className={cn(
-                  "-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-2.5 py-2 text-[length:var(--text-small)] transition-colors hover:text-ink pointer-coarse:min-h-11",
-                  // Reordering is a list, not a wrap: every view gets one full
-                  // row on compact, so a long name cannot change the column count.
-                  reordering && compact ? "min-w-0 flex-1" : "shrink-0",
-                  selected ? "border-accent text-accent" : "text-muted",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[length:var(--text-small)] transition-colors pointer-coarse:min-h-11",
+                  // One row: the strip scrolls sideways rather than wrapping a
+                  // second line under the first.
+                  "shrink-0",
+                  selected
+                    ? "bg-accent-wash text-accent-on-wash"
+                    : "text-muted hover:bg-raised/60 hover:text-ink",
                 )}
                 onClick={() => onSelect(view.key)}
               >
@@ -328,21 +321,9 @@ export function ViewTabs({
             );
           })}
         </div>
-        {!compact && !handednessFirst ? stripActions : null}
-      </div>
-
-      {compact ? (
-        // The phone strip is a two-column wrap; inline controls would take a
-        // tab's width, so both actions sit in their own row under the views.
-        <div
-          className={cn(
-            "flex items-stretch gap-1 pb-1",
-            handedness === "left" ? "justify-start" : "justify-end",
-          )}
-        >
-          {stripActions}
+        {newViewSlot}
         </div>
-      ) : null}
+      </ThumbRow>
 
       {open && canEdit ? (
         <form
@@ -375,7 +356,7 @@ export function ViewTabs({
                     key={value}
                     type="button"
                     aria-pressed={kind === value}
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-field border border-line-interactive px-2.5 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-pressed:border-accent aria-pressed:text-accent pointer-coarse:min-h-11"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2.5 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-pressed:border-accent aria-pressed:text-accent pointer-coarse:min-h-11"
                     onClick={() => changeKind(value)}
                   >
                     <Icon aria-hidden size={14} />

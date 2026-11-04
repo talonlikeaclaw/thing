@@ -1,23 +1,32 @@
 @import "tailwindcss";
 
 /*
- * Nocturnal Field Guide: a dark index read under a headlamp.
- * The world contributes type, palette, density and the keyed rail; the shell
- * stays a standard web app. One lichen accent marks state, never decoration.
+ * Night Glass: the field guide read through a lit instrument.
+ * Chrome — headers, rails, the dock, sheets, toolbars — floats as frosted glass
+ * over a top-lit dark ground. Data surfaces stay matte and opaque. One lichen
+ * accent marks state; the only saturated chrome is the capture circle.
  */
 @theme static {
-  --color-ground: #121512;
-  --color-inset: #0d100d;
-  --color-surface: #1a1e1a;
-  --color-raised: #212621;
-  --color-line: #2d332d;
+  --color-ground: #0a0e0b;
+  --color-ground-lift: #141c16;
+  --color-inset: #070a08;
+  --color-surface: #151a16;
+  --color-raised: #1d231e;
+  --color-line: #293029;
   --color-line-strong: #3a423a;
-  --color-line-interactive: #667066;
-  --color-ink: #e8ece4;
-  --color-muted: #9aa398;
-  --color-faint: #868e84;
+  --color-line-interactive: #6a746a;
+  --color-ink: #edf1e8;
+  --color-muted: #a2ab9f;
+  --color-faint: #8b948b;
+  /* Glass is chrome only: nav, headers, toolbars, sheets, toasts, floating
+     actions. It never sits under a table cell, a record body or a form grid. */
+  --color-glass: rgba(30, 38, 32, 0.55);
+  --color-glass-strong: rgba(36, 44, 38, 0.62);
+  --color-glass-edge: rgba(255, 255, 255, 0.12);
+  --color-glass-hover: rgba(255, 255, 255, 0.07);
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
+  --color-accent-on-wash: #c8d96b;
   --color-accent-wash: #c8d96b1e;
   --color-danger: #f08a72;
   --color-warning: #dcaa54;
@@ -67,8 +76,24 @@
   --duration-base: 180ms;
   --duration-slow: 240ms;
 
-  --radius-field: 6px;
-  --radius-sheet: 10px;
+  --radius-field: 12px;
+  --radius-card: 18px;
+  --radius-sheet: 28px;
+  /* Frosted chrome: bars, headers, sheets and backdrops blur what passes under
+     them. Data surfaces never do. */
+  --glass-blur: 24px;
+  --glass-saturate: 150%;
+  /* The scrim dims and blurs the page; it never washes it with a colour. */
+  --scrim-blur: 5px;
+  --scrim-dim: 0.9;
+  /* One elevation family: a wide, low ambient shadow. No border-plus-halo ghost
+     cards: a glass panel owns its edge and its shadow together, a matte card
+     owns only its edge. */
+  --shadow-float: 0 20px 50px -22px rgba(0, 0, 0, 0.72);
+  --shadow-dock: 0 18px 40px -16px rgba(0, 0, 0, 0.66);
+  /* The shell header's painted height: 4rem of content, its top offset and the
+     safe-area inset. Sticky content below it offsets by this token. */
+  --shell-header-h: calc(5rem + env(safe-area-inset-top));
 }
 
 /*
@@ -81,36 +106,42 @@
 :root[data-accent="lichen"] {
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
+  --color-accent-on-wash: #c8d96b;
   --color-accent-wash: #c8d96b1e;
 }
 
 :root[data-accent="yellow"] {
   --color-accent: #f2d64b;
   --color-accent-ink: #1a1503;
+  --color-accent-on-wash: #f2d64b;
   --color-accent-wash: #f2d64b1e;
 }
 
 :root[data-accent="orange"] {
   --color-accent: #f5a24a;
   --color-accent-ink: #1c1204;
+  --color-accent-on-wash: #f5a24a;
   --color-accent-wash: #f5a24a1e;
 }
 
 :root[data-accent="cyan"] {
   --color-accent: #6fdbe8;
   --color-accent-ink: #04181a;
+  --color-accent-on-wash: #6fdbe8;
   --color-accent-wash: #6fdbe81e;
 }
 
 :root[data-accent="green"] {
   --color-accent: #7fe08a;
   --color-accent-ink: #051706;
+  --color-accent-on-wash: #7fe08a;
   --color-accent-wash: #7fe08a1e;
 }
 
 :root[data-accent="pink"] {
   --color-accent: #f49ac1;
   --color-accent-ink: #1d0711;
+  --color-accent-on-wash: #f49ac1;
   --color-accent-wash: #f49ac11e;
 }
 
@@ -118,57 +149,74 @@
   :root[data-accent="lichen"] {
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
+    --color-accent-on-wash: #525f18;
     --color-accent-wash: #5f6f1e1e;
   }
 
   :root[data-accent="yellow"] {
     --color-accent: #6f5d00;
     --color-accent-ink: #fbf9ea;
+    --color-accent-on-wash: #645400;
     --color-accent-wash: #6f5d001e;
   }
 
   :root[data-accent="orange"] {
     --color-accent: #9a4a00;
     --color-accent-ink: #fdf6ee;
+    --color-accent-on-wash: #8b4300;
     --color-accent-wash: #9a4a001e;
   }
 
   :root[data-accent="cyan"] {
     --color-accent: #00646e;
     --color-accent-ink: #eefcfe;
+    --color-accent-on-wash: #005a63;
     --color-accent-wash: #00646e1e;
   }
 
   :root[data-accent="green"] {
     --color-accent: #256b33;
     --color-accent-ink: #f0fbf2;
+    --color-accent-on-wash: #21602e;
     --color-accent-wash: #256b331e;
   }
 
   :root[data-accent="pink"] {
     --color-accent: #96325f;
     --color-accent-ink: #fdf1f6;
+    --color-accent-on-wash: #872d56;
     --color-accent-wash: #96325f1e;
   }
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --color-ground: #f4f3ec;
-    --color-inset: #eae9e0;
-    --color-surface: #fbfaf6;
-    --color-raised: #efeee6;
-    --color-line: #d9d7ca;
-    --color-line-strong: #c2c0b0;
+    --color-ground: #f1efe7;
+    --color-ground-lift: #fbfaf4;
+    --color-inset: #e7e4da;
+    --color-surface: #fbfaf5;
+    --color-raised: #efede4;
+    --color-line: #dcd8cc;
+    --color-line-strong: #c6c2b4;
     --color-line-interactive: #8a8a7c;
     --color-ink: #1b1d19;
     --color-muted: #5f665c;
-    --color-faint: #676d65;
+    /* 4.64:1 on the inset, so the faintest label clears 4.5 on every scheme
+       surface; the old #636960 measured 4.44 on the darker inset. */
+    --color-faint: #60665d;
+    --color-glass: rgba(255, 255, 255, 0.6);
+    --color-glass-strong: rgba(252, 251, 246, 0.6);
+    --color-glass-edge: rgba(255, 255, 255, 0.85);
+    --color-glass-hover: rgba(255, 255, 255, 0.55);
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
+    --color-accent-on-wash: #525f18;
     --color-accent-wash: #5f6f1e1e;
     --color-danger: #a33a28;
     --color-warning: #7d5410;
+    --shadow-float: 0 20px 44px -24px rgba(40, 44, 34, 0.28);
+    --shadow-dock: 0 18px 36px -20px rgba(40, 44, 34, 0.24);
+    --scrim-dim: 0.96;
   }
 }
 
@@ -185,7 +233,16 @@
   }
 
   html {
-    background: var(--color-ground);
+    background-color: var(--color-ground);
+    /* The top light is what makes the glass read as glass. It is a wash on the
+       canvas, never a panel: no stripes, no noise, no second surface. */
+    background-image: radial-gradient(
+      120% 90% at 50% -20%,
+      var(--color-ground-lift) 0%,
+      var(--color-ground) 55%,
+      var(--color-inset) 100%
+    );
+    background-attachment: fixed;
   }
 
   h1,
@@ -205,7 +262,7 @@
 
   body {
     min-height: 100dvh;
-    background: var(--color-ground);
+    background: transparent;
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: var(--text-body);
@@ -220,13 +277,30 @@
   }
 
   * {
-    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-color: color-mix(in srgb, var(--color-line-interactive) 70%, transparent) transparent;
     scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-line-interactive) 70%, transparent);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-line-interactive);
+    background-clip: content-box;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+    outline-offset: 3px;
   }
 
   button,
@@ -289,6 +363,69 @@
     border-color: var(--color-line);
   }
 
+  /*
+   * The two glass materials. `glass` is the resting chrome — nav, header,
+   * toolbar, floating action bar; `glass-strong` is a surface that must stay
+   * readable over any content — sheets, the palette, menus, toasts. Both carry
+   * one lit edge and one ambient shadow; neither ever sits under data.
+   */
+  .glass,
+  .glass-strong {
+    border: 1px solid var(--color-glass-edge);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  .glass {
+    background: var(--color-glass);
+  }
+
+  .glass-strong {
+    background: var(--color-glass-strong);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    animation: pop-in var(--duration-base) var(--ease-out);
+  }
+
+  /*
+   * A browser that cannot blur still gets a legible panel: the fill goes
+   * opaque and the edge stays. Declared after the material rules so it wins.
+   */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass {
+      background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+    }
+
+    .glass-strong {
+      background: var(--color-surface);
+    }
+  }
+
+  /* The floating action: one saturated circle, its own elevation. */
+  .action-circle {
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  /*
+   * The overlay scrim is the page itself, blurred and dimmed. No fill: a tint
+   * over a green ground reads as a flat colour and competes with the glass.
+   */
+  .scrim {
+    background: transparent;
+    -webkit-backdrop-filter: blur(var(--scrim-blur)) brightness(var(--scrim-dim));
+    backdrop-filter: blur(var(--scrim-blur)) brightness(var(--scrim-dim));
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .scrim {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  }
+
   @media (max-width: 39.99rem) {
     :root {
       --text-display: 1.875rem;
@@ -335,10 +472,11 @@
     z-index: 50;
   }
 
-  /* The space drawer is a phone sheet at every width it renders at. */
+  /* The space drawer is a phone sheet at every width it renders at. It floats
+     clear of the screen edge so its glass edge and shadow are visible. */
   .sheet-viewport[data-placement="bottom"] {
     align-items: flex-end;
-    padding: 0;
+    padding: 0 0.5rem calc(0.5rem + env(safe-area-inset-bottom));
   }
 
   /* Sign out is a centred dialog, never a sheet. */
@@ -348,18 +486,81 @@
   }
 
   .sheet-popup {
+    position: relative;
     display: flex;
     width: 100%;
     flex-direction: column;
     overflow: hidden;
+    max-height: calc(100vh - 1rem);
+    max-height: calc(var(--vv-height, 100vh) - 1rem);
     max-height: min(85dvh, calc(var(--vv-height, 100dvh) - 1rem));
-    border: 1px solid var(--color-line);
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    background: var(--color-surface);
+    border: 1px solid var(--color-glass-edge);
+    border-radius: var(--radius-sheet);
+    box-shadow: var(--shadow-float);
+  }
+
+  /*
+   * The blur sits behind the panel, not on it. iOS Safari refuses to scroll a
+   * container inside an element that has `backdrop-filter`: the palette's
+   * results and the capture's fields would stay put while the page moved. A
+   * pseudo-element keeps the same glass and leaves the panel a plain scroller.
+   */
+  .sheet-popup::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--color-glass-strong);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+    transform: translateZ(0);
+    will-change: backdrop-filter;
+    pointer-events: none;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sheet-popup::before {
+      background: var(--color-surface);
+    }
   }
 
   .sheet-popup[data-open] {
-    animation: sheet-in var(--duration-base) var(--ease-out);
+    animation: sheet-in var(--duration-slow) var(--ease-out);
+  }
+
+  /*
+   * WebKit defers a backdrop-filter until the entrance animation settles, so
+   * the panel lands first and the glass arrives a beat later. On iOS the
+   * overlay appears at its resting position with its glass already in place.
+   */
+  @supports (-webkit-touch-callout: none) {
+    .sheet-popup[data-open],
+    .glass-strong {
+      animation: none;
+    }
+  }
+
+  /*
+   * Lock the document while a sheet is open. Base UI hides the body's overflow,
+   * but on iOS the html element stays the scroller, so a swipe on the backdrop
+   * or past the end of a list rubber-bands the page under the panel. Locking
+   * the root and cutting overscroll on both elements stops that chain; the
+   * sheet's own scroll containers are unaffected.
+   */
+  :root:has(.sheet-popup[data-open]) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  :root:has(.sheet-popup[data-open]) body {
+    overscroll-behavior: none;
+  }
+
+  /* A dialog container can take focus so a screen reader lands inside it; the
+     control ring belongs to the controls, not to the panel's own frame. */
+  .sheet-popup:focus-visible {
+    outline: none;
   }
 
   /*
@@ -376,15 +577,29 @@
   }
 
   /*
-   * The record save bar is sticky, not fixed, but a sticky `bottom` is still
-   * measured against the layout viewport. On iOS that viewport does not shrink
-   * when the keyboard opens, so the bar would sit behind it; the keyboard's
-   * height moves it back above. With the keyboard down it clears the phone bar,
-   * and from `lg` the page has no bottom bar to clear.
+   * The record save bar is sticky only while it is pinned above the phone bar;
+   * from `lg` it returns to the flow at the end of the record, so it never
+   * covers the links, history or trash. A sticky `bottom` is measured against
+   * the layout viewport, which on iOS does not shrink when the keyboard opens,
+   * so the keyboard's height moves the bar back above it.
    */
   .record-save-bar {
-    /* The phone bar is 3.5rem of content plus its 1px top hairline. */
-    bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom));
+    border: 1px solid var(--color-glass-edge);
+    border-radius: var(--radius-card);
+    background: var(--color-glass-strong);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    padding-inline: var(--space-3);
+    /* The phone dock is 4rem of content plus a 0.75rem bottom offset; the row
+       floats 0.5rem above it. */
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .record-save-bar {
+      background: var(--color-surface);
+    }
   }
 
   /*
@@ -396,9 +611,11 @@
     display: inline-flex;
     height: var(--space-6);
     align-items: center;
-    border: 1px solid var(--color-line);
+    gap: var(--space-1);
+    border: 1px solid var(--color-glass-edge);
     border-radius: 999px;
-    background: var(--color-surface);
+    background: var(--color-glass);
+    box-shadow: var(--shadow-float);
     padding-inline: var(--space-3);
     color: var(--color-muted);
     font-family: var(--font-mono);
@@ -406,6 +623,8 @@
     line-height: 1;
     letter-spacing: var(--text-label--letter-spacing);
     text-transform: uppercase;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   }
 
   :root[data-keyboard="on"] .record-save-bar {
@@ -445,12 +664,6 @@
     overscroll-behavior: contain;
   }
 
-  @media (min-width: 64rem) {
-    .record-save-bar {
-      bottom: 0;
-    }
-  }
-
   /* Off-canvas, not `display: none`: see the `[hidden]` override in `base`. */
   .sheet-popup[hidden] {
     transform: translateY(100%);
@@ -477,7 +690,7 @@
 @keyframes sheet-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(18px);
   }
   to {
     opacity: 1;
@@ -504,6 +717,19 @@
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A menu or popover arrives from the edge it will sit against: 6px, nothing
+ * more. The sheet has its own 18px rise. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -543,9 +769,16 @@
 @media (prefers-reduced-motion: reduce) {
   .settle,
   .sheet-popup[data-open],
+  .glass-strong,
   .palette-results,
   .toast {
     animation: none;
+  }
+
+  /* The rows appear and disappear with the pointer; the fade is the only
+     motion left on a fine pointer, so it goes too. */
+  .row-actions {
+    transition: none;
   }
 }
 
@@ -556,17 +789,17 @@
   bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
-/* The phone bar is 3.5rem plus the home inset and sits above a toast that
- * would otherwise paint over Capture and Search for its whole life. The bar is
- * hidden from `lg` up, so the rule stops there and desktop keeps 1rem. */
+/* The phone dock is 4.25rem plus a 0.75rem offset and the home inset, and a
+ * toast would otherwise paint over Capture and Search for its whole life. The
+ * dock is hidden from `lg` up, so the rule stops there and desktop keeps 1rem. */
 @media (max-width: 63.99rem) {
   .toast-stack {
-    bottom: calc(3.5rem + env(safe-area-inset-bottom) + 0.5rem);
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
   }
 
-  /* Scrolling the calendar to today must stop above that same bar. */
+  /* Scrolling the calendar to today must stop above that same dock. */
   .calendar-day {
-    scroll-margin-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+    scroll-margin-bottom: calc(5.5rem + env(safe-area-inset-bottom));
   }
 }
 

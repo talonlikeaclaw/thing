@@ -138,7 +138,7 @@ export function FieldRow({ label, htmlFor, hint, children, className }: FieldRow
       ) : (
         <span className={labelClass}>{label}</span>
       )}
-      <div className="grid min-w-0 gap-[var(--space-1.5)]">
+      <div className="grid min-w-0 gap-[var(--space-2)]">
         {children}
         {hint ? (
           <p className="text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
@@ -150,12 +150,16 @@ export function FieldRow({ label, htmlFor, hint, children, className }: FieldRow
   );
 }
 
-/** A property format or role marker: mono, bordered, never a filled chip. */
+/**
+ * A property format or role marker: mono and pill-shaped. Quiet by default;
+ * a caller tints it with the accent wash when it sits beside an accent property
+ * name in the property-identity motif.
+ */
 export function FormatChip({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-[4px] border border-line px-[var(--space-1.5)] py-0.5 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-muted uppercase",
+        "inline-flex shrink-0 items-center rounded-full border border-line px-[var(--space-2)] py-0.5 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-muted uppercase",
         className,
       )}
     >

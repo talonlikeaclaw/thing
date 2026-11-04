@@ -57,7 +57,7 @@ export function AccentPicker({ value, onChange, labelledBy, disabled = false }: 
       role="radiogroup"
       aria-labelledby={labelledBy}
       aria-disabled={disabled}
-      className="mt-4 flex flex-wrap gap-x-[var(--space-2)] gap-y-[var(--space-1)]"
+      className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
     >
       {ACCENTS.map((accent, index) => {
         const scheme = light ? accent.light : accent.dark;

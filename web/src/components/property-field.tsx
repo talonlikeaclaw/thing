@@ -39,7 +39,7 @@ interface PropertyFieldProps {
 }
 
 const control =
-  "h-10 w-full rounded-field border border-line-interactive bg-ground px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-10 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-3 text-[15px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 /** A datetime-local value in the record's one date grammar. */
 function shownDateTime(local: string, timeZone?: string): string {
@@ -227,14 +227,16 @@ function TextField({
   return (
     <div className="grid max-w-[32rem] gap-1">
       {showsCalendar ? (
-        <div className="relative">
+        // The visible field and the native input are siblings, so the focus
+        // ring lives on their shared wrapper: only an ancestor can answer
+        // `:has(:focus-visible)` for the input that actually takes focus.
+        <div className="relative rounded-field has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent">
           <div
             aria-hidden
             className={cn(
               control,
               "flex items-center justify-between gap-2",
               invalid && "border-danger",
-              "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
             )}
           >
             <span className={cn("truncate", shown === "" && "text-faint")}>
@@ -416,12 +418,12 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
           <Popover.Positioner sideOffset={4} collisionPadding={8} className="z-50">
             <Popover.Popup
               aria-label={`${property.name} options`}
-              className="w-[var(--anchor-width)] min-w-[15rem] max-w-[calc(100vw-1rem)] rounded-field border border-line bg-surface p-1 text-[13px]"
+              className="glass-strong w-[var(--anchor-width)] min-w-[15rem] max-w-[calc(100vw-1rem)] rounded-card p-1.5 text-[13px]"
             >
               <input
                 autoFocus
                 aria-label={`Filter ${property.name} options`}
-                className="mb-1 h-8 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                className="mb-1 h-8 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
                 placeholder="Filter or type a new option"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -446,7 +448,7 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
                 {value !== null && value !== undefined ? (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
+                    className="flex w-full items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
                     onClick={() => choose("")}
                   >
                     <X aria-hidden size={12} />
@@ -457,7 +459,7 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
                   <button
                     key={option.key}
                     type="button"
-                    className="flex w-full items-center justify-between gap-2 rounded-[3px] px-2 py-1.5 text-left hover:bg-raised"
+                    className="flex w-full items-center justify-between gap-2 rounded-[8px] px-2 py-1.5 text-left hover:bg-raised"
                     onClick={() => choose(option.key)}
                   >
                     <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -475,7 +477,7 @@ function SelectField({ spaceId, property, value, onChange }: PropertyFieldProps)
                   <button
                     type="button"
                     disabled={create.isPending}
-                    className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
+                    className="flex w-full items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
                     onClick={createOption}
                   >
                     <Plus aria-hidden size={12} />
@@ -518,7 +520,7 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
                 "inline-flex min-h-[var(--control-standard)] cursor-pointer items-center gap-1.5 rounded-field border px-2.5 text-[length:var(--text-small)] transition-colors pointer-coarse:min-h-[var(--control-coarse)]",
                 "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent",
                 checked
-                  ? "border-accent bg-accent-wash text-accent"
+                  ? "border-accent bg-accent-wash text-accent-on-wash"
                   : "border-line-interactive text-ink hover:border-line-strong hover:bg-raised",
               )}
             >
@@ -607,7 +609,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
               return (
                 <li
                   key={chip.id}
-                  className="flex max-w-full items-center gap-1 rounded-field border border-line bg-ground py-0.5 pl-2.5 pr-0.5 text-[length:var(--text-small)]"
+                  className="flex max-w-full items-center gap-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 py-0.5 pl-2.5 pr-0.5 text-[length:var(--text-small)]"
                 >
                   <span className="min-w-0 truncate">{chip.title}</span>
                   {type ? (
@@ -641,7 +643,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
       </div>
       {open ? (
         <div
-          className="grid gap-1 rounded-field border border-line bg-ground p-2"
+          className="grid gap-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 p-2"
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               event.preventDefault();
@@ -653,7 +655,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
           <input
             autoFocus
             aria-label={`Filter ${property.name} targets`}
-            className="h-8 w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+            className="h-8 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
             placeholder={multi ? "Filter targets" : "Search targets"}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -692,7 +694,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
                     type="button"
                     aria-pressed={multi ? picked : undefined}
                     className={cn(
-                      "flex w-full items-baseline justify-between gap-2 rounded-[3px] px-1 py-1.5 text-left text-[13px] hover:bg-raised pointer-coarse:min-h-11",
+                      "flex w-full items-baseline justify-between gap-2 rounded-[8px] px-1 py-1.5 text-left text-[13px] hover:bg-raised pointer-coarse:min-h-11",
                       picked && "text-accent",
                     )}
                     onClick={() => toggle(choice.id)}

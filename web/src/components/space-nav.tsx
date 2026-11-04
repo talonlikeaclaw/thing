@@ -22,7 +22,6 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useAgenda, useMe, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
-import { useConnection } from "@/components/connection-context";
 import { useHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
 import { useQuickCapture } from "@/components/quick-capture";
@@ -60,9 +59,8 @@ const UTILITY: Record<NavLink, { label: string; path: string; icon: typeof House
  */
 function railItem(active: boolean) {
   return cn(
-    "relative flex min-h-9 min-w-0 items-center gap-2 rounded-field py-2 pl-3 pr-2 text-[14px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11",
-    active &&
-      "text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-accent before:content-['']",
+    "flex min-h-9 min-w-0 items-center gap-2 rounded-full py-2 pl-3 pr-2 text-[14px] text-muted transition-colors hover:bg-raised/60 hover:text-ink pointer-coarse:min-h-11",
+    active && "bg-accent-wash text-accent-on-wash",
   );
 }
 
@@ -84,7 +82,6 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   const capture = useQuickCapture();
   const palette = usePalette();
   const { handedness } = useHandedness();
-  const connection = useConnection();
   const list: SpaceSummary[] = spaces.data ?? [];
   // The rail badge reports the whole space, never a page filter: every overdue
   // row is inside the default window.
@@ -196,27 +193,42 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
   // The bottom bar keeps the sheet within thumb reach. It is a labelled
   // destination, not a second bare icon, so it reads apart from Capture and
   // Search and shares their active marker.
+  // The trigger owns the bar's empty width, not just its icon: a thumb lands
+  // on "the left of the bar", so the whole idle area opens the space sheet and
+  // its contents sit against their own edge.
   const spaceTrigger = (
     <Dialog.Trigger
       key="space"
       aria-label={`Space menu for ${space.data?.name ?? "this space"}`}
-      className={barTab(mobileOpen)}
+      className={cn(barTab(mobileOpen), "justify-self-stretch")}
     >
-      <ThingIcon icon={space.data?.icon} size="sm" />
+      <span
+        aria-hidden
+        className={cn(
+          "grid size-8 place-items-center rounded-full transition-colors",
+          mobileOpen && "bg-accent-wash text-accent-on-wash",
+        )}
+      >
+        <ThingIcon icon={space.data?.icon} size="sm" />
+      </span>
       <span>Space</span>
     </Dialog.Trigger>
   );
 
+  // The dock is three cells: the space sheet, the one saturated action, and
+  // search. Handedness swaps the outer cells; the capture circle stays in the
+  // middle so the thumb finds the same raised control from either side.
   const captureAction = (
-    <BarAction
+    <button
       key="capture"
-      label="Capture a record (C)"
-      active={capture.isOpen}
+      type="button"
+      aria-label="Capture a record (C)"
+      aria-haspopup="dialog"
+      className="action-circle mx-auto grid size-14 place-items-center transition-transform active:scale-95"
       onClick={() => capture.open()}
     >
-      <Plus aria-hidden size={17} />
-      <span>Capture</span>
-    </BarAction>
+      <Plus aria-hidden size={23} strokeWidth={2.4} />
+    </button>
   );
 
   const searchAction = (
@@ -225,31 +237,14 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
       label="Search and commands"
       active={palette.isOpen}
       onClick={palette.open}
+      icon={<Search aria-hidden size={18} strokeWidth={2} />}
     >
-      <Search aria-hidden size={17} />
-      <span>Search</span>
+      Search
     </BarAction>
   );
 
-  // Search stays on the outer edge in both modes: trailing on the right,
-  // leading on the left, so the two actions keep the same relationship to the
-  // screen corner the thumb reaches.
   const barActions = (
-    <span key="actions" className="flex shrink-0 items-center gap-1">
-      {/* The header's connection line is hidden below `sm`; the bar keeps the
-          self-hoster's only live signal as a dot. */}
-      {connection === "live" ? null : (
-        <span
-          role="status"
-          title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
-          className="inline-flex w-3 shrink-0 items-center justify-center"
-        >
-          <span aria-hidden className="h-2 w-2 rounded-full bg-warning" />
-          <span className="sr-only">
-            {connection === "connecting" ? "Connecting…" : "Offline, reconnecting…"}
-          </span>
-        </span>
-      )}
+    <>
       {handedness === "left" ? (
         <>
           {searchAction}
@@ -261,7 +256,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
           {searchAction}
         </>
       )}
-    </span>
+    </>
   );
 
   const sheetTitle = (
@@ -306,13 +301,13 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
     <>
       <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
         {/* The page wrapper animates a transform, which would become the
-            containing block of a fixed child; the bar lives on the body. */}
+            containing block of a fixed child; the dock lives on the body. */}
         {createPortal(
           <div
             data-phone-bar
-            className="fixed inset-x-0 bottom-0 z-40 border-t rule bg-ground/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+            className="fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 lg:hidden"
           >
-            <div className="flex min-h-14 items-center justify-between gap-2 pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]">
+            <div className="glass mx-auto grid h-[4.25rem] max-w-md grid-cols-[1fr_auto_1fr] items-center gap-1 rounded-full px-2 shadow-[var(--shadow-dock)]">
               {handedness === "left" ? (
                 <>
                   {barActions}
@@ -331,7 +326,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         {phoneSlot ? createPortal(phoneSpaceTrigger, phoneSlot) : null}
 
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85 lg:hidden" />
+          <Dialog.Backdrop className="fixed inset-0 z-40 scrim lg:hidden" />
           <SheetViewport placement="bottom" className="lg:hidden">
             <SheetPopup>
               <div className="shrink-0 pt-4 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
@@ -424,7 +419,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <aside className="hidden lg:sticky lg:top-6 lg:block lg:self-start">
+      <aside className="glass hidden rounded-[22px] p-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:block lg:max-h-[calc(100dvh-var(--shell-header-h)-1.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
         <SpaceSwitcher
           id="space-switcher"
           spaceId={spaceId}
@@ -462,9 +457,8 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
  */
 function barTab(active: boolean) {
   return cn(
-    "relative flex min-h-11 min-w-[3.5rem] flex-col items-center justify-center gap-0.5 rounded-field px-2 text-[11px] leading-none text-muted transition-colors hover:bg-raised hover:text-ink",
-    active &&
-      "text-ink before:absolute before:inset-x-2 before:top-0 before:h-0.5 before:rounded-full before:bg-accent before:content-['']",
+    "relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-full px-2 text-[11px] leading-none text-muted transition-colors hover:text-ink",
+    active && "text-ink",
   );
 }
 
@@ -473,16 +467,27 @@ function BarAction({
   label,
   active,
   onClick,
+  icon,
   children,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  icon: ReactNode;
   children: ReactNode;
 }) {
   return (
     <button type="button" aria-label={label} className={barTab(active)} onClick={onClick}>
-      {children}
+      <span
+        aria-hidden
+        className={cn(
+          "grid size-8 place-items-center rounded-full transition-colors",
+          active && "bg-accent-wash text-accent-on-wash",
+        )}
+      >
+        {icon}
+      </span>
+      <span>{children}</span>
     </button>
   );
 }
@@ -510,7 +515,7 @@ function SpaceSwitcher({
       </label>
       <select
         id={id}
-        className="mt-1 h-9 w-full rounded-field border border-line-interactive bg-ground px-2 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="mt-1 h-9 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40/70 bg-raised/40 px-3 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={spaceId}
         onChange={(event) => {
           if (event.target.value !== spaceId) {
@@ -562,7 +567,7 @@ function TypesList({
             const to = `/s/${spaceId}/t/${type.key}`;
             const active = pathname === to;
             return (
-              <li key={type.key} className="border-b rule">
+              <li key={type.key}>
                 <Link
                   to={to}
                   aria-current={active ? "page" : undefined}
@@ -586,7 +591,7 @@ function TypesList({
 
 function AllSpacesLink({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="border-b rule">
+    <div>
       <Link
         to="/"
         onClick={onNavigate}
@@ -611,7 +616,7 @@ function OverviewLink({
   const to = `/s/${spaceId}`;
   const active = pathname === to;
   return (
-    <div className="border-b rule">
+    <div>
       <Link
         to={to}
         aria-current={active ? "page" : undefined}
@@ -657,7 +662,7 @@ function UtilityLinks({
           const to = `/s/${spaceId}/${item.path}`;
           const active = pathname === to;
           return (
-            <li key={key} className="flex items-center gap-1 border-b rule">
+            <li key={key} className="flex items-center gap-1">
               <Link
                 to={to}
                 aria-current={active ? "page" : undefined}
@@ -687,7 +692,7 @@ function UtilityLinks({
                     type="button"
                     aria-label={`Move ${item.label} up`}
                     disabled={index === 0}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onMove(key, -1)}
                   >
                     <ChevronUp aria-hidden size={13} />
@@ -696,7 +701,7 @@ function UtilityLinks({
                     type="button"
                     aria-label={`Move ${item.label} down`}
                     disabled={index === order.length - 1}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onMove(key, 1)}
                   >
                     <ChevronDown aria-hidden size={13} />

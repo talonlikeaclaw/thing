@@ -7,6 +7,7 @@ import { IconPicker } from "@/components/icon-picker";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import { EmptyState, SectionRule } from "@/components/ui/page";
+import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 
 interface TypeListProps {
@@ -75,12 +76,14 @@ export function TypeList({
         <EmptyState sentence="No types yet. A type is a table; its properties are columns and its records are rows." />
       ) : (
         <ul>
-          {types.map((type) => (
+          {types.map((type) => {
+            const current = type.key === selectedKey;
+            return (
             <li key={type.key} className="border-b rule">
               <button
                 type="button"
-                aria-current={type.key === selectedKey ? "true" : undefined}
-                className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:bg-accent-wash aria-[current=true]:text-accent pointer-coarse:min-h-11"
+                aria-current={current ? "true" : undefined}
+                className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 rounded-[12px] px-2.5 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:bg-accent-wash aria-[current=true]:text-accent-on-wash pointer-coarse:min-h-11"
                 onClick={() => onSelect(type.key)}
               >
                 <span className="mt-0.5">
@@ -90,10 +93,15 @@ export function TypeList({
                   <span className="flex min-w-0 items-baseline gap-2">
                     <span className="truncate text-[15px]">{type.name}</span>
                     {type.schedule ? (
-                      <span className="label shrink-0 text-accent">scheduled</span>
+                      <span className="label shrink-0 text-accent-on-wash">scheduled</span>
                     ) : null}
                   </span>
-                  <span className="flex flex-wrap items-baseline justify-between gap-x-2 font-mono text-[11px] leading-4 text-faint">
+                  <span
+                    className={cn(
+                      "flex flex-wrap items-baseline justify-between gap-x-2 font-mono text-[11px] leading-4",
+                      current ? "text-accent-on-wash" : "text-faint",
+                    )}
+                  >
                     <span className="truncate">{type.key}</span>
                     <span className="tnum shrink-0">
                       {type.property_count} {type.property_count === 1 ? "prop" : "props"} ·{" "}
@@ -103,7 +111,8 @@ export function TypeList({
                 </span>
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

@@ -410,7 +410,7 @@ describe("MarkdownEditor on a coarse pointer", () => {
     media.mockRestore();
   });
 
-  it("saves from the writing toolbar instead of a separate banner", async () => {
+  it("saves from the writing surface's own Save", async () => {
     const media = vi.spyOn(window, "matchMedia").mockImplementation(
       (query: string) =>
         ({
@@ -431,7 +431,7 @@ describe("MarkdownEditor on a coarse pointer", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /write/i }));
-    const save = await screen.findByRole("button", { name: "Save changes" });
+    const save = await screen.findByRole("button", { name: "Save" });
     fireEvent.click(save);
     expect(onSave).toHaveBeenCalledOnce();
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();

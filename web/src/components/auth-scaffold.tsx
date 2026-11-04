@@ -19,12 +19,12 @@ interface AuthScaffoldProps {
 export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffoldProps) {
   useRouteMeta(title);
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[1040px] flex-col px-6">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b rule">
+    <div className="mx-auto flex min-h-dvh w-full max-w-[1060px] flex-col px-4 sm:px-6">
+      <header className="glass mt-3 flex h-14 shrink-0 items-center justify-between rounded-full px-4 sm:px-6">
         <Wordmark />
         <span className="label hidden sm:inline">Self-hosted · your files</span>
       </header>
-      <main className="grid flex-1 content-start gap-12 py-12 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-20 md:py-20">
+      <main className="grid flex-1 content-start gap-10 py-10 md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:gap-16 md:py-16">
         <section aria-labelledby="auth-title" className="settle">
           <h1 id="auth-title" className="display text-display break-words">
             {title}
@@ -36,7 +36,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
           {footer ? <div className="mt-6 text-[13px] text-muted">{footer}</div> : null}
         </section>
 
-        <aside aria-label="How thing works" className="hidden md:block md:border-l md:rule md:pl-12">
+        <aside aria-label="How thing works" className="glass hidden rounded-[26px] p-8 md:block">
           <dl className="settle space-y-6">
             <div>
               <dt className="label">Your files</dt>

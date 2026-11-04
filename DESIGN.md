@@ -2,18 +2,23 @@
 name: thing
 description: A self-hosted, markdown-backed tracker whose schema you own.
 colors:
-  ground: "#121512"
-  inset: "#0d100d"
-  surface: "#1a1e1a"
-  raised: "#212621"
-  line: "#2d332d"
+  ground: "#0a0e0b"
+  ground-lift: "#141c16"
+  inset: "#070a08"
+  surface: "#151a16"
+  raised: "#1d231e"
+  line: "#293029"
   line-strong: "#3a423a"
-  line-interactive: "#667066"
-  ink: "#e8ece4"
-  muted: "#9aa398"
-  faint: "#868e84"
+  line-interactive: "#6a746a"
+  ink: "#edf1e8"
+  muted: "#a2ab9f"
+  faint: "#8b948b"
+  glass: "rgba(30,38,32,0.55)"
+  glass-strong: "rgba(36,44,38,0.62)"
+  glass-edge: "rgba(255,255,255,0.12)"
   accent: "#c8d96b"
   accent-ink: "#14180f"
+  accent-on-wash: "#c8d96b"
   accent-wash: "#c8d96b1e"
   danger: "#f08a72"
   warning: "#dcaa54"
@@ -55,8 +60,10 @@ typography:
     lineHeight: 1.5
     letterSpacing: "0.09em"
 rounded:
-  field: "6px"
-  sheet: "10px"
+  field: "12px"
+  card: "18px"
+  sheet: "28px"
+  pill: "999px"
 spacing:
   space-1: "4px"
   space-2: "8px"
@@ -72,122 +79,166 @@ control:
   coarse: "44px"
   field-fine: "40px"
   field-coarse: "44px"
+  icon: "40px"
+  icon-coarse: "44px"
+  dock: "68px"
+  capture: "56px"
+  header: "64px"
 motion:
   ease-out: "cubic-bezier(0.16, 1, 0.3, 1)"
   fast: "120ms"
   base: "180ms"
   slow: "240ms"
+elevation:
+  float: "0 20px 50px -22px rgba(0,0,0,0.72)"
+  dock: "0 18px 40px -16px rgba(0,0,0,0.66)"
+  glass-blur: "24px"
+  glass-saturate: "150%"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.accent-ink}"
-    rounded: "{rounded.field}"
+    rounded: "{rounded.pill}"
     padding: "10px 16px"
     height: "40px"
-  button-primary-hover:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.accent-ink}"
   button-ghost:
-    backgroundColor: "transparent"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.field}"
+    rounded: "{rounded.pill}"
     padding: "10px 16px"
     height: "40px"
-  button-quiet:
-    backgroundColor: "transparent"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.field}"
-    padding: "10px 16px"
-    height: "40px"
-  button-destructive:
-    backgroundColor: "transparent"
-    textColor: "{colors.danger}"
-    rounded: "{rounded.field}"
-    padding: "10px 16px"
+  icon-button:
+    backgroundColor: "{colors.glass}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.pill}"
     height: "40px"
   input:
-    backgroundColor: "{colors.ground}"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.ink}"
     rounded: "{rounded.field}"
     padding: "8px 12px"
     height: "40px"
+  glass-bar:
+    backgroundColor: "{colors.glass}"
+    rounded: "{rounded.pill}"
+    height: "68px"
+  sheet:
+    backgroundColor: "{colors.glass-strong}"
+    rounded: "{rounded.sheet}"
+  card:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.card}"
 ---
 # Design System: thing
 
 ## Overview
 
-**Creative North Star: "Nocturnal Field Guide"**
+**Creative North Star: "Night Glass"**
 
-The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono,
-annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet —
-the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a
-working tool first. The world contributes type, palette, density and one signature move (the keyed
-entry), never the navigation model or the controls. Every control is a standard web control.
+thing is a field guide read through a lit instrument. The room is dark and the
+instrument is on: a green-black ground under a soft top light, with the system's own
+chrome — the header, the rail, the phone dock, sheets, menus, the command palette, the
+save state — floating above the page as frosted glass. The user's data never floats.
+Tables, ledgers, record bodies, forms and property grids sit on matte, opaque stock so
+they stay still and readable while the chrome moves over them.
 
-Density serves the task: rows are compact, counts are tabular, and identifiers are monospaced because
-they are data, not decoration. Warmth comes from copy and rhythm, not ornament. The dark surface is
-the working default; a light mode inherits the same hierarchy on bone stock, with the accent darkened
-for contrast.
+The world supplies type, palette, density, material and one signature move — the
+floating glass dock whose active destination is an inverted circular seal. It does not
+supply the navigation model or the controls: routes, permissions, tables, fields and
+keyboard behaviour are the standard web ones this product already had.
+
+The reference is the self-hosted travel planner TREK, read from its source rather than
+its screenshots: a near-black ground with a radial screen wash, translucent panels at
+roughly 60% with a 1px lit edge, 24–40px backdrop blur at 1.8 saturation, full-pill
+chrome, 42px circular destinations, a 56px raised action, 26–28px sheets and one wide
+ambient shadow. What does not transfer is its travel content: no photographic covers,
+no mascots, no playful colour, no card grid of trip tiles.
 
 **Key Characteristics:**
-- Dark ground with near-neutral, slightly green-black surfaces, inset one step below the ground.
-- Hairline 1px rules instead of shadows or cards.
-- Maple Mono for display, page titles, the wordmark, keys, ids, timestamps, counts and labels; IBM
-  Plex Sans for prose, controls and tables. The mono is a voice, never a body face.
-- One accent per space, chosen by an owner from six contrast-tested palettes and shared by every
-  member, used only for state (selection, focus, primary action); Lichen is the default. One 12%
-  accent wash is the only tint and marks selection, the active row, the search match and drag.
-- A keyed index as the recurring structure: a short mono key leads every entry.
-- A real margin at `xl` for annotations, counts, folios and properties; it collapses when it has
-  nothing to say. Motion explains change and is absent under reduced motion.
+- A top-lit green-black ground: `#141c16` at the top edge falling to `#0a0e0b` and
+  `#070a08` at the bottom.
+- Frosted glass for chrome only: 55% fill at rest and 62% for sheets in dark, 60% white in
+  light, 18–24px blur, 150–160% saturation, one lit 1px edge, one wide ambient shadow.
+- Matte, opaque surfaces for data: cards at `#151a16` (bone `#fbfaf5` in light) with a
+  single hairline border and no blur.
+- Pills for actions and segments, circles for icon actions, 12/18/28px corners for
+  fields, cards and sheets. The capture action is the one saturated circle.
+- Maple Mono for display, page titles, record titles, keys, counts and labels; IBM Plex
+  Sans for sentences. The type voice is unchanged from the field guide.
+- One shared accent per space, chosen from six contrast-tested presets. Lichen is the
+  default. It marks state, focus and the primary action; it never fills large areas.
+- Reading order never moves. Only thumb-zone action order and the dock mirror with
+  handedness.
 
 ## Colors
 
-A near-neutral dark scale carrying one accent, Lichen by default (see *Highlight accent* below).
-The palette is functional: no color appears without a job.
+The palette is functional. The ground carries the light; the glass carries the chrome;
+the accent carries state. No colour appears without a job.
 
-### Primary
-- **Lichen** (`{colors.accent}`): primary action, focus rings, the wordmark square, and the active
-  entry's key. Never used as a background wash or for decoration.
-- **Lichen Ink** (`{colors.accent-ink}`): text and glyphs on a lichen surface.
+### Ground and matte surfaces
+- **Night Ground** (`{colors.ground}`): the page canvas.
+- **Ground Lift** (`{colors.ground-lift}`): the top stop of the fixed radial wash; the
+  light source that makes the glass legible.
+- **Night Inset** (`{colors.inset}`): the bottom stop and the recessed band behind table
+  headers.
+- **Understory** (`{colors.surface}`): matte cards — the space ledger, the record sheet,
+  the table scrollport, a settings section.
+- **Canopy Shadow** (`{colors.raised}`): hover fills, inner fields, quiet emphasis.
+- **Hairline** (`{colors.line}`): every card border, divider and table rule.
+- **Hairline Lit** (`{colors.line-strong}`): hover borders.
+- **Field Edge** (`{colors.line-interactive}`): the resting border of an input or a
+  filter chip; held at 70% so a field is a soft well, not a drawn box.
+- **Moon Ink** (`{colors.ink}`), **Fog** (`{colors.muted}`), **Distant Fog**
+  (`{colors.faint}`): primary, secondary and quietest text. Faint is `#8b948b` in dark
+  and `#60665d` in light; both clear 4.5:1 on the inset, the surface and the raised step.
 
-### Neutral
-- **Night Ground** (`{colors.ground}`): page background.
-- **Night Inset** (`{colors.inset}`): one step below the ground for wells, table headers and recessed
-  bands. It never replaces the ground as the page surface.
-- **Understory** (`{colors.surface}`): the signed-out sheet and raised panels.
-- **Canopy Shadow** (`{colors.raised}`): hover fill and quiet emphasis.
-- **Hairline** (`{colors.line}`): every divider, input border, and table rule.
-- **Hairline Lit** (`{colors.line-strong}`): hover borders and underlined links.
-- **Moon Ink** (`{colors.ink}`): primary text.
-- **Fog** (`{colors.muted}`): secondary text, labels, annotations.
-- **Distant Fog** (`{colors.faint}`): placeholders and the quietest metadata; kept at ≥4.5:1 against every ground.
+### Glass
+- **Glass** (`{colors.glass}`): the resting chrome — app header, desktop rail, phone
+  dock, toolbars, menus, the record save row. Dark: `rgba(30,38,32,0.55)`; light:
+  `rgba(255,255,255,0.60)`.
+- **Glass Strong** (`{colors.glass-strong}`): surfaces that must stay readable while the page
+  shows through — sheets, the command palette, menus, toasts, the bulk bar. Dark:
+  `rgba(36,44,38,0.62)`; light: `rgba(252,251,246,0.60)`.
+- **Glass Edge** (`{colors.glass-edge}`): the 1px lit rim that gives the panel its edge.
+- Blur 24px at 150% saturation for chrome; 18–20px at 160% for menus and sheets,
+  so what passes under stays legible as colour and shape. One wide shadow
+  (`--shadow-float`; `--shadow-dock` on the dock). The edge and the shadow are one
+  declaration; a glass panel never adds a second border or a ghost card.
 
-### The Tint
-- **Accent Wash** (`{colors.accent-wash}`): the only tint in the system, drawn from the chosen accent
-  at 12% alpha. It marks selection, the active row, the search match and a drag target. It is never
-  a decorative panel, never a gradient and never a second accent. Body ink on the composited wash
-  stays at ≥4.5:1 over ground, inset, surface and raised in both schemes.
+**The Scrim Is Not a Colour Rule.** An overlay scrim is the page itself, blurred and
+slightly dimmed. It never adds a coloured wash; a tint over the green ground reads as a
+flat plate and cheapens the glass.
+
+**The Glass Is Chrome Rule.** Glass is allowed on navigation, headers, toolbars,
+overlays, menus, toasts and floating actions. It is never the ground of a table cell, a
+record body, a property grid, a form, or any text the user is reading or editing. A
+surface that holds data is opaque. When the browser cannot blur, the fill goes opaque
+and the edge stays.
+
+**The One Light Rule.** The gradient exists to give the glass something to refract. It
+is a wash on the canvas, not a panel: no stripes, no grain, no image, no second
+gradient on a component.
+
+### The tint and the accent
+- **Accent Wash** (`{colors.accent-wash}`): the only tint, 12% of the chosen accent. It
+  marks selection, the active destination, the search match and drag.
+- **Accent on Wash** (`{colors.accent-on-wash}`): accent as text on the wash. Dark uses
+  the accent itself; light darkens it so all six clear 4.5:1 over the wash on every
+  surface. Lichen's light on-wash is `#525f18`.
+- **Accent** (`{colors.accent}`): focus rings, the primary pill, the active glyph and the
+  capture circle. At full strength it is text, a glyph or one small action surface.
 
 ### Semantic
 - **Ember** (`{colors.danger}`): validation errors and destructive intent; text only.
-- **Amber** (`{colors.warning}`): degraded state, never decoration.
+- **Amber** (`{colors.warning}`): degraded connection state, never decoration.
 
 ### Highlight accent
-Lichen is the baseline. The accent is a property of the space: an owner chooses one of six palettes
-in **Space settings > Appearance**, and every member's open client applies it live through the
-existing `space.updated` broadcast. Editors and viewers see the current preset with its radios
-disabled and the sentence that only an owner can change it; **Reset to Lichen** is owner-only and
-derives the default's name from the accent list. The value
-lives in `space.yml` under the optional `accent` key (schema 4) and is written through the
-owner-only `PATCH /api/spaces/{space}` with the usual double-option shape — absent leaves it,
-`null` returns to Lichen, and an unknown id or a hex value is a `422` field `accent`. A hand-edited
-unknown value renders as Lichen without breaking the space; the next owner write corrects the file.
-
-The v0.4 browser-local key (`thing:accent:<user>:<space>`) is read once by `SpaceLayout` to seed an
-owner's space, deleted only after that PATCH succeeds, and never read again. A non-owner's old local
-value is ignored — the owner owns the shared appearance. Signed-out routes and every non-space
-route render Lichen.
+The accent is a property of the space: an owner chooses one of six palettes in **Space
+settings > Appearance**, and every member's open client applies it live through
+`space.updated`. Editors and viewers see the current preset with its radios disabled.
+The value lives in `space.yml` under the optional `accent` key (schema 4) and is written
+through the owner-only `PATCH /api/spaces/{space}`. An unknown id or a hex value is a
+`422` field `accent`; a hand-edited unknown value renders as Lichen.
 
 | id | label | dark accent | dark ink | dark wash | light accent | light ink | light wash |
 |---|---|---|---|---|---|---|---|
@@ -198,804 +249,245 @@ route render Lichen.
 | `green` | Green | `#7fe08a` | `#051706` | `#7fe08a1e` | `#256b33` | `#f0fbf2` | `#256b331e` |
 | `pink` | Pink | `#f49ac1` | `#1d0711` | `#f49ac11e` | `#96325f` | `#fdf1f6` | `#96325f1e` |
 
-`web/src/lib/accent.ts` is the single source for the picker and the contrast test; the core's
-`accent.rs` owns the ids the API accepts, and `globals.css` mirrors the palettes as
-`:root[data-accent=…]` overrides of `--color-accent`, `--color-accent-ink` and
-`--color-accent-wash`. Components keep using those three tokens and never branch on the accent id.
+`web/src/lib/accent.ts` is the single source for the picker and the contrast test; the
+core's `accent.rs` owns the ids the API accepts, and `globals.css` mirrors the palettes
+as `:root[data-accent=…]` overrides of `--color-accent`, `--color-accent-ink`,
+`--color-accent-on-wash` and `--color-accent-wash`.
 
-**The Shared Accent Rule.** The accent is one shared property of a space, not a per-person skin. An
-owner sets it, every member sees the same state colour, and no client keeps a second local choice
-after the one-time seed. Every palette clears 4.5:1 for accent text on ground, ink on accent, and
-body ink on its composited 12% wash in both schemes, enforced by `lib/accent.test.ts`.
+**The Shared Accent Rule.** The accent is one shared property of a space, not a
+per-person skin. One owner sets it; every member sees the same state colour.
 
-**The One Accent Rule.** The chosen accent marks state: focus, selection, the primary action, the
-wordmark, the active rail and view tabs. It never fills large areas and never appears twice in one
-row for two different meanings. Choosing Yellow does not add a second accent. The 12% wash is the
-only permitted fill; at full strength the accent stays text, a glyph or a primary surface.
+**The One Accent Rule.** The accent marks state and one primary action. It never fills a
+large area, never appears twice in a row for two meanings, and never becomes a second
+accent. The 12% wash is the only permitted fill; at full strength it is text, a glyph or
+the capture circle.
 
-**The Light Is Not a Theme Skin Rule.** Light mode keeps the same type scale, rules and hierarchy.
-It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or
-new ornament.
+**The Light Is the Same Instrument Rule.** Light mode is not a skin. It swaps the ground
+to bone, the glass to white and darkens the accent for contrast; it keeps every radius,
+rule, type role and composition.
 
 ## Typography
 
-**Display Font:** Maple Mono (fallbacks: ui-monospace, SFMono-Regular) — 400 and 500 only
+**Display Font:** Maple Mono (fallbacks: ui-monospace, SFMono-Regular)
 **Body Font:** IBM Plex Sans Variable
 **Label/Mono Font:** Maple Mono
 
-**Character:** One technical face carries the voice: Maple Mono sets the wordmark, the space name,
-page titles, the record title and every identifier, measurement, count and label, while IBM Plex
-Sans carries everything read as a sentence. Soft terminals against squarish bowls give the contrast;
-the result reads as a specimen sheet typed on an instrument, not a terminal and not a marketing
-site.
-
-The web build ships upstream Maple Mono (`@fontsource/maple-mono`), not the Nerd Font patch: the
-letterforms are identical, and the interface draws its pictograms with Lucide, so the patched
-private-use glyph layer would add roughly a megabyte of subset for nothing. `Maple Mono NF` remains
-the desktop/editor build of the same family.
+**Character:** One technical face carries the voice: the wordmark, space name, page
+title, record title and every identifier, measurement, count and label. IBM Plex Sans
+carries every sentence. The result reads as a specimen sheet typed on an instrument.
+The web build ships upstream Maple Mono (`@fontsource/maple-mono`), not the Nerd Font
+patch, because Lucide draws every pictogram.
 
 ### Hierarchy
-- **Display** (400, 36px/1.05, -0.03em, mono): the space name, auth and page titles, one per screen.
-  On a phone it steps to 30px/1.08.
-- **Title** (400, 26px/1.1, -0.02em, mono): the record title and a type page's name. On a phone it
-  steps to 22px/1.15.
-- **Heading** (500, 18px/1.35, sans): section headings such as "Properties", "Body" and "Members".
-- **Body** (400, 15px/1.6, sans): prose and form values; keep the reading measure at 65–75ch.
-- **Small** (400, 13px/1.5, sans): secondary rows, hints, metadata sentences and errors.
-- **Label** (500, 11px/1.5, 0.09em, uppercase, mono): column headers, field labels, roles, keys.
-- **Data** (400–500, 12px, mono): ids, timestamps, counts; always tabular numerals.
+- **Display** (400, 36px/1.05, -0.03em, mono): the space name, auth and page titles, one
+  per screen. Phone: 30px/1.08.
+- **Title** (400, 26px/1.1, -0.02em, mono): a record title and a type page's name.
+  Phone: 22px/1.15.
+- **Heading** (500, 18px/1.35, sans): section headings such as "Properties", "Body",
+  "Identity".
+- **Body** (400, 15px/1.6, sans): prose and form values; reading measure 65–75ch.
+- **Small** (400, 13px/1.5, sans): secondary rows, hints, metadata sentences, errors.
+- **Label** (500, 11px/1.5, 0.09em, uppercase, mono): column headers, field labels,
+  roles, keys.
+- **Data** (400–500, 12px, mono): ids, timestamps, counts; tabular numerals.
 
-**The Mono Is a Voice Rule.** Maple Mono sets display and page titles, the record title and one
-pull-quote or empty-state line per surface, at 400 with negative tracking. Body, controls, tables and
-prose stay sans. A monospaced paragraph is a defect: the fixed advance turns a sentence into a
-printout.
+**The Mono Is a Voice Rule.** Maple Mono sets display and page titles, the record title
+and one pull-quote or empty-state line per surface, at 400 with negative tracking. Body,
+controls, tables and prose stay sans. A monospaced paragraph is a defect.
 
-**The Ligatures Stay Home Rule.** Maple Mono carries programming ligatures (`->`, `=>`, `!=`). They
-belong in the body editor. The display role sets `font-variant-ligatures: none`; a key, a date, a
-count or a title renders the characters it was given.
+**The Ligatures Stay Home Rule.** The display role sets
+`font-variant-ligatures: none`; a title shows the characters it was given.
 
-**The Keys Are Mono Rule.** Anything the system treats as an identifier or measurement is mono and
-tabular. Anything a person reads as a sentence is sans.
+**The Keys Are Mono Rule.** Identifiers and measurements are mono and tabular;
+sentences are sans. The 11px label floor holds: no functional text below 11px.
 
-**The 11px Floor.** No functional text renders below 11px. The label token is 11px; keys and counts
-never shrink to fit. Detector findings below 11px are defects, not style.
-
-Coarse pointers raise every input to at least 16px so focusing one never zooms the page, and every
-control to at least 44 × 44.
+Coarse pointers raise every input to at least 16px and every control to at least
+44 × 44px.
 
 ## Layout
 
-A single content column capped at 1080px, with 24px side padding. The signed-out screen splits at
-the `md` breakpoint into a 400px form column and a flexible margin column separated by a hairline;
-the form opens on an `--text-display` title and one sentence, and the margin is three short
-file-backed lines, not marketing or an illustration. Below `md`, the margin moves off-canvas and
-only the form remains.
+The shell floats: an app header inset 8–12px from the top and sides, 64px tall, a
+full pill on a phone and 20px rounded from `lg`. Below `lg` it scrolls with the page, so
+a phone — and a phone on its side in particular — spends no fixed height on chrome; from
+`lg` it sticks while the page scrolls under it. From `lg` the space rail is a glass card
+inset from the content edge, sticky under the header. The content column is
+capped at 1400px with 16px side padding on a phone and 32px on a wide screen.
 
-The space index is a five-column grid on desktop — key (80px), name (flexible), members (64px),
-types (64px), role (96px) — and a three-column grid on mobile (key, name, role) with counts moved
-into the entry's annotation. Rows are separated by full-width hairlines, never cards. The create form
-sits below the index under a 48px gap, so the next action stays visible without a modal.
+On a phone the dock is a 68px glass pill inset 8px, 12px above the home indicator. It has
+three cells: the space destination on one outer edge, a 56px accent capture circle in the
+middle, and search on the other. Handedness swaps the outer cells; the raised centre does
+not move across a page.
 
-A space home is a cover sheet on a 12-column grid from `xl`: the type ledger holds 8 columns and the
-recent margin 4, separated by a hairline and a 40px gutter. Under `xl` the grid collapses to one
-column in reading order — masthead, ledger, recent — so nothing moves that a reader would have to
-re-find.
+**The Cover Sheet.** A space is a masthead and cards: the icon in a 56px glass tile, the
+name at display size, a factual summary line, two pill actions; a matte card holding the
+keyed type ledger; a glass activity card in the 4/12 margin at `xl` (below the ledger
+under `xl`); a matte graph card under the body; a colophon line. Cards are siblings with
+a 16–24px gap, never nested.
 
-A record is a specimen sheet on the same grid: the main field holds 8 columns and the property
-margin 4. The margin is sticky to the viewport top while the body scrolls but never scrolls on its
-own; under `xl` it becomes the property block before the body in reading order.
+**The Record Sheet.** One matte card at 24px radius. Inside: an identity band, the
+schedule strip, a body section, links and history. The 4/12 property margin is a
+divided column — a left rule and padding at `xl`, a top rule and padding below it — not
+a second card. The clean `Saved` seal is a small glass pill in the identity band. While
+dirty, one glass action row sticks above the dock on a phone; from `lg` the identity band
+carries the unsaved count and Save.
+
+**The Ledger Table.** A type page is one glass panel above one matte ledger. The type
+masthead, the saved views and the search/Columns/Sort/Filter tools float together as the
+page's chrome; it scrolls with the page and never parks over the ledger's own column
+labels. The table itself lives in a 20px matte card with one border, its header row on the inset
+band, a pinned title column and a quiet hover/selection wash. The card clips the table;
+the table scrolls inside it. The view tabs are a recessed segmented track with the active
+segment on the accent wash. The strip closes the panel, sitting below the search and tools on the
+container's bottom edge, so a view is chosen where the views meet the records. Its two
+edge actions are 36 px circles (44 px coarse) on the accent wash: Reorder on the
+non-dominant edge, New view on the dominant one, with the selector centred between them;
+`ThumbRow` swaps the edges for left-handed mode while the selector stays in the middle. A
+tool's trigger carries the accent wash while its panel is open. Filter and sort panels are
+glass.
+
+**The Property Identity Rule.** A property is named by its accent-coloured title and a
+format pill — a mono, pill-shaped marker on the 12% accent wash with the accent edge. The
+capture sheet's other fields, the ledger's column headers, the record's property margin,
+the schema property list and a type's member list share it; the record title and the
+ledger's pinned Title column stay ink. In a property row the title leads and the pill
+trails, the same as the capture sheet's other fields; a ledger column header stacks the
+pill under its label because the column is narrow, and on a phone the ledger keeps the
+accent header and drops the pill entirely. The capture sheet's icon trigger takes the same
+accent frame, and its `Type` label is accent.
+
+**The Cell Editor Rule.** A cell edits in place for text, number, date, datetime, URL,
+email and checkbox. A phone opens one sheet for the formats that carry their own overlay —
+select, multi-select, relation, recurrence — with the property title and record title in
+the header. A select lists its options in flow inside that sheet rather than anchoring a
+popover inside a scrolling table, so nothing lands under the pinned title or the action
+rail.
+
+**The Writing Surface.** The body editor is one glass shell: its top row holds the
+formatting tools and the Write/Preview switch, and the writing well below it is an opaque
+matte inner surface, so prose never sits under a blur. The tools and the switch are
+separate parents — the switch is a segmented track on the dominant edge — so the nine
+tools keep their own symmetry. On a phone the tools keep two centred rows in their own
+parent and the switch sits in a second centred parent beside them, the pair spaced with
+`space-around` (five then four tools); a phone too narrow to hold both wraps the switch
+beneath the tools. In preview mode the switch stays on the dominant edge alone. From `sm`
+the tools take one row and the switch sits at the far end of the shell. While a phone writes, the surface's header is
+its own glass pill with `Writing`, `Done` and a separate primary `Save`; Save never sits
+among the formatting tools. The toolbar's hover, focus, disabled and coarse-pointer states
+are the shared button states. The `/` command list and the `[[` link list are one
+`glass-strong` panel with the active row on the accent wash, the same surface as the
+command palette.
+
+**The Calendars.** The Schedule's Calendar and a type's Calendar are the same matte card
+with the same month controls, weekday rule, chip cap and glass day panel. A chip carries
+the record's name only, so a narrow cell never trades its title for a hover-only control;
+the day number opens the day panel on every pointer, and a row there reads title first,
+with its date and due phrase in mono, plus complete and menu actions. Every visible date
+— chip, day panel, empty state — comes from the shared formatter.
+
+**The Tiles.** A gallery tile is matte at the card radius (18px); its tinted cover is
+clipped by that corner, never a square band over a rounded frame. The complete and menu
+actions on a board card, gallery tile or calendar chip are 32px glass circles — 44px on a
+coarse pointer — so they read as chrome over the record's own colour.
+
+**Quiet surfaces.** Schema, members, settings, trash, auth and account settings share one
+page header and one section rhythm. Sections are matte cards at 22px; the danger section
+carries an Ember edge. The signed-out screen is a glass top bar, the form, and a glass
+margin panel explaining the file-backed model.
 
 Spacing uses one 4px scale: `--space-1` 4, `--space-2` 8, `--space-3` 12, `--space-4` 16,
-`--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64. Tight groups use 4–8px, a label
-group 8px, fields 16px, sections 32px, page bands 48–64px.
+`--space-5` 24, `--space-6` 32, `--space-7` 48, `--space-8` 64. Tight groups use 4–8px,
+a label group 8px, fields 16px, sections 32px, page bands 48–64px. More space above a
+heading than below it.
 
-Control heights are tokens: 36px fine, 40px standard, 44px coarse. Fields are 40px fine and 44px
-coarse. Nothing interactive is smaller than 44 × 44 under a coarse pointer.
+## Materials and elevation
 
-### Sheets and the on-screen keyboard
+| Material | Fill | Edge | Depth | Where |
+|---|---|---|---|---|
+| Glass | `--color-glass` | `--color-glass-edge` | blur 24px, saturate 150%, `--shadow-float` | header, rail, dock, menus, save row, bulk bar |
+| Glass strong | `--color-glass-strong` | same | blur 18–20px, saturate 160%, `--shadow-float` | sheets, palette, menus, toasts |
+| Matte card | `--color-surface` | `--color-line` | none | ledger card, record sheet, table card, sections |
+| Field | `--color-raised` at 40% | `--color-line-interactive` at 70% | none | every input, select and textarea |
+| Inset band | `--color-inset` | none | none | table header, recessed code |
 
-Every overlay — palette, capture, shortcuts, add property, the space drawer, sign-out — shares one
-geometry. The sheet viewport is `position: fixed`, spans the **visual** viewport (`--vv-top` /
-`--vv-height`, published from `visualViewport`), and the popup is capped at that height minus the
-margin. On a phone the sheet rises from the bottom; from `sm` up it is a centred dialog with a
-12vh top offset. No overlay positions itself against `inset: 0` or `100dvh`, so none can end under
-the keyboard. The last row of a sheet (footer or action row) carries
-`padding-bottom: max(<existing>, env(safe-area-inset-bottom))`, and `viewport-fit=cover` makes those
-insets real. Sheets animate in over 180ms (8px rise plus fade), fade out over 120ms, and are static
-under `prefers-reduced-motion: reduce`. Scrollports contain their overscroll.
+**The Edge or the Cards Rule.** A matte card declares one hairline and no shadow. A glass
+panel declares one lit edge and one ambient shadow. Never both a wide shadow and a drawn
+card border on the same matte surface.
 
-From `sm` up every overlay is a story-width dialog: 36rem for the palette, 32rem for capture, 34rem
-for shortcuts and filters, 26rem for the sign-out confirmation. They share one title role (Maple
-Mono at the heading size, never a second display scale), one X close target (32px fine, 44px
-coarse) whose DOM position follows handedness, and one footer rule. The palette is the only overlay
-without a visible title: its field is the command line, and its close is the trailing end of that
-row.
+**The Radius Family Rule.** Pills (`999px`) are only for actions, segments, chips, the
+dock and status seals. Inputs and small wells use 12px; cards 18–22px; the record 24px;
+sheets 28px. A single control never mixes corners.
 
-The emoji picker joins the set on a compact width or a coarse pointer: it is a bottom sheet on the
-same geometry, so it opens **in front of** the capture sheet or the record page instead of above the
-trigger, and its footer stays clear of the keyboard. It deliberately does not raise the keyboard on
-open — it focuses its own popup so the grid gets the screen. Tapping its search field raises the
-keyboard and the sheet shrinks above it. Above `sm` with a fine pointer the picker remains the
-anchored popover.
+## Controls and states
 
-## Elevation & Depth
+- **Button.** Pill, 40px at rest and 44px on a coarse pointer. Primary is the accent fill
+  with accent ink and a soft neutral drop; ghost is a translucent raised fill with a field
+  edge; quiet is a glyph or a word with no frame until hover; destructive is Ember text
+  and edge. Every button has hover, active, focus-visible, disabled and loading states.
+- **Icon button.** A 40px circle (44px coarse). `glass` carries the frosted fill and lit
+  edge; `quiet` is a bare glyph; `accent` is the capture circle. Active adds the accent
+  wash and accent-on-wash text.
+- **Field.** 12px corners, translucent raised fill, 70% field edge, accent focus border
+  plus a 2px accent ring at 3px offset. Placeholder is faint. Invalid is Ember in both
+  border and message.
+- **Segmented control.** A pill track on a translucent surface with a 4px inset; the
+  active segment is a pill on the accent wash, never a sliding animation the user must
+  wait for.
+- **Menu and popover.** Glass-strong panel at 18px, 6px inset, 10px rows, accent wash on
+  the highlighted row. The trigger is a pill with a field edge.
+- **Sheet and dialog.** One glass-strong panel at 28px, a 20px blur, and a scrim that only
+  blurs 5px and dims to 90% (96% in light) — no colour fill, so the page stays
+  recognisable around and under the material, a 240ms rise from 18px, one close control (a 36px circle, 44px
+  coarse) on the handed edge. The phone sheet floats 8px from the side and bottom edges.
+- **Toast.** Glass-strong at 18px with a mono action; the stack sits above the dock.
 
-The system is flat. There are no shadows. Depth is conveyed by tonal steps (ground → surface →
-raised) and by 1px rules. A raised surface earns its step through interaction (hover, focus), not
-through a permanent shadow. Overlays, when they arrive, use a border and a ground tint rather than a
-drop shadow.
-
-**The Hairline Rule.** A divider is 1px of `{colors.line}`. Never a 2px border, never a colored side
-stripe, never a shadow standing in for a rule.
+**Every State Is Visible.** Hover, focus-visible, active, selected, disabled, loading,
+empty, error and read-only are defined once in `components/ui/controls.tsx`,
+`components/ui/sheet.tsx` and `components/ui/toast.tsx`. No page defines its own button
+or input. A control with no focus-visible replacement is a defect.
 
 ## Motion
 
-Motion explains a change; it never decorates. Only `transform` and `opacity` animate, with explicit
-properties and one exponential ease-out.
+One ease (`--ease-out`, `cubic-bezier(0.16, 1, 0.3, 1)`), three durations (120, 180,
+240ms). Sheets rise 18px and fade; popovers fade with a 6px rise; palette results fade
+and move 4px; toasts rise 6px; the dock's active seal changes colour, never geometry.
+Nothing animates layout, table rows, prose or scroll. Under
+`prefers-reduced-motion: reduce` every entrance is instant and colour feedback stays.
 
-- **Ease:** `--ease-out` = `cubic-bezier(0.16, 1, 0.3, 1)`.
-- **Fast 120ms:** result changes, hover colour and the palette's result entrance — opacity plus a
-  4px rise on the result set, never a height or row-position animation.
-- **Base 180ms:** every overlay entrance, the sheet rise and the toast entrance.
-- **Slow 240ms:** the one page-content settle.
-- **Reduced motion:** every entrance is instant. Colour feedback remains, because it explains state
-  rather than movement.
-- **Not animated:** tables, prose, layout, width and height. A page route never transitions.
+## Handedness
 
-## Shapes
+Reading order never moves: page headers, prose, table columns, graph nodes and settings
+rows never mirror. Thumb actions do: dialog and sheet closes, action rows, the save row
+and the dock's outer destinations. `ThumbRow` moves the primary action inside its own
+row. The dock's capture circle stays centred in both modes.
 
-Fields and buttons use a 6px radius; the auth sheet may use 10px. Nothing is pill-shaped except a
-future compact control that carries its own state. Corners are gently rounded, never soft enough to
-read as a card system. Icons are line-drawn at one weight, 16–20px; emoji appear only as user-authored
-space, type and record icons, never as interface iconography.
+## Accessibility and inclusion
 
-## Components
+The contrast floor is 4.5:1 for body and metadata text on the ground, the four matte
+steps, the accent wash and the glass composite at the lightest point of the gradient.
+`lib/accent.test.ts` enforces the accent, on-wash, ink-on-wash and glass pairings. Focus
+is always visible with a 2px accent ring at 3px offset. Every icon-only control has an
+accessible name. The 11px label floor, the 44px coarse target and the 16px coarse input
+are non-negotiable. Any state shown by colour is also legible as text or a shape.
 
-### Primitive States
+## Don'ts
 
-Defined once in `components/ui/controls.tsx` and inherited by every consumer. A page never invents
-its own button, field, focus ring or error treatment.
+- **Don't** blur a table, a record body, a property grid, a form or prose.
+- **Don't** put a glass panel inside another glass panel; nested cards are a defect.
+- **Don't** add a second accent, a gradient to a component, a neon glow or a decorative
+  halo. The only gradient is the page's top light.
+- **Don't** use glass as a way to avoid choosing a layout; every glass surface has one
+  job and one edge.
+- **Don't** animate layout, tables or prose; only transform, opacity, colour and the
+  sheet's rise explain a change.
+- **Don't** turn the product into a travel app: no photographic covers, mascots,
+  illustrated empty states or playful colour.
+- **Don't** replace the type voice: Maple Mono and IBM Plex Sans stay.
 
-| State | Buttons | Fields |
-|---|---|---|
-| Hover | primary brightens; ghost/quiet fill `{colors.raised}`; destructive stays ember | border lifts to `{colors.line-strong}` |
-| Focus-visible | 2px accent outline, 2px offset | accent border plus the same outline |
-| Active | one tonal step darker or `{colors.raised}` | n/a |
-| Selected | ghost/quiet take the accent wash and accent text | n/a |
-| Disabled | 50% opacity, not-allowed, hover inert | 60% opacity, not-allowed, hover inert |
-| Loading | `aria-busy`, wait cursor, second submit blocked | n/a |
-| Error | destructive intent in ember, never colour alone | ember border, `aria-invalid`, message in ember with `role="alert"` |
-| Read-only | n/a | muted text, no edit affordance |
+## Surface record
 
-### Buttons
-- **Shape:** 6px radius, 40px standard height, 16px horizontal padding. Compact controls are 36px;
-  coarse pointers are 44px.
-- **Primary:** lichen ground, accent-ink text, 500 weight, 13px. One per view.
-- **Ghost:** transparent ground, 1px `{colors.line-interactive}` border, ink text; hover lifts the
-  border to `{colors.line-strong}` and fills `{colors.raised}`.
-- **Quiet:** no border, fog text; hover fills `{colors.raised}` and lifts the text to ink. Pressed
-  takes the accent wash and accent text.
-- **Destructive:** transparent ground, ember border and text; hover fills `{colors.raised}` and
-  keeps the ember border. The label names the loss, not the colour.
-- **Focus:** one 2px accent outline with a 2px offset on every variant; no variant removes it.
-- **Disabled:** 50% opacity, no hover change, not-allowed cursor.
-- **Inline editor actions:** the bar under a compact editor — cadence, multi-select, relation,
-  date shortcuts — puts the primary action at the **thumb edge**: last in the DOM at the right edge
-  by default, and first in the DOM at the left edge in Left-handed mode. Clear and Cancel precede
-  it in right-handed mode and follow it on the left; the row reverses in the DOM so paint, Tab and
-  screen-reader order agree. **The primary action sits at the thumb edge and moves in the DOM in
-  left-handed mode**; it is never pinned to the right edge by CSS alone. Mouse-dense controls start
-  at 36px and grow to 44px minimum targets on a coarse pointer or a phone-width window. The same
-  thumb edge applies to text actions under a field (date Clear/Today, Clear relation). Do not
-  left-align a commit inside a cell or sheet on a right-handed layout.
-
-### Inputs / Fields
-- **Style:** 40px height on a fine pointer (44px coarse), 1px `{colors.line-interactive}` border,
-  `{colors.ground}` ground, 6px radius, 15px body text (16px on coarse).
-- **Focus:** border turns accent; the 2px accent outline with 2px offset remains.
-- **Error:** border and message in ember; `aria-invalid` keeps the ember border on focus; the
-  message is 13px with `role="alert"`.
-- **Disabled / read-only:** disabled drops to 60% opacity and ignores hover; read-only keeps the
-  frame but sets its value in fog.
-- **Labels:** uppercase mono 11px above the field, 8px gap; hints and errors sit below at 13px.
-
-### Navigation
-- **App header:** 64px tall plus the top safe-area inset on a phone, hairline bottom rule; at `lg` it is the page's rail-and-content grid
-  on every route — a 13rem column holding the wordmark and a content column holding two groups —
-  so an action keeps one x whether or not a space is open. The first group is the global chrome,
-  Search with the platform shortcut cap, then the space's Capture with its `C` cap, then the
-  keyboard-only Shortcuts control — the least-used action sits last — followed by the space's
-  connection status, so opening a space appends to the zone instead of pushing Search sideways.
-  The second group is one labelled **Account menu** at the container's trailing edge: the trigger
-  carries the account glyph and the signed-in email at `sm` and up, and opens a 15rem popup with
-  **Account settings** and **Sign out**, each led by the same 14px line icon. Arrow keys rove the
-  items, Escape closes the menu, and a cancelled sign-out returns focus to the trigger rather than
-  to the item the closed menu already unmounted. An auto-highlighted first row paints only for
-  keyboard focus or pointer hover, never for the automatic highlight a touch-opened menu sets.
-  Below `lg`, the header becomes the phone's one composed bar: the wordmark and, when the socket
-  is down, an 8px amber dot on the leading edge; the current space as a switcher chip — its icon,
-  truncated name and a down chevron — in the middle, opening the same space sheet as the bottom
-  bar; and the same 44px labelled account menu at the trailing edge with its email hidden. The
-  header carries the top safe-area inset and horizontal safe-area padding, and Capture and Search
-  live in the bottom bar instead. The dot carries `role="status"`, is titled **Offline,
-  reconnecting** or **Connecting…**, and leaves on reconnect without moving the switcher or the
-  account menu. The space's connection status truncates rather than pushing the actions or the
-  account menu. The Shortcuts control does not render below `sm` or on a coarse pointer, and
-  neither does the palette's key-hint footer. No sidebar in the signed-out surface; the space
-  list is the navigation.
-- **Account page:** a single centred column at a 52ch measure; it holds no rail and no table, so it
-  never runs to the container's trailing edge.
-- **Sign out confirmation:** a dialog titled **Sign out?** whose body names the loss — any unsaved
-  draft in this browser will be lost. Cancel comes before the action and the action reads
-  **Signing out…** while pending; a failed request keeps the dialog open with an inline error and
-  **Retry**. The row follows the thumb edge like every action row: the action is last on the right
-  and first on the left, so the first tab stop matches the paint order. The dialog itself stays
-  centred in both modes.
-- **Mobile space drawer:** below `lg` the rail is a fixed bottom bar, 56px of content plus the
-  home-indicator inset, holding three labelled destinations — two for a viewer, who has no
-  Capture — a vertical icon over an 11px label,
-  each a 44px target and never a row of identical bare icons. Right-handed: **Space** leads at the
-  left edge and **Capture** and **Search** trail, with Search on the outer edge. Left-handed:
-  Search and Capture lead (Search outermost) and Space trails. A destination whose surface is open
-  marks itself with the 2px accent rule at its top edge; no other fill is used. The Space tab opens
-  a bottom sheet with the same space switcher, All spaces, Overview, the five space pages and Types
-  last, a close control, focus trapped and returned to the bar, closing on selection or Escape. The
-  sheet is portalled to `body` so the page's settle transform cannot trap it. The header's space
-  chip opens the same sheet, so the current space is named at the top and reachable by thumb at the
-  bottom without a second navigation model.
-- **Dialog and sheet close:** close controls follow the sheet's handedness. Right-handed keeps the
-  platform-standard trailing close (the title row ends at the right edge, the palette's search row
-  ends with its X); left-handed puts the same close control first in the row, with margin and focus
-  order moving with it. Sheets with no close control — the sign-out confirmation — keep Escape and
-  their Cancel action as the exits in both modes. Dialogs stay centred; only the close position and
-  the action rows move.
-- **Wordmark:** mono "thing" with a 10px lichen square. It is the only decorative use of the accent.
-- **Space rail:** the switcher leads under a quiet label, then **All spaces**, **Overview** and one
-  ordered list — Schema, Schedule, Members, Trash and Settings — and **Types** closes the rail under
-  a separating hairline with the type count. Every row is 14px text with a 14px line icon: muted at
-  rest, ink on hover, and the current page is ink text behind a 2px accent rule at the row's leading
-  edge, never a filled chip and never a whole row of accent text. Type rows carry the plural name
-  and the record count. A ghost **Reorder links** control reveals a 32px up/down pair on each row
-  (44px on coarse pointers), and the order persists per user and space in the browser. The phone
-  sheet keeps the same order, the same rows and the same marker.
-- **Footer:** the files sentence, a **Changelog** link and mono `v<version>` on one hairline; the
-  version comes from the build, not a hand-typed string.
-
-### Space Index Entry
-- **Masthead:** the all-spaces page opens with the same grammar as a space cover: **Spaces** in the
-  display face, one sentence naming what a space is, and the count at the trailing edge. A hairline
-  closes the band.
-- **Shape:** a full-width row separated by hairlines, never a card.
-- **Key:** the last six characters of the space UUID, uppercase mono 11px. It is a button that
-  toggles the entry's annotation (`aria-expanded`, `aria-controls`).
-- **Name:** 15px medium sans with the user's emoji icon, linked to the space; it takes the accent
-  on hover instead of an underline.
-- **Counts:** tabular mono 11px, right-aligned under MEMBERS and TYPES headers; the header labels
-  are faint mono, never ink.
-- **Role:** uppercase mono 11px, right-aligned.
-- **Annotation:** opens directly beneath the row as a 5rem/1fr definition list in mono 12px, with a
-  single hairline left border. It carries the full id, member count and type count.
-
-### Space Home
-- **The sheet:** three bands on one ground — masthead, body, colophon — separated by hairlines, with
-  no cards and no page-level surface.
-- **Masthead:** the space icon at 40px, the name in the display face at `--text-display`, and one
-  factual line under it: `2 types · 8 records · 2 members · owner`. Every number comes from a read
-  the page already makes; nothing is counted twice for the look of it. The actions sit in a thumb
-  row at the trailing edge — **Open schedule** as a ghost button, **Capture a record** as the
-  primary — and wrap under the name on a phone.
-- **Type ledger:** the body. One row per type: icon, name, the mono key in a 5rem column, the
-  record count in the type's own plural (`24 plants`), a **Scheduled** label when the type is
-  scheduled, and a quiet arrow that takes the accent with the row. The whole row is the link at
-  44px on a coarse pointer; the key moves under the name below `sm`. A quiet **New type** row
-  closes the ledger for anyone who can edit, so the create action never competes with the name.
-- **Activity margin:** at `xl`, the five most recently written records sit behind a hairline in the
-  4-column margin. Each row names the record with its icon, then a mono line of type and time ago,
-  then the keys its last write changed (`room · status`, or `created`, `completed`, `restored`).
-  Property keys keep the spelling their owner gave them — the same string the schema editor and the
-  record's history show. Past three fields the rest become a count (`+2`). Under `xl` the column
-  collapses beneath the ledger in the same order; a space nothing has been written to yet renders
-  no margin at all, and the ledger keeps the full width.
-- **Graph band:** under the body and above the colophon, the whole space drawn as one map behind a
-  hairline: the record count at the trailing edge, the same force layout the record's Space scope
-  uses, with no centre ring because no record is current on this page. Nodes are links, the legend
-  names relation and mention, and the phone keeps drag-to-pan and the zoom controls.
-- **Colophon:** a hairline, then `space.yml · <timezone> · <key>` in mono on the leading edge and
-  **Settings** on the trailing edge. It names the files the space actually lives in; it does not
-  restate the masthead.
-
-### Quiet Surfaces
-- **Shared header:** every quiet surface — schema, members, space settings, account settings, trash
-  and the signed-out split — opens on one header: the page title in the display face at
-  `--text-display`, one factual sentence, one mono annotation at the trailing edge, and at most one
-  primary action at the thumb edge. Breadcrumbs sit above it, never inside it.
-- **Section rules:** each group is introduced by one hairline row: the section heading in the
-  heading role, an optional mono count and an optional quiet action at the trailing edge. A danger
-  group swaps the hairline for the ember rule and the heading for ember text.
-- **Field rows:** a long editor is a label/value grid from `sm` — a 10rem label column, the control
-  beside it — separated by hairlines, so every form reads as one ledger instead of a pile of boxes.
-- **Empty states:** one muted sentence that names what is missing and the next action, with the
-  action below it when there is one. No illustration.
-- **Space settings:** identity (icon, name, timezone) is one ruled form with one Save action;
-  appearance holds the shared highlight; deletion is a danger group with its typed confirmation.
-  The accent chooser is a wrapping row of named circular swatches; the chosen one keeps a 2px
-  accent ring with a ground-coloured offset, and the colour name is always visible.
-- **Account settings:** the person's name and email, then one browser-local Appearance group for
-  handedness. It never presents a space setting.
-- **Trash:** a ledger with a `Record / Type / Deleted / Actions` header from `md`, one hairline per
-  record, a checkbox for owners and editors, and Restore before Purge. The purge confirmation keeps
-  its typed space name or count. The empty state links back to the space.
-
-### Members
-- **Header:** the display title, one sentence naming the three roles, the member count and, for an
-  owner, one ghost **Invite people** action that jumps to the invite group.
-- **Rows:** a 32px ringed initial, then name (with `you` when it is the reader) and email, then the
-  role select and Remove for an owner; a viewer sees the role as a label. Roles change inline. A
-  confirmation states the loss before the write. The member's join date is not shown: no read
-  carries it.
-- **Invites:** the invite group is one section rule, a role select and **Create invite**, then
-  Pending and Used ledgers with their links, Copy link and Revoke.
-- **The last owner:** the role select and Remove are disabled with **The last owner cannot be
-  removed or step down** as the row's title and an inline sentence, so the server's guard is
-  never the first thing the person hears.
-
-### Schema Editor
-- **Shape:** two columns at `lg` — a keyed list of types or properties on the left, the selected
-  editor on the right; on narrow screens the editor follows its list. Hairlines only.
-- **List row:** a keyed ledger. Types show the icon, name, mono key, `n props · n records` in mono
-  and a **Scheduled** label; properties show the name, mono key and a bordered format chip. The
-  selected row takes the accent wash and accent text (`aria-current`) as its only marker — no
-  side stripe.
-- **Ordering:** membership order is explicit up/down 32px ghost icon buttons, 44px on coarse
-  pointers. Column order belongs to a view and lives on the type page, not in this editor.
-- **Options:** each row is a colour swatch input, the name field, its mono key once saved, then the
-  order and remove controls. A new option is added inline below the list with the same two inputs.
-  Option colours are user data; the lichen accent is not implied.
-- **Create actions:** "New type" and "New property" reveal an inline form directly under their
-  list, never a modal.
-- **Field grid:** the editor body is one label/value ledger from `sm`: icon, name, plural,
-  description and scheduling sit in a 10rem label column with their controls beside it, on
-  hairlines. Generated scheduling fields and property membership are `h3` section rules.
-- **Save state:** the sticky save row appears only while the draft is dirty and carries the
-  unsaved count and Save; after a write the header shows a quiet `SAVED` in lichen and the row is
-  gone. A viewer sees the same definitions with the controls disabled and no Save.
-
-### Type Page
-- **Header:** one band holds the type icon, the name in `--text-title` mono, a mono record count and
-  the type's description in small muted text. A single primary `New <type>` action and one ghost
-  **Edit type** control follow the thumb edge; the header never carries a second filled button.
-- **View strip:** saved views sit directly under the header; the editing bars below the toolbar open
-  as one 34rem ruled surface on desktop and a full-width band on a phone.
-
-### View Switcher
-- **Tabs:** directly under the type header, one per saved view in file order: kind icon, name, and a
-  mono `DEFAULT` marker on the default. Selection is a 2px lichen bottom rule and lichen text, never
-  a filled chip. `aria-pressed` carries the state. On a phone the tabs wrap onto further lines so
-  every saved view is visible at once and none hides under **New view**; above the compact width
-  the row still scrolls horizontally, and a selected tab is scrolled into view.
-- **Reorder:** a **Reorder** toggle turns the strip into a list — each view gets its own row — with
-  up/down pairs (44px on coarse pointers) that move it one slot and write immediately, so the
-  space's saved order changes for everyone. The default view is pinned first; making another view
-  default moves it there. On a phone **Reorder** and **New view** sit in their own row under the
-  views so they do not take a tab's width.
-- **New view:** a ghost `+ New view` at the end of the row opens an inline form beneath it — name,
-  kind choice, and the kind's required property. It never opens a modal and never asks for a column
-  list; the new view copies the current default's layout.
-- **Toolbar:** search, filter, sort and **Columns** sit above the renderer, with `Save view` (only
-  when the URL query differs from the saved view), `Reset`, and `View settings` for editors.
-  Columns is a ghost button beside Filter and Sort that names the visible property count
-  (`view.columns.length - 1`), toggles the one query panel, and is absent on calendar views. An
-  active Filter or Sort count is a mono chip on the accent wash, never a bare number. Filter and
-  Sort share one 34rem ruled panel on desktop, one label rhythm and the same 40px/44px controls.
-  `Save view` is the only filled action in the bar and appears only when the query differs from the
-  saved view; otherwise the bar stays quiet. Layout edits write as they commit; filter and sort
-  edits wait for the explicit save. The kebab keeps View
-  settings, Save as view and Data only. An empty type's state offers **New <type>** and, for
-  editors, **Import CSV**, which opens the same Data panel as the view menu's Data row.
-- **Columns panel:** the fixed title first, then the visible columns with move and hide controls,
-  then the hidden ones with Show. On a fine pointer each row also prints the property's mono key;
-  below `sm` the key is dropped so the name has the width. The width hint speaks about dragging a
-  header edge only on a fine pointer; a coarse pointer is told widths are set on a wide screen.
-- **View settings:** an inline panel for rename, make-default and delete with an inline confirm. The
-  kind is shown read-only with "Kind is fixed; create a view to show these records another way".
-
-### Table View
-- **Header:** every column label uses the label token; the mono key is a secondary line only from
-  `xl` up and stays in the button's `title` and `aria-label` below it. The title column is pinned at
-  every width with an opaque background; its trailing hairline strengthens to `line-strong` once
-  columns have slid under it, never a shadow. The header row stays sticky to the scrollport top.
-- **Rows:** a selected row paints the accent wash; a fine pointer gets the same wash at half
-  strength on hover, and touch keeps the row actions visible at 44px. Numeric cells are tabular and
-  right-aligned; long values truncate with a `title`, and cell padding follows the 4px space scale.
-- **Widths:** a `<colgroup>` carries the saved per-view widths; `title` defaults to 240px and other
-  columns to 140px, clamped to 80–800px. A saved width is painted literally — there is no
-  proportional fit. A filler column after the last property absorbs the window's leftover space,
-  so a wide window fills exactly and a narrow one scrolls. A drag therefore moves the column under
-  the finger by the distance dragged and never resizes a neighbour.
-- **Resize:** on a fine pointer each header ends in a focusable vertical separator labelled
-  `Resize <name>`; arrow keys move 16px (Shift: 64px), a pointer drag commits on release, a drag
-  under 3px commits nothing, and a cancel reverts the preview. A layout write is optimistic and
-  never dims or disables the table. **Coarse pointers get no resizer at all**: a 16px edge inside a
-  44px target cannot be found by a finger, it steals the horizontal swipe, and an accidental
-  release would write a width. Narrow screens scroll the table rather than reflowing it.
-- **Sort:** the arrow slot is fixed-width so the label never shifts. Unsorted is a faint
-  `ArrowUpDown`; ascending and descending are accent `ArrowUp` / `ArrowDown`, and `aria-sort`, the
-  button's label ("currently ascending, activate to sort descending"), its `title` and the Sort
-  panel use the same words. The glyph mirrors the `sorts` sent to the server; `cycleSort` keeps
-  asc → desc → clear and Shift-click adds or removes one key. Below `sm` the toolbar is five 44px
-  controls in one row — search (an icon that expands into the field), Filter, Sort, Columns and
-  More; Columns is absent on a calendar view. More opens one sheet whose first screen is a menu of
-  View settings, Save as view…, and Data — CSV, each panel returning through a Back control. When
-  the query or the view has changed, one labelled band under the toolbar carries Save (only when
-  the view differs from the saved one) and Reset (whenever a search, filter or sort is applied);
-  the band never wraps. Cancel in the expanded search clears the query and collapses the field.
-  The pager renders only when there is another page.
-- **Add property:** a trailing header cell after the last visible property and before the action
-  cell carries a quiet `+ Add property`; it is a normal tab stop, never a grid cell, hover-only or
-  a fill. On a narrow table it scrolls into view like any column and does not disturb the sticky
-  title offset, the action column or the keyboard grid's `colCount`.
-- **Phones:** below 640px the table has one scroller — the document, with its `thead` stuck to the
-  viewport top — instead of a short nested box. The checkbox and the title are pinned at the left
-  (`z-20` body, `z-30` header) so a row keeps its identity through a sideways swipe; title paints
-  136px and property columns 104px. The header label alone names the column: the mono key line is
-  removed on a phone and stays in the `title` and `aria-label`. A trailing spacer of the action
-  rail's width lets the last column scroll clear of the rail, and the rail itself paints opaque at
-  `z-20` so it never shows data through it. Toggling Select preserves `scrollLeft`. The right cell
-  carries only Open plus a 44px actions menu (Complete, Duplicate, Move to trash); the saved action
-  cell is not 184px of icons over the property columns. The menu is a hairline popover with 44px
-  rows and named actions.
-
-### Record Page
-- **Composition:** at `xl` the record is one specimen sheet on the 12-column grid: an 8-column main
-  field (identity, schedule, body, links, graph, history, trash) and a 4-column property margin
-  separated by a hairline and a 40px gutter. The margin sticks to the viewport top while the body
-  scrolls; it is never a second scroll container. Below `xl` the grid collapses to one column in
-  reading order, so the property block comes before the body. The sticky save row spans the content
-  and, from `lg`, puts its status at the leading edge and Save at the trailing edge.
-- **Save indicator:** a clean record shows one quiet 32px `Saved` pill at the thumb edge — right
-  in right-handed mode, left in left-handed mode — with no full-width rule, no bar and no disabled
-  Save. The first unsaved change expands the pill into the action row: the change count in mono
-  with an accent dot, and Save at the thumb edge, disabled only while invalid or pending. An error
-  keeps the row with its message and Retry. Read-only records show neither. The sticky row's
-  bottom still sits on the phone bar's hairline (or above the keyboard) and its flow position at
-  the end of the record keeps the last line clear.
-- **Identity band:** the type glyph and type name lead, the title follows in `--text-title` mono
-  (editable in place), and the mono folio — `PLANT · REV 1` — sits at the trailing edge before the
-  icon and overflow controls. The folio disclosure holds the full record id and its copy control. One
-  quiet mono line under the title carries updated and created times; the type is not repeated there.
-- **Title:** the display face at the title size with nothing beside it; the sticky save bar is the
-  only save indicator, and Duplicate and Revert live in the overflow menu.
-- **Metadata:** one line on a phone — `UPDATED <time>`; wider screens keep created time too. Every
-  date on the record uses one grammar: a calendar day reads `2 Nov 2026`, an instant adds its clock
-  time in the space's zone.
-- **Properties:** at `xl` the margin is a label-over-value stack; from `sm` to below `xl` it is a
-  label/value grid. Rows are separated by hairlines, and controls stay 40px on a fine pointer and
-  44px on a coarse one. The mono key is not echoed under the label at a fine pointer: it is the
-  group's `aria-description`, the label's `title`, and a hover-only key at the label's trailing
-  edge. The schema editor still shows every key. Tags are wrapping checkbox chips with the accent
-  wash for selection; multi-select controls remain one tap target per option.
-- **Dates:** every date and datetime field shows the formatted value over an invisible native
-  input, so the visible text and the stored ISO value agree while the native picker and keyboard
-  entry still work. The schedule strip uses the same day and instant formatters.
-- **Relations:** the current targets read first as quiet chips — title, the type name when the
-  target type is open, a remove X — followed by one text trigger (`Add relation` / `Change
-  relation` / `Add another`). The search field and target list are collapsed until that trigger is
-  pressed, so a record opens without reading the target type's records. Single-valued picking
-  collapses the list; multi-valued picking keeps it open with `Done`. `Escape` closes the picker,
-  never the record. A missing target shows its short id on the chip and the existing warning row
-  with `Remove` once the list is read.
-- **Body links:** a resolved `[[Type/Title]]` renders as its title with the accent underline and
-  opens the record in place. A link with no unique target uses a dotted warning underline and a
-  `title` naming the reason; it never navigates. Syntax inside a fenced block or inline code stays
-  literal, and a valid link typed but not yet saved reads as its title until the save resolves it.
-- **Search landing:** opening a record from a search result keeps the query in the address as
-  `?q=`. Every matched occurrence in the rendered body carries the same accent mark, the first one
-  is centred once after the preview paints, and the body header shows a quiet `Match: “<query>”`
-  annotation with a clear control that removes `q` without leaving the record. Focus is never
-  stolen, and re-opening the same query does not fight a reader's own scroll.
-- **Rename repair:** a title change on a record that other bodies mention opens one dialog before
-  the write. It names the old and new title, lists each source with its type and mention count, and
-  offers **Update links**, **Rename only** and **Cancel**. Update links renames the record and then
-  rewrites only the occurrences that resolved to it before the rename, each through the ordinary
-  source PATCH; a source edited since the preview is skipped and named in the final count. Rename
-  only leaves the old mentions unresolved. Cancel writes nothing. The dialog follows the sheet
-  geometry and its actions follow the thumb edge.
-- **Keyboard:** the markdown body and the sticky save bar measure against the visual viewport, so the
-  bar sits above the on-screen keyboard rather than behind it. The field's scroll margin reserves the
-  keyboard, the phone bar and the save bar, so a focused caret settles above them instead of behind
-  the bar; the bar's bottom sits on the phone bar's hairline rather than 1px behind it.
-- **Body header:** a visible `Body` heading, its unsaved dot, the mono word and character count and
-  the Revert action share one ruled row whose height and spacing are fixed; the dot and Revert slots
-  are reserved while the body is clean, so a change never moves the toolbar or the field below it.
-  The Write/Preview switch is a segmented control on the same hairline rhythm. A search match adds
-  the `Match:` annotation and clear control below the heading without moving the tools.
-- **Body toolbar:** one hairline row above the textarea — bold, italic, inline code, a heading menu
-  for H1–H3, bulleted list, numbered list, quote, link and record link — 32px on a fine pointer and
-  44px on a coarse one. The heading control applies the chosen level and removes it when the same
-  level is chosen again. On a phone the controls form two rows of six columns so every tool is
-  visible without horizontal guessing: six tools on the first row, then the remaining three tools
-  and Save. From `sm` up it is one row with the switch pinned at the trailing edge. A press
-  keeps the selection and the focus in the textarea.
-- **Writing surface:** Write and Preview are two full-width panes, one at a time; the toolbar's
-  Write/Preview switch chooses between them. The 8-column record column never splits in half, so
-  the textarea keeps the record's whole reading width. On a phone the field and the preview start
-  at 14rem (about seven lines),
-  so the toolbar, field and save bar fit above the keyboard; from `sm` up they are 22rem. The
-  textarea stays mounted while Preview is showing, so returning to Write keeps the native undo
-  history and the caret, and the first tap on Write raises the field with the caret at the end of the
-  draft. On a coarse pointer Write becomes a fixed writing sheet that owns the visual viewport: the
-  page, its navigation and its save bar step aside, and Save lives in the writing toolbar. A visible
-  Done action closes the sheet and returns the page at the scroll position it had; Escape does the
-  same with a hardware keyboard. The sheet sits against the
-  visual viewport, so the keyboard shrinks the textarea rather than covering it, and the page behind
-  never scrolls it. The preview is the read renderer, so it cannot disagree with the saved record.
-- **Paste and preview tap:** pasting one http(s) URL over a non-empty selection turns the selection
-  into `[selected text](url)` and keeps it selected; with no selection the paste is untouched.
-  Tapping rendered prose that is not a link, button or field enters Write mode at the end of the
-  draft. A link keeps navigating. The existing labelled Write control remains the keyboard and
-  screen-reader path; no duplicate Edit button is added.
-- **Create from completion:** when a `[[type/Title` fragment names a live type and a new title, the
-  record menu appends one `Create “Title” Type` row after its results. Activating it creates the
-  record and inserts the canonical link without opening the new record; a refusal stays in the menu.
-- **Caret menu:** `/` commands and `[[` record completion are one popup, anchored under the caret
-  and flipped above it when the window's room below is short, measured to the visual viewport (not
-  the field) so the keyboard never covers it, and ended at the phone bar's top so its last row is
-  never painted under that bar. On a fine pointer it is a 18rem card at the caret; on a coarse
-  pointer it takes the field's full width, so a finger is not aiming at a narrow strip. Its list
-  scrolls, ArrowUp/Down keep the highlighted row inside the visible rows, and the next row peeks
-  below the last full one on a coarse pointer so the list reads as continuing. Rows are 32px fine
-  and 44px coarse; wiki rows show the record's title and its type name, slash rows show the command
-  and the marker it inserts in muted mono. The create row is the same height as a result, sits last
-  and is never offered without a live type prefix or for an existing title. The textarea keeps focus
-  and names the active row through `aria-activedescendant`.
-- **Slash commands:** a command opens only at the start of a line, with nothing but whitespace before
-  it and never inside a fenced block, so a path, a date or a ratio stays text. Enter or Tab accepts
-  the highlighted row, Escape leaves the typed text alone, and Space never accepts. With no menu
-  open, Escape leaves the field rather than reaching the record page's Escape-to-go-back handler. The
-  marker column teaches the syntax the menu hides; the stored body is still markdown.
-- **Editing changes text, never HTML.** Every toolbar action, shortcut and command edits the
-  textarea's value and selection through one pure helper; nothing between the writer and the file
-  stores rendered markup.
-- **Sections:** Properties, Body, Links, History, Trash, in that order, each separated by a
-  hairline. Links sits directly below the body so both ways of pointing at a record read as one
-  surface. Properties and Body are true headings in the heading role; Links and History are ruled
-  evidence labels. Every section header starts with one muted line icon — sliders for properties,
-  lines for the body, a chain for links, a network for the graph row and a clock for history — so a
-  long record can be scanned by shape; the icon is `aria-hidden` and never replaces the label.
-- **History:** a quiet disclosure below the links. Its summary names the latest revision, action,
-  moment and writer; expanding reveals the existing revision list, diff and body snapshot. No
-  history behavior changes and the list is never a second page.
-- **Links:** the heading carries a mono count of every row in both directions. `Links to` lists the
-  resolved records this one points at, relations first with `Type · via Property`, then body
-  mentions with `Type · mentioned in this body`; `Linked from` lists incoming relations — type glyph,
-  the source title at 15px, then `Type · via Property` at 12px muted — and `Mentioned in` lists
-  incoming body mentions — title, type name, a two-line snippet at 13px muted and a mono `×N` when a
-  source links more than once. Each group renders only when it has a row, and the whole row is the
-  navigation target: 44px on a coarse pointer, no per-row action, so left-handed mode does not
-  mirror it. An empty panel is one muted sentence naming the two ways to make a link.
-- **Graph bar:** a full-width `Graph` row, closed by default at every width, above a drawing placed
-  below the panel's rows and centred in the column at no more than 44rem. The bar appears when
-  either direction has a row, so a record that only links out still opens its map. The row is 44px, folds
-  into `Hide graph`, keeps its title at the left and its chevron at the right in both handedness
-  modes; the whole row is the target, not a small word.
-- **Graph:** the opened body carries a `Local` / `Space` scope switch, aligned to the thumb edge.
-  The viewBox matches its drawn width — 640×320 local, 640×420 for the space, 390 wide on a phone —
-  so its 12px labels never shrink.
-- **Local graph:** the current record is an accent-ringed dot at the centre with its title below;
-  neighbours sit on rings — one ring up to twelve nodes, a wider second ring past that — with 5px
-  dots and 12px labels beside them. When the second ring opens only the outer ring carries labels;
-  the inner names stay in the tooltip and the rows above, so dense drawings never overlap their own
-  text.
-- **Space graph:** the current record stays at the centre and every other live record takes a place
-  on the rings by connectivity — degree first, then title, then id — with each further ring wider
-  and holding more. Records with no edge still appear, so the map is the whole space. Up to ten
-  records show labels; past that only the current record and the hovered or focused one do, with
-  the rest in tooltips and the rows.
-- **Graph edges:** `rule` hairlines, solid for a relation and dashed for a mention; the local map
-  draws outgoing and incoming edges from the same rows the panel lists. Every neighbour
-  is a link with an accent focus ring; the centre is `aria-current` and not a link. Dragging the
-  canvas pans, dragging a node moves just that node with its edges following, the wheel zooms
-  around the pointer between 0.6× and 2.6×, and `+` / `−` / reset controls do the same without a
-  wheel; a drag never opens the record under the finger, and hovering or focusing a node lights its
-  edge. Node offsets are view-only and reset when the record or scope changes, so a saved record is
-  never rewritten. The legend and the pan/zoom hint sit on their own line above
-  the zoom controls; the controls alone follow the thumb edge — right by default, left in
-  Left-handed mode — so the legend reads the same in both modes. The drawing itself never mirrors.
-  On a touch pointer a drag anywhere in the drawing pans the graph, so the map owns its gesture
-  instead of racing the page; dragging never moves a node there, while a tap still opens the
-  record. Node dragging stays a mouse or pen gesture. Page scrolling starts on the rows, legend or
-  controls around the drawing, and the rows remain the primary path.
-
-### Board View
-- **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a
-  final `No value` lane only when records lack the value. Each lane is a 17rem ruled column with a
-  hairline top border, its option name and a mono count above a hairline base rule; cards repeat the
-  title at the small token and the view's columns in the same label/value rhythm as the table.
-- **Cards:** a `surface` panel with a hairline border and no shadow; the title, then the view's card
-  columns as a property name and its value. The raw key appears only when the property definition
-  is missing. No drag between lanes in M3.
-
-### Gallery View
-- **Grid:** 2 columns, 3 from `md`, 4 from `xl`, with a hairline at every tile edge rather than a
-  shadow.
-- **Cover:** a `raised` band with a hairline base and room for two lines; the cover property's label
-  sits bottom-aligned in the display face at the heading size. A select cover whose option matches
-  tints the band with that option at low alpha; with no matching option the band keeps `raised` and
-  shows the type icon. The card repeats the title at the small token in medium weight and the view's
-  columns. No invented gradient, image or generated art until file properties exist.
-
-### Calendar View
-- **Grid:** Monday-first weeks in a 7-column ruled table; adjacent-month days are recessed with
-  `surface/40` and a faint numeral. Cell borders are hairlines (`rule`).
-- **Chips:** a link with a single hairline left edge, not a filled pill, set in the small token; at
-  most three per day, then mono `+N more`. Today is a lichen numeral and, from `sm` up where the cell has room, a mono
-  `TODAY` label beside it; the word is dropped below `sm` so it never crosses into the next day.
-  The numeral carries `aria-current="date"` and the title `Today`; never a filled block.
-- **Navigation:** the month name, ghost previous/next buttons and `Today`, all 44px on coarse
-  pointers. A calendar opens scrolled to the current week, and `Today` returns to the current month
-  and brings that week into view even when the month is already current; a month that already fits
-  the screen never moves. On a phone the today row stops above the bottom bar. A footer counts
-  records with no value for the date property.
-
-### Schedule Page
-- **Two views, one page.** `List` and `Calendar` are pressed text buttons in one labelled group, never
-  tabs with a filled selection; the group and the 7d/14d/30d horizon keep their reading order in both
-  handedness modes because they are navigation, not thumb actions. The horizon, the month and the
-  chosen types live in the link, so a shared URL opens the same view.
-- **List:** the existing Overdue / Today / Next N buckets, each a ruled section with its name, a mono
-  count and rows that link as a whole. The type filter and the snooze control are the only new
-  controls in a row; both sit inside one `ThumbRow` so the completion verb stays the primary action
-  at the thumb edge.
-- **Calendar:** the same `MonthGrid` the type calendar uses — Monday-first weeks, hairline cells, a
-  lichen today numeral, three chips and `+N more`, the portalled day panel with focus return and the
-  today scroll. A chip carries the type's icon because several types share one month. An empty month
-  names the month, and names the active types when a filter is on.
-- **Day panel:** a portalled list of that day's records. On a fine pointer it is a 17rem card
-  anchored under the cell; on a coarse pointer it is a sheet docked above the phone bar at the full
-  width, so the rows are thumb-sized and readable. The date and its close control stay pinned, and
-  the rows below scroll — scrolling the panel never dismisses it, while scrolling the page, pressing
-  outside or Escape does. The list caps at 60% of the visible height.
-- **Type filter:** one Filter trigger with the active count. A Base UI popover anchored to the
-  trigger on a fine pointer; the app's sheet on a phone, with its close first in the title row in
-  left mode. One checkbox row per scheduled type, then `All scheduled types` and `Clear`; no
-  per-type counts, because the page only holds the filtered rows.
-- **Snooze:** a ghost alarm icon beside the completion verb, 44px on a coarse pointer. On a fine
-  pointer it opens an anchored popover; on a phone, a sheet titled `Snooze “<title>”` whose close is
-  first in left mode. The body offers `1 day`, `3 days` and `1 week` as full-width rows, then a
-  labelled `Days` field (16px on coarse) with a `Snooze` submit that stays disabled outside 1–90.
-  Snoozing moves the record's due day, so the chip moves with it and the toast names the new date
-  with `Undo`; nothing is hidden while showing its old date.
-- **Toasts:** completion and snooze share the existing toast stack, one action (`Undo`) at the
-  handedness edge; the stack already clears the phone bar and the keyboard.
-
-### Command Palette
-- **Shape:** a bottom sheet below `sm` and a 36rem centred sheet above; one 56px search row with
-  the shortcut cap on larger screens, then results grouped as Actions, Records, Types and Spaces.
-  Each group header carries its item count in mono at the trailing edge.
-- **Copy:** the description and placeholder say **Search every record's title and text, plus types,
-  spaces and actions**. Record results are the server's ranked matches over every live title and
-  body, shown in server order with the matching sentence beneath the title; an unsettled or empty
-  query names what was searched and keeps the previous rows visible while it moves. Opening a record
-  result carries the query to the record, where the matched sentence is marked and brought into
-  view. The footer pluralises its count as `1 result` / `N results`.
-- **Rows:** one line each. A leading 16px slot carries the record, type or space icon, or a return
-  glyph for an action; the primary label follows, then the type/path as a mono annotation under it,
-  and a body-only match keeps its snippet and marked sentence between the two. The active row takes
-  the accent wash, accent text and a 2px accent marker at its leading edge; the return glyph is
-  right-aligned on a keyboard screen. Rows are 44px minimum on coarse pointers.
-- **Motion:** a changed result set fades and rises 4px over 120ms; the rows never reflow, and the
-  entrance is absent under reduced motion.
-- **Footer:** pinned to the sheet's last row, with the count at the trailing edge and, on keyboard
-  screens only, the arrow/Enter/Escape keys.
-- **Focus:** trapped; Escape closes; focus returns to the trigger. The search field takes focus
-  inside the commit that opens the sheet, so a phone raises the keyboard on the first tap, and it is
-  the initial focus in both handedness modes regardless of where the close control sits. The same
-  rule applies to Quick capture's title field.
-
-### Quick Capture
-- **Shape:** the same two-mode sheet as the palette, 32rem wide on desktop; title and a quiet type
-  select, then only the type's required properties, with the rest behind **Other fields**. Create
-  keeps the sheet open and resets the title; Create and open stays a ghost action beside it. The
-  action row follows the thumb edge. Fields are 16px on coarse pointers and actions 44px.
-- **Refusal:** the sheet stays open with the attempted values and an inline error with Retry; a
-  second Create is blocked while one is in flight. A space with no types offers the link to make
-  one instead of a form.
-- **Discard guard:** closing with a title, icon or any value typed — by backdrop, Escape or the X —
-  replaces the form with **Discard this record?** and **Keep editing** / **Discard**. Keep editing
-  restores the form and focuses the title with the draft intact; Discard clears it and closes, and
-  Escape during the question means keep editing. Create and Create and open bypass the guard, and
-  there is no browser `beforeunload` prompt.
-
-### Shortcuts and Sign Out
-- **Shortcuts:** the `?` sheet is a key/action ledger. From `sm` each row is two columns — the key
-  cap in a 7rem column and the action with its scope at the trailing edge; on a phone the key sits
-  above the action in one column. The same X close sits at the handedness edge.
-- **Sign out:** a centred 26rem confirmation with the shared title role, the loss named in one
-  small sentence, and Cancel before the action in right-handed reading order (reversed by
-  `ThumbRow` in left mode). It has no close control: Escape and Cancel are its exits.
-
-### Bulk Bar
-- **Shape:** one floating band over the table scrollport, never a card with a shadow. The selection
-  count is mono; Clear, Set property, Duplicate and Move to trash sit in one `ThumbRow` so the
-  destructive action lands at the thumb edge and the row reverses with handedness. The panel below
-  the row previews the value and carries Apply. On a phone the band clears the bottom bar and the
-  safe-area inset.
-- **Failure:** rows that failed stay selected and are named; the bar never reports a silent
-  success, and Undo runs from the page because the bar unmounts with the selection.
-
-### Row Actions and Toasts
-- **Row actions:** 32px line icons at one weight on a fine pointer, always present and 44px on
-  coarse pointers; on phones they collapse into the actions menu above. Hover turns Duplicate and
-  Open to the accent, Move to trash to ember.
-- **Toasts:** pinned to the thumb edge — bottom-right by default, bottom-left in left-handed mode —
-  24rem maximum, hairline border on `surface`, entering over 180ms (6px rise plus fade); danger
-  uses ember text and never auto-dismisses. Hover or focus pauses the timer, an Undo toast is not
-  evicted, and the action label is uppercase mono at the label size, 44px tall on coarse pointers. Safe-area insets keep either edge clear of a notch, and the message, action and
-  dismiss order never reverses. On phones the stack sits above the bottom space bar; with the
-  keyboard up it lifts above the keyboard instead, so a confirmation raised from a sheet stays
-  visible.
-
-### Add Property
-- **Entry points:** the table's trailing header cell and a ghost **Add property** below the visible
-  and hidden lists in the Columns panel. Editors only; a viewer sees neither.
-- **Shape:** a ruled form, not a wizard — one surface with **Existing property** (a select of what
-  the type does not declare) or **New property** (name and the existing format list), then one
-  action, **Add to table**. Relation defaults to any target and single-valued; Select and
-  Multi-select start with no options.
-- **Write:** property (when new), then the type's whole member list with `featured: true`, then the
-  current view's columns and widths. The dialog stays open until all three succeed; a refusal names
-  the stage, keeps the values, and Retry resumes without repeating a completed stage. A property
-  created before a later failure is left in the library and said so; success closes with one toast
-  naming the property.
-
-### Record Icons
-- **Value:** one optional emoji in the record's frontmatter (`icon`, schema 4), cleaned like a space
-  or type icon — trimmed, empty absent, arbitrary glyph otherwise. It is metadata, not a property:
-  absent from filters, sorts, CSV and the Schedule page, and `icon` is a reserved property key.
-- **Header:** a compact icon-picker trigger for an editor and the bare glyph for a viewer. The draft
-  carries the icon, so picking one marks the record dirty and saves with the normal **Save** / `Rev`
-  PATCH; Revert restores it.
-- **Picker:** on a compact width or a coarse pointer the picker is its own bottom sheet in front of
-  the form and opens without the keyboard; on a fine pointer it stays an anchored popover. A row of
-  recently chosen glyphs leads the grid, opening scrolls the current icon into view, and the custom
-  field accepts up to 32 code units so family and flag emoji fit. Recents are a browser-local UI
-  preference of the last eight glyphs, never content.
-- **Render sites:** the table's title cell, space-home recents, command-palette results, board
-  cards, gallery tiles and Trash, plus the history panel's **Icon** diff row. The glyph occupies a
-  fixed slot and an absent icon adds no placeholder; the gallery's type-icon cover fallback stays.
-- **Not interface iconography:** these are user-authored glyphs, one per record, never used as
-  controls or status marks.
-
-### CSV Data Panel
-- **Shape:** an inline panel under the type toolbar, never a modal. Export and template are ghost
-  controls; import is an editor-only file field with a dry-run preview, then Commit.
-- **Report:** a valid preview names the row and field count; a refused file lists row and field
-  problems in place and writes nothing. Limits are stated before upload, and a viewer sees Export
-  only.
-
-## Do's and Don'ts
-
-### Do:
-- **Do** keep the accent to state and the wordmark; if it is not saying "selected", "focused" or
-  "primary action", it is the wrong color.
-- **Do** use mono for keys, ids, counts, timestamps and labels, and tabular numerals for every number.
-- **Do** separate rows and sections with 1px hairlines and spacing, not cards or shadows.
-- **Do** name the next action in empty states and errors, in the product's own language.
-- **Do** keep the signed-out margin notes factual: they describe what the files and schema are.
-- **Do** let a view tab read as text plus a bottom rule, and let the calendar's today read as a
-  hairline and a mono label; colour never carries the state alone.
-- **Do** reserve Maple Mono for display, page titles and the wordmark, and set one pull-quote or
-  empty-state line per surface at most.
-- **Do** use the 12% accent wash for selection, the active row and the search match, and keep full
-  accent for text, glyphs and the primary surface.
-
-### Don't:
-- **Don't** introduce shadows, glass, gradients, glows or colored side stripes.
-- **Don't** fill large surfaces with the accent or introduce a second accent.
-- **Don't** use emoji as interface icons; they belong only to user-authored space, type and
-  record icons.
-- **Don't** turn the index into a card grid, add a sidebar before the space exists, or hide the
-  create action behind a modal.
-- **Don't** set prose in mono, identifiers in sans, or a paragraph in the display face.
-- **Don't** use the accent wash as a decorative panel, a gradient or a second accent.
-- **Don't** animate layout, tables or prose; only transform and opacity explain a change.
+Every signed-in surface consumes the foundation: the floating header and rail; the phone
+dock and space sheet; the cover sheet; the record sheet and its save row; the ledger
+table, view tabs, filter/sort bars and bulk bar; the command palette, capture, shortcuts,
+sign-out and icon sheets; the schedule list and calendar; schema, members, settings,
+trash, account settings, auth, join, changelog and not-found. The version footer, the
+accent picker and the file-backed colophon are unchanged in meaning.

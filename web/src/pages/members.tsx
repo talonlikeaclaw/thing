@@ -64,7 +64,7 @@ export function MembersPage() {
   const owner = detail.role === "owner";
 
   return (
-    <div className="settle max-w-[64ch]">
+    <div className="settle max-w-[76rem]">
       <Breadcrumbs
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Members" }]}
       />
@@ -164,7 +164,7 @@ function MemberList({
   }
 
   return (
-    <section aria-labelledby="members" className="mt-10">
+    <section aria-labelledby="members" className="mt-8 rounded-[22px] border border-line bg-surface p-5 sm:p-6">
       <SectionRule id="members" title="Members" count={detail.members.length} />
       <ul>
         {detail.members.map((member) => {
@@ -303,7 +303,7 @@ function InvitePanel({ spaceId, timeZone }: { spaceId: string; timeZone: string 
   const used = (invites.data ?? []).filter((invite) => invite.used_at !== null);
 
   return (
-    <section aria-labelledby="invites" id="invites" className="mt-10 scroll-mt-6">
+    <section aria-labelledby="invites" id="invites" className="mt-8 scroll-mt-6 rounded-[22px] border border-line bg-surface p-5 sm:p-6">
       <SectionRule
         id="invites"
         title="Invite people"
@@ -491,7 +491,7 @@ function InviteRow({
         aria-label={`Invite link for ${invite.code}`}
         value={url}
         onFocus={(event) => event.currentTarget.select()}
-        className="w-full rounded-field border border-line bg-ground px-3 py-2 font-mono text-[11px] text-muted"
+        className="w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-3 py-2 font-mono text-[11px] text-muted"
       />
       {error ? <FormError message={error} /> : null}
     </li>

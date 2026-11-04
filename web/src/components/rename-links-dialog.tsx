@@ -92,7 +92,7 @@ export function RenameLinksDialog({
       aria-label="Close rename links"
       disabled={pending}
       className={cn(
-        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         handedness === "left" ? "-ml-1" : "-mr-1",
       )}
     >
@@ -120,7 +120,7 @@ export function RenameLinksDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
         <SheetViewport>
           <SheetPopup className="sm:w-[32rem]">
             <div

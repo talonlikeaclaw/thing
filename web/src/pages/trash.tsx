@@ -297,9 +297,9 @@ function TrashList({
           }
         />
       ) : (
-        <>
+        <div className="mt-6 rounded-[22px] border border-line bg-surface p-5 sm:p-6">
           {canEdit ? (
-            <ThumbRow className="mt-6 flex-wrap items-center gap-3 border-y rule py-2.5">
+            <ThumbRow className="flex-wrap items-center gap-3 border-y rule py-2.5">
               <span className="flex flex-wrap items-center gap-3">
                 <label className="flex min-h-11 items-center gap-2 text-[13px] text-muted">
                   <input
@@ -532,7 +532,7 @@ function TrashList({
               );
             })}
           </ul>
-        </>
+        </div>
       )}
     </div>
   );

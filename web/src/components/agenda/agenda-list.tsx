@@ -2,33 +2,39 @@ import { Link } from "react-router";
 
 import type { AgendaRow } from "@/api/types";
 import { SnoozeMenu } from "@/components/agenda/snooze-menu";
+import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
 import { ClearFilterButton } from "@/components/agenda/type-filter";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { agendaBuckets, AGENDA_HORIZONS, type AgendaHorizon } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
+import { formatDay } from "@/lib/display";
 import { duePhrase, dueTone } from "@/lib/schedule";
 
-/** The List's 7/14/30-day switch, which the page places in its header. */
+/** The List's 7/14/30-day switch, which the page places in its toolbar. */
 export function AgendaHorizons({
   horizon,
   onChange,
+  stretch = false,
 }: {
   horizon: AgendaHorizon;
   onChange: (horizon: AgendaHorizon) => void;
+  /** A phone gives each segment an equal share of the full-width toolbar. */
+  stretch?: boolean;
 }) {
   return (
-    <div role="group" aria-label="Horizon" className="flex items-center gap-1">
+    <div
+      role="group"
+      aria-label="Horizon"
+      className={cn(AGENDA_TOOLBAR, stretch && "w-full flex-1")}
+    >
       {AGENDA_HORIZONS.map((days) => (
         <button
           key={days}
           type="button"
           aria-pressed={horizon === days}
           aria-label={`Show items due within ${days} days`}
-          className={cn(
-            "label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
-            horizon === days ? "" : "text-faint",
-          )}
+          className={cn(AGENDA_SEGMENT, stretch && "flex-1")}
           onClick={() => onChange(days)}
         >
           {days}d
@@ -70,14 +76,29 @@ export function AgendaList({
   onClearFilter?: () => void;
 }) {
   const { overdue, due_today, upcoming } = agendaBuckets(rows);
+  // A clear schedule is one calm sentence, not three ruled headings counting
+  // zeroes. The buckets return as soon as anything is due.
+  const clear =
+    overdue.length === 0 && due_today.length === 0 && upcoming.length === 0;
   return (
-    <>
+    <div className="mt-6 grid gap-4">
       {filterLabel && rows.length === 0 ? (
-        <div className="mt-8 max-w-[52ch] border-t rule pt-4">
+        <div className="max-w-[52ch] rounded-[22px] border border-line bg-surface p-4 sm:p-5">
           <p className="text-[13px] text-muted">
             No {filterLabel} work in the next {horizon} days.
           </p>
           {onClearFilter ? <ClearFilterButton onClick={onClearFilter} /> : null}
+        </div>
+      ) : clear ? (
+        <div className="rounded-[22px] border border-line bg-surface p-4 sm:p-5">
+          <p className="text-[15px] text-ink">
+            Nothing scheduled in the next {horizon} days.
+          </p>
+          <p className="mt-1 text-[13px] text-muted">
+            {laterCount > 0
+              ? `${laterCount} ${laterCount === 1 ? "record is" : "records are"} due later.`
+              : "Snooze a record or set a due date to see it here."}
+          </p>
         </div>
       ) : (
         <>
@@ -120,16 +141,16 @@ export function AgendaList({
         horizon < 30 ? (
           <button
             type="button"
-            className="mt-4 font-mono text-[12px] text-faint underline decoration-line-strong underline-offset-2 transition-colors hover:text-ink pointer-coarse:min-h-11"
+            className="w-fit font-mono text-[12px] text-faint underline decoration-line-strong underline-offset-2 transition-colors hover:text-ink pointer-coarse:min-h-11"
             onClick={() => onHorizonChange(30)}
           >
             {laterCount} more due later · show 30 days
           </button>
         ) : (
-          <p className="mt-4 font-mono text-[12px] text-faint">{laterCount} more due later</p>
+          <p className="font-mono text-[12px] text-faint">{laterCount} more due later</p>
         )
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -155,13 +176,16 @@ function Bucket({
   onSnooze: (row: AgendaRow, days: number) => void;
 }) {
   return (
-    <section aria-label={title} className="mt-8">
-      <div className="flex items-baseline justify-between border-b rule pb-2">
+    <section
+      aria-label={title}
+      className="rounded-[22px] border border-line bg-surface px-4 py-3 sm:px-5 sm:py-4"
+    >
+      <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[17px] font-medium">{title}</h2>
         <span className="label tnum">{rows.length}</span>
       </div>
       {rows.length === 0 ? (
-        <p className="py-3 text-[13px] text-muted">{empty}</p>
+        <p className="pt-2 text-[13px] text-muted">{empty}</p>
       ) : (
         <ul>
           {rows.map((row) => (
@@ -208,7 +232,7 @@ function AgendaEntry({
   return (
     <li
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_fit-content(12rem)] items-center gap-x-4 border-b rule pointer-coarse:min-h-11",
+        "grid grid-cols-[minmax(0,1fr)_fit-content(12rem)] items-center gap-x-4 border-b rule last:border-b-0 pointer-coarse:min-h-11",
         leftHanded
           ? "max-sm:grid-cols-[fit-content(45%)_minmax(0,1fr)]"
           : "max-sm:grid-cols-[minmax(0,1fr)_fit-content(45%)]",
@@ -236,7 +260,7 @@ function AgendaEntry({
           </span>
         </span>
         <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[12px]">
-          <span className="tnum text-muted">{row.due_date}</span>
+          <span className="tnum text-muted">{formatDay(row.due_date)}</span>
           {phrase ? <span className={cn("tnum", dueTone(row.status))}>{phrase}</span> : null}
           {row.recurrence ? <span className="text-faint">{row.recurrence}</span> : null}
         </span>
@@ -262,7 +286,7 @@ function AgendaEntry({
               variant="ghost"
               aria-label={`${verb} ${row.title}`}
               title={verb}
-              className="min-h-8 min-w-0 px-3 text-[13px] pointer-coarse:min-h-11"
+              className="min-h-8 min-w-0 rounded-full bg-accent-wash px-3 text-[13px] text-accent-on-wash hover:bg-[color-mix(in_srgb,var(--color-accent)_20%,transparent)] hover:text-accent-on-wash pointer-coarse:min-h-11"
               disabled={pendingId === row.id}
               onClick={() => onComplete(row)}
             >

@@ -52,7 +52,7 @@ export function SignOutDialog({
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
         <SheetViewport placement="center">
           <SheetPopup
             finalFocus={finalFocus}

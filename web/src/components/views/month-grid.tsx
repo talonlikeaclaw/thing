@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import { cn } from "@/lib/cn";
+import { formatDay } from "@/lib/display";
 import { isCoarsePointer } from "@/lib/media";
 import { addMonths, groupByDate, monthGrid, monthLabel, monthOf } from "@/lib/views";
 
@@ -26,15 +27,15 @@ export interface MonthGridProps<T> {
   titleOf?(item: T): string;
   /** The chip's content, not its link. */
   renderChip(item: T): ReactNode;
-  /** The hover row in the cell and the day-panel row's action. */
-  renderActions(item: T): ReactNode;
-  /** A whole day-panel row, when the default link + chip + actions is not enough. */
+  /** A whole day-panel row, when the default link + chip is not enough. */
   renderRow?(item: T): ReactNode;
   maxChips?: number;
   /** Shown between the month controls and the grid when there are no items. */
   above?: ReactNode;
   /** Shown after the grid, inside the same block. */
   footer?: ReactNode;
+  /** Extra classes on the card, when the caller must change its spacing. */
+  className?: string;
   onMonthChange(month: string): void;
 }
 
@@ -56,11 +57,11 @@ export function MonthGrid<T>({
   hrefOf,
   titleOf,
   renderChip,
-  renderActions,
   renderRow,
   maxChips = DEFAULT_MAX_CHIPS,
   above,
   footer,
+  className,
   onMonthChange,
 }: MonthGridProps<T>) {
   const [dayOpen, setDayOpen] = useState<{
@@ -163,21 +164,32 @@ export function MonthGrid<T>({
   const label = monthLabel(month);
 
   return (
-    <div className="mt-6">
+    /*
+     * One card shell for both calendars: the Schedule and the type page render
+     * the same matte sheet, month controls and day panel, so the grid is never
+     * a bare band on one page and a card on the other. Data stays opaque; only
+     * the day panel and the block's own chrome float.
+     */
+    <div
+      className={cn(
+        "mt-6 rounded-[22px] border border-line bg-surface p-4 sm:p-5",
+        className,
+      )}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-heading font-medium">{label}</h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
             aria-label="Previous month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
             onClick={() => onMonthChange(addMonths(month, -1))}
           >
             <ChevronLeft aria-hidden size={15} />
           </button>
           <button
             type="button"
-            className="label rounded-[3px] px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+            className="label rounded-[8px] px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
             onClick={() => {
               if (month === currentMonth) {
                 scrollToToday();
@@ -192,7 +204,7 @@ export function MonthGrid<T>({
           <button
             type="button"
             aria-label="Next month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-[3px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
             onClick={() => onMonthChange(addMonths(month, 1))}
           >
             <ChevronRight aria-hidden size={15} />
@@ -221,17 +233,27 @@ export function MonthGrid<T>({
               )}
             >
               <div className="flex items-baseline justify-between gap-1">
-                <span
+                {/*
+                  The day number opens the day panel on every pointer, so the
+                  calendar's complete and menu actions are reachable without a
+                  hover-only affordance inside a chip. A finger gets the same
+                  panel by tapping the chip.
+                */}
+                <button
+                  type="button"
                   aria-current={isToday ? "date" : undefined}
+                  aria-haspopup="dialog"
+                  aria-label={`Records on ${formatDay(cell.date)}`}
                   className={cn(
-                    "font-mono text-[11px] tnum",
+                    "tnum -ml-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-[6px] px-1 font-mono text-[11px] transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
                     cell.inMonth ? "text-muted" : "text-faint",
                     isToday ? "text-accent" : "",
                   )}
                   title={isToday ? "Today" : undefined}
+                  onClick={(event) => openDay(cell.date, event.currentTarget)}
                 >
                   {Number(cell.date.slice(8, 10))}
-                </span>
+                </button>
                 {isToday ? (
                   <span className="hidden font-mono text-[11px] tracking-[0.08em] text-accent sm:inline">
                     TODAY
@@ -240,28 +262,23 @@ export function MonthGrid<T>({
               </div>
               <ul className="mt-1 grid gap-0.5">
                 {bucket.slice(0, maxChips).map((item) => (
-                  <li key={keyOf(item)} className="group min-w-0">
-                    <div className="flex min-w-0 items-center gap-0.5">
-                      <Link
-                        to={hrefOf(item)}
-                        title={titleOf?.(item)}
-                        className="min-w-0 flex-1 truncate rounded-[3px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised"
-                        onClick={(event) => {
-                          // A finger cannot aim at the actions inside a ~50 px
-                          // chip, so a tap opens the day and its full rows.
-                          if (!isCoarsePointer()) {
-                            return;
-                          }
-                          event.preventDefault();
-                          openDay(cell.date, event.currentTarget);
-                        }}
-                      >
-                        {renderChip(item)}
-                      </Link>
-                      <span className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:hidden">
-                        {renderActions(item)}
-                      </span>
-                    </div>
+                  <li key={keyOf(item)} className="min-w-0">
+                    <Link
+                      to={hrefOf(item)}
+                      title={titleOf?.(item)}
+                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised"
+                      onClick={(event) => {
+                        // A finger cannot aim at a ~50 px chip, so a tap
+                        // opens the day and its full rows.
+                        if (!isCoarsePointer()) {
+                          return;
+                        }
+                        event.preventDefault();
+                        openDay(cell.date, event.currentTarget);
+                      }}
+                    >
+                      {renderChip(item)}
+                    </Link>
                   </li>
                 ))}
                 {bucket.length > maxChips ? (
@@ -286,10 +303,10 @@ export function MonthGrid<T>({
             <div
               ref={dayPanel}
               role="dialog"
-              aria-label={`Records on ${dayOpen.date}`}
+              aria-label={`Records on ${formatDay(dayOpen.date)}`}
               tabIndex={-1}
               className={cn(
-                "fixed z-50 flex flex-col overflow-hidden border border-line bg-surface text-[12px] focus:outline-none",
+                "glass-strong fixed z-50 flex flex-col overflow-hidden rounded-card text-[12px] focus:outline-none",
                 dayOpen.coarse
                   ? "inset-x-2 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] rounded-t-field p-3"
                   : "rounded-field p-2",
@@ -312,7 +329,7 @@ export function MonthGrid<T>({
               }}
             >
               <div className="flex shrink-0 items-baseline justify-between gap-2">
-                <span className="label">{dayOpen.date}</span>
+                <span className="label">{formatDay(dayOpen.date)}</span>
                 <button
                   type="button"
                   aria-label="Close day"
@@ -322,23 +339,23 @@ export function MonthGrid<T>({
                   <X aria-hidden size={13} />
                 </button>
               </div>
+              {(byDate.get(dayOpen.date) ?? []).length === 0 ? (
+                <p className="px-1 py-1 text-[12px] text-faint">No records on this day.</p>
+              ) : null}
               <ul className="mt-1 grid min-h-0 gap-0.5 overflow-y-auto overscroll-contain">
                 {(byDate.get(dayOpen.date) ?? []).map((item) => (
                   <li key={keyOf(item)} className="flex min-w-0 items-center gap-1">
                     {renderRow ? (
                       renderRow(item)
                     ) : (
-                      <>
-                        <Link
-                          to={hrefOf(item)}
-                          title={titleOf?.(item)}
-                          className="min-w-0 flex-1 truncate px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
-                          onClick={() => setDayOpen(null)}
-                        >
-                          {renderChip(item)}
-                        </Link>
-                        {renderActions(item)}
-                      </>
+                      <Link
+                        to={hrefOf(item)}
+                        title={titleOf?.(item)}
+                        className="min-w-0 flex-1 truncate px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
+                        onClick={() => setDayOpen(null)}
+                      >
+                        {renderChip(item)}
+                      </Link>
                     )}
                   </li>
                 ))}

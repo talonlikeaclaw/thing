@@ -39,6 +39,8 @@ interface IconPickerProps {
    * width; `field` is a form field.
    */
   variant?: "field" | "compact" | "glyph";
+  /** A glyph trigger tinted with the space accent, for a row that leads a form. */
+  tone?: "default" | "accent";
 }
 
 /**
@@ -62,6 +64,7 @@ export function IconPicker({
   id,
   hint,
   variant = "field",
+  tone = "default",
 }: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const [recent, setRecent] = useState<string[]>([]);
@@ -100,6 +103,7 @@ export function IconPicker({
   const compactTrigger = variant === "compact";
   const glyph = variant === "glyph";
   const square = compactTrigger || glyph;
+  const accent = tone === "accent";
 
   const triggerProps = {
     id: fieldId,
@@ -113,11 +117,21 @@ export function IconPicker({
     className: cn(
       square
         ? value
-          ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-expanded:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
+          ? cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-full border text-[20px] leading-none transition-colors hover:bg-raised aria-expanded:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11",
+              accent
+                ? "border-accent/40 bg-accent-wash hover:border-accent"
+                : "border-line-interactive/70 bg-raised/40 hover:border-line-strong",
+            )
           : glyph
-            ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] border border-dashed border-line-interactive text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11"
-            : "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[4px] border border-dashed border-line-interactive px-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full sm:justify-start pointer-coarse:h-11 pointer-coarse:px-2"
-        : "flex h-10 w-full items-center gap-2 rounded-field border border-line-interactive bg-ground px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
+            ? cn(
+                "flex size-9 shrink-0 items-center justify-center rounded-full border border-dashed transition-colors disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11",
+                accent
+                  ? "border-accent/50 bg-accent-wash text-accent-on-wash hover:border-accent hover:text-accent-on-wash"
+                  : "border-line-interactive text-muted hover:border-line-strong hover:text-ink aria-expanded:border-line-strong",
+              )
+            : "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-dashed border-line-interactive px-1.5 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink aria-expanded:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 max-sm:w-full sm:justify-start pointer-coarse:h-11 pointer-coarse:px-2"
+        : "flex h-10 w-full items-center gap-2 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-left transition-colors hover:border-line-strong focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11",
     ),
   };
 
@@ -165,7 +179,7 @@ export function IconPicker({
         <Dialog.Root open={open} onOpenChange={handleOpenChange}>
           <Dialog.Trigger {...triggerProps}>{triggerContent}</Dialog.Trigger>
           <Dialog.Portal>
-            <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
             <SheetViewport>
               <SheetPopup
                 ref={popupRef}
@@ -185,7 +199,7 @@ export function IconPicker({
             <Popover.Positioner sideOffset={4} className="z-50">
               <Popover.Popup
                 aria-label="Emoji picker"
-                className="w-[20rem] max-w-[calc(100vw-2rem)] rounded-field border border-line bg-surface p-2 shadow-none"
+                className="glass-strong w-[20rem] max-w-[calc(100vw-2rem)] rounded-card p-2"
               >
                 {panel}
               </Popover.Popup>
@@ -287,7 +301,7 @@ function EmojiPanel({
       placeholder="Search emoji"
       aria-label="Search emoji"
       className={cn(
-        "w-full rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent pointer-coarse:text-[16px]",
+        "w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[14px] text-ink focus:border-accent pointer-coarse:text-[16px]",
         sheet ? "h-11 min-w-0 flex-1" : "h-9",
       )}
     />
@@ -298,7 +312,7 @@ function EmojiPanel({
       key="close"
       aria-label="Close icon picker"
       className={cn(
-        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] text-faint transition-colors hover:bg-raised hover:text-ink",
+        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-faint transition-colors hover:bg-raised hover:text-ink",
         handedness === "left" ? "-ml-2" : "-mr-2",
       )}
     >
@@ -318,7 +332,7 @@ function EmojiPanel({
     <>
       {recentEntries.length > 0 ? (
         <section aria-label="Recent" data-recent>
-          <p className="label sticky top-0 bg-surface px-1 py-1">Recent</p>
+          <p className="label sticky top-0 bg-[color:var(--color-glass-strong)] px-1 py-1 backdrop-blur-md">Recent</p>
           <Grid
             entries={recentEntries}
             current={value}
@@ -330,7 +344,7 @@ function EmojiPanel({
       ) : null}
       {EMOJI_GROUPS.map((group) => (
         <section key={group.name} aria-label={group.name}>
-          <p className="label sticky top-0 bg-surface px-1 py-1">{group.name}</p>
+          <p className="label sticky top-0 bg-[color:var(--color-glass-strong)] px-1 py-1 backdrop-blur-md">{group.name}</p>
           <Grid entries={group.entries} current={value} onChoose={onChoose} layout={layout} />
         </section>
       ))}
@@ -354,13 +368,13 @@ function EmojiPanel({
           placeholder="Any other emoji"
           aria-label="Any other emoji"
           maxLength={32}
-          className="h-9 min-w-0 flex-1 rounded-[4px] border border-line-interactive bg-ground px-2 text-[14px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+          className="h-9 min-w-0 flex-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[14px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
         />
         <button
           type="button"
           disabled={!custom.trim()}
           onClick={() => onChoose(custom.trim())}
-          className="h-9 rounded-[4px] border border-line px-3 text-[13px] transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
+          className="h-9 rounded-[10px] border border-line px-3 text-[13px] transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
         >
           Use
         </button>
@@ -462,7 +476,7 @@ function Grid({
           aria-pressed={entry.char === current}
           onClick={() => onChoose(entry.char)}
           className={cn(
-            "flex items-center justify-center rounded-[4px] text-[20px] leading-none transition-colors hover:bg-raised aria-pressed:bg-raised",
+            "flex items-center justify-center rounded-[10px] text-[20px] leading-none transition-colors hover:bg-raised aria-pressed:bg-raised",
             cellClass,
           )}
         >

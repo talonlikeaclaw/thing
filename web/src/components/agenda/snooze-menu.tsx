@@ -21,11 +21,11 @@ import {
 } from "@/lib/schedule";
 
 const TRIGGER =
-  "inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:min-w-11";
+  "inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:size-11";
 const ROW =
-  "flex min-h-10 w-full items-center rounded-[4px] px-2 text-left text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11";
+  "flex min-h-10 w-full items-center rounded-[10px] px-2 text-left text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11";
 const SUBMIT =
-  "inline-flex min-h-8 shrink-0 items-center justify-center rounded-field border border-line px-3 text-[13px] text-ink transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+  "inline-flex min-h-8 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-ink transition-colors hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
 
 /**
  * Puts one scheduled record off for a number of days.
@@ -49,9 +49,7 @@ export function SnoozeMenu({
   const { handedness } = useHandedness();
   const [open, setOpen] = useState(false);
   const label = `Snooze “${title}”`;
-  const trigger = (
-    <AlarmClock aria-hidden size={14} />
-  );
+  const trigger = <AlarmClock aria-hidden size={14} />;
 
   const apply = (days: number) => {
     setOpen(false);
@@ -75,7 +73,7 @@ export function SnoozeMenu({
             align={handedness === "left" ? "start" : "end"}
             className="z-50"
           >
-            <Popover.Popup className="w-[13.5rem] rounded-field border border-line bg-surface p-1">
+            <Popover.Popup className="w-[13.5rem] glass-strong rounded-card p-1.5">
               <SnoozeBody onSnooze={apply} />
             </Popover.Popup>
           </Popover.Positioner>
@@ -105,7 +103,7 @@ export function SnoozeMenu({
       </button>
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <Dialog.Portal>
-          <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+          <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
           <SheetViewport>
             <SheetPopup className="sm:w-[26rem]">
               <SheetHeader

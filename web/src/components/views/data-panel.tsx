@@ -228,7 +228,7 @@ export function DataPanel({
                 accept=".csv,text/csv"
                 disabled={commit.isPending}
                 aria-describedby={`csv-file-hint-${type.key}`}
-                className="w-full rounded-field border border-line-interactive bg-ground px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-field file:border file:border-line-interactive file:bg-raised file:px-2.5 file:py-1 file:text-[12px] file:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[16px]"
+                className="w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-3 py-2 text-[13px] text-ink file:mr-3 file:rounded-field file:border file:border-line-interactive file:bg-raised file:px-2.5 file:py-1 file:text-[12px] file:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[16px]"
                 onChange={(event) => choose(event.target.files?.[0] ?? null)}
               />
               <span id={`csv-file-hint-${type.key}`} className="text-[12px] text-faint">

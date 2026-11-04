@@ -10,6 +10,8 @@ import { useSyncExternalStore } from "react";
  * but has no room as a popover asks for either.
  */
 export const COMPACT_QUERY = "(max-width: 639px)";
+/** The desktop shell: the rail replaces the phone bar at this width. */
+export const WIDE_QUERY = "(min-width: 64rem)";
 export const COARSE_QUERY = "(pointer: coarse)";
 
 function subscribeMedia(query: string) {
@@ -32,6 +34,15 @@ export function isCoarsePointer(): boolean {
   return typeof window.matchMedia === "function"
     ? window.matchMedia(COARSE_QUERY).matches
     : false;
+}
+
+/** The desktop shell, where the record carries Save in its identity band. */
+export function useWideLayout(): boolean {
+  return useSyncExternalStore(
+    subscribeMedia(WIDE_QUERY),
+    readMedia(WIDE_QUERY),
+    () => false,
+  );
 }
 
 /** Width-only compaction, as the type page already uses. */

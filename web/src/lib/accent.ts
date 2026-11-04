@@ -15,6 +15,12 @@ export interface AccentScheme {
   /** Text and glyphs drawn on the accent surface. */
   ink: string;
   /**
+   * Accent used as text on the wash. In light it is the accent darkened 10%
+   * so it clears 4.5:1 over the wash on every scheme surface; in dark the
+   * accent itself already clears it. `accent.test.ts` measures this pairing.
+   */
+  onWash: string;
+  /**
    * The one tint, at `WASH_ALPHA` alpha, for selection, the active row, the
    * search match and drag. It is never a decorative panel and never sits
    * behind primary text; `accent.test.ts` measures body ink on it.
@@ -34,38 +40,38 @@ export const ACCENTS: readonly AccentPalette[] = [
   {
     id: "lichen",
     label: "Lichen",
-    dark: { accent: "#c8d96b", ink: "#14180f", wash: "#c8d96b1e" },
-    light: { accent: "#5f6f1e", ink: "#f7f8f0", wash: "#5f6f1e1e" },
+    dark: { accent: "#c8d96b", ink: "#14180f", onWash: "#c8d96b", wash: "#c8d96b1e" },
+    light: { accent: "#5f6f1e", ink: "#f7f8f0", onWash: "#525f18", wash: "#5f6f1e1e" },
   },
   {
     id: "yellow",
     label: "Yellow",
-    dark: { accent: "#f2d64b", ink: "#1a1503", wash: "#f2d64b1e" },
-    light: { accent: "#6f5d00", ink: "#fbf9ea", wash: "#6f5d001e" },
+    dark: { accent: "#f2d64b", ink: "#1a1503", onWash: "#f2d64b", wash: "#f2d64b1e" },
+    light: { accent: "#6f5d00", ink: "#fbf9ea", onWash: "#645400", wash: "#6f5d001e" },
   },
   {
     id: "orange",
     label: "Orange",
-    dark: { accent: "#f5a24a", ink: "#1c1204", wash: "#f5a24a1e" },
-    light: { accent: "#9a4a00", ink: "#fdf6ee", wash: "#9a4a001e" },
+    dark: { accent: "#f5a24a", ink: "#1c1204", onWash: "#f5a24a", wash: "#f5a24a1e" },
+    light: { accent: "#9a4a00", ink: "#fdf6ee", onWash: "#8b4300", wash: "#9a4a001e" },
   },
   {
     id: "cyan",
     label: "Cyan",
-    dark: { accent: "#6fdbe8", ink: "#04181a", wash: "#6fdbe81e" },
-    light: { accent: "#00646e", ink: "#eefcfe", wash: "#00646e1e" },
+    dark: { accent: "#6fdbe8", ink: "#04181a", onWash: "#6fdbe8", wash: "#6fdbe81e" },
+    light: { accent: "#00646e", ink: "#eefcfe", onWash: "#005a63", wash: "#00646e1e" },
   },
   {
     id: "green",
     label: "Green",
-    dark: { accent: "#7fe08a", ink: "#051706", wash: "#7fe08a1e" },
-    light: { accent: "#256b33", ink: "#f0fbf2", wash: "#256b331e" },
+    dark: { accent: "#7fe08a", ink: "#051706", onWash: "#7fe08a", wash: "#7fe08a1e" },
+    light: { accent: "#256b33", ink: "#f0fbf2", onWash: "#21602e", wash: "#256b331e" },
   },
   {
     id: "pink",
     label: "Pink",
-    dark: { accent: "#f49ac1", ink: "#1d0711", wash: "#f49ac11e" },
-    light: { accent: "#96325f", ink: "#fdf1f6", wash: "#96325f1e" },
+    dark: { accent: "#f49ac1", ink: "#1d0711", onWash: "#f49ac1", wash: "#f49ac11e" },
+    light: { accent: "#96325f", ink: "#fdf1f6", onWash: "#872d56", wash: "#96325f1e" },
   },
 ];
 

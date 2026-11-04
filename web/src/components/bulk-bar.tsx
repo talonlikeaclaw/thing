@@ -40,7 +40,7 @@ interface BulkBarProps {
 }
 
 const field =
-  "h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 /**
  * The selection band. Bulk actions fan out over the per-object endpoints, so
@@ -236,7 +236,7 @@ export function BulkBar({
   return (
     <section
       aria-label="Bulk actions"
-      className="pointer-events-auto rounded-sheet border border-line bg-surface px-3 py-2 shadow-none"
+      className="glass-strong pointer-events-auto rounded-[22px] px-3 py-2.5"
     >
       <ThumbRow className="flex-wrap items-center gap-x-2 gap-y-2">
         <span className="label tnum mr-1">{count} selected</span>
@@ -393,7 +393,7 @@ export function BulkBar({
                 <div className="flex min-h-8 items-center gap-1.5">
                   <span
                     className={cn(
-                      "inline-flex min-h-8 min-w-0 flex-1 items-center truncate rounded-[4px] border border-line bg-ground px-2 text-[13px]",
+                      "inline-flex min-h-8 min-w-0 flex-1 items-center truncate rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px]",
                       draft.value === null ? "text-faint" : "text-ink",
                     )}
                   >

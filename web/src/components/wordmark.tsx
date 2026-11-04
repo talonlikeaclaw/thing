@@ -2,7 +2,7 @@ import { Link } from "react-router";
 
 import { cn } from "@/lib/cn";
 
-/** The wordmark carries the one non-state use of the accent: a specimen square. */
+/** The wordmark carries the one non-state use of the accent: a specimen dot. */
 export function Wordmark({ className }: { className?: string }) {
   return (
     <Link
@@ -12,7 +12,7 @@ export function Wordmark({ className }: { className?: string }) {
         className,
       )}
     >
-      <span aria-hidden className="size-2.5 shrink-0 rounded-[1px] bg-accent" />
+      <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-accent" />
       <span>thing</span>
     </Link>
   );

@@ -1,4 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
+import { useRef } from "react";
 
 import { useHandedness } from "@/components/handedness";
 import {
@@ -21,6 +22,9 @@ interface ShortcutSheetProps {
 /** The `?` overlay: one keyed list of every active shortcut. */
 export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetProps) {
   const { handedness } = useHandedness();
+  // The sheet itself is the first stop: the reference should be readable before
+  // the reader is offered a way out of it.
+  const panelRef = useRef<HTMLDivElement>(null);
   const title = (
     <div className="min-w-0 flex-1">
       <SheetTitle>Keyboard shortcuts</SheetTitle>
@@ -34,9 +38,13 @@ export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetPr
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-ground/85" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
         <SheetViewport>
-          <SheetPopup className="sm:w-[34rem]">
+          <SheetPopup
+            ref={panelRef}
+            className="sm:w-[34rem]"
+            initialFocus={() => panelRef.current ?? true}
+          >
             <SheetHeader
               className={cn(
                 "gap-[var(--space-4)]",
@@ -64,7 +72,7 @@ export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetPr
                     className="grid grid-cols-1 items-baseline gap-1 border-b rule py-2.5 last:border-b-0 sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-[var(--space-4)]"
                   >
                     <dt>
-                      <kbd className="rounded-[3px] border border-line bg-ground px-1.5 py-0.5 font-mono text-[length:var(--text-label)] text-ink">
+                      <kbd className="rounded-[6px] border border-line bg-ground px-1.5 py-0.5 font-mono text-[length:var(--text-label)] text-ink">
                         {shortcut.keys}
                       </kbd>
                     </dt>

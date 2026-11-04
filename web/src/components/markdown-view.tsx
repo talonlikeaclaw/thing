@@ -197,7 +197,7 @@ export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewPr
           ),
           hr: () => <hr className="my-6 border-t rule" />,
           pre: ({ children }) => (
-            <pre className="my-3 overflow-x-auto rounded-field border border-line bg-surface p-3 font-mono text-[12.5px] leading-[1.55] [&_code]:bg-transparent [&_code]:p-0">
+            <pre className="my-3 overflow-x-auto rounded-[16px] border border-line bg-surface p-3 font-mono text-[12.5px] leading-[1.55] [&_code]:bg-transparent [&_code]:p-0">
               {children}
             </pre>
           ),

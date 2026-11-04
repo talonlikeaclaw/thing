@@ -146,7 +146,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="settle max-w-[64ch]">
+    <div className="settle max-w-[76rem]">
       <Breadcrumbs
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Space settings" }]}
       />
@@ -157,14 +157,15 @@ export function SettingsPage() {
         meta={detail.role}
       />
 
-      <section aria-labelledby="space-identity" className="mt-10">
+      <div className="mt-8 grid gap-4 xl:grid-cols-2 xl:items-start">
+      <section aria-labelledby="space-identity" className="rounded-[22px] border border-line bg-surface p-5 sm:p-6">
         <SectionRule
           id="space-identity"
           title="Identity"
           count={update.isPending ? "saving" : undefined}
         />
         {owner ? (
-          <form className="mt-2 grid divide-y divide-line border-b rule" onSubmit={onSave}>
+          <form className="mt-2 grid divide-y divide-line" onSubmit={onSave}>
             <FieldRow label="Icon" htmlFor="space-icon">
               <div>
                 <IconPicker
@@ -233,7 +234,7 @@ export function SettingsPage() {
         )}
       </section>
 
-      <section aria-labelledby="space-appearance" className="mt-10">
+      <section aria-labelledby="space-appearance" className="rounded-[22px] border border-line bg-surface p-5 sm:p-6">
         <SectionRule
           id="space-appearance"
           title="Appearance"
@@ -252,11 +253,12 @@ export function SettingsPage() {
         />
         <FormError message={accentUpdate.error ? readError(accentUpdate.error) : null} />
       </section>
+      </div>
 
       {guard}
 
       {owner ? (
-        <section aria-labelledby="space-danger" className="mt-10">
+        <section aria-labelledby="space-danger" className="mt-8 rounded-[22px] border border-danger/30 bg-surface p-5 sm:p-6">
           <SectionRule id="space-danger" tone="danger" title="Delete space" />
           <p className="mt-4 text-[13px] text-muted">
             Deletes <span className="font-mono">{detail.id}</span> and every file inside it. This

@@ -6,6 +6,7 @@ import { ThumbRow } from "@/components/handedness";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { EmptyState, FormatChip, SectionRule } from "@/components/ui/page";
+import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import {
   formatLabel,
@@ -88,24 +89,46 @@ export function PropertyList({
         <EmptyState sentence="No properties yet. A property is a column definition the whole space can use." />
       ) : (
         <ul>
-          {properties.map((property) => (
+          {properties.map((property) => {
+            const current = property.key === selectedKey;
+            return (
             <li key={property.key} className="border-b rule">
               <button
                 type="button"
-                aria-current={property.key === selectedKey ? "true" : undefined}
-                className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:bg-accent-wash aria-[current=true]:text-accent pointer-coarse:min-h-11"
+                aria-current={current ? "true" : undefined}
+                className="flex w-full items-center justify-between gap-3 rounded-[12px] px-2.5 py-2.5 text-left transition-colors hover:text-accent aria-[current=true]:bg-accent-wash aria-[current=true]:text-accent-on-wash pointer-coarse:min-h-11"
                 onClick={() => onSelect(property.key)}
               >
                 <span className="grid min-w-0 gap-0.5">
-                  <span className="truncate text-[15px]">{property.name}</span>
-                  <span className="truncate font-mono text-[11px] leading-4 text-faint">
+                  <span
+                    className={cn(
+                      "truncate text-[15px]",
+                      current ? "text-accent-on-wash" : "font-medium text-accent",
+                    )}
+                  >
+                    {property.name}
+                  </span>
+                  <span
+                    className={cn(
+                      "truncate font-mono text-[11px] leading-4",
+                      current ? "text-accent-on-wash" : "text-faint",
+                    )}
+                  >
                     {property.key}
                   </span>
                 </span>
-                <FormatChip>{formatLabel(property.format)}</FormatChip>
+                <FormatChip
+                  className={cn(
+                    "border-accent/40 text-accent-on-wash",
+                    current ? undefined : "bg-accent-wash",
+                  )}
+                >
+                  {formatLabel(property.format)}
+                </FormatChip>
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

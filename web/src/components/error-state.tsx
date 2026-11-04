@@ -37,7 +37,7 @@ export function ErrorState({ error, subject = "This page", onRetry }: ErrorState
         {classified.kind === "missing" || classified.kind === "forbidden" ? (
           <Link
             to="/"
-            className="inline-flex min-h-10 items-center rounded-field border border-line-interactive px-4 text-sm text-ink transition-colors hover:border-line-strong hover:bg-raised pointer-coarse:min-h-11"
+            className="inline-flex min-h-10 items-center rounded-[10px] border border-line-interactive/70 bg-raised/40 px-4 text-sm text-ink transition-colors hover:border-line-strong hover:bg-raised pointer-coarse:min-h-11"
           >
             All spaces
           </Link>

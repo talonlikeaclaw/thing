@@ -9,7 +9,6 @@ import {
   List,
   ListOrdered,
   Quote,
-  Save,
 } from "lucide-react";
 import {
   useCallback,
@@ -25,6 +24,7 @@ import { createPortal } from "react-dom";
 
 import { useCreateObject, useSearch, useTypes } from "@/api/queries";
 import { ThumbRow, useHandedness } from "@/components/handedness";
+import { Button } from "@/components/ui/controls";
 import { caretContent, caretRect, scrollTopForCaret } from "@/lib/caret";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
@@ -46,7 +46,7 @@ import {
   type SlashCommand,
 } from "@/lib/markdown-edit";
 import { subscribeVisualViewport } from "@/lib/viewport";
-import { useCoarsePointer } from "@/lib/media";
+import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 import { createSuggestion } from "@/lib/wiki-links";
 
 type BodyMode = "write" | "preview";
@@ -95,7 +95,7 @@ interface CreateRow {
 type MenuRow = SlashCommand | WikiRow | CreateRow;
 
 const TOOL =
-  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 max-sm:h-11 max-sm:w-11 pointer-coarse:h-11 pointer-coarse:w-11";
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 max-sm:h-11 max-sm:w-11 pointer-coarse:h-11 pointer-coarse:w-11";
 const HEADING_LEVELS = [1, 2, 3] as const;
 
 const WIKI_LIMIT = 20;
@@ -166,6 +166,8 @@ export function MarkdownEditor({
   menuRef.current = menu;
 
   const coarse = useCoarsePointer();
+  const compact = useCompactWidth();
+  const { handedness } = useHandedness();
   const immersed = coarse && mode === "write";
   const pageScroll = useRef(0);
   const wasImmersed = useRef(false);
@@ -754,151 +756,190 @@ export function MarkdownEditor({
       ref={shell}
       className={cn(
         "scroll-mt-2 [overflow-anchor:none]",
-        immersed ? "record-writing-surface" : "relative mt-2",
+        immersed ? "record-writing-surface" : "relative",
       )}
     >
       {immersed ? (
-        <ThumbRow className="mb-2 items-center gap-3">
+        <ThumbRow className="glass mb-2 items-center gap-1.5 rounded-full py-1 pr-[max(0.5rem,env(safe-area-inset-right))] pl-3">
           <span className="label mr-auto">Writing</span>
           <button
             type="button"
-            className="min-h-11 rounded-field px-3 text-[13px] text-ink transition-colors hover:bg-raised"
+            className="min-h-9 rounded-full px-3 text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
             onClick={() => changeMode("preview")}
           >
             Done
           </button>
+          {onSave ? (
+            <Button
+              type="button"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={disabled || saving || !dirty}
+              onClick={onSave}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          ) : null}
         </ThumbRow>
       ) : null}
-      <div
-        role="toolbar"
-        aria-label="Body editor"
-        className="flex flex-wrap items-center gap-x-0.5 gap-y-1 sm:flex-nowrap sm:gap-2"
-      >
-        {mode === "write" ? (
-          <div className="grid w-full grid-cols-6 justify-items-center gap-1 sm:contents">
-            <HeadingMenu
-              disabled={disabled}
-              onPick={(level) =>
-                apply(toggleLinePrefix(value, ...range(), `${"#".repeat(level)} `))
-              }
-            />
-            {tools.map((tool) => (
-              <button
-                key={tool.label}
-                type="button"
-                aria-label={tool.label}
-                title={tool.label}
-                disabled={disabled}
-                className={TOOL}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => runTool(tool.run)}
-              >
-                <tool.icon aria-hidden className="h-4 w-4" />
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-label="Link to a record"
-              title="Link to a record"
-              disabled={disabled}
-              className={TOOL}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={startWikiLink}
-            >
-              <Brackets aria-hidden className="h-4 w-4" />
-            </button>
-            {immersed && onSave ? (
-              <button
-                type="button"
-                aria-label={saving ? "Saving" : "Save changes"}
-                title={saving ? "Saving…" : "Save changes"}
-                disabled={disabled || saving || !dirty}
-                className={TOOL}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={onSave}
-              >
-                <Save aria-hidden className="h-4 w-4" />
-              </button>
-            ) : null}
-            {immersed ? null : (
-              <BodyModeSwitch
-                mode={mode}
-                onChange={changeMode}
-                className="col-span-2 sm:col-span-1 sm:ml-auto"
-              />
-            )}
-          </div>
-        ) : (
-          <div className="ml-auto flex items-center gap-2">
-            <BodyModeSwitch mode={mode} onChange={changeMode} />
-          </div>
-        )}
-      </div>
-
-      {immersed && error ? (
-        <p
-          role="alert"
-          className="mt-2 rounded-field border border-danger px-3 py-2 text-[13px] text-danger"
-        >
-          {error}
-        </p>
-      ) : null}
-
+      {/*
+        One glass shell holds the tools, the Write/Preview switch and the
+        writing well. The switch is its own parent on the dominant edge, so the
+        nine formatting tools keep their own symmetric rows; the prose inside
+        the well stays on opaque stock.
+      */}
       <div
         className={cn(
-          "mt-1.5",
-          immersed && "mt-2 flex min-h-0 flex-1 flex-col",
+          "glass rounded-[22px] p-2",
+          immersed && "flex min-h-0 flex-1 flex-col",
         )}
       >
         <div
           className={cn(
-            "relative",
-            mode === "preview" && "hidden",
-            immersed && "flex min-h-0 flex-1",
+            "flex flex-wrap items-center gap-0 sm:gap-1",
+            compact
+              ? mode === "write"
+                ? "justify-around"
+                : handedness === "left"
+                  ? "justify-start"
+                  : "justify-end"
+              : mode === "write"
+                ? "justify-between"
+                : handedness === "left"
+                  ? "justify-start"
+                  : "justify-end",
           )}
         >
-          <textarea
-            ref={field}
-            aria-label="Markdown body"
-            aria-autocomplete="list"
-            aria-expanded={menu !== null}
-            aria-controls={menu && rows.length > 0 ? listId : undefined}
-            aria-activedescendant={
-              menu && highlighted >= 0 ? `${listId}-${highlighted}` : undefined
-            }
-            disabled={disabled}
-            className={cn(
-              "record-body-input min-h-[14rem] w-full resize-y rounded-field border border-line-interactive bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:resize-none pointer-coarse:text-[16px] sm:min-h-[22rem]",
-              immersed && "min-h-0 flex-1 resize-none",
-            )}
-            placeholder="Write in markdown. Saves with the rest of the record."
-            spellCheck
-            value={value}
-            onChange={onInput}
-            onPaste={onPaste}
-            onFocus={() => {
-              enteredWrite.current = true;
-            }}
-            onKeyDown={onKeyDown}
-            onScroll={place}
-            onSelect={onSelect}
-          />
+          {mode === "write" ? (
+            <div
+              role="toolbar"
+              aria-label="Body editor"
+              className="flex min-w-0 flex-col items-center gap-0.5 sm:flex-1 sm:flex-row sm:items-center sm:gap-1"
+            >
+              <div className="flex items-center justify-center gap-0 sm:contents">
+                <HeadingMenu
+                  disabled={disabled}
+                  onPick={(level) =>
+                    apply(toggleLinePrefix(value, ...range(), `${"#".repeat(level)} `))
+                  }
+                />
+                {tools.slice(0, 4).map((tool) => (
+                  <button
+                    key={tool.label}
+                    type="button"
+                    aria-label={tool.label}
+                    title={tool.label}
+                    disabled={disabled}
+                    className={TOOL}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => runTool(tool.run)}
+                  >
+                    <tool.icon aria-hidden className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-center gap-0 sm:contents">
+                {tools.slice(4).map((tool) => (
+                  <button
+                    key={tool.label}
+                    type="button"
+                    aria-label={tool.label}
+                    title={tool.label}
+                    disabled={disabled}
+                    className={TOOL}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => runTool(tool.run)}
+                  >
+                    <tool.icon aria-hidden className="h-4 w-4" />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-label="Link to a record"
+                  title="Link to a record"
+                  disabled={disabled}
+                  className={TOOL}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={startWikiLink}
+                >
+                  <Brackets aria-hidden className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div className="flex shrink-0 items-center justify-center">
+            <BodyModeSwitch
+              mode={mode}
+              onChange={changeMode}
+              tight={compact}
+            />
+          </div>
         </div>
+
+        {immersed && error ? (
+          <p
+            role="alert"
+            className="mt-2 rounded-field border border-danger px-3 py-2 text-[13px] text-danger"
+          >
+            {error}
+          </p>
+        ) : null}
 
         <div
           className={cn(
-            "mt-2 min-h-[14rem] rounded-field border border-line px-3 sm:min-h-[22rem]",
-            mode === "write" && "hidden",
+            "mt-2",
+            immersed && "flex min-h-0 flex-1 flex-col",
           )}
-          onClick={editFromPreview}
         >
-          {preview(value)}
+          <div
+            className={cn(
+              "relative",
+              mode === "preview" && "hidden",
+              immersed && "flex min-h-0 flex-1",
+            )}
+          >
+            <textarea
+              ref={field}
+              aria-label="Markdown body"
+              aria-autocomplete="list"
+              aria-expanded={menu !== null}
+              aria-controls={menu && rows.length > 0 ? listId : undefined}
+              aria-activedescendant={
+                menu && highlighted >= 0 ? `${listId}-${highlighted}` : undefined
+              }
+              disabled={disabled}
+              className={cn(
+                "record-body-input min-h-[14rem] w-full resize-y rounded-[14px] border border-line-interactive/70 bg-ground px-3 py-2 text-[15px] leading-[1.6] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:resize-none pointer-coarse:text-[16px] sm:min-h-[22rem]",
+                immersed && "min-h-0 flex-1 resize-none",
+              )}
+              placeholder="Write in markdown. Saves with the rest of the record."
+              spellCheck
+              value={value}
+              onChange={onInput}
+              onPaste={onPaste}
+              onFocus={() => {
+                enteredWrite.current = true;
+              }}
+              onKeyDown={onKeyDown}
+              onScroll={place}
+              onSelect={onSelect}
+            />
+          </div>
+
+          <div
+            className={cn(
+              "mt-2 min-h-[14rem] rounded-[14px] border border-line-interactive/70 bg-ground px-3 sm:min-h-[22rem]",
+              mode === "write" && "hidden",
+            )}
+            onClick={editFromPreview}
+          >
+            {preview(value)}
+          </div>
         </div>
       </div>
 
       {menu ? (
         <div
-          className="absolute z-30 flex flex-col overflow-hidden rounded-field border border-line bg-surface p-1 shadow-none"
+          className="glass-strong absolute z-30 flex flex-col overflow-hidden rounded-[22px] p-2"
           style={{
             top: placement?.top ?? 0,
             left: placement?.left ?? 0,
@@ -939,8 +980,10 @@ export function MarkdownEditor({
                   role="option"
                   aria-selected={index === highlighted}
                   className={cn(
-                    "flex min-h-8 cursor-pointer items-center justify-between gap-3 rounded-[3px] px-2 text-[13px] pointer-coarse:min-h-11",
-                    index === highlighted ? "bg-raised text-ink" : "text-muted",
+                    "flex min-h-8 cursor-pointer items-center justify-between gap-3 rounded-[8px] px-2 text-[13px] transition-colors pointer-coarse:min-h-11",
+                    index === highlighted
+                      ? "bg-accent-wash text-accent-on-wash"
+                      : "text-muted hover:bg-raised hover:text-ink",
                   )}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => accept(index)}
@@ -1011,11 +1054,11 @@ function HeadingMenu({
           align={handedness === "left" ? "start" : "end"}
           className="z-50"
         >
-          <Popover.Popup className="w-[10.5rem] rounded-field border border-line bg-surface p-1">
+          <Popover.Popup className="w-[10.5rem] glass-strong rounded-card p-1.5">
             {HEADING_LEVELS.map((level) => (
               <Popover.Close
                 key={level}
-                className="flex min-h-9 w-full items-center justify-between gap-3 rounded-[3px] px-2 text-left text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
+                className="flex min-h-9 w-full items-center justify-between gap-3 rounded-[8px] px-2 text-left text-[13px] text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
                 onClick={() => onPick(level)}
               >
                 <span>Heading {level}</span>
@@ -1034,16 +1077,19 @@ function HeadingMenu({
 function BodyModeSwitch({
   mode,
   onChange,
+  tight = false,
   className,
 }: {
   mode: BodyMode;
   onChange: (mode: BodyMode) => void;
+  /** A phone row shares its width with the tools; keep the segments narrow. */
+  tight?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 rounded-field border border-line p-0.5",
+        "inline-flex shrink-0 items-center gap-0.5 rounded-full border border-line p-0.5",
         className,
       )}
       role="group"
@@ -1055,7 +1101,8 @@ function BodyModeSwitch({
           type="button"
           aria-pressed={mode === choice}
           className={cn(
-            "label rounded-[4px] px-2.5 py-1 transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent max-sm:min-h-11 pointer-coarse:min-h-11",
+            "label rounded-[10px] py-1 transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent-on-wash max-sm:min-h-11 pointer-coarse:min-h-11",
+            tight ? "px-1" : "px-2.5",
             mode === choice ? "" : "text-faint",
           )}
           onClick={() => onChange(choice)}

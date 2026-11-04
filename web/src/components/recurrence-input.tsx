@@ -21,7 +21,7 @@ interface RecurrenceInputProps {
 }
 
 const control =
-  "h-8 rounded-[4px] border border-line-interactive bg-ground px-2 text-[13px] text-ink outline-none transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] text-ink outline-none transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 const KIND_LABELS: Record<RecurrenceKind, string> = {
   days: "Days",
@@ -64,7 +64,7 @@ export function RecurrenceInput({
   }
 
   return (
-    <div className="grid min-w-[13rem] gap-1.5 rounded-field border border-line bg-surface p-2">
+    <div className="grid min-w-[13rem] gap-1.5 glass-strong rounded-card p-2">
       <div className={row}>
         <span className="text-[12px] text-muted">Every</span>
         <div className="flex items-center gap-1.5">

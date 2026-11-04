@@ -6,10 +6,11 @@ export const DRAG_THRESHOLD = 3;
 
 /**
  * Phone widths. A phone paints these regardless of the view's saved desktop
- * widths: 136 keeps a title readable beside the pinned checkbox rail, and 104
- * is the narrowest column where a 12 px mono value shows six characters.
+ * widths: 168 shows a whole short record name beside the editor rail without
+ * spending the next column's width, and 104 is the narrowest column where a
+ * 12 px mono value shows six characters.
  */
-export const COMPACT_TITLE_WIDTH = 136;
+export const COMPACT_TITLE_WIDTH = 168;
 export const COMPACT_COLUMN_WIDTH = 104;
 
 /**

@@ -33,7 +33,7 @@ export function UserSettingsPage() {
         sentence="This preference follows this browser and account; it never reaches a space."
       />
 
-      <section aria-labelledby="account-identity" className="mt-10">
+      <section aria-labelledby="account-identity" className="mt-8 rounded-[22px] border border-line bg-surface p-5 sm:p-6">
         <SectionRule id="account-identity" title="Account" />
         {user ? (
           <div className="mt-4 grid gap-2">
@@ -49,7 +49,7 @@ export function UserSettingsPage() {
         )}
       </section>
 
-      <section aria-labelledby="account-appearance" className="mt-10">
+      <section aria-labelledby="account-appearance" className="mt-8 rounded-[22px] border border-line bg-surface p-5 sm:p-6">
         <SectionRule id="account-appearance" title="Appearance" />
         <fieldset className="mt-4">
           <legend className="label">Handedness</legend>

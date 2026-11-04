@@ -1,9 +1,13 @@
 import { Link } from "react-router";
 
 import type { ObjectSummary, PropertyDef, ViewDef } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { CardActions } from "@/components/views/card-actions";
 import { MonthGrid } from "@/components/views/month-grid";
+import { cn } from "@/lib/cn";
+import { formatDay } from "@/lib/display";
+import { duePhrase, dueTone } from "@/lib/schedule";
 import { dateOfRow, recordsByDate } from "@/lib/views";
 
 interface CalendarViewProps {
@@ -73,6 +77,7 @@ export function CalendarView({
     );
   }
 
+  const dateOf = dateOfRow(dateProperty.key);
   const byDate = recordsByDate(rows, dateProperty.key);
   const datedRows = [...byDate.values()].flat();
   const undated = rows.length - datedRows.length;
@@ -99,12 +104,53 @@ export function CalendarView({
       month={month}
       today={today}
       items={datedRows}
-      dateOf={dateOfRow(dateProperty.key)}
+      dateOf={dateOf}
       keyOf={(row) => row.id}
       hrefOf={(row) => `/s/${spaceId}/o/${row.id}`}
       titleOf={(row) => row.title}
-      renderChip={(row) => row.title}
-      renderActions={actions}
+      renderChip={(row) => (
+        <>
+          {row.icon ? (
+            <span aria-hidden className="mr-1">
+              {row.icon}
+            </span>
+          ) : null}
+          {row.title}
+        </>
+      )}
+      renderRow={(row) => {
+        const day = dateOf(row);
+        const phrase = row.schedule
+          ? duePhrase(row.schedule.status, row.schedule.days_until_due)
+          : "";
+        return (
+          <ThumbRow className="min-w-0 flex-1 items-center gap-1">
+            <Link
+              to={`/s/${spaceId}/o/${row.id}`}
+              title={row.title}
+              className="min-w-0 flex-1 px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
+            >
+              <span className="flex items-baseline gap-1.5">
+                {row.icon ? (
+                  <span aria-hidden className="shrink-0 text-[13px]">
+                    {row.icon}
+                  </span>
+                ) : null}
+                <span className="min-w-0 truncate text-[13px] text-ink">{row.title}</span>
+              </span>
+              <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[11px]">
+                <span className="tnum text-muted">{day ? formatDay(day) : ""}</span>
+                {phrase ? (
+                  <span className={cn("tnum", dueTone(row.schedule?.status ?? "upcoming"))}>
+                    {phrase}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+            {actions(row)}
+          </ThumbRow>
+        );
+      }}
       above={
         datedRows.length === 0 ? (
           <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t rule pt-3">

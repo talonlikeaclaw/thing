@@ -33,12 +33,14 @@ import { PropertyField } from "@/components/property-field";
 import { RenameLinksDialog, type MentionSource } from "@/components/rename-links-dialog";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
+import { FormatChip } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, formatDateTime, formatDay, readError } from "@/lib/display";
+import { useWideLayout } from "@/lib/media";
 import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
-import { effectiveMembers, sameJson } from "@/lib/schema";
+import { effectiveMembers, formatLabel, sameJson } from "@/lib/schema";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { useRecordRecent } from "@/lib/use-record-recent";
 import { rewriteMentions } from "@/lib/wiki-links";
@@ -165,7 +167,7 @@ function RecordIdentity({
         <ChevronRight
           aria-hidden
           size={12}
-          className="shrink-0 transition-transform group-open:rotate-90"
+          className="shrink-0 motion-safe:transition-transform group-open:rotate-90"
         />
         <span className="truncate">{typeKey}</span>
         <span aria-hidden>·</span>
@@ -189,7 +191,7 @@ function RecordIdentity({
 }
 
 const RECORD_MENU_ITEM =
-  "flex min-h-9 w-full items-center gap-2 rounded-[4px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
+  "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
 
 /** The record header's overflow: Revert and Duplicate no longer crowd the title. */
 function RecordOverflow({
@@ -215,7 +217,7 @@ function RecordOverflow({
     <Popover.Root>
       <Popover.Trigger
         aria-label="More record actions"
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-field border border-line-interactive text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
       >
         <MoreHorizontal aria-hidden size={16} />
       </Popover.Trigger>
@@ -225,7 +227,7 @@ function RecordOverflow({
           align={handedness === "left" ? "start" : "end"}
           className="z-50"
         >
-          <Popover.Popup className="min-w-[11rem] rounded-field border border-line bg-surface p-1">
+          <Popover.Popup className="min-w-[11rem] glass-strong rounded-card p-1.5">
             {revertLabel ? (
               <Popover.Close className={RECORD_MENU_ITEM} onClick={onRevert}>
                 <Undo2 aria-hidden size={14} />
@@ -341,6 +343,7 @@ export function ObjectPanel({
     (iconChanged ? 1 : 0) +
     (bodyChanged ? 1 : 0);
   const dirty = changeCount > 0 && !leaving;
+  const wide = useWideLayout();
   const stale = object.rev !== baseline.rev;
   const headerRevertLabel =
     titleChanged && iconChanged
@@ -745,28 +748,27 @@ export function ObjectPanel({
         className="group/property grid gap-1 border-b rule py-3 last:border-b-0 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-start sm:gap-6 xl:grid-cols-1 xl:gap-1"
       >
         <div className="pt-1 xl:pt-0">
-          <span
-            className="label flex flex-wrap items-center gap-1.5"
-            title={`${property.name} — key ${key}${member?.required ? ", required" : ""}`}
-          >
-            {changed ? (
-              <span
-                aria-label="Unsaved change"
-                title="Unsaved change"
-                className="h-1.5 w-1.5 rounded-full bg-accent"
-              />
-            ) : null}
-            {property.name}
-            {member?.required ? (
-              <span className="font-normal tracking-normal text-faint normal-case">required</span>
-            ) : null}
+          <div className="flex items-center justify-between gap-2">
             <span
-              aria-hidden
-              className="hidden font-mono font-normal tracking-[0.09em] text-faint pointer-fine:group-hover/property:inline"
+              className="label flex min-w-0 items-center gap-1.5 text-accent"
+              title={member?.required ? `${property.name} — required` : property.name}
             >
-              {key}
+              {changed ? (
+                <span
+                  aria-label="Unsaved change"
+                  title="Unsaved change"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                />
+              ) : null}
+              <span className="truncate">{property.name}</span>
+              {member?.required ? (
+                <span className="font-normal tracking-normal text-faint normal-case">required</span>
+              ) : null}
             </span>
-          </span>
+            <FormatChip className="shrink-0 border-accent/40 bg-accent-wash text-accent-on-wash">
+              {formatLabel(property.format)}
+            </FormatChip>
+          </div>
           {changed ? (
             <ThumbRow className="mt-0.5 w-full">
               <button
@@ -822,12 +824,14 @@ export function ObjectPanel({
   }
 
   return (
-    <div className="settle" data-record-panel>
+    <div className="settle rounded-[24px] border border-line bg-surface p-5 sm:p-6" data-record-panel>
       <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
-      <div className="mt-2 border-b rule pb-3 xl:col-span-8 xl:col-start-1">
+      <div className="border-b rule pb-3 xl:col-span-8 xl:col-start-1">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <span className="flex min-w-0 items-center gap-2">
-            <ThingIcon icon={type?.icon} size="md" />
+            {/* A type without an icon renders no slot at all: the stand-in box
+                reads as a broken image beside the record's own icon control. */}
+            {type?.icon ? <ThingIcon icon={type.icon} size="md" /> : null}
             <span className="label truncate">{type?.name ?? object.type}</span>
           </span>
           <span className="flex min-w-0 items-center gap-3">
@@ -836,6 +840,31 @@ export function ObjectPanel({
             rev={baseline.rev}
             typeKey={object.type.toUpperCase()}
           />
+          {canEdit && !dirty && !saveError ? (
+            <span role="status" className="record-save-pill shrink-0">
+              Saved
+            </span>
+          ) : null}
+          {canEdit && wide && (dirty || saveError) ? (
+            <span className="flex shrink-0 items-center gap-2">
+              {saveError ? (
+                <span className="label text-danger">save failed</span>
+              ) : (
+                <span role="status" className="label tnum text-accent">
+                  {changeCount} unsaved
+                </span>
+              )}
+              <Button
+                type="button"
+                className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                disabled={!dirty || update.isPending || invalid.size > 0}
+                title="Save (Cmd/Ctrl+S or Cmd/Ctrl+Enter)"
+                onClick={() => void save()}
+              >
+                {update.isPending ? "Saving…" : saveError ? "Retry" : "Save"}
+              </Button>
+            </span>
+          ) : null}
           <ThumbRow className="shrink-0 items-center gap-1">
             {canEdit ? (
               <IconPicker
@@ -868,6 +897,7 @@ export function ObjectPanel({
             aria-label="Title"
             className="display mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-title outline-none placeholder:text-faint pointer-coarse:min-h-11"
             maxLength={200}
+            placeholder={`Untitled ${(type?.name ?? object.type).toLowerCase()}`}
             disabled={update.isPending}
             value={draft.title}
             onChange={(event) =>
@@ -1048,9 +1078,9 @@ export function ObjectPanel({
       <fieldset
         aria-label="Properties"
         disabled={update.isPending}
-        className="mt-6 m-0 min-w-0 border-0 p-0 xl:col-span-4 xl:col-start-9 xl:mt-2 xl:[grid-row:1/span_99]"
+        className="mt-6 m-0 min-w-0 border-t rule pt-4 xl:col-span-4 xl:col-start-9 xl:mt-0 xl:border-t-0 xl:border-l xl:border-line xl:pt-0 xl:pl-8 xl:[grid-row:1/span_99]"
       >
-        <div className="xl:sticky xl:top-[var(--space-4)]">
+        <div className="xl:sticky xl:top-[calc(var(--shell-header-h)+1rem)]">
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="flex items-center gap-2 text-heading font-medium">
             <SlidersHorizontal aria-hidden size={15} strokeWidth={1.5} className="text-muted" />
@@ -1140,7 +1170,7 @@ export function ObjectPanel({
             )}
           />
         ) : (
-          <div className="mt-2 min-h-[22rem] rounded-field border border-line px-3">
+          <div className="mt-2 min-h-[22rem] rounded-[14px] border border-line-interactive/70 bg-raised/30 px-3">
             <MarkdownView
               text={draft.body}
               links={object.links}
@@ -1207,7 +1237,8 @@ export function ObjectPanel({
 
       {canEdit ? (
         dirty || saveError ? (
-          <StickyActionBar className="lg:justify-between">
+          wide ? null : (
+          <StickyActionBar>
             {saveError ? (
               <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
                 <FormError message={saveError} />
@@ -1248,13 +1279,8 @@ export function ObjectPanel({
               {update.isPending ? "Saving…" : "Save"}
             </Button>
           </StickyActionBar>
-        ) : (
-          <ThumbRow className="record-save-bar sticky z-20 mt-8">
-            <span role="status" className="record-save-pill">
-              Saved
-            </span>
-          </ThumbRow>
-        )
+          )
+        ) : null
       ) : null}
       {renamePrompt ? (
         <RenameLinksDialog

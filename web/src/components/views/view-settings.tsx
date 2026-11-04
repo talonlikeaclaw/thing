@@ -88,7 +88,7 @@ export function ViewSettings({
           <button
             type="button"
             aria-label="Close view settings"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
             onClick={onClose}
           >
             <X aria-hidden size={13} />

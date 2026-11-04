@@ -1,13 +1,13 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-04T00:20:00Z",
+  "generatedAt": "2026-11-04T11:45:00Z",
   "title": "Design System: thing",
   "extensions": {
     "colorMeta": {
       "ground": {
         "role": "neutral",
         "displayName": "Night Ground",
-        "canonical": "#121512",
+        "canonical": "#0a0e0b",
         "tonalRamp": [
           "oklch(15% 0.008 130)",
           "oklch(26% 0.008 130)",
@@ -22,7 +22,7 @@
       "inset": {
         "role": "neutral",
         "displayName": "Night Inset",
-        "canonical": "#0d100d",
+        "canonical": "#070a08",
         "tonalRamp": [
           "oklch(11% 0.008 130)",
           "oklch(22% 0.008 130)",
@@ -37,7 +37,7 @@
       "surface": {
         "role": "neutral",
         "displayName": "Understory",
-        "canonical": "#1a1e1a",
+        "canonical": "#151a16",
         "tonalRamp": [
           "oklch(19% 0.008 130)",
           "oklch(29% 0.008 130)",
@@ -52,7 +52,7 @@
       "raised": {
         "role": "neutral",
         "displayName": "Canopy Shadow",
-        "canonical": "#212621",
+        "canonical": "#1d231e",
         "tonalRamp": [
           "oklch(21% 0.008 130)",
           "oklch(30% 0.008 130)",
@@ -67,7 +67,7 @@
       "line": {
         "role": "neutral",
         "displayName": "Hairline",
-        "canonical": "#2d332d",
+        "canonical": "#293029",
         "tonalRamp": [
           "oklch(25% 0.010 130)",
           "oklch(33% 0.010 130)",
@@ -97,7 +97,7 @@
       "ink": {
         "role": "neutral",
         "displayName": "Moon Ink",
-        "canonical": "#e8ece4",
+        "canonical": "#edf1e8",
         "tonalRamp": [
           "oklch(18% 0.006 120)",
           "oklch(30% 0.006 120)",
@@ -112,7 +112,7 @@
       "muted": {
         "role": "neutral",
         "displayName": "Fog",
-        "canonical": "#9aa398",
+        "canonical": "#a2ab9f",
         "tonalRamp": [
           "oklch(20% 0.006 125)",
           "oklch(32% 0.006 125)",
@@ -127,7 +127,7 @@
       "faint": {
         "role": "neutral",
         "displayName": "Distant Fog",
-        "canonical": "#868e84",
+        "canonical": "#8b948b",
         "tonalRamp": [
           "oklch(17% 0.006 125)",
           "oklch(28% 0.006 125)",
@@ -213,12 +213,57 @@
           "oklch(88% 0.06 80)",
           "oklch(95% 0.03 80)"
         ]
+      },
+      "accent-on-wash": {
+        "role": "primary",
+        "displayName": "Accent on Wash",
+        "canonical": "#c8d96b",
+        "tonalRamp": [
+          "oklch(18% 0.09 115)",
+          "oklch(30% 0.12 115)",
+          "oklch(42% 0.14 115)",
+          "oklch(54% 0.15 115)",
+          "oklch(66% 0.16 115)",
+          "oklch(78% 0.16 115)",
+          "oklch(87% 0.12 115)",
+          "oklch(95% 0.06 115)"
+        ]
+      },
+      "line-interactive": {
+        "role": "neutral",
+        "displayName": "line-interactive",
+        "tonalRamp": [],
+        "canonical": "#6a746a"
+      },
+      "ground-lift": {
+        "role": "neutral",
+        "displayName": "Ground Lift",
+        "canonical": "#141c16",
+        "tonalRamp": []
+      },
+      "glass": {
+        "role": "custom",
+        "displayName": "Glass",
+        "canonical": "rgba(30,38,32,0.55)",
+        "tonalRamp": []
+      },
+      "glass-strong": {
+        "role": "custom",
+        "displayName": "Glass Strong",
+        "canonical": "rgba(36,44,38,0.62)",
+        "tonalRamp": []
+      },
+      "glass-edge": {
+        "role": "custom",
+        "displayName": "Glass Edge",
+        "canonical": "rgba(255,255,255,0.12)",
+        "tonalRamp": []
       }
     },
     "accentPalettes": {
       "default": "lichen",
       "storage": "one shared preset per space in space.yml, owner-written through PATCH /api/spaces/{space}; the v0.4 browser-local key seeds it once, then is deleted",
-      "contrastFloor": "4.5:1 accent-on-ground, ink-on-accent and body ink on the composited 12% wash over ground, inset, surface and raised in both schemes, enforced by web/src/lib/accent.test.ts",
+      "contrastFloor": "4.5:1 accent-on-ground, ink-on-accent, body ink and metadata ink on the composited 12% wash over ground, inset, surface and raised, and body/muted text on the glass composite over the lightest gradient stop, in both schemes, enforced by web/src/lib/accent.test.ts",
       "palettes": [
         {
           "id": "lichen",
@@ -226,12 +271,14 @@
           "dark": {
             "accent": "#c8d96b",
             "ink": "#14180f",
-            "wash": "#c8d96b1e"
+            "wash": "#c8d96b1e",
+            "onWash": "#c8d96b"
           },
           "light": {
             "accent": "#5f6f1e",
             "ink": "#f7f8f0",
-            "wash": "#5f6f1e1e"
+            "wash": "#5f6f1e1e",
+            "onWash": "#525f18"
           }
         },
         {
@@ -240,12 +287,14 @@
           "dark": {
             "accent": "#f2d64b",
             "ink": "#1a1503",
-            "wash": "#f2d64b1e"
+            "wash": "#f2d64b1e",
+            "onWash": "#f2d64b"
           },
           "light": {
             "accent": "#6f5d00",
             "ink": "#fbf9ea",
-            "wash": "#6f5d001e"
+            "wash": "#6f5d001e",
+            "onWash": "#645400"
           }
         },
         {
@@ -254,12 +303,14 @@
           "dark": {
             "accent": "#f5a24a",
             "ink": "#1c1204",
-            "wash": "#f5a24a1e"
+            "wash": "#f5a24a1e",
+            "onWash": "#f5a24a"
           },
           "light": {
             "accent": "#9a4a00",
             "ink": "#fdf6ee",
-            "wash": "#9a4a001e"
+            "wash": "#9a4a001e",
+            "onWash": "#8b4300"
           }
         },
         {
@@ -268,12 +319,14 @@
           "dark": {
             "accent": "#6fdbe8",
             "ink": "#04181a",
-            "wash": "#6fdbe81e"
+            "wash": "#6fdbe81e",
+            "onWash": "#6fdbe8"
           },
           "light": {
             "accent": "#00646e",
             "ink": "#eefcfe",
-            "wash": "#00646e1e"
+            "wash": "#00646e1e",
+            "onWash": "#005a63"
           }
         },
         {
@@ -282,12 +335,14 @@
           "dark": {
             "accent": "#7fe08a",
             "ink": "#051706",
-            "wash": "#7fe08a1e"
+            "wash": "#7fe08a1e",
+            "onWash": "#7fe08a"
           },
           "light": {
             "accent": "#256b33",
             "ink": "#f0fbf2",
-            "wash": "#256b331e"
+            "wash": "#256b331e",
+            "onWash": "#21602e"
           }
         },
         {
@@ -296,41 +351,25 @@
           "dark": {
             "accent": "#f49ac1",
             "ink": "#1d0711",
-            "wash": "#f49ac11e"
+            "wash": "#f49ac11e",
+            "onWash": "#f49ac1"
           },
           "light": {
             "accent": "#96325f",
             "ink": "#fdf1f6",
-            "wash": "#96325f1e"
+            "wash": "#96325f1e",
+            "onWash": "#872d56"
           }
         }
       ]
     },
     "surfaces": {
-      "spaceCover": "Three bands on one ground: a masthead under a hairline (space icon at 40px, name at --text-display with the mono tracking, one factual line \u2014 types, records, members, role \u2014 and a thumb row holding Open schedule as a ghost button and Capture a record as the primary), the body, and a colophon. The body is a keyed type ledger (icon, name, mono key in a 5rem column, the record count in the type's own plural, a Scheduled label, a quiet arrow; the whole row links) that closes with a quiet New type row. At xl the five most recently written records sit in a 4/12 margin behind a hairline: icon, title, a mono type \u00b7 time-ago line, and the keys the last write changed (past three, a +N count); it collapses beneath the ledger below xl, and a space with no writes renders no margin so the ledger takes all 12 columns. Under the body, a Graph band draws the whole space with the record count at the trailing edge and no centre ring. The colophon reads space.yml \u00b7 timezone \u00b7 space key on the leading edge and Settings on the trailing edge.",
-      "spaceIndex": "The all-spaces page opens with the cover masthead grammar: Spaces in the display face, one sentence naming what a space is, the count at the trailing edge, then the keyed ledger (key, name, members, types, role) and the create form under a visible label.",
-      "commandPalette": "Bottom sheet below sm, 40rem centred above; one search row and grouped results in server order for records, with the matching sentence as a second line; 44px rows on coarse pointers; keyboard footer only on keyboard screens; focus trapped and returned.",
-      "quickCapture": "Two-mode sheet, 34rem wide; type, title, required properties only; Create keeps the sheet, Create and open navigates; refusals stay inline with Retry.",
-      "bulkBar": "Hairline band inside the table scrollport, not a floating card; names count and property, previews the value, keeps failed rows selected, Undo runs from the page.",
-      "rowActions": "Line icons at one weight; 32px fine pointer, 44px coarse; phones fold Complete/Duplicate/Trash into one 44px menu and keep Open separate.",
-      "spaceRail": "A 13rem rail on desktop and the same rows in the phone sheet: All spaces, Overview, five utility links and Types, each a 14px row with a 14px line icon, muted at rest and ink on hover. The current page is ink text behind a 2px accent rule at the row's leading edge, never a filled chip. Reorder reveals 32px up/down pairs (44px coarse) and the order persists per user and space in the browser.",
-      "mobileSheets": "Palette, capture, space drawer and row menu rise from the bottom on one visual-viewport geometry (--vv-top/--vv-height, written from visualViewport): every sheet ends above the on-screen keyboard, even on iOS where the layout viewport does not shrink. The last row carries safe-area padding; 180ms rise and fade in, 120ms fade out, static under reduced motion; focus trap; Escape and a close control; content and footer reserve room for the fixed space bar.",
-      "tablePhones": "Below 640px the checkbox and title are pinned at the left (136px), property columns paint 104px and swipe in one document scroller with the thead stuck to the top, and a trailing spacer lets the last column clear the opaque 56px action rail. No resize handles on a coarse pointer; Select preserves scrollLeft; the header drops the mono key line.",
-      "recordPhone": "The phone keeps the specimen sheet's reading order: type band, title, schedule, properties, body, evidence. Properties stack label over value with 44px controls; tags are wrapping checkbox chips and the mono key is not echoed. Every date shows the one formatted grammar over its native input. The body heading carries the mono word/character count and the segmented switch. A clean record shows one quiet 32px Saved pill at the thumb edge, no full bar and no disabled Save; the first change expands it into the action row with Save at the thumb edge, and it sits above the phone bar; the full id and revision sit behind the one folio disclosure.",
-      "recordLinks": "A resolved [[Type/Title]] reads as its title with the accent underline and opens in place; an unknown or ambiguous target uses a dotted warning underline and a title, never a navigation; code spans and fences stay literal; an unsaved valid link reads as plain text until saved.",
-      "bodyEditor": "One hairline toolbar above a textarea edits only text: bold, italic, inline code, an H1\u2013H3 heading menu, lists, quote and the two link tools; 32px fine and 44px coarse. On a phone the controls form two rows of six columns, ending with Save. Write is a split from lg up with the read renderer beside it; below lg one pane and a Write/Preview switch, with the textarea kept mounted so undo and selection survive. On a coarse pointer Write becomes a fixed writing sheet against the visual viewport: the page, navigation and page save bar step aside, Save lives in the toolbar, a visible Done action and Escape close the sheet, and the textarea scrolls inside it. Done returns the page at its prior scroll. Typing and toolbar edits keep the caret in view, with three lines of lower margin and a re-check while Safari settles the keyboard. / and [[ share one caret popup clamped to the visual viewport; Enter or Tab accepts, Space never does, and a slash command opens only at line start outside a fence. A live type prefix turns an unresolved [[type/Title into a trailing Create row. Pasting one URL over a selection makes a markdown link; tapping non-link preview prose enters Write at the end.",
-      "linksPanel": "Below the body and above history: a mono count across both directions, Links to rows (outgoing relations with Type \u00b7 via Property, then outgoing mentions with Type \u00b7 mentioned in this body), Linked from rows (type glyph, source title, Type \u00b7 via Property), and Mentioned in rows (title, type name, two-line snippet, \u00d7N). A group renders only when non-empty; the whole row navigates, 44px on a coarse pointer; empty is one sentence naming relation properties and [[Type/Title]].",
-      "graph": "A full-width Graph row, closed by default, shown whenever either direction has a link, above a drawing capped at 44rem with Local/Space scope and a solid-relation / dashed-mention legend. The local map draws outgoing and incoming edges from the same rows the panel lists. Local rings hold 24 nodes (12 inner) and the space map places every live record by degree. Nodes are links with accent focus rings and the centre is aria-current; wheel zoom runs 0.6x to 2.6x and a drag pans or moves one node with its edges. On a touch pointer a drag anywhere always pans and never moves a node, while a tap opens the record; node dragging stays a mouse or pen gesture, and page scrolling starts outside the drawing. Offsets are view-only and reset when the record or scope changes; the drawing never mirrors, only the zoom controls follow the thumb edge.",
-      "sheetGeometry": ".sheet-viewport is fixed against the visual viewport, bottom-aligned below sm and a 12vh-top centred dialog above; .sheet-popup is capped at --vv-height minus a margin; no overlay uses inset:0 or 100dvh; viewport-fit=cover makes env(safe-area-inset-*) real.",
-      "addProperty": "A ruled dialog from the trailing table header or the Columns panel: an existing library property or a new name and format; property, type member (featured) and current-view column write in order, staying open with a named stage and Retry on failure. Editor-only, no wizard, one toast on success.",
-      "recordIcons": "One optional user-authored emoji in frontmatter (schema 4), never a property or interface icon. A fixed slot in the record header, table title cell, home recents, palette results, board cards, gallery tiles and Trash; absent means no empty box.",
-      "sheetClose": "Right-handed keeps the platform-standard trailing close; left-handed puts the same control first in the title or search row, with focus order and margin following the DOM.",
-      "searchLanding": "Opening a record from a search result keeps ?q= in the address. MarkdownView marks every rendered occurrence with the accent and scrolls the first one into view once after the preview paints, without stealing focus. The body header shows Match: \u201c<query>\u201d with a clear control that removes q via replace so Back returns to the search. Code and fences stay unmarked, and re-opening the same query does not fight a reader's scroll.",
-      "renameRepair": "A title change on a record with inbound body mentions opens one preview dialog before the write: old and new title, each source with its type and mention count, and Update links / Rename only / Cancel. Sources are read while the old title still resolves. Update links renames first, then rewrites only occurrences that resolved to the record before the rename, each through an ordinary source PATCH; a stale source is skipped and reported, never retried. Rename only leaves old mentions unresolved; Cancel writes nothing. The dialog uses the sheet geometry and its action row follows the thumb edge.",
-      "accountMenu": "One labelled menu closes the header row: the trigger carries the account glyph and the signed-in email at sm and up, and opens a 15rem popup with Account settings and Sign out. Arrow keys rove the items, Escape closes it, and a cancelled sign-out returns focus to the trigger because the item that opened it has unmounted.",
-      "foundation": "Six type roles with Maple Mono for display, title and every mono role over IBM Plex Sans body; the neutral scale adds Night Inset below the ground; one 12% accent wash marks selection, the active row and the search match; 4px spacing scale; 36/40/44 control heights and 40/44 fields; 120/180/240ms motion on one exponential ease-out.",
-      "recordSheet": "At xl a specimen sheet on the 12-column grid: an 8-column main field (identity, schedule, body, links, graph, history, trash) and a 4-column property margin separated by a hairline and a 40px gutter. The margin sticks to the viewport top while the body scrolls and is never a second scroll container; below xl it becomes the property block before the body in reading order. The identity band pairs the type glyph and name with the title in --text-title mono and the type-key folio (PLANT \u00b7 REV 1) at the trailing edge, then one updated/created line. Properties read label-over-value in the margin with 40px controls and hairlines; the mono key is the group's aria-description, the label's title and a hover-only key, never a visible echo at a fine pointer. Tags are wrapping checkbox chips on the accent wash, relations are quiet chips. Every date and datetime field shows the formatted value over an invisible native input so the visible text and stored ISO agree. The body has a heading with a mono word/character count and a segmented Write/Preview switch at a 68ch measure; history is a quiet disclosure whose summary names the latest revision. The sticky save row spans the content and, from lg, sets its status at the leading edge and Save at the trailing edge.",
-      "ledgerTable": "The type page opens on one header band: type icon, name in --text-title mono, a mono record count, the description in the small token, one primary New <type> action and one ghost Edit type. Saved views sit under it with a 2px accent underline for the active tab. The table pins its title at every width with an opaque background; its trailing hairline strengthens once columns scroll under it and the header stays sticky. Header labels use the label token and the mono key is a secondary line only from xl; row selection is the accent wash and a fine-pointer hover is the same wash at half strength. Numeric cells are tabular and right-aligned, values truncate with a title, and dates read in the record's one grammar. Filter and Sort open one 34rem ruled panel with mono count chips, and Save view is the only filled action when the view is dirty. Board lanes carry a mono count over a hairline base, gallery covers set the cover label in the display face at the heading size, and the calendar keeps its three-chip cap with the small token."
+      "shell": "A floating glass header inset from the top and sides, 64px tall, rounded 20px, sticky; a glass rail card at lg; a 68px glass dock on a phone with the space destination, a 56px accent capture circle and search.",
+      "spaceCover": "A masthead (56px glass icon tile, display name, factual summary line, two pill actions) above a matte 22px card holding the keyed type ledger, with a glass activity card in the 4/12 margin at xl, a matte graph card under the body and a colophon line.",
+      "recordSheet": "One matte 24px card: identity band, schedule strip, body, links and history. The 4/12 property margin is a left-ruled column at xl, a top-ruled block below, never a second card. A clean Saved seal is a glass pill; a dirty record sticks a glass save row above the dock on a phone and saves from the identity band at lg.",
+      "ledgerTable": "A 20px matte card clips a table whose header sits on the inset band and whose title column stays pinned. View tabs are a segmented pill; filter and sort triggers are pills; their panels are glass.",
+      "overlays": "Sheets and the command palette are glass-strong at 28px over a blurred scrim; menus and toasts are glass-strong at 18px; close controls are circles on the handed edge.",
+      "quietSurfaces": "Schema, members, settings, trash, auth and account settings share one page header and matte 22px section cards; the danger section carries an Ember edge; auth is a glass top bar, the form, and a glass margin panel."
     },
     "typographyMeta": {
       "display": {
@@ -358,7 +397,23 @@
         "purpose": "Secondary rows, hints, metadata sentences and errors; IBM Plex Sans 13/1.5."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "float",
+        "value": "0 20px 50px -22px rgba(0,0,0,0.72)",
+        "purpose": "One ambient shadow on every glass panel. Light: 0 20px 44px -24px rgba(40,44,34,0.28)."
+      },
+      {
+        "name": "dock",
+        "value": "0 18px 40px -16px rgba(0,0,0,0.66)",
+        "purpose": "The phone dock only; it sits closer to the thumb and needs a tighter throw."
+      },
+      {
+        "name": "accent-action",
+        "value": "0 10px 24px -14px color-mix(in srgb, var(--color-accent) 60%, transparent)",
+        "purpose": "The primary pill and the capture circle; never a zero-offset halo."
+      }
+    ],
     "motion": [
       {
         "name": "ease-out",
@@ -373,12 +428,12 @@
       {
         "name": "base",
         "value": "180ms",
-        "purpose": "Every overlay entrance and the sheet rise."
+        "purpose": "Popover and toast entrance."
       },
       {
         "name": "slow",
         "value": "240ms",
-        "purpose": "The one page-content settle."
+        "purpose": "The one page-content settle and the sheet rise."
       },
       {
         "name": "settle",
@@ -387,7 +442,7 @@
       },
       {
         "name": "sheet",
-        "value": "180ms translateY(8px) + opacity in, 120ms fade out",
+        "value": "240ms translateY(18px) + opacity in, 120ms fade out",
         "purpose": "One entrance for every overlay; static under prefers-reduced-motion."
       }
     ],
@@ -408,167 +463,158 @@
         "name": "xl",
         "value": "1280px"
       }
-    ]
+    ],
+    "radii": {
+      "field": "12px",
+      "chip": "999px",
+      "card": "18px",
+      "sheet": "28px",
+      "record": "24px",
+      "pill": "999px"
+    },
+    "chrome": {
+      "material": "frosted glass chrome over a top-lit ground",
+      "surfaces": [
+        "app header: glass at 55%, blur 24px, saturate 150%, 20px radius, inset 8-12px",
+        "desktop space rail: glass at 55%, 22px radius, sticky under the header",
+        "phone dock: glass pill at 68px, 12px above the home indicator; 44px destinations with a 32px icon seal and one 56px accent capture circle",
+        "sheets and dialogs: glass-strong at 62%, 28px radius, blur 20px, transparent scrim with a 5px blur and brightness 0.9 (0.96 light), no fill",
+        "command palette, menus, toasts, save row, bulk bar: glass or glass-strong with one lit edge"
+      ],
+      "blur": "24px chrome / 18-20px menus and sheets, saturate 150-160%",
+      "rule": "Glass is chrome only. Tables, record bodies, property grids and forms stay opaque. One lit edge plus one ambient shadow; data cards declare one hairline and no shadow."
+    }
   },
   "components": [
     {
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one stateful action on a view: sign in, create account, create space.",
+      "description": "The one stateful action on a view. A full pill with the accent fill and a soft neutral drop.",
       "html": "<button class=\"ds-btn-primary\">Create space</button>",
-      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:0; border-radius:var(--radius-field,6px); background:var(--color-accent,#c8d96b); color:var(--color-accent-ink,#14180f); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:filter var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-primary:hover { filter:brightness(1.05); } .ds-btn-primary:active { filter:brightness(.95); } .ds-btn-primary:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-btn-primary:disabled, .ds-btn-primary[data-loading] { opacity:.5; cursor:not-allowed; } .ds-btn-primary[aria-busy=true] { cursor:wait; }"
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--control-standard,40px);padding:10px 16px;border:0;border-radius:999px;background:var(--color-accent,#c8d96b);color:var(--color-accent-ink,#14180f);font-family:var(--font-sans,\"IBM Plex Sans Variable\",system-ui,sans-serif);font-size:13px;font-weight:500;cursor:pointer;box-shadow:0 8px 18px -12px rgba(0,0,0,.55);transition:filter var(--duration-fast,120ms) var(--ease-out)}.ds-btn-primary:hover{filter:brightness(1.05)}.ds-btn-primary:active{filter:brightness(.95)}.ds-btn-primary:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}.ds-btn-primary:disabled{opacity:.5;cursor:not-allowed}"
     },
     {
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Secondary action: sign out, retry, cancel.",
+      "description": "Secondary action on a translucent raised fill with a field edge.",
       "html": "<button class=\"ds-btn-ghost\">Sign out</button>",
-      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:1px solid var(--color-line-interactive,#667066); border-radius:var(--radius-field,6px); background:transparent; color:var(--color-ink,#e8ece4); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)), border-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-ghost:hover { background:var(--color-raised,#212621); border-color:var(--color-line-strong,#3a423a); } .ds-btn-ghost:active { background:var(--color-inset,#0d100d); } .ds-btn-ghost[aria-pressed=true] { background:var(--color-accent-wash,#c8d96b1e); border-color:var(--color-accent,#c8d96b); color:var(--color-accent,#c8d96b); } .ds-btn-ghost:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--control-standard,40px);padding:10px 16px;border:1px solid var(--color-line-interactive,#6a746a);border-radius:999px;background:color-mix(in srgb,var(--color-raised,#1d231e) 40%,transparent);color:var(--color-ink,#edf1e8);font:500 13px var(--font-sans);cursor:pointer;transition:background-color var(--duration-fast,120ms) var(--ease-out),border-color var(--duration-fast,120ms) var(--ease-out)}.ds-btn-ghost:hover{background:var(--color-raised);border-color:var(--color-line-strong)}.ds-btn-ghost:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}"
     },
     {
       "name": "Quiet Button",
       "kind": "button",
       "refersTo": "button-quiet",
-      "description": "Borderless secondary action in a dense row or overlay footer.",
+      "description": "Borderless action in a dense row or overlay footer; only its glyph or word at rest.",
       "html": "<button class=\"ds-btn-quiet\" aria-pressed=\"true\">Selected</button>",
-      "css": ".ds-btn-quiet { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:1px solid transparent; border-radius:var(--radius-field,6px); background:transparent; color:var(--color-muted,#9aa398); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)), color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-quiet:hover { background:var(--color-raised,#212621); color:var(--color-ink,#e8ece4); } .ds-btn-quiet[aria-pressed=true] { background:var(--color-accent-wash,#c8d96b1e); color:var(--color-accent,#c8d96b); } .ds-btn-quiet:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+      "css": ".ds-btn-quiet{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--control-standard,40px);padding:10px 16px;border:1px solid transparent;border-radius:999px;background:transparent;color:var(--color-muted,#a2ab9f);font:500 13px var(--font-sans);cursor:pointer;transition:background-color var(--duration-fast,120ms) var(--ease-out),color var(--duration-fast,120ms) var(--ease-out)}.ds-btn-quiet:hover{background:var(--color-raised);color:var(--color-ink)}.ds-btn-quiet:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}"
     },
     {
       "name": "Destructive Button",
       "kind": "button",
       "refersTo": "button-destructive",
-      "description": "A destructive action whose label names the loss; ember border and text, never a filled red.",
+      "description": "A destructive action whose label names the loss; Ember text and edge, never a filled red.",
       "html": "<button class=\"ds-btn-destructive\">Move to trash</button>",
-      "css": ".ds-btn-destructive { display:inline-flex; align-items:center; justify-content:center; min-height:var(--control-standard,40px); padding:10px 16px; border:1px solid var(--color-danger,#f08a72); border-radius:var(--radius-field,6px); background:transparent; color:var(--color-danger,#f08a72); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); font-size:13px; font-weight:500; cursor:pointer; transition:background-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-btn-destructive:hover { background:var(--color-raised,#212621); } .ds-btn-destructive:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; }"
+      "css": ".ds-btn-destructive{display:inline-flex;align-items:center;justify-content:center;min-height:var(--control-standard,40px);padding:10px 16px;border:1px solid color-mix(in srgb,var(--color-danger,#f08a72) 70%,transparent);border-radius:999px;background:transparent;color:var(--color-danger,#f08a72);font:500 13px var(--font-sans);cursor:pointer}.ds-btn-destructive:focus-visible{outline:2px solid var(--color-accent);outline-offset:3px}"
     },
     {
       "name": "Primitive States",
       "kind": "custom",
-      "description": "Hover, focus-visible, active, selected, disabled, loading, error and read-only are defined once in components/ui/controls.tsx. Focus is a 2px accent outline with 2px offset on every control; errors are ember border plus a role=alert message, never colour alone.",
-      "html": "<button aria-busy=\"true\" data-loading>Saving\u2026</button>",
-      "css": ".ds-focus { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-disabled { opacity:.5; cursor:not-allowed; } .ds-invalid { border-color:var(--color-danger,#f08a72); } .ds-selected { background:var(--color-accent-wash,#c8d96b1e); color:var(--color-accent,#c8d96b); }"
+      "description": "Hover, focus-visible, active, selected, disabled, loading, error and read-only are defined once in components/ui/controls.tsx. Focus is a 2px accent outline at 3px offset; errors are Ember border plus a role=alert message.",
+      "html": "<button aria-busy=\"true\" data-loading>Saving…</button>",
+      "css": ".ds-focus{outline:2px solid var(--color-accent);outline-offset:3px}.ds-disabled{opacity:.5;cursor:not-allowed}.ds-invalid{border-color:var(--color-danger)}.ds-selected{background:var(--color-accent-wash);color:var(--color-accent-on-wash)}.ds-glass{background:var(--color-glass);border:1px solid var(--color-glass-edge);box-shadow:var(--shadow-float);backdrop-filter:blur(24px) saturate(150%)}"
     },
     {
       "name": "Text Field",
       "kind": "input",
       "refersTo": "input",
-      "description": "Labeled input with hint and error slots.",
+      "description": "Labeled input with hint and error slots. 12px corners, translucent raised fill, accent focus ring at 3px offset.",
       "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Name</span><input class=\"ds-input\" value=\"Garden\" /></label>",
-      "css": ".ds-field { display:grid; gap:8px; font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-field-label { font-family:var(--font-mono,'Maple Mono',monospace); font-size:11px; line-height:1.5; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-input { height:var(--field-fine,40px); padding:8px 12px; border:1px solid var(--color-line-interactive,#667066); border-radius:var(--radius-field,6px); background:var(--color-ground,#121512); color:var(--color-ink,#e8ece4); font:400 var(--text-body,15px)/1.6 var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); transition:border-color var(--duration-fast,120ms) var(--ease-out,cubic-bezier(.16,1,.3,1)); } .ds-input:hover { border-color:var(--color-line-strong,#3a423a); } .ds-input:focus { border-color:var(--color-accent,#c8d96b); } .ds-input:focus-visible { outline:2px solid var(--color-accent,#c8d96b); outline-offset:2px; } .ds-input[aria-invalid=true] { border-color:var(--color-danger,#f08a72); } .ds-input:disabled { opacity:.6; cursor:not-allowed; } .ds-input:read-only { color:var(--color-muted,#9aa398); }"
+      "css": ".ds-field{display:grid;gap:8px;font-family:var(--font-sans)}.ds-field-label{font-family:var(--font-mono);font-size:11px;line-height:1.5;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--color-muted)}.ds-input{height:var(--field-fine,40px);padding:8px 12px;border:1px solid color-mix(in srgb,var(--color-line-interactive,#6a746a) 70%,transparent);border-radius:12px;background:color-mix(in srgb,var(--color-raised,#1d231e) 40%,transparent);color:var(--color-ink);font:400 15px var(--font-sans);transition:border-color var(--duration-fast,120ms) var(--ease-out)}.ds-input:hover{border-color:var(--color-line-strong)}.ds-input:focus{outline:2px solid var(--color-accent);outline-offset:3px;border-color:var(--color-accent)}.ds-input::placeholder{color:var(--color-faint)}"
     },
     {
       "name": "App Header",
       "kind": "nav",
-      "description": "The signed-in navigation: wordmark at left, account and sign-out at right.",
+      "description": "The floating glass header: wordmark, space switcher, search and capture pills, account circle.",
       "html": "<header class=\"ds-header\"><a class=\"ds-wordmark\" href=\"/\"><span class=\"ds-mark\"></span>thing</a><span class=\"ds-email\">you@example.com</span><button class=\"ds-btn-ghost\">Sign out</button></header>",
-      "css": ".ds-header { display:flex; align-items:center; justify-content:space-between; gap:16px; height:64px; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-wordmark { display:inline-flex; align-items:baseline; gap:8px; font-family:var(--font-mono,'Maple Mono',monospace); font-size:15px; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-mark { width:10px; height:10px; border-radius:2px; background:var(--color-accent,#c8d96b); } .ds-email { font-family:var(--font-mono,'Maple Mono',monospace); font-size:12px; color:var(--color-muted,#9aa398); }"
+      "css": ".ds-header{position:sticky;top:8px;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px;margin:0 auto;padding:0 24px;max-width:1400px;border:1px solid var(--color-glass-edge);border-radius:20px;background:var(--color-glass);box-shadow:var(--shadow-float);backdrop-filter:blur(24px) saturate(150%);font-family:var(--font-sans)}.ds-wordmark{display:inline-flex;align-items:baseline;gap:8px;font-family:var(--font-mono);font-size:15px}"
     },
     {
       "name": "Space Index Entry",
       "kind": "custom",
-      "description": "The signature row: mono key, name, counts, role, and an annotation that opens beneath it.",
+      "description": "The keyed ledger row inside a matte card: mono key, name, counts, role, and an annotation that opens beneath it.",
       "html": "<div class=\"ds-entry\"><button class=\"ds-entry-key\">92F49F</button><a class=\"ds-entry-name\" href=\"#\">Garden</a><span class=\"ds-entry-count\">1</span><span class=\"ds-entry-count\">0</span><span class=\"ds-entry-role\">OWNER</span></div>",
-      "css": ".ds-entry { display:grid; grid-template-columns:80px minmax(0,1fr) 64px 64px 96px; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--color-line,#2d332d); font-family:var(--font-sans,'IBM Plex Sans Variable',system-ui,sans-serif); } .ds-entry-key, .ds-entry-count, .ds-entry-role { font-family:var(--font-mono,'Maple Mono',monospace); font-size:11px; font-weight:500; letter-spacing:.09em; text-transform:uppercase; color:var(--color-muted,#9aa398); } .ds-entry-key { background:none; border:0; padding:0; text-align:left; cursor:pointer; } .ds-entry-key:hover { color:var(--color-accent,#c8d96b); } .ds-entry-name { font-size:17px; font-weight:500; letter-spacing:-.01em; color:var(--color-ink,#e8ece4); text-decoration:none; } .ds-entry-name:hover { text-decoration:underline; text-underline-offset:3px; } .ds-entry-count { text-align:right; font-variant-numeric:tabular-nums; } .ds-entry-role { text-align:right; }"
+      "css": ".ds-entry{display:grid;grid-template-columns:80px minmax(0,1fr) 64px 64px 96px;align-items:center;gap:12px;min-height:56px;padding:10px 12px;border-radius:12px;font-family:var(--font-sans)}.ds-entry:hover{background:color-mix(in srgb,var(--color-raised) 50%,transparent)}.ds-entry-key{font-family:var(--font-mono);font-size:11px;letter-spacing:.09em;color:var(--color-faint)}.ds-entry-name{font-size:15px;font-weight:500;color:var(--color-ink)}.ds-entry-count,.ds-entry-role{font-family:var(--font-mono);font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--color-muted)}"
     }
   ],
   "narrative": {
-    "northStar": "Nocturnal Field Guide",
-    "overview": "The interface is a field index read under a headlamp: dark ground, hairline rules, keys in mono, annotations in the margin. It treats the user's data the way a naturalist treats a specimen sheet \u2014 the record is the subject; the apparatus around it stays small, aligned and quiet. The product is a working tool first. The v0.5.2 foundation adds a display mono voice (Maple Mono), a six-step type scale, one accent wash, a 4px space scale and named primitive states. The world still contributes type, palette, density and one signature move (the keyed entry), never the navigation model or the controls.",
+    "northStar": "Night Glass",
+    "overview": "A field guide read through a lit instrument. The chrome — header, rail, dock, sheets, menus, palette, save state — floats as frosted glass over a top-lit green-black ground. Data stays on matte, opaque cards: the space ledger, the record sheet, the table, the property grid and every form. One shared accent marks state; the capture circle is the only saturated chrome.",
     "keyCharacteristics": [
-      "Dark ground with near-neutral, slightly green-black surfaces and one inset step below the ground.",
-      "Hairline 1px rules instead of shadows or cards.",
-      "Maple Mono for display, page titles, the wordmark, keys, ids, timestamps, counts and labels; IBM Plex Sans for prose, controls and tables.",
-      "One accent per space, chosen by an owner from six contrast-tested palettes and shared by every member, used only for state; one 12% accent wash is the only tint.",
-      "A keyed index as the recurring structure: a short mono key leads every entry.",
-      "A real margin at xl for annotations, counts and properties; motion explains change and is absent under reduced motion."
+      "A top-lit ground: #141c16 at the top edge to #0a0e0b and #070a08.",
+      "Glass at 55% (chrome) and 62% (sheets), 18-24px blur, saturate 150-160%, one lit edge and one ambient shadow.",
+      "Matte 18-24px cards for every data surface; hairline borders only, no shadow.",
+      "Pills for actions and segments, circles for icon actions, 12/18/28px corners for fields, cards and sheets.",
+      "The 68px dock with 44px destinations and one 56px accent capture circle; 40px icon circles in the header and rail.",
+      "Maple Mono display and data, IBM Plex Sans sentences; one accent per space, Lichen by default."
     ],
     "rules": [
       {
+        "name": "The Glass Is Chrome Rule",
+        "section": "materials",
+        "body": "Glass is allowed on navigation, headers, toolbars, overlays, menus, toasts and floating actions. It is never the ground of a table cell, a record body, a property grid, a form or prose. A surface that holds data is opaque."
+      },
+      {
+        "name": "The Scrim Is Not a Colour Rule",
+        "section": "materials",
+        "body": "An overlay scrim is the page itself, blurred and slightly dimmed. It never adds a coloured wash; a tint over the green ground reads as a flat plate."
+      },
+      {
+        "name": "The One Light Rule",
+        "section": "colors",
+        "body": "The radial wash exists so the glass has something to refract. It is the only gradient in the product; components never add a second one."
+      },
+      {
         "name": "The One Accent Rule",
-        "body": "The chosen accent (Lichen by default) marks state: focus, selection, the primary action, the wordmark, the active rail and view tabs. An owner sets it once for the space; every member sees it. It never fills large areas and never appears twice in one row for two different meanings. Choosing another palette does not add a second accent.",
-        "section": "colors"
+        "section": "colors",
+        "body": "The shared accent marks state and one primary action. It never fills large areas and never appears twice in a row for two meanings. The 12% wash is the only tint; at full strength the accent is text, a glyph or the capture circle."
       },
       {
-        "name": "The Light Is Not a Theme Skin Rule",
-        "body": "Light mode keeps the same type scale, rules and hierarchy. It swaps the ground to bone and darkens the accent for contrast; it does not add shadows, cards or new ornament.",
-        "section": "colors"
+        "name": "The Radius Family Rule",
+        "section": "layout",
+        "body": "Pills for actions, segments, chips, the dock and status seals; 12px for fields; 18-24px for cards and the record; 28px for sheets. One control never mixes corners."
       },
       {
-        "name": "The Keys Are Mono Rule",
-        "body": "Anything the system treats as an identifier or measurement is mono and tabular. Anything a person reads as a sentence is sans.",
-        "section": "typography"
+        "name": "The Edge or the Cards Rule",
+        "section": "materials",
+        "body": "A matte card declares one hairline and no shadow. A glass panel declares one lit edge and one ambient shadow. Never both a wide shadow and a drawn border on the same matte surface."
       },
       {
-        "name": "The Hairline Rule",
-        "body": "A divider is 1px of line. Never a 2px border, never a colored side stripe, never a shadow standing in for a rule.",
-        "section": "elevation"
+        "name": "The Light Is the Same Instrument Rule",
+        "section": "colors",
+        "body": "Light mode swaps the ground to bone, the glass to white and darkens the accent; it keeps every radius, type role, rule and composition."
       },
       {
-        "name": "The Keyboard Is Part of the Layout Rule",
-        "body": "Every overlay positions against the visual viewport (--vv-height/--vv-top from visualViewport), never against inset:0 or 100dvh, so no sheet, footer or sticky save bar can end under the on-screen keyboard. A focusable field that opens a sheet takes focus in the same commit so a phone raises the keyboard on the first tap. Toasts follow the same geometry: on a phone the stack sits above the bar, and above the keyboard when it is up.",
-        "section": "layout"
-      },
-      {
-        "name": "The 11px Floor Rule",
-        "body": "No functional text is smaller than 11px; the only 10px step is the mono property-key echo under a fine-pointer table header, and that line is removed on a phone. Coarse pointers get 16px inputs so focusing one never zooms the page, and 44x44 targets.",
-        "section": "typography"
-      },
-      {
-        "name": "The Thumb First Rule",
-        "body": "Below lg the rail and every overlay rise from the bottom of the screen, with 44px targets and safe-area padding. A keyboard shortcut that has no keyboard is not rendered. A compact editor's primary action sits at the thumb edge: last in the DOM at the right edge by default and first in the DOM at the left edge in left-handed mode, with clear/cancel before it on the right and after it on the left. The row reverses in the DOM so paint, Tab and screen-reader order agree. Dialog and sheet close controls follow the same handedness; the platform-standard trailing close is the right-handed default.",
-        "section": "layout"
-      },
-      {
-        "name": "The Picker Browses Rule",
-        "body": "On a compact width or a coarse pointer the emoji picker is a bottom sheet on the visual-viewport geometry, opened in front of whatever form called it, never a popover anchored above the trigger. It opens without raising the keyboard and focuses its own popup so the grid gets the screen; tapping its search field raises the keyboard and the sheet shrinks above it. Above sm with a fine pointer it stays the anchored popover.",
-        "section": "layout"
-      },
-      {
-        "name": "The Recents Lead Rule",
-        "body": "The picker leads with the last eight glyphs chosen in this browser, and opening scrolls the current icon into view without scrolling while a search filters the grid. Recents are a UI preference, never space content, and the custom field accepts multi-part emoji up to 32 code units.",
-        "section": "layout"
-      },
-      {
-        "name": "The Five Controls Rule",
-        "body": "Below sm the type toolbar is five 44px controls on one row: search, Filter, Sort, Columns and View, with Columns absent on a calendar. View opens one sheet whose first screen is a menu of View settings, Save as view and CSV, each panel returning through Back. A changed query or view shows one labelled band under the toolbar with Save and Reset; the band never wraps.",
-        "section": "layout"
-      },
-      {
-        "name": "The Mono Is a Voice Rule",
-        "body": "Maple Mono sets display and page titles, the record title and one pull-quote or empty-state line per surface, at 400 with negative tracking and contextual alternates off so a title shows the characters it was given. Body, controls, tables and prose stay sans; keys, counts, dates and annotations stay mono. A monospaced paragraph is a defect.",
-        "section": "typography"
-      },
-      {
-        "name": "The One Wash Rule",
-        "body": "The accent wash is the only tint in the system: the chosen accent at 12% alpha, for selection, the active row, the search match and drag. It is never a decorative panel, a gradient or a second accent, and body ink on the composited wash stays at 4.5:1 or better over ground, inset, surface and raised in both schemes.",
-        "section": "colors"
-      },
-      {
-        "name": "The Margin Rule",
-        "body": "At xl the composed pages use a real margin column for annotations, counts, folios and properties. The margin is information, not decoration; if it has nothing to say, it collapses into the reading order.",
-        "section": "layout"
-      },
-      {
-        "name": "The Tokens Rule",
-        "body": "Every repeated size, colour, space, radius, duration or ease comes from a theme token or a documented CSS variable. A one-off stays local and is named in the checkpoint decisions.",
-        "section": "layout"
+        "name": "Every State Is Visible Rule",
+        "section": "controls",
+        "body": "Hover, focus-visible, active, selected, disabled, loading, empty, error and read-only are defined once in the UI primitives. A control with no focus-visible replacement is a defect."
       }
     ],
     "dos": [
-      "Do keep the chosen accent to state and the wordmark; if it is not saying selected, focused or primary action, it is the wrong color.",
-      "Do use mono for keys, ids, counts, timestamps and labels, and tabular numerals for every number.",
-      "Do separate rows and sections with 1px hairlines and spacing, not cards or shadows.",
-      "Do name the next action in empty states and errors, in the product's own language.",
-      "Do keep the signed-out margin notes factual: they describe what the files and schema are."
+      "Float the chrome and keep the data still.",
+      "Use one accent for state and one saturated capture circle.",
+      "Use ellipses and cards with a single hairline for data.",
+      "Keep the 44px coarse target and the 16px coarse input.",
+      "Keep reading order fixed and mirror only thumb actions."
     ],
     "donts": [
-      "Don't introduce shadows, glass, gradients, glows or colored side stripes.",
-      "Don't fill large surfaces with the accent or introduce a second accent.",
-      "Don't use emoji as interface icons; they belong only to user-authored space icons.",
-      "Don't turn the index into a card grid, add a sidebar before the space exists, or hide the create action behind a modal.",
-      "Don't set prose in mono or identifiers in sans."
+      "Do not blur a table, a record body, a property grid, a form or prose.",
+      "Do not nest a card or a glass panel inside another.",
+      "Do not add a second accent, a component gradient, a neon glow or a decorative halo.",
+      "Do not use glass to avoid choosing a layout.",
+      "Do not animate layout, tables or prose.",
+      "Do not turn the product into a travel app with photographic covers or mascots."
     ]
   }
 }

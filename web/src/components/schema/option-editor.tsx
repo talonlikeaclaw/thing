@@ -74,7 +74,7 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
               <input
                 type="color"
                 aria-label={`${draft.name || "Option"} colour`}
-                className="h-8 w-8 shrink-0 cursor-pointer rounded-[4px] border border-line bg-ground p-0.5 pointer-coarse:h-11 pointer-coarse:w-11"
+                className="h-8 w-8 shrink-0 cursor-pointer rounded-[10px] border border-line bg-ground p-0.5 pointer-coarse:h-11 pointer-coarse:w-11"
                 value={colorValue(draft.color)}
                 disabled={!canEdit}
                 onChange={(event) => recolor(draft.id, event.target.value)}
@@ -125,7 +125,7 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
           <input
             type="color"
             aria-label="New option colour"
-            className="h-9 w-9 shrink-0 cursor-pointer rounded-[4px] border border-line bg-ground p-0.5 pointer-coarse:h-11 pointer-coarse:w-11"
+            className="h-9 w-9 shrink-0 cursor-pointer rounded-[10px] border border-line bg-ground p-0.5 pointer-coarse:h-11 pointer-coarse:w-11"
             value={color}
             onChange={(event) => setColor(event.target.value)}
           />

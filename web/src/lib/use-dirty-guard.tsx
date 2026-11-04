@@ -69,7 +69,7 @@ export function useDirtyGuard(
   // dialog centred on the screen from every page.
   return createPortal(
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-ground/70 p-4 backdrop-blur-[1px]"
+      className="fixed inset-0 z-50 grid place-items-center scrim p-4"
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -82,7 +82,7 @@ export function useDirtyGuard(
         aria-modal="true"
         aria-labelledby="dirty-guard-title"
         aria-describedby="dirty-guard-body"
-        className="w-full max-w-[26rem] border border-line-strong bg-surface p-4"
+        className="glass-strong w-full max-w-[26rem] rounded-[22px] p-5"
       >
         <h2 id="dirty-guard-title" className="text-[16px] font-medium">
           Unsaved changes

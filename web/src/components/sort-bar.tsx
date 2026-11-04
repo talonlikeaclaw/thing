@@ -26,7 +26,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
         <span className="flex items-center gap-1.5">
           <span className="label">Sort</span>
           {sorts.length > 0 ? (
-            <span className="tnum rounded-[3px] bg-accent-wash px-1 font-mono text-[length:var(--text-label)] text-accent">
+            <span className="tnum rounded-full bg-accent-wash px-1 font-mono text-[length:var(--text-label)] text-accent-on-wash">
               {sorts.length}
             </span>
           ) : null}
@@ -46,7 +46,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
               >
                 <select
                   aria-label="Sort column"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                  className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={sort.property}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -79,7 +79,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                 </select>
                 <select
                   aria-label="Sort direction"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                  className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={sort.direction}
                   onChange={(event) =>
                     onChange(
@@ -96,7 +96,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                 </select>
                 <select
                   aria-label="Empty placement"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                  className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={sort.empty ?? "end"}
                   onChange={(event) =>
                     onChange(
@@ -116,7 +116,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                     type="button"
                     aria-label={`Move ${choice?.label ?? sort.property} up`}
                     disabled={index === 0}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onChange(moveSort(sorts, sort.property, -1))}
                   >
                     <ChevronUp aria-hidden size={13} />
@@ -125,7 +125,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                     type="button"
                     aria-label={`Move ${choice?.label ?? sort.property} down`}
                     disabled={index === sorts.length - 1}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onChange(moveSort(sorts, sort.property, 1))}
                   >
                     <ChevronDown aria-hidden size={13} />
@@ -133,7 +133,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                   <button
                     type="button"
                     aria-label={`Remove ${choice?.label ?? sort.property} sort`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onChange(removeSort(sorts, sort.property))}
                   >
                     <X aria-hidden size={13} />
@@ -149,7 +149,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <select
             aria-label="Add a sort column"
-            className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+            className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
             value={addKey}
             onChange={(event) => setPending(event.target.value)}
           >

@@ -65,7 +65,7 @@ export function HistoryPanel({
             <ChevronRight
               aria-hidden
               size={12}
-              className="shrink-0 text-muted transition-transform group-open:rotate-90"
+              className="shrink-0 text-muted motion-safe:transition-transform group-open:rotate-90"
             />
             <History aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
             <span className="label">History</span>
@@ -189,7 +189,7 @@ export function HistoryPanel({
             {current.body !== undefined ? (
               <div className="mt-4">
                 <span className="label">Body at this revision</span>
-                <div className="mt-1 max-h-[18rem] overflow-auto overscroll-contain rounded-field border border-line px-3">
+                <div className="mt-1 max-h-[18rem] overflow-auto overscroll-contain rounded-full border border-line-interactive/70 bg-raised/40 px-3">
                   <MarkdownView text={current.body} />
                 </div>
               </div>

@@ -435,11 +435,15 @@ export function TypeEditor({
                 className="flex flex-wrap items-center justify-between gap-2 border-b rule py-2"
               >
                 <div className="grid min-w-0 gap-0.5">
-                  <span className="truncate text-[15px]">{titleProperty(member.key)}</span>
+                  <span className="truncate text-[15px] font-medium text-accent">
+                    {titleProperty(member.key)}
+                  </span>
                   <span className="font-mono text-[11px] leading-4 text-faint">{member.key}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FormatChip>{formatOf(member.key)}</FormatChip>
+                  <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+                    {formatOf(member.key)}
+                  </FormatChip>
                   <div className="flex items-center gap-1">
                   <SmallButton
                     label={`Move ${member.key} up`}

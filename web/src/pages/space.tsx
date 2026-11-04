@@ -52,10 +52,12 @@ export function SpacePage() {
 
   return (
     <div className="settle">
-      <header className="border-b rule pb-5">
-        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
+      <header className="px-1 pb-7">
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
           <div className="flex min-w-0 items-center gap-4">
-            <ThingIcon icon={detail.icon} className="size-10 text-[32px]" />
+            <span className="glass grid size-14 shrink-0 place-items-center rounded-[18px] text-[30px]">
+              <ThingIcon icon={detail.icon} />
+            </span>
             <div className="min-w-0">
               <h1 className="display text-display break-words">{detail.name}</h1>
               <p className="tnum mt-2 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.06em] text-muted">
@@ -72,17 +74,22 @@ export function SpacePage() {
         </div>
       </header>
 
-      <div className="mt-8 xl:grid xl:grid-cols-12 xl:gap-x-10">
+      {/* One grid from the cover's first rule down: the ledger and the graph
+          share the 8-column body, the activity timeline holds the 4-column
+          margin beside both. `items-start` keeps each column as tall as its
+          own rows instead of stretching to its neighbour. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-start xl:gap-6">
         <section
           aria-labelledby="space-types"
-          // Without a margin the ledger keeps the full sheet, rather than
+          // Without a margin the body keeps the full sheet, rather than
           // leaving a third of the page empty beside it.
           className={cn(
-            "xl:col-span-8",
+            "xl:col-span-8 xl:col-start-1 xl:row-start-1",
             activity.isSuccess && written.length === 0 && "xl:col-span-12",
           )}
         >
-          <div className="flex items-baseline justify-between gap-3 pb-2">
+          <div className="h-full rounded-[22px] border border-line bg-surface p-5 sm:p-6">
+          <div className="flex items-baseline justify-between gap-3 pb-3">
             <h2 id="space-types" className="label text-faint">
               Types
             </h2>
@@ -109,6 +116,7 @@ export function SpacePage() {
               ) : null}
             </ul>
           )}
+          </div>
         </section>
 
         {/* The margin reports what the space itself recorded. A space nothing
@@ -117,9 +125,9 @@ export function SpacePage() {
         {activity.isSuccess && written.length === 0 ? null : (
           <aside
             aria-labelledby="space-activity"
-            className="mt-10 xl:col-span-4 xl:mt-0 xl:border-l xl:border-line xl:pl-8"
+            className="glass rounded-[22px] p-5 xl:col-span-4 xl:col-start-9 xl:row-span-2 xl:row-start-1"
           >
-            <div className="flex items-baseline justify-between gap-3 pb-2">
+            <div className="flex items-baseline justify-between gap-3 pb-3">
               <h2 id="space-activity" className="label text-faint">
                 Activity
               </h2>
@@ -165,43 +173,49 @@ export function SpacePage() {
             )}
           </aside>
         )}
+
+        <section
+          aria-labelledby="space-graph"
+          className={cn(
+            "rounded-[22px] border border-line bg-surface p-5 sm:p-6 xl:col-span-8 xl:col-start-1 xl:row-start-2",
+            activity.isSuccess && written.length === 0 && "xl:col-span-12",
+          )}
+        >
+          <div className="flex items-baseline justify-between gap-3 pb-3">
+            <h2 id="space-graph" className="label text-faint">
+              Graph
+            </h2>
+            {graph.data ? (
+              <span className="label tnum text-faint">
+                {graph.data.nodes.length} {graph.data.nodes.length === 1 ? "record" : "records"}
+              </span>
+            ) : null}
+          </div>
+          {graph.isError ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-[13px] text-muted">The map could not be read.</p>
+              <button
+                type="button"
+                className="min-h-11 text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-fine:min-h-0"
+                onClick={() => void graph.refetch()}
+              >
+                Retry
+              </button>
+            </div>
+          ) : graph.data ? (
+            <SpaceGraph
+              spaceId={detail.id}
+              nodes={graph.data.nodes}
+              edges={graph.data.edges}
+              typeNames={typeNames}
+            />
+          ) : (
+            <p className="text-[13px] text-muted">Drawing the space…</p>
+          )}
+        </section>
       </div>
 
-      <section aria-labelledby="space-graph" className="mt-10 border-t rule pt-4">
-        <div className="flex items-baseline justify-between gap-3 pb-3">
-          <h2 id="space-graph" className="label text-faint">
-            Graph
-          </h2>
-          {graph.data ? (
-            <span className="label tnum text-faint">
-              {graph.data.nodes.length} {graph.data.nodes.length === 1 ? "record" : "records"}
-            </span>
-          ) : null}
-        </div>
-        {graph.isError ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-[13px] text-muted">The map could not be read.</p>
-            <button
-              type="button"
-              className="min-h-11 text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-fine:min-h-0"
-              onClick={() => void graph.refetch()}
-            >
-              Retry
-            </button>
-          </div>
-        ) : graph.data ? (
-          <SpaceGraph
-            spaceId={detail.id}
-            nodes={graph.data.nodes}
-            edges={graph.data.edges}
-            typeNames={typeNames}
-          />
-        ) : (
-          <p className="text-[13px] text-muted">Drawing the space…</p>
-        )}
-      </section>
-
-      <footer className="mt-10 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 border-t rule pt-4">
+      <footer className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-1 pt-4">
         <p className="font-mono text-[11px] text-faint">
           space.yml · {detail.timezone} · {shortId(detail.id)}
         </p>
@@ -238,8 +252,11 @@ function changeSummary(entry: ActivityEntry): string {
   if (keys.length === 0) {
     return "saved";
   }
+  // A bare key reads as a stray token in the margin; the verb makes the line a
+  // sentence about what happened, not a field name that leaked out.
   const named = keys.slice(0, NAMED_CHANGES).join(" · ");
-  return keys.length > NAMED_CHANGES ? `${named} +${keys.length - NAMED_CHANGES}` : named;
+  const rest = keys.length > NAMED_CHANGES ? ` +${keys.length - NAMED_CHANGES}` : "";
+  return `changed ${named}${rest}`;
 }
 
 function TypeRow({ spaceId, type }: { spaceId: string; type: TypeSummary }) {

@@ -7,6 +7,7 @@ import { ThumbRow } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { MonthGrid } from "@/components/views/month-grid";
 import { cn } from "@/lib/cn";
+import { formatDay } from "@/lib/display";
 import { duePhrase, dueTone } from "@/lib/schedule";
 import { monthLabel } from "@/lib/views";
 
@@ -65,7 +66,6 @@ export function AgendaCalendar({
           {row.title}
         </>
       )}
-      renderActions={() => null}
       renderRow={(row) => {
         const phrase = duePhrase(row.status, row.days_until_due);
         const verb = verbs[row.type] ?? "Complete";
@@ -90,7 +90,7 @@ export function AgendaCalendar({
                 </span>
               </span>
               <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2 font-mono text-[11px]">
-                <span className="tnum text-muted">{row.due_date}</span>
+                <span className="tnum text-muted">{formatDay(row.due_date)}</span>
                 {phrase ? (
                   <span className={cn("tnum", dueTone(row.status))}>{phrase}</span>
                 ) : null}
@@ -110,7 +110,7 @@ export function AgendaCalendar({
                 variant="ghost"
                 aria-label={`${verb} ${row.title}`}
                 title={verb}
-                className="min-h-8 min-w-0 px-2 text-[13px] pointer-coarse:min-h-11"
+                className="min-h-8 min-w-0 rounded-full bg-accent-wash px-2 text-[13px] text-accent-on-wash hover:bg-[color-mix(in_srgb,var(--color-accent)_20%,transparent)] hover:text-accent-on-wash pointer-coarse:min-h-11"
                 disabled={pendingId === row.id}
                 onClick={() => onComplete(row)}
               >

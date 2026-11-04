@@ -22,6 +22,8 @@ import { cn } from "@/lib/cn";
 interface PropertyInputProps {
   spaceId: string;
   property: PropertyDef;
+  /** A phone sheet owns the overlay: a select lists its options in flow. */
+  embedded?: boolean;
   value: unknown;
   /** The raw value to write (`null` clears the key) and the label it shows. */
   onCommit: (value: unknown, label: string) => void;
@@ -29,7 +31,7 @@ interface PropertyInputProps {
 }
 
 const field =
-  "h-8 w-full rounded-[4px] border border-accent bg-ground px-2 text-[13px] text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+  "h-8 w-full rounded-[10px] border border-accent bg-ground px-2 text-[13px] text-ink outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
 
 /** The input one cell opens, chosen by the property's format. */
 export function PropertyInput(props: PropertyInputProps) {
@@ -151,7 +153,7 @@ function CheckboxInput({ property, value, onCommit, onCancel }: PropertyInputPro
         aria-label={property.name}
         autoFocus
         className={cn(
-          "inline-flex h-5 w-5 items-center justify-center rounded-[3px] border transition-colors pointer-coarse:h-11 pointer-coarse:w-11",
+          "inline-flex h-5 w-5 items-center justify-center rounded-[6px] border transition-colors pointer-coarse:h-11 pointer-coarse:w-11",
           next ? "border-accent bg-accent text-accent-ink" : "border-line-strong text-transparent",
         )}
         onClick={() => onCommit(next, String(next))}
@@ -186,7 +188,14 @@ function matchingOptions(property: PropertyDef, query: string): OptionChoice[] {
   );
 }
 
-function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyInputProps) {
+function SelectInput({
+  spaceId,
+  property,
+  value,
+  onCommit,
+  onCancel,
+  embedded = false,
+}: PropertyInputProps) {
   const [query, setQuery] = useState("");
   const create = useUpdateProperty(spaceId, property.key);
   const options = matchingOptions(property, query);
@@ -216,6 +225,104 @@ function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyI
   const inputRef = useRef<HTMLInputElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
 
+  const optionsList = (
+    <>
+      {value !== null && value !== undefined ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onCommit(null, "")}
+        >
+          <X aria-hidden size={12} />
+          Clear
+        </button>
+      ) : null}
+      {options.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          className="flex w-full items-baseline justify-between gap-2 rounded-[8px] px-2 py-1.5 text-left hover:bg-raised"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onCommit(option.key, option.name)}
+        >
+          <span>{option.name}</span>
+          <span className="font-mono text-[11px] text-faint">{option.key}</span>
+        </button>
+      ))}
+      {query.trim() && !exact ? (
+        <button
+          type="button"
+          disabled={create.isPending}
+          className="flex w-full items-center gap-1.5 rounded-[8px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => createOption(query)}
+        >
+          <Check aria-hidden size={12} />
+          {create.isPending ? "Creating…" : `Create “${query.trim()}”`}
+        </button>
+      ) : null}
+      {create.error ? (
+        <p role="alert" className="px-2 py-1 text-[12px] text-danger">
+          {readError(create.error)}
+        </p>
+      ) : null}
+    </>
+  );
+
+  const input = (
+    <input
+      ref={inputRef}
+      autoFocus={!embedded}
+      aria-label={property.name}
+      className={field}
+      placeholder={value ? valueLabel("select", value, property) : "Choose or type"}
+      value={query}
+      onChange={(event) => setQuery(event.target.value)}
+      onBlur={(event) => {
+        if (embedded) {
+          return;
+        }
+        if (
+          event.relatedTarget instanceof Node &&
+          popupRef.current?.contains(event.relatedTarget)
+        ) {
+          return;
+        }
+        onCancel();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onCancel();
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const match =
+            options.find(
+              (option) => option.name.toLowerCase() === query.trim().toLowerCase(),
+            ) ?? options[0];
+          if (match) {
+            onCommit(match.key, match.name);
+          } else if (query.trim()) {
+            createOption(query);
+          }
+        }
+      }}
+    />
+  );
+
+  if (embedded) {
+    return (
+      <div className="grid gap-1.5">
+        {input}
+        <div className="max-h-64 overflow-y-auto overscroll-contain rounded-field border border-line bg-ground p-1.5 text-[13px]">
+          {optionsList}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-w-[11rem]">
       <Popover.Root
@@ -238,42 +345,7 @@ function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyI
           // needed because the popup's options never take focus.
         }}
       >
-        <input
-          ref={inputRef}
-          autoFocus
-          aria-label={property.name}
-          className={field}
-          placeholder={value ? valueLabel("select", value, property) : "Choose or type"}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onBlur={(event) => {
-            if (
-              event.relatedTarget instanceof Node &&
-              popupRef.current?.contains(event.relatedTarget)
-            ) {
-              return;
-            }
-            onCancel();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              onCancel();
-            }
-            if (event.key === "Enter") {
-              event.preventDefault();
-              const match =
-                options.find(
-                  (option) => option.name.toLowerCase() === query.trim().toLowerCase(),
-                ) ?? options[0];
-              if (match) {
-                onCommit(match.key, match.name);
-              } else if (query.trim()) {
-                createOption(query);
-              }
-            }
-          }}
-        />
+        {input}
         <Popover.Portal>
           <Popover.Positioner
             anchor={inputRef}
@@ -286,48 +358,9 @@ function SelectInput({ spaceId, property, value, onCommit, onCancel }: PropertyI
               aria-label={`${property.name} options`}
               initialFocus={false}
               finalFocus={false}
-              className="max-h-56 w-[var(--anchor-width)] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-auto overscroll-contain rounded-field border border-line bg-surface p-1 text-[13px] shadow-none"
+              className="glass-strong max-h-56 w-[var(--anchor-width)] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-auto overscroll-contain rounded-card p-1.5 text-[13px]"
             >
-              {value !== null && value !== undefined ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-faint hover:bg-raised hover:text-ink"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onCommit(null, "")}
-                >
-                  <X aria-hidden size={12} />
-                  Clear
-                </button>
-              ) : null}
-              {options.map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  className="flex w-full items-baseline justify-between gap-2 rounded-[3px] px-2 py-1.5 text-left hover:bg-raised"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onCommit(option.key, option.name)}
-                >
-                  <span>{option.name}</span>
-                  <span className="font-mono text-[11px] text-faint">{option.key}</span>
-                </button>
-              ))}
-              {query.trim() && !exact ? (
-                <button
-                  type="button"
-                  disabled={create.isPending}
-                  className="flex w-full items-center gap-1.5 rounded-[3px] px-2 py-1.5 text-left text-accent hover:bg-raised disabled:opacity-50"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => createOption(query)}
-                >
-                  <Check aria-hidden size={12} />
-                  {create.isPending ? "Creating…" : `Create “${query.trim()}”`}
-                </button>
-              ) : null}
-              {create.error ? (
-                <p role="alert" className="px-2 py-1 text-[12px] text-danger">
-                  {readError(create.error)}
-                </p>
-              ) : null}
+              {optionsList}
             </Popover.Popup>
           </Popover.Positioner>
         </Popover.Portal>
@@ -355,7 +388,7 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
           (property.options ?? []).map((option) => (
             <label
               key={option.key}
-              className="flex cursor-pointer items-center gap-2 rounded-[3px] px-1 py-1 text-[13px] hover:bg-raised pointer-coarse:min-h-11"
+              className="flex cursor-pointer items-center gap-2 rounded-[8px] px-1 py-1 text-[13px] hover:bg-raised pointer-coarse:min-h-11"
             >
               <input
                 type="checkbox"
@@ -440,7 +473,7 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
             <button
               key={choice.id}
               type="button"
-              className="flex w-full items-baseline justify-between gap-2 rounded-[3px] px-1 py-1.5 text-left text-[13px] hover:bg-raised pointer-coarse:min-h-11"
+              className="flex w-full items-baseline justify-between gap-2 rounded-[8px] px-1 py-1.5 text-left text-[13px] hover:bg-raised pointer-coarse:min-h-11"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => choose(choice.id)}
             >
@@ -545,7 +578,7 @@ export function ClearButton({ label, onClick }: { label: string; onClick: () => 
       type="button"
       aria-label={label}
       title={label}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-faint transition-colors hover:bg-accent-wash hover:text-accent-on-wash pointer-coarse:h-11 pointer-coarse:w-11"
       onClick={onClick}
     >
       <X aria-hidden size={12} />

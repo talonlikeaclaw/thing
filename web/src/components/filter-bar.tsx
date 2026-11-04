@@ -88,7 +88,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
         <span className="flex items-center gap-1.5">
           <span className="label">Filter</span>
           {draft.length > 0 ? (
-            <span className="tnum rounded-[3px] bg-accent-wash px-1 font-mono text-[length:var(--text-label)] text-accent">
+            <span className="tnum rounded-full bg-accent-wash px-1 font-mono text-[length:var(--text-label)] text-accent-on-wash">
               {draft.length}
             </span>
           ) : null}
@@ -100,7 +100,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                 key={op}
                 type="button"
                 aria-pressed={filter.op === op}
-                className="label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent pointer-coarse:min-h-11"
+                className="label rounded-[8px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent-on-wash pointer-coarse:min-h-11"
                 onClick={() => publish(draft, op)}
               >
                 {op}
@@ -129,7 +129,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
               >
                 <select
                   aria-label="Filter column"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                  className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={condition.property}
                   onChange={(event) => {
                     const next = columnChoice(columns, event.target.value);
@@ -146,7 +146,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                 </select>
                 <select
                   aria-label="Filter condition"
-                  className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                  className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
                   value={op}
                   onChange={(event) =>
                     replace(index, withConditionOp(condition, event.target.value as CondOp))
@@ -174,7 +174,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                 <button
                   type="button"
                   aria-label="Remove condition"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-[3px] text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
                   onClick={() => remove(index)}
                 >
                   <X aria-hidden size={13} />
@@ -231,7 +231,7 @@ function ConditionValue({
     return (
       <select
         aria-label="Filter value"
-        className="h-8 min-w-[8rem] rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="h-8 min-w-[8rem] rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={typeof condition.value === "string" ? condition.value : ""}
         onChange={(event) => onChange(event.target.value || null)}
       >
@@ -248,7 +248,7 @@ function ConditionValue({
     return (
       <select
         aria-label="Filter value"
-        className="h-8 min-w-[8rem] rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="h-8 min-w-[8rem] rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={typeof condition.value === "string" ? condition.value : ""}
         onChange={(event) => onChange(event.target.value || null)}
       >
@@ -265,7 +265,7 @@ function ConditionValue({
     return (
       <select
         aria-label="Filter value"
-        className="h-8 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+        className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
         value={typeof condition.value === "boolean" ? String(condition.value) : ""}
         onChange={(event) =>
           onChange(event.target.value === "" ? null : event.target.value === "true")
@@ -329,7 +329,7 @@ function TextConditionValue({
   return (
     <input
       aria-label="Filter value"
-      className="h-8 min-w-[8rem] flex-1 rounded-[4px] border border-line-interactive bg-ground px-2 text-[12px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+      className="h-8 min-w-[8rem] flex-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[12px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
       type={
         format === "number"
           ? "number"
@@ -368,7 +368,7 @@ function RelationValue({
   return (
     <select
       aria-label="Filter value"
-      className="h-8 min-w-[9rem] flex-1 rounded-[4px] border border-line-interactive bg-ground px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
+      className="h-8 min-w-[9rem] flex-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"
       value={typeof value === "string" ? value : ""}
       onChange={(event) => onChange(event.target.value || null)}
     >

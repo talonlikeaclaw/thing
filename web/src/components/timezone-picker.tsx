@@ -1,6 +1,6 @@
 import { Combobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown } from "lucide-react";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 
 import { fieldFrame } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
@@ -17,6 +17,7 @@ interface TimezonePickerProps {
   hideLabel?: boolean;
   /** Hide the device-zone action where the value already starts there. */
   showDeviceZone?: boolean;
+  hint?: ReactNode;
 }
 
 /**
@@ -36,9 +37,11 @@ export function TimezonePicker({
   label = "Timezone",
   hideLabel = false,
   showDeviceZone = true,
+  hint,
 }: TimezonePickerProps) {
   const generated = useId();
   const fieldId = id ?? generated;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
   const device = defaultSpaceTimezone();
 
   return (
@@ -62,6 +65,7 @@ export function TimezonePicker({
           <Combobox.Input
             id={fieldId}
             aria-label={label}
+            aria-describedby={hintId}
             onFocus={(event) => event.currentTarget.select()}
             onClick={(event) => event.currentTarget.select()}
             className={cn(
@@ -79,7 +83,7 @@ export function TimezonePicker({
         </div>
         <Combobox.Portal>
           <Combobox.Positioner sideOffset={4} className="z-50">
-            <Combobox.Popup className="w-[var(--anchor-width)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-field border border-line bg-surface">
+            <Combobox.Popup className="glass-strong w-[var(--anchor-width)] max-w-[calc(100vw-2rem)] overflow-hidden rounded-card">
               <Combobox.Empty>
                 <p className="px-3 py-3 text-[13px] text-muted">No zone matches that name.</p>
               </Combobox.Empty>
@@ -88,7 +92,7 @@ export function TimezonePicker({
                   <Combobox.Item
                     key={zone}
                     value={zone}
-                    className="grid min-h-9 cursor-pointer grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-[4px] px-2 py-1.5 font-mono text-[12.5px] text-ink select-none data-[highlighted]:bg-raised pointer-coarse:min-h-11 pointer-coarse:text-[14px]"
+                    className="grid min-h-9 cursor-pointer grid-cols-[1rem_minmax(0,1fr)] items-center gap-2 rounded-[10px] px-2 py-1.5 font-mono text-[12.5px] text-ink select-none data-[highlighted]:bg-accent-wash data-[highlighted]:text-accent-on-wash pointer-coarse:min-h-11 pointer-coarse:text-[14px]"
                   >
                     <Combobox.ItemIndicator className="text-accent">
                       <Check aria-hidden size={13} />
@@ -101,6 +105,11 @@ export function TimezonePicker({
           </Combobox.Positioner>
         </Combobox.Portal>
       </Combobox.Root>
+      {hint ? (
+        <p id={hintId} className="text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
+          {hint}
+        </p>
+      ) : null}
       {showDeviceZone && device !== value ? (
         <button
           type="button"

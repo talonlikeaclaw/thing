@@ -91,13 +91,10 @@ export function SchemaPage() {
         items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schema" }]}
       />
 
-      <PageHeader
-        title="Schema"
-        sentence="Types are tables and properties are columns, shared by everyone in the space and written to the markdown files on disk."
-        meta={detail.role}
-      />
+      <PageHeader title="Schema" meta={detail.role} />
 
-      <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] lg:gap-10">
+      <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6">
+        <div className="self-start rounded-[22px] border border-line bg-surface p-4">
         <TypeList
           spaceId={detail.id}
           types={types.data}
@@ -106,7 +103,8 @@ export function SchemaPage() {
           onSelect={selectType}
           onCreated={selectType}
         />
-        <div id="type-editor" className="scroll-mt-6">
+        </div>
+        <div id="type-editor" className="scroll-mt-6 rounded-[22px] border border-line bg-surface p-5">
           {type.isPending && selectedTypeKey ? (
             <p className="text-[13px] text-muted">Reading the type…</p>
           ) : type.isError ? (
@@ -132,7 +130,8 @@ export function SchemaPage() {
         </div>
       </div>
 
-      <div className="mt-16 grid gap-12 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] lg:gap-10">
+      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6">
+        <div className="self-start rounded-[22px] border border-line bg-surface p-4">
         <PropertyList
           spaceId={detail.id}
           properties={properties.data}
@@ -142,7 +141,8 @@ export function SchemaPage() {
           onSelect={selectProperty}
           onCreated={selectProperty}
         />
-        <div>
+        </div>
+        <div className="rounded-[22px] border border-line bg-surface p-5">
           {selectedProperty ? (
             <PropertyEditor
               key={selectedProperty.key}
@@ -153,7 +153,7 @@ export function SchemaPage() {
               onRenamed={selectProperty}
             />
           ) : (
-            <p className="max-w-[48ch] border-t rule pt-4 text-muted">
+            <p className="max-w-[48ch] text-[13px] text-muted">
               Select a property to edit it, or create one to describe a new column. A property's
               format is fixed once it exists; its name, options and colours stay editable.
             </p>
