@@ -26,6 +26,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A record reads as one specimen sheet: its properties in a sticky margin, its title and folio in one band, and its history folded away.",
       "Dates on a record read in one grammar whether they are typed, scheduled or shown in history.",
       "Tags are chips you can toggle instead of a column of checkboxes.",
+      "Tables read as ledgers: the title stays pinned, headers keep their labels, rows show hover and selection, and board, gallery and calendar share the same rhythm.",
     ],
     upcoming: true,
   },

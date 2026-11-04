@@ -796,7 +796,7 @@ export function TypeTable({
   }
 
   const recordCount = (
-    <span className="label tnum mt-1 block max-[359px]:hidden">
+    <span className="tnum mt-1 block font-mono text-[length:var(--text-small)] text-muted max-[359px]:hidden">
       {objects.isPending
         ? "— records"
         : `${compact || shown === total ? total : `${shown} of ${total}`} records`}
@@ -806,21 +806,24 @@ export function TypeTable({
     <div className="min-w-0">
       <div className="flex min-w-0 items-baseline gap-3">
         <ThingIcon icon={type.icon} size="lg" />
-        <h1 className="truncate text-[26px] font-medium tracking-[-0.02em]">
-          {type.name_plural}
-        </h1>
+        <h1 className="display truncate text-title">{type.name_plural}</h1>
         <span className="label tnum max-sm:hidden">{type.key}</span>
       </div>
       {recordCount}
+      {type.description ? (
+        <p className="mt-0.5 max-w-[62ch] truncate text-[length:var(--text-small)] text-muted">
+          {type.description}
+        </p>
+      ) : null}
     </div>
   );
   const newRecordButton = canEdit ? (
     <Button
       type="button"
-      className="min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11 max-sm:min-h-11"
+      className="shrink-0 px-3 pointer-coarse:min-h-[var(--control-coarse)] max-sm:min-h-[var(--control-coarse)]"
       onClick={() => capture.open(type.key)}
     >
-      New record
+      New {type.name.toLowerCase()}
     </Button>
   ) : null;
   const editTypeLink = canEdit ? (
@@ -917,7 +920,7 @@ export function TypeTable({
       >
         <Columns3 aria-hidden size={14} />
         <span className="max-sm:hidden">Columns</span>
-        <span className="tnum text-accent">
+        <span className="tnum rounded-[3px] bg-accent-wash px-1 text-[length:var(--text-label)] text-accent">
           {Math.max(0, view.columns.length - 1)}
         </span>
       </Button>,
@@ -938,7 +941,9 @@ export function TypeTable({
         <ArrowUpDown aria-hidden size={14} />
         <span className="max-sm:hidden">Sort</span>
         {query.sorts.length > 0 ? (
-          <span className="tnum text-accent">{query.sorts.length}</span>
+          <span className="tnum rounded-[3px] bg-accent-wash px-1 text-[length:var(--text-label)] text-accent">
+            {query.sorts.length}
+          </span>
         ) : null}
       </Button>,
     );
@@ -963,7 +968,9 @@ export function TypeTable({
       <ListFilter aria-hidden size={14} />
       <span className="max-sm:hidden">Filter</span>
       {query.filter.conditions.length > 0 ? (
-        <span className="tnum text-accent">{query.filter.conditions.length}</span>
+        <span className="tnum rounded-[3px] bg-accent-wash px-1 text-[length:var(--text-label)] text-accent">
+          {query.filter.conditions.length}
+        </span>
       ) : null}
     </Button>,
   );
@@ -1287,7 +1294,13 @@ export function TypeTable({
         />
       ) : null}
 
-      <div className={filterOpen || sortOpen ? "mt-3 border-t rule pt-3" : ""}>
+      <div
+        className={
+          filterOpen || sortOpen
+            ? "mt-3 w-full rounded-field border border-line bg-surface p-3 sm:max-w-[34rem]"
+            : ""
+        }
+      >
         <div id="type-filters" hidden={!filterOpen}>
           <FilterBar
             spaceId={spaceId}
@@ -1350,7 +1363,7 @@ export function TypeTable({
                 className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
                 onClick={() => capture.open(type.key)}
               >
-                New record
+                New {type.name.toLowerCase()}
               </Button>
               <Button
                 type="button"
@@ -1461,7 +1474,7 @@ export function TypeTable({
             onResize={commitWidth}
           />
           {canEdit && selectedRows.length > 0 ? (
-            <div className="absolute inset-x-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-20 md:inset-x-3">
+            <div className="absolute inset-x-2 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] z-20 md:inset-x-3 md:bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
               <BulkBar
                 spaceId={spaceId}
                 properties={properties}

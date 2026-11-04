@@ -79,12 +79,12 @@ export function BoardView({
             aria-label={lane.label}
             className="w-[17rem] shrink-0 border-t rule pt-2"
           >
-            <div className="flex items-baseline justify-between gap-2 px-1">
+            <div className="flex items-baseline justify-between gap-2 border-b rule px-1 pb-1.5">
               <span className="label truncate">{lane.label}</span>
               <span className="label tnum">{lane.rows.length}</span>
             </div>
             {lane.rows.length === 0 ? (
-              <p className="mt-2 px-1 text-[12px] text-faint">No records</p>
+              <p className="mt-2 px-1 text-[length:var(--text-small)] text-faint">No records</p>
             ) : (
               <ul className="mt-2 grid gap-1.5">
                 {lane.rows.map((row) => (
@@ -114,7 +114,7 @@ export function BoardView({
                         ) : null}
                         <span
                           title={row.title}
-                          className="line-clamp-2 min-w-0 text-[14px] font-medium text-ink"
+                          className="line-clamp-2 min-w-0 text-[length:var(--text-small)] font-medium leading-snug text-ink"
                         >
                           {row.title}
                         </span>

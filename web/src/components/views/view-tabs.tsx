@@ -274,7 +274,7 @@ export function ViewTabs({
                 tabIndex={selected ? 0 : -1}
                 title={`${viewKindLabel(view.kind)} view`}
                 className={cn(
-                  "flex items-center gap-1.5 border-b border-transparent px-2.5 py-2 text-[13px] transition-colors hover:text-ink pointer-coarse:min-h-11",
+                  "-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-2.5 py-2 text-[length:var(--text-small)] transition-colors hover:text-ink pointer-coarse:min-h-11",
                   // Reordering is a list, not a wrap: every view gets one full
                   // row on compact, so a long name cannot change the column count.
                   reordering && compact ? "min-w-0 flex-1" : "shrink-0",

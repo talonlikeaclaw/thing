@@ -8,6 +8,7 @@ import {
   type BulkResult,
 } from "@/api/queries";
 import type { ObjectSummary, PropertyDef, Uuid } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { PropertyInput } from "@/components/property-input";
 import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -235,62 +236,66 @@ export function BulkBar({
   return (
     <section
       aria-label="Bulk actions"
-      className="pointer-events-auto flex flex-wrap items-center gap-x-2 gap-y-2 rounded-sheet border border-line bg-surface px-3 py-2 shadow-none"
+      className="pointer-events-auto rounded-sheet border border-line bg-surface px-3 py-2 shadow-none"
     >
-      <span className="label tnum mr-1">{count} selected</span>
-      <Button
-        type="button"
-        variant="ghost"
-        aria-expanded={panelOpen}
-        aria-controls="bulk-property-panel"
-        disabled={properties.length === 0 || busy}
-        className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-        onClick={() => {
-          if (panelOpen) {
-            closePanel();
-          } else {
-            setPanelOpen(true);
-            onPanelChange(true);
-            setError(null);
-          }
-        }}
-      >
-        Set property
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        disabled={busy}
-        className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-        onClick={duplicateRows}
-      >
-        <Copy aria-hidden size={13} />
-        Duplicate
-      </Button>
-      <Button
-        type="button"
-        variant="destructive"
-        disabled={busy}
-        className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-        onClick={trashRows}
-      >
-        <Trash2 aria-hidden size={13} />
-        Move to trash
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-8 px-2.5 text-[12px] pointer-coarse:min-h-11"
-        onClick={onClear}
-      >
-        Clear selection
-      </Button>
-      {properties.length === 0 ? (
-        <span className="text-[12px] text-faint">This type has no properties to set.</span>
-      ) : null}
+      <ThumbRow className="flex-wrap items-center gap-x-2 gap-y-2">
+        <span className="label tnum mr-1">{count} selected</span>
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-8 px-2.5 text-[length:var(--text-small)] pointer-coarse:min-h-11"
+          onClick={onClear}
+        >
+          Clear
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          aria-expanded={panelOpen}
+          aria-controls="bulk-property-panel"
+          disabled={properties.length === 0 || busy}
+          className="min-h-8 px-2.5 text-[length:var(--text-small)] pointer-coarse:min-h-11"
+          onClick={() => {
+            if (panelOpen) {
+              closePanel();
+            } else {
+              setPanelOpen(true);
+              onPanelChange(true);
+              setError(null);
+            }
+          }}
+        >
+          Set property
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={busy}
+          className="min-h-8 px-2.5 text-[length:var(--text-small)] pointer-coarse:min-h-11"
+          onClick={duplicateRows}
+        >
+          <Copy aria-hidden size={13} />
+          Duplicate
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          disabled={busy}
+          className="min-h-8 px-2.5 text-[length:var(--text-small)] pointer-coarse:min-h-11"
+          onClick={trashRows}
+        >
+          <Trash2 aria-hidden size={13} />
+          Move to trash
+        </Button>
+        {properties.length === 0 ? (
+          <span className="text-[length:var(--text-small)] text-faint">
+            This type has no properties to set.
+          </span>
+        ) : null}
+      </ThumbRow>
 
       {error ? (
-        <div className="basis-full">
+        <div className="mt-2">
           <FormError message={error} />
         </div>
       ) : null}
@@ -300,7 +305,7 @@ export function BulkBar({
           id="bulk-property-panel"
           role="group"
           aria-labelledby="bulk-property-title"
-          className="basis-full border-t rule pt-2"
+          className="mt-2 border-t rule pt-2"
         >
           <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div className="min-w-[16rem] flex-1">

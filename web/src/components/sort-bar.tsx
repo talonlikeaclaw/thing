@@ -22,9 +22,15 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
 
   return (
     <section aria-label="Sorting" className="border-b rule pb-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="label">Sort</span>
-        <span className="label tnum">{sorts.length}</span>
+      <div className="flex min-h-8 items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5">
+          <span className="label">Sort</span>
+          {sorts.length > 0 ? (
+            <span className="tnum rounded-[3px] bg-accent-wash px-1 font-mono text-[length:var(--text-label)] text-accent">
+              {sorts.length}
+            </span>
+          ) : null}
+        </span>
       </div>
 
       {sorts.length === 0 ? (

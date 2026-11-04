@@ -84,8 +84,15 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
 
   return (
     <section aria-label="Filters" className="border-b rule pb-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="label">Filter</span>
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5">
+          <span className="label">Filter</span>
+          {draft.length > 0 ? (
+            <span className="tnum rounded-[3px] bg-accent-wash px-1 font-mono text-[length:var(--text-label)] text-accent">
+              {draft.length}
+            </span>
+          ) : null}
+        </span>
         {draft.length > 1 ? (
           <div className="flex items-center gap-1" role="group" aria-label="Match">
             {(["and", "or"] as const).map((op) => (
@@ -93,7 +100,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
                 key={op}
                 type="button"
                 aria-pressed={filter.op === op}
-                className="label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-raised aria-pressed:text-ink pointer-coarse:min-h-11"
+                className="label rounded-[3px] px-2 py-1 transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent pointer-coarse:min-h-11"
                 onClick={() => publish(draft, op)}
               >
                 {op}

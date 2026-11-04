@@ -506,9 +506,16 @@ its own button, field, focus ring or error treatment.
 - **Save state:** Save stays disabled until something changed; a successful write shows `SAVED` in
   lichen. A viewer sees the same definitions with the controls disabled and no Save.
 
+### Type Page
+- **Header:** one band holds the type icon, the name in `--text-title` mono, a mono record count and
+  the type's description in small muted text. A single primary `New <type>` action and one ghost
+  **Edit type** control follow the thumb edge; the header never carries a second filled button.
+- **View strip:** saved views sit directly under the header; the editing bars below the toolbar open
+  as one 34rem ruled surface on desktop and a full-width band on a phone.
+
 ### View Switcher
 - **Tabs:** directly under the type header, one per saved view in file order: kind icon, name, and a
-  mono `DEFAULT` marker on the default. Selection is a 1px lichen bottom rule and lichen text, never
+  mono `DEFAULT` marker on the default. Selection is a 2px lichen bottom rule and lichen text, never
   a filled chip. `aria-pressed` carries the state. On a phone the tabs wrap onto further lines so
   every saved view is visible at once and none hides under **New view**; above the compact width
   the row still scrolls horizontally, and a selected tab is scrolled into view.
@@ -523,9 +530,13 @@ its own button, field, focus ring or error treatment.
 - **Toolbar:** search, filter, sort and **Columns** sit above the renderer, with `Save view` (only
   when the URL query differs from the saved view), `Reset`, and `View settings` for editors.
   Columns is a ghost button beside Filter and Sort that names the visible property count
-  (`view.columns.length - 1`), toggles the one query panel, and is absent on calendar views. Layout
-  edits write as they commit; filter and sort edits wait for the explicit save. The kebab keeps View
-  settings, Save as view and Data only. An empty type's state offers **New record** and, for
+  (`view.columns.length - 1`), toggles the one query panel, and is absent on calendar views. An
+  active Filter or Sort count is a mono chip on the accent wash, never a bare number. Filter and
+  Sort share one 34rem ruled panel on desktop, one label rhythm and the same 40px/44px controls.
+  `Save view` is the only filled action in the bar and appears only when the query differs from the
+  saved view; otherwise the bar stays quiet. Layout edits write as they commit; filter and sort
+  edits wait for the explicit save. The kebab keeps View
+  settings, Save as view and Data only. An empty type's state offers **New <type>** and, for
   editors, **Import CSV**, which opens the same Data panel as the view menu's Data row.
 - **Columns panel:** the fixed title first, then the visible columns with move and hide controls,
   then the hidden ones with Show. On a fine pointer each row also prints the property's mono key;
@@ -535,6 +546,13 @@ its own button, field, focus ring or error treatment.
   kind is shown read-only with "Kind is fixed; create a view to show these records another way".
 
 ### Table View
+- **Header:** every column label uses the label token; the mono key is a secondary line only from
+  `xl` up and stays in the button's `title` and `aria-label` below it. The title column is pinned at
+  every width with an opaque background; its trailing hairline strengthens to `line-strong` once
+  columns have slid under it, never a shadow. The header row stays sticky to the scrollport top.
+- **Rows:** a selected row paints the accent wash; a fine pointer gets the same wash at half
+  strength on hover, and touch keeps the row actions visible at 44px. Numeric cells are tabular and
+  right-aligned; long values truncate with a `title`, and cell padding follows the 4px space scale.
 - **Widths:** a `<colgroup>` carries the saved per-view widths; `title` defaults to 240px and other
   columns to 140px, clamped to 80–800px. A saved width is painted literally — there is no
   proportional fit. A filler column after the last property absorbs the window's leftover space,
@@ -729,7 +747,8 @@ its own button, field, focus ring or error treatment.
 ### Board View
 - **Lanes:** horizontal, in the select property's option order, then unknown option keys, then a
   final `No value` lane only when records lack the value. Each lane is a 17rem ruled column with a
-  hairline top border, its option name and a mono count above the cards.
+  hairline top border, its option name and a mono count above a hairline base rule; cards repeat the
+  title at the small token and the view's columns in the same label/value rhythm as the table.
 - **Cards:** a `surface` panel with a hairline border and no shadow; the title, then the view's card
   columns as a property name and its value. The raw key appears only when the property definition
   is missing. No drag between lanes in M3.
@@ -737,16 +756,17 @@ its own button, field, focus ring or error treatment.
 ### Gallery View
 - **Grid:** 2 columns, 3 from `md`, 4 from `xl`, with a hairline at every tile edge rather than a
   shadow.
-- **Cover:** a `raised` band with a hairline base, the cover property's label bottom-aligned in it.
-  A select cover whose option matches tints the band with that option at low alpha; with no
-  matching option the band keeps `raised` and shows the type icon. No invented gradient, image or
-  generated art until file properties exist. The card repeats the title and card columns.
+- **Cover:** a `raised` band with a hairline base and room for two lines; the cover property's label
+  sits bottom-aligned in the display face at the heading size. A select cover whose option matches
+  tints the band with that option at low alpha; with no matching option the band keeps `raised` and
+  shows the type icon. The card repeats the title at the small token in medium weight and the view's
+  columns. No invented gradient, image or generated art until file properties exist.
 
 ### Calendar View
 - **Grid:** Monday-first weeks in a 7-column ruled table; adjacent-month days are recessed with
   `surface/40` and a faint numeral. Cell borders are hairlines (`rule`).
-- **Chips:** a link with a single hairline left edge, not a filled pill; at most three per day, then
-  mono `+N more`. Today is a lichen numeral and, from `sm` up where the cell has room, a mono
+- **Chips:** a link with a single hairline left edge, not a filled pill, set in the small token; at
+  most three per day, then mono `+N more`. Today is a lichen numeral and, from `sm` up where the cell has room, a mono
   `TODAY` label beside it; the word is dropped below `sm` so it never crosses into the next day.
   The numeral carries `aria-current="date"` and the title `Today`; never a filled block.
 - **Navigation:** the month name, ghost previous/next buttons and `Today`, all 44px on coarse
@@ -816,8 +836,11 @@ its own button, field, focus ring or error treatment.
   there is no browser `beforeunload` prompt.
 
 ### Bulk Bar
-- **Shape:** a hairline band inside the table scrollport, never a floating card. It names the count
-  and property, previews the value, and carries Apply, Clear and the row actions fan-out.
+- **Shape:** one floating band over the table scrollport, never a card with a shadow. The selection
+  count is mono; Clear, Set property, Duplicate and Move to trash sit in one `ThumbRow` so the
+  destructive action lands at the thumb edge and the row reverses with handedness. The panel below
+  the row previews the value and carries Apply. On a phone the band clears the bottom bar and the
+  safe-area inset.
 - **Failure:** rows that failed stay selected and are named; the bar never reports a silent
   success, and Undo runs from the page because the bar unmounts with the selection.
 

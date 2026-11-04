@@ -78,11 +78,14 @@ export function GalleryView({
               className="flex h-full flex-col rounded-field border border-line bg-surface transition-colors hover:border-line-strong"
             >
               <span
-                className="flex min-h-24 items-end justify-between gap-2 border-b rule bg-raised px-3 py-2"
+                className="flex min-h-28 items-end justify-between gap-2 border-b rule bg-raised px-3 py-2.5"
                 style={tint ? { backgroundColor: tint } : undefined}
               >
                 {coverLabel ? (
-                  <span className="truncate text-[15px] text-ink" title={coverLabel}>
+                  <span
+                    className="display line-clamp-2 min-w-0 text-[length:var(--text-heading)] leading-[1.2] text-ink"
+                    title={coverLabel}
+                  >
                     {coverLabel}
                   </span>
                 ) : (
@@ -97,7 +100,7 @@ export function GalleryView({
                   ) : null}
                   <span
                     title={row.title}
-                    className="line-clamp-2 min-w-0 text-[14px] font-medium text-ink"
+                    className="line-clamp-2 min-w-0 text-[length:var(--text-small)] font-medium leading-snug text-ink"
                   >
                     {row.title}
                   </span>

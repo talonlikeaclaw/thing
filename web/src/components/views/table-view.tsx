@@ -215,7 +215,18 @@ export function TableView({
       ? "after:bg-surface"
       : "after:bg-ground"
     : null;
-  const railSeamToneSelected = railBefore ? "after:bg-raised" : null;
+  // A pinned cell must stay opaque: a translucent wash would let the columns
+  // sliding underneath show through. Hover and selected paint the wash over the
+  // cell's own ground instead of replacing it with alpha.
+  const hoverGround =
+    "group-hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-ground))]!";
+  const hoverSurface =
+    "group-hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-surface))]!";
+  const selectedGround = "bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-ground))]";
+  const selectedSurface = "bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]";
+  const railSeamToneSelected = railBefore
+    ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-ground))]"
+    : null;
   const railHeaderClass = cn("sticky z-30 rule py-2", railEdge);
   const railBodyClass = cn("sticky z-20 rule py-1", railEdge);
 
@@ -229,6 +240,8 @@ export function TableView({
 
   const gridRef = useRef<HTMLTableElement>(null);
   const [active, setActive] = useState<Cell | null>(null);
+  /** A pinned title shows a stronger edge only once columns have slid under it. */
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     if (rows.length === 0) {
@@ -456,6 +469,7 @@ export function TableView({
         bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-16",
       )}
       onKeyDown={onGridKeyDown}
+      onScroll={(event) => setScrolled(event.currentTarget.scrollLeft > 0)}
     >
       <table
         ref={gridRef}
@@ -508,8 +522,9 @@ export function TableView({
             <th
               scope="col"
               className={cn(
-                "relative sticky z-30 border-r rule py-2 pr-3 font-medium pointer-coarse:py-0",
+                "label relative sticky z-30 border-r rule py-2 pr-3 font-medium pointer-coarse:py-0",
                 compact ? "bg-ground" : "bg-surface",
+                scrolled && "border-line-strong",
               )}
               style={{ left: pinnedOffset }}
               {...sortHeader("title")}
@@ -596,7 +611,8 @@ export function TableView({
                     railBodyClass,
                     "outline-none",
                     railSeam,
-                    isSelected ? "bg-raised" : "bg-ground",
+                    isSelected ? selectedGround : "bg-ground",
+                    !isSelected && hoverGround,
                     isSelected ? railSeamToneSelected : railSeamTone,
                     railBefore ? "text-left" : "text-right",
                   )}
@@ -675,8 +691,10 @@ export function TableView({
                 aria-selected={canEdit ? isSelected : undefined}
                 data-active={rowActive ? "true" : undefined}
                 className={cn(
-                  "group border-b rule align-top",
-                  isSelected && "bg-raised",
+                  "group border-b rule align-top transition-colors",
+                  isSelected
+                    ? selectedGround
+                    : "hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-ground))]!",
                   rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
                 )}
               >
@@ -687,7 +705,8 @@ export function TableView({
                     aria-label={`Select “${row.title}”`}
                     className={cn(
                       "sticky z-10 py-1 text-center outline-none",
-                      isSelected ? "bg-raised" : "bg-ground",
+                      isSelected ? selectedGround : "bg-ground",
+                      !isSelected && hoverGround,
                     )}
                     style={{ left: railBefore ? openWidth : 0 }}
                   >
@@ -714,7 +733,14 @@ export function TableView({
                   }
                   className={cn(
                     "sticky z-20 border-r rule py-1 pr-2 text-left font-normal outline-none",
-                    isSelected ? "bg-raised" : compact ? "bg-ground" : "bg-surface",
+                    isSelected
+                      ? compact
+                        ? selectedGround
+                        : selectedSurface
+                      : compact
+                        ? "bg-ground"
+                        : "bg-surface",
+                    !isSelected && (compact ? hoverGround : hoverSurface),
                   )}
                   style={{ left: pinnedOffset }}
                 >
@@ -1024,7 +1050,7 @@ function HeaderSort({
         </span>
       </span>
       {showKey ? (
-        <span className="w-full truncate font-mono text-[10px] text-faint normal-case tracking-normal">
+        <span className="hidden w-full truncate font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint normal-case xl:block">
           {columnKey}
         </span>
       ) : null}

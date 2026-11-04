@@ -165,7 +165,7 @@ export function MonthGrid<T>({
   return (
     <div className="mt-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-medium">{label}</h2>
+        <h2 className="text-heading font-medium">{label}</h2>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -245,7 +245,7 @@ export function MonthGrid<T>({
                       <Link
                         to={hrefOf(item)}
                         title={titleOf?.(item)}
-                        className="min-w-0 flex-1 truncate rounded-[3px] border-l border-line-strong px-1 py-0.5 text-[12px] text-ink transition-colors hover:bg-raised"
+                        className="min-w-0 flex-1 truncate rounded-[3px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised"
                         onClick={(event) => {
                           // A finger cannot aim at the actions inside a ~50 px
                           // chip, so a tap opens the day and its full rows.

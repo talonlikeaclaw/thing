@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
 import { PropertyInput, TitleInput } from "@/components/property-input";
 import { ThingIcon } from "@/components/thing-icon";
-import { formatDateTime } from "@/lib/display";
+import { formatDateTime, formatDay } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
 import { cn } from "@/lib/cn";
@@ -123,7 +123,8 @@ export function PropertyCell({
       disabled={!canEdit}
       aria-label={`Edit ${property.name} for “${rowTitle}”, currently “${label || "empty"}”`}
       className={cn(
-        "flex min-h-8 w-full items-center gap-1.5 rounded-[3px] px-1.5 py-1 text-left text-[13px] transition-colors",
+        "flex min-h-8 w-full items-center gap-1.5 rounded-[3px] px-1.5 py-1 text-left text-[length:var(--text-small)] transition-colors",
+        property.format === "number" && "justify-end text-right",
         canEdit ? "hover:bg-raised" : "cursor-default",
         "pointer-coarse:min-h-11",
       )}
@@ -239,7 +240,9 @@ export function TitleCell({
       onClick={() => setEditing(true)}
     >
       {icon ? <ThingIcon icon={icon} size="sm" className="mr-1.5" /> : null}
-      <span className="truncate">{title}</span>
+      <span className="truncate" title={title}>
+        {title}
+      </span>
     </button>
   );
 }
@@ -308,7 +311,13 @@ export function PropertyValue({
   const text =
     property.format === "datetime" && typeof value === "string"
       ? formatDateTime(value, timeZone)
-      : label;
+      : property.format === "date" && typeof value === "string"
+        ? formatDay(value)
+        : label;
+  // The schedule's own phrase replaces the value only when it says more.
+  const dueText = due ? dueCellLabel(due, value) : null;
+  const shownDue =
+    dueText !== null && dueText !== value ? dueText : text;
   return (
     <span
       className={cn(
@@ -323,7 +332,7 @@ export function PropertyValue({
       )}
       title={label}
     >
-      {due ? dueCellLabel(due, value) : text}
+      {due ? shownDue : text}
       {missing ? (
         <TriangleAlert aria-label="Target missing" className="ml-1 inline text-warning" size={12} />
       ) : null}
