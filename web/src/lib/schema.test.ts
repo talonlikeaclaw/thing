@@ -7,6 +7,7 @@ import {
   effectiveMembers,
   effectiveProperties,
   memberProperties,
+  keyFromName,
   moveColumn,
   moveItem,
   moveProperty,
@@ -175,5 +176,31 @@ describe("option drafts", () => {
     expect(optionInputs([{ id: "draft-1", name: " Balcony ", color: " #f08a72 " }])).toEqual([
       { name: "Balcony", color: "#f08a72" },
     ]);
+  });
+});
+
+describe("keyFromName", () => {
+  // The same cases as `key_from_name` in `crates/core/src/slug.rs`, so the
+  // ledger can tell a name-shaped key from one that says something else.
+  it("folds a name into a lowercase underscore key", () => {
+    expect(keyFromName("Watering interval days")).toBe("watering_interval_days");
+    expect(keyFromName("  Room // 2 -- window ")).toBe("room_2_window");
+    expect(keyFromName("Last watered")).toBe("last_watered");
+  });
+
+  it("prefixes a key that would start with a digit", () => {
+    expect(keyFromName("2026 goals")).toBe("key_2026_goals");
+  });
+
+  it("reads a name with nothing to keep as untitled", () => {
+    expect(keyFromName("️✨")).toBe("untitled");
+    expect(keyFromName("")).toBe("untitled");
+  });
+
+  it("caps the key at forty characters without a trailing separator", () => {
+    expect(keyFromName("b " + "a".repeat(60))).toHaveLength(40);
+    // The cut can land on a separator; the server drops it rather than ship a
+    // key ending in `_`, so the same name reads one character shorter.
+    expect(keyFromName("a".repeat(39) + " b")).toBe("a".repeat(39));
   });
 });

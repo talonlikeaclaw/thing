@@ -6,6 +6,41 @@ import type {
   TypeProperty,
 } from "@/api/types";
 
+/** The server's limit for a type or property key, in characters. */
+const MAX_KEY_LEN = 40;
+
+/**
+ * The key a display name derives, mirroring `key_from_name` in
+ * `crates/core/src/slug.rs`: lowercase ASCII folded word-wise into `_`, a name
+ * starting with a digit prefixed `key_`, and nothing left reading `untitled`.
+ *
+ * Used only to notice when a shipped key says no more than the name already
+ * does; the server stays the authority on the key it minted.
+ */
+export function keyFromName(name: string): string {
+  let key = "";
+  let separator = false;
+  for (const char of name) {
+    if (/[a-z0-9]/i.test(char)) {
+      if (separator && key !== "") {
+        key += "_";
+      }
+      separator = false;
+      key += char.toLowerCase();
+    } else {
+      separator = key !== "";
+    }
+  }
+  key = key.replace(/_+$/, "");
+  if (key === "") {
+    return "untitled";
+  }
+  if (!/^[a-z]/.test(key)) {
+    key = `key_${key}`;
+  }
+  return [...key].slice(0, MAX_KEY_LEN).join("").replace(/_+$/, "");
+}
+
 export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },

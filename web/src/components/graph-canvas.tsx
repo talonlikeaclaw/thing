@@ -26,6 +26,8 @@ interface GraphCanvasProps {
   resetKey: string;
   legend: ReactNode;
   hint: string;
+  /** Extra view controls, set before the zoom cluster in the same row. */
+  actions?: ReactNode;
   /** Moves one node by a delta in graph units; edges are drawn by the caller. */
   onNodeDrag?: (id: string, dx: number, dy: number) => void;
   children: ReactNode;
@@ -47,6 +49,7 @@ export function GraphCanvas({
   resetKey,
   legend,
   hint,
+  actions,
   onNodeDrag,
   children,
 }: GraphCanvasProps) {
@@ -238,6 +241,7 @@ export function GraphCanvas({
             leftHanded ? "justify-start" : "justify-end",
           )}
         >
+          {actions}
           <button
             type="button"
             aria-label="Zoom in"

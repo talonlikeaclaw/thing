@@ -324,6 +324,16 @@ keyed type ledger; a glass activity card in the 4/12 margin at `xl` (below the l
 under `xl`); a matte graph card under the body; a colophon line. Cards are siblings with
 a 16–24px gap, never nested.
 
+A ledger row names its type once. The mono key appears only when it differs from
+`keyFromName(name)` — a key minted from the name says nothing the name has not said, and
+it is the schema page, not the cover, that teaches it. The count is generic (`4 records`),
+never the type's own plural, for the same reason.
+
+The space map offers one view control of its own beside the zoom cluster: a titles toggle,
+`aria-pressed`, persisted per reader and per space. Titles on, a phone draws and names the
+five best-connected records; titles off, it draws every record as a dot, because the shape
+is what the hidden names leave room for.
+
 **The Record Sheet.** One matte card at 24px radius. Inside: an identity band, the
 schedule strip, a body section, links and history. The 4/12 property margin is a
 divided column — a left rule and padding at `xl`, a top rule and padding below it — not

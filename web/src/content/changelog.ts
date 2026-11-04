@@ -17,6 +17,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "The ledger names each type once and the map can drop its titles",
+    upcoming: true,
+    highlights: [
+      "The space's type ledger names each type once: the key appears only when it differs from the name, and the count reads 4 records.",
+      "The space map's record titles can be hidden from a button beside the zoom controls.",
+      "On a phone, hiding the titles draws every record instead of the five best connected.",
+    ],
+    details: [
+      "The titles choice is kept per reader and per space; a space with no choice names every record.",
+    ],
+  },
+  {
     version: "0.5.2",
     title: "Night Glass: frosted chrome and a floating dock",
     highlights: [

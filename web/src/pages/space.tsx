@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import { shortId } from "@/lib/display";
 import { relativeTime, typeLabel } from "@/lib/format";
 import { useRouteMeta } from "@/lib/route";
+import { keyFromName } from "@/lib/schema";
 
 /** The margin is a glance at the space, not its audit log. */
 const MARGIN_ACTIVITY = 5;
@@ -260,9 +261,12 @@ function changeSummary(entry: ActivityEntry): string {
 }
 
 function TypeRow({ spaceId, type }: { spaceId: string; type: TypeSummary }) {
-  const records = `${type.object_count} ${
-    type.object_count === 1 ? type.name.toLowerCase() : type.name_plural.toLowerCase()
-  }`;
+  // The key is minted from the name, so it usually repeats the name in another
+  // alphabet; it earns the column only once the two actually differ. The count
+  // says `records` for the same reason: `4 chores` under a row already called
+  // Chore names the type a second time.
+  const keyIsName = type.key === keyFromName(type.name);
+  const records = `${type.object_count} ${type.object_count === 1 ? "record" : "records"}`;
   return (
     <li className="border-b rule">
       <Link
@@ -274,14 +278,18 @@ function TypeRow({ spaceId, type }: { spaceId: string; type: TypeSummary }) {
           <span className="truncate text-[15px] font-medium group-hover:text-accent">
             {type.name}
           </span>
-          <span className="truncate font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint uppercase sm:hidden">
-            {type.key}
-          </span>
+          {keyIsName ? null : (
+            <span className="truncate font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint uppercase sm:hidden">
+              {type.key}
+            </span>
+          )}
         </span>
         <span className="flex items-baseline gap-3">
-          <span className="hidden w-20 shrink-0 font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint uppercase sm:inline">
-            {type.key}
-          </span>
+          {keyIsName ? null : (
+            <span className="hidden w-20 shrink-0 font-mono text-[length:var(--text-label)] tracking-[0.09em] text-faint uppercase sm:inline">
+              {type.key}
+            </span>
+          )}
           <span className="tnum shrink-0 text-[13px] text-muted">{records}</span>
           {type.schedule ? (
             <span className="label hidden shrink-0 text-accent sm:inline">Scheduled</span>

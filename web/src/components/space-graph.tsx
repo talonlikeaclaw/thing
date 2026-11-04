@@ -1,10 +1,18 @@
+import { Type } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
+import { useMe } from "@/api/queries";
 import type { SpaceGraphEdge, SpaceGraphNode } from "@/api/types";
 import { GraphCanvas } from "@/components/graph-canvas";
 import { cn } from "@/lib/cn";
 import { layoutSpaceGraph } from "@/lib/graph";
+import {
+  DEFAULT_GRAPH_LABELS,
+  graphLabelsKey,
+  readGraphLabels,
+  writeGraphLabels,
+} from "@/lib/graph-labels";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 
 const WIDE_WIDTH = 640;
@@ -115,11 +123,28 @@ export function SpaceGraph({ spaceId, centerId, nodes, edges, typeNames }: Space
     : edges.length === 0
       ? ZERO_EDGE_HEIGHT
       : HEIGHT;
+  const me = useMe();
+  const labelsKey = me.data ? graphLabelsKey(me.data.id, spaceId) : null;
+  const [labels, setLabels] = useState(DEFAULT_GRAPH_LABELS);
+
+  useEffect(() => {
+    setLabels(labelsKey ? readGraphLabels(window.localStorage, labelsKey) : DEFAULT_GRAPH_LABELS);
+  }, [labelsKey]);
+
+  const toggleLabels = () => {
+    const next = !labels;
+    setLabels(next);
+    if (labelsKey) {
+      writeGraphLabels(window.localStorage, labelsKey, next);
+    }
+  };
+
   // A phone cannot name eight records inside 342px, so it draws the best
   // connected few and says how many it left out. Scaling the desktop map down
-  // produced overlapping names and anonymous dots.
+  // produced overlapping names and anonymous dots. Without names the dots are
+  // the whole point, so hiding the titles draws the whole map instead.
   const drawn = useMemo(() => {
-    if (!compact || nodes.length <= COMPACT_NODES) {
+    if (!compact || !labels || nodes.length <= COMPACT_NODES) {
       return nodes;
     }
     const degree = new Map<string, number>();
@@ -134,7 +159,7 @@ export function SpaceGraph({ spaceId, centerId, nodes, edges, typeNames }: Space
           left.title.localeCompare(right.title),
       )
       .slice(0, COMPACT_NODES);
-  }, [compact, nodes, edges]);
+  }, [compact, labels, nodes, edges]);
   const layout = useMemo(
     () => layoutSpaceGraph(drawn, edges, width, height, centerId),
     [drawn, edges, width, height, centerId],
@@ -186,6 +211,18 @@ export function SpaceGraph({ spaceId, centerId, nodes, edges, typeNames }: Space
           const at = current[id] ?? { x: 0, y: 0 };
           return { ...current, [id]: { x: at.x + dx, y: at.y + dy } };
         })
+      }
+      actions={
+        <button
+          type="button"
+          aria-pressed={labels}
+          aria-label="Record titles"
+          title="Record titles"
+          className="inline-flex size-8 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-line-strong hover:text-ink aria-pressed:border-line-strong aria-pressed:text-ink pointer-coarse:size-11"
+          onClick={toggleLabels}
+        >
+          <Type aria-hidden size={14} />
+        </button>
       }
       legend={
         kinds.size === 0 ? (
@@ -259,21 +296,23 @@ export function SpaceGraph({ spaceId, centerId, nodes, edges, typeNames }: Space
         // Try the natural side first, then the same side one line up or down,
         // then the far side. A tiered phone ring puts names close together;
         // without the lanes half the node labels were dropped.
-        const placement = [
-          { left: preferredLeft, dy: 0 },
-          { left: preferredLeft, dy: -LABEL_LINE },
-          { left: preferredLeft, dy: LABEL_LINE },
-          { left: !preferredLeft, dy: 0 },
-          { left: !preferredLeft, dy: -LABEL_LINE },
-          { left: !preferredLeft, dy: LABEL_LINE },
-        ].find((candidate) => {
-          const room = candidate.left ? roomLeft : roomRight;
-          if (room < labelWidth) {
-            return false;
-          }
-          const box = labelBox(point, labelWidth, candidate.left, candidate.dy);
-          return !labelBoxes.some((placed) => overlaps(placed, box));
-        }) ?? null;
+        const placement = !labels
+          ? null
+          : ([
+              { left: preferredLeft, dy: 0 },
+              { left: preferredLeft, dy: -LABEL_LINE },
+              { left: preferredLeft, dy: LABEL_LINE },
+              { left: !preferredLeft, dy: 0 },
+              { left: !preferredLeft, dy: -LABEL_LINE },
+              { left: !preferredLeft, dy: LABEL_LINE },
+            ].find((candidate) => {
+              const room = candidate.left ? roomLeft : roomRight;
+              if (room < labelWidth) {
+                return false;
+              }
+              const box = labelBox(point, labelWidth, candidate.left, candidate.dy);
+              return !labelBoxes.some((placed) => overlaps(placed, box));
+            }) ?? null);
         const label = placement ? labelText : null;
         if (placement) {
           labelBoxes.push(labelBox(point, labelWidth, placement.left, placement.dy));
