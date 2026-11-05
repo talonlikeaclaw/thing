@@ -323,16 +323,26 @@ three cells: the space destination on one outer edge, a 56px accent capture circ
 middle, and search on the other. Handedness swaps the outer cells; the raised centre does
 not move across a page.
 
-**The Cover Sheet.** A space is a masthead and cards: the icon in a 56px glass tile, the
-name at display size, a factual summary line, two pill actions; a matte card holding the
-keyed type ledger; a glass activity card in the 4/12 margin at `xl` (below the ledger
-under `xl`); a matte graph card under the body; a colophon line. Cards are siblings with
-a 16–24px gap, never nested.
+**The Cover Sheet.** A space is a masthead and cards: the icon in a 72px glass tile with
+a ~40px glyph and a 22px radius, the name at display size, a factual summary line, two
+pill actions; a matte card holding the keyed type ledger; a glass activity card in the
+4/12 margin at `xl` (below the ledger under `xl`); a matte graph card under the body; a
+colophon line. Cards are siblings with a 16–24px gap, never nested.
+
+The page ends on one footer rule. A page contributes its own line to the shell's footer
+through `usePageFooter` — the cover puts its file-backed colophon there, beside the
+changelog link and version — rather than printing a second `<footer>` above it.
 
 A ledger row names its type once. The mono key appears only when it differs from
 `keyFromName(name)` — a key minted from the name says nothing the name has not said, and
 it is the schema page, not the cover, that teaches it. The count is generic (`4 records`),
-never the type's own plural, for the same reason.
+never the type's own plural, for the same reason. A type page's masthead follows the same
+rule: the key hangs beside the display name only when it differs from `keyFromName(name)`.
+
+A record's folio deliberately keeps `PLANT · REV 1` even when the key merely spells the
+name. There the key is the wiki-link spelling — the word an editor types to link to this
+record — and the revision dates the sheet; the folio is disclosure for the id, not a
+ledger row naming a type twice.
 
 A type or record without an emoji icon shows its first letter in the display face in the
 same icon slot, so two iconless types never render the same anonymous glyph; the neutral
@@ -358,7 +368,13 @@ no third: a raised band for the whole header row — Title and the checkbox cell
 and the card's surface for every body cell, the checkbox column and both action rails
 included. A pinned column keeps its rule and never changes fill to prove it is pinned.
 The band is a lid over the card, not a second surface; the selection and hover washes
-overlay both band and body. The card clips the table; the table scrolls inside it. The view tabs are a recessed segmented track with the active
+overlay both band and body. The card clips the table; the table scrolls inside it. The
+page's tools — Columns, Sort and Filter — share one full-width frosted surface under the
+chrome, each section separated by space rather than a rule; a column's position is one
+pill with a number and a pair of arrows, so the first and last slots show a disabled end.
+View settings and the CSV panel are page editors, not ledger content: they open the same
+centred glass dialog as the other overlays instead of an inline band that pushes the
+table down. The view tabs are a recessed segmented track with the active
 segment on the accent wash. The strip closes the panel, sitting below the search and tools on the
 container's bottom edge, so a view is chosen where the views meet the records. Its two
 edge actions are 36 px circles (44 px coarse) on the accent wash: Reorder on the
@@ -519,5 +535,6 @@ Every signed-in surface consumes the foundation: the floating header and rail; t
 dock and space sheet; the cover sheet; the record sheet and its save row; the ledger
 table, view tabs, filter/sort bars and bulk bar; the command palette, capture, shortcuts,
 sign-out and icon sheets; the schedule list and calendar; schema, members, settings,
-trash, account settings, auth, join, changelog and not-found. The version footer, the
-accent picker and the file-backed colophon are unchanged in meaning.
+trash, account settings, auth, join, changelog and not-found. The shell owns the one
+footer rule; a page's line joins it through `usePageFooter`. The accent picker and the
+file-backed colophon are unchanged in meaning.

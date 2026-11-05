@@ -21,7 +21,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
     : (unused[0]?.key ?? "");
 
   return (
-    <section aria-label="Sorting" className="border-b rule pb-3">
+    <section aria-label="Sorting">
       <div className="flex min-h-8 items-center justify-between gap-2">
         <span className="flex items-center gap-1.5">
           <span className="label">Sort</span>
@@ -111,7 +111,7 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
                   <option value="end">empty last</option>
                   <option value="start">empty first</option>
                 </select>
-                <span className="ml-auto flex items-center gap-1">
+                <span className="flex items-center gap-1">
                   <button
                     type="button"
                     aria-label={`Move ${choice?.label ?? sort.property} up`}

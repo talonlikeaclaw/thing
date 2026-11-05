@@ -78,21 +78,38 @@ export function ColumnPanel({
               )}
               <span className="truncate text-[14px]">{nameOf(key)}</span>
             </span>
-            <span className="flex items-center gap-1">
-              <SmallButton
-                label={`Move ${nameOf(key)} left`}
-                disabled={disabled || view.columns.indexOf(key) <= 1}
-                onClick={() => move(key, -1)}
-              >
-                <ChevronLeft aria-hidden size={15} />
-              </SmallButton>
-              <SmallButton
-                label={`Move ${nameOf(key)} right`}
-                disabled={disabled || view.columns.indexOf(key) === view.columns.length - 1}
-                onClick={() => move(key, 1)}
-              >
-                <ChevronRight aria-hidden size={15} />
-              </SmallButton>
+            <span className="flex items-center gap-2">
+              {/* Position is one control, not two loose arrows: a pill keeps the
+                  pair together, dims the end that cannot move, and stays 44px
+                  per side on a finger. */}
+              <span className="inline-flex items-center rounded-full border border-line-strong/70 bg-surface p-0.5">
+                <button
+                  type="button"
+                  aria-label={`Move ${nameOf(key)} left`}
+                  title={`Move ${nameOf(key)} left`}
+                  disabled={disabled || view.columns.indexOf(key) <= 1}
+                  className="inline-flex size-7 items-center justify-center rounded-full text-ink transition-colors hover:bg-accent-wash hover:text-accent-on-wash disabled:text-faint/45 disabled:hover:bg-transparent disabled:hover:text-faint/45 pointer-coarse:size-11"
+                  onClick={() => move(key, -1)}
+                >
+                  <ChevronLeft aria-hidden size={16} />
+                </button>
+                <span
+                  aria-hidden
+                  className="tnum min-w-4 text-center font-mono text-[11px] text-faint"
+                >
+                  {view.columns.indexOf(key)}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Move ${nameOf(key)} right`}
+                  title={`Move ${nameOf(key)} right`}
+                  disabled={disabled || view.columns.indexOf(key) === view.columns.length - 1}
+                  className="inline-flex size-7 items-center justify-center rounded-full text-ink transition-colors hover:bg-accent-wash hover:text-accent-on-wash disabled:text-faint/45 disabled:hover:bg-transparent disabled:hover:text-faint/45 pointer-coarse:size-11"
+                  onClick={() => move(key, 1)}
+                >
+                  <ChevronRight aria-hidden size={16} />
+                </button>
+              </span>
               <SmallButton
                 label={`Hide ${nameOf(key)}`}
                 disabled={disabled}

@@ -31,6 +31,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { ConnectionProvider } from "@/components/connection-context";
 import { HandednessProvider } from "@/components/handedness";
 import { PaletteProvider } from "@/components/palette-context";
+import { PageFooterProvider, usePageFooterSlot } from "@/components/page-footer";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
 import { SignOutDialog } from "@/components/sign-out-dialog";
@@ -448,28 +449,18 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
           <p role="status" aria-live="polite" className="sr-only">
             {announcement}
           </p>
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 focus:outline-none sm:px-6 lg:px-8 lg:py-10"
-          >
-            <TableShortcutsProvider onChange={setTableShortcuts}>
-              <Outlet />
-            </TableShortcutsProvider>
-          </main>
-          <footer className="mx-auto w-full max-w-[1400px] px-4 py-6 max-lg:pb-28 sm:px-6 lg:px-8">
-            <div className="flex flex-wrap items-baseline justify-end gap-x-4 gap-y-2 border-t rule pt-4">
-              <div className="flex items-baseline gap-3">
-                <Link
-                  to="/changelog"
-                  className="label py-1 transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
-                >
-                  Changelog
-                </Link>
-                <span className="font-mono text-[12px] tnum text-faint">v{__APP_VERSION__}</span>
-              </div>
-            </div>
-          </footer>
+          <PageFooterProvider>
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 focus:outline-none sm:px-6 lg:px-8 lg:py-10"
+            >
+              <TableShortcutsProvider onChange={setTableShortcuts}>
+                <Outlet />
+              </TableShortcutsProvider>
+            </main>
+            <ShellFooter />
+          </PageFooterProvider>
           <CommandPalette
             open={paletteOpen}
             onOpenChange={setPaletteOpen}
@@ -495,5 +486,30 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
         </div>
       </ConnectionProvider>
     </PaletteProvider>
+  );
+}
+
+/**
+ * The page's one footer rule. A page may put its own line in the leading slot
+ * through `usePageFooter`; the changelog link and version always trail it, so a
+ * cover with a colophon ends on one rule instead of two.
+ */
+function ShellFooter() {
+  const pageFooter = usePageFooterSlot();
+  return (
+    <footer className="mx-auto w-full max-w-[1400px] px-4 py-6 max-lg:pb-28 sm:px-6 lg:px-8">
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-t rule pt-4">
+        {pageFooter ? <div className="min-w-0">{pageFooter()}</div> : null}
+        <div className="ml-auto flex items-baseline gap-3">
+          <Link
+            to="/changelog"
+            className="label inline-flex items-center py-1 transition-colors hover:text-accent pointer-coarse:min-h-11"
+          >
+            Changelog
+          </Link>
+          <span className="font-mono text-[12px] tnum text-faint">v{__APP_VERSION__}</span>
+        </div>
+      </div>
+    </footer>
   );
 }

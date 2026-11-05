@@ -308,7 +308,8 @@ export function MonthGrid<T>({
               className={cn(
                 "glass-strong fixed z-50 flex flex-col overflow-hidden rounded-card text-[12px] focus:outline-none",
                 dayOpen.coarse
-                  ? "inset-x-2 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] rounded-t-field p-3"
+                  ? // Clear the phone dock: 12px inset + 68px bar + 8px gap.
+                    "inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] rounded-t-field p-3"
                   : "rounded-field p-2",
               )}
               style={

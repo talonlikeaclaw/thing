@@ -59,7 +59,13 @@ import { ThingIcon } from "@/components/thing-icon";
 import { useQuickCapture } from "@/components/quick-capture";
 import { useTableShortcuts } from "@/components/table-shortcuts";
 import { Button, FormError, TextField } from "@/components/ui/controls";
-import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { BoardView } from "@/components/views/board-view";
 import { CalendarView } from "@/components/views/calendar-view";
@@ -85,6 +91,7 @@ import {
 } from "@/lib/hotkeys";
 import { useCompactWidth } from "@/lib/media";
 import { clampPage, PAGE_SIZE, pageCount, pageFromParam, pageRange } from "@/lib/paging";
+import { keyFromName } from "@/lib/schema";
 import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
 import {
@@ -802,12 +809,16 @@ export function TypeTable({
         : `${compact || shown === total ? total : `${shown} of ${total}`} records`}
     </span>
   );
+  // The key is minted from the name, so it usually repeats it in another
+  // alphabet; the masthead prints it only when the two differ, as the cover's
+  // type ledger does.
+  const keyIsName = type.key === keyFromName(type.name);
   const pageTitle = (
     <div className="min-w-0">
       <div className="flex min-w-0 items-baseline gap-3">
         <ThingIcon icon={type.icon} name={type.name} size="lg" />
         <h1 className="display truncate text-title">{type.name_plural}</h1>
-        <span className="label tnum max-sm:hidden">{type.key}</span>
+        {keyIsName ? null : <span className="label tnum max-sm:hidden">{type.key}</span>}
       </div>
       {recordCount}
       {type.description ? (
@@ -1149,17 +1160,6 @@ export function TypeTable({
         </div>
       </header>
 
-      {canEdit && view.kind !== "calendar" ? (
-        <div id="type-columns" hidden={!columnsOpen}>
-          <ColumnPanel
-            view={view}
-            properties={properties}
-            disabled={layout.isPending}
-            onPatch={writeLayout}
-            onAddProperty={() => setAddPropertyOpen(true)}
-          />
-        </div>
-      ) : null}
 
       {canEdit && addPropertyOpen ? (
         <AddPropertyDialog
@@ -1276,52 +1276,97 @@ export function TypeTable({
         </Dialog.Root>
       ) : null}
 
+      {/* View settings and the CSV panel need more room than the toolbar, so
+          they open the same floating glass surface as every other editor
+          instead of pushing the ledger down the page. */}
       {canEdit && settingsOpen ? (
-        <ViewSettings
-          spaceId={spaceId}
-          type={type}
-          view={view}
-          properties={properties}
-          onClose={() => setSettingsOpen(false)}
-          onDeleted={selectView}
-        />
+        <Dialog.Root open onOpenChange={(open) => (open ? undefined : setSettingsOpen(false))}>
+          <Dialog.Portal>
+            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+            <SheetViewport placement="center">
+              <SheetPopup className="max-w-[36rem]">
+                <SheetHeader>
+                  <SheetTitle>View settings</SheetTitle>
+                  <SheetCloseButton label="Close view settings" />
+                </SheetHeader>
+                <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
+                  <ViewSettings
+                    spaceId={spaceId}
+                    type={type}
+                    view={view}
+                    properties={properties}
+                    embedded
+                    onClose={() => setSettingsOpen(false)}
+                    onDeleted={selectView}
+                  />
+                </div>
+              </SheetPopup>
+            </SheetViewport>
+          </Dialog.Portal>
+        </Dialog.Root>
       ) : null}
 
       {dataOpen ? (
-        <DataPanel
-          spaceId={spaceId}
-          type={type}
-          canEdit={canEdit}
-          onClose={() => setDataOpen(false)}
-          onImported={() => {
-            setDataOpen(false);
-            setSelection(new Set());
-          }}
-        />
+        <Dialog.Root open onOpenChange={(open) => (open ? undefined : setDataOpen(false))}>
+          <Dialog.Portal>
+            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+            <SheetViewport placement="center">
+              <SheetPopup className="max-w-[44rem]">
+                <SheetHeader>
+                  <SheetTitle>Data — CSV</SheetTitle>
+                  <SheetCloseButton label="Close data panel" />
+                </SheetHeader>
+                <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
+                  <DataPanel
+                    spaceId={spaceId}
+                    type={type}
+                    canEdit={canEdit}
+                    embedded
+                    onClose={() => setDataOpen(false)}
+                    onImported={() => {
+                      setDataOpen(false);
+                      setSelection(new Set());
+                    }}
+                  />
+                </div>
+              </SheetPopup>
+            </SheetViewport>
+          </Dialog.Portal>
+        </Dialog.Root>
       ) : null}
 
-      <div
-        className={
-          filterOpen || sortOpen
-            ? "mt-3 w-full rounded-[18px] glass-strong p-3 sm:ml-auto sm:max-w-[34rem]"
-            : ""
-        }
-      >
-        <div id="type-filters" hidden={!filterOpen}>
-          <FilterBar
-            spaceId={spaceId}
-            type={type}
-            properties={properties}
-            filter={query.filter}
-            onChange={setFilter}
-          />
-        </div>
-        {view.kind === "calendar" ? null : (
-          <div id="type-sorts" hidden={!sortOpen}>
-            <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
+      {/* One full-width tool surface: columns, filter and sort are the same
+          kind of panel, so they share one shell and the table keeps the width
+          of the page rather than a narrow card on the trailing edge. */}
+      {columnsOpen || filterOpen || sortOpen ? (
+        <div className="mt-3 grid w-full gap-4 rounded-[18px] glass-strong p-4">
+          {canEdit && view.kind !== "calendar" ? (
+            <div id="type-columns" hidden={!columnsOpen}>
+              <ColumnPanel
+                view={view}
+                properties={properties}
+                disabled={layout.isPending}
+                onPatch={writeLayout}
+                onAddProperty={() => setAddPropertyOpen(true)}
+              />
+            </div>
+          ) : null}
+          <div id="type-filters" hidden={!filterOpen}>
+            <FilterBar
+              spaceId={spaceId}
+              type={type}
+              properties={properties}
+              filter={query.filter}
+              onChange={setFilter}
+            />
           </div>
-        )}
-      </div>
+          {view.kind === "calendar" ? null : (
+            <div id="type-sorts" hidden={!sortOpen}>
+              <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {objects.isError ? (
         <div className="mt-6 grid max-w-[52ch] gap-3">

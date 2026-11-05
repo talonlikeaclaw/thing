@@ -6,14 +6,16 @@ const BOX = {
   sm: "size-4 text-[13px]",
   md: "size-5 text-[16px]",
   lg: "size-7 text-[24px]",
+  xl: "size-10 text-[40px]",
 } as const;
 
-const GLYPH = { sm: 11, md: 13, lg: 19 } as const;
+const GLYPH = { sm: 11, md: 13, lg: 19, xl: 32 } as const;
 
 const LETTER = {
   sm: "text-[13px]",
   md: "text-[16px]",
   lg: "text-[24px]",
+  xl: "text-[34px]",
 } as const;
 
 interface ThingIconProps {

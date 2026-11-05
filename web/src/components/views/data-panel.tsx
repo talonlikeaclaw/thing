@@ -144,11 +144,9 @@ export function DataPanel({
     <section
       aria-labelledby={embedded ? undefined : `data-panel-${type.key}`}
       aria-label={embedded ? "Data — CSV" : undefined}
-      className={embedded ? undefined : "mt-3 border-y rule py-3"}
+      className={embedded ? undefined : "mt-3 w-full rounded-[18px] glass-strong p-4"}
     >
-      {embedded ? (
-        <p className="text-[12px] text-faint">One type at a time.</p>
-      ) : (
+      {embedded ? null : (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <span id={`data-panel-${type.key}`} className="label">
             Data — CSV

@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 import { useSpace, useSpaceActivity, useSpaceGraph, useTypes } from "@/api/queries";
 import type { ActivityEntry, TypeSummary } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
+import { usePageFooter } from "@/components/page-footer";
 import { useQuickCapture } from "@/components/quick-capture";
 import { SpaceGraph } from "@/components/space-graph";
 import { ThingIcon } from "@/components/thing-icon";
@@ -35,6 +36,23 @@ export function SpacePage() {
   useRouteMeta(space.data?.name ?? "Space");
 
   const detail = space.data;
+  // The colophon is the space's, but the page has one footer rule: it joins the
+  // shell's changelog line instead of printing a second footer above it.
+  usePageFooter(() =>
+    detail ? (
+      <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+        <p className="font-mono text-[11px] text-faint">
+          space.yml · {detail.timezone} · {shortId(detail.id)}
+        </p>
+        <Link
+          to={`/s/${detail.id}/settings`}
+          className="label inline-flex items-center py-1 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11"
+        >
+          Settings
+        </Link>
+      </div>
+    ) : null,
+  );
   if (!detail) {
     return <p className="text-[13px] text-muted">Reading the space…</p>;
   }
@@ -56,8 +74,8 @@ export function SpacePage() {
       <header className="px-1 pb-7">
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
           <div className="flex min-w-0 items-center gap-4">
-            <span className="glass grid size-14 shrink-0 place-items-center rounded-[18px] text-[30px]">
-              <ThingIcon icon={detail.icon} name={detail.name} />
+            <span className="glass grid size-18 shrink-0 place-items-center rounded-[22px]">
+              <ThingIcon icon={detail.icon} name={detail.name} size="xl" />
             </span>
             <div className="min-w-0">
               <h1 className="display text-display break-words">{detail.name}</h1>
@@ -216,17 +234,6 @@ export function SpacePage() {
         </section>
       </div>
 
-      <footer className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 px-1 pt-4">
-        <p className="font-mono text-[11px] text-faint">
-          space.yml · {detail.timezone} · {shortId(detail.id)}
-        </p>
-        <Link
-          to={`/s/${detail.id}/settings`}
-          className="label py-1 text-faint transition-colors hover:text-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
-        >
-          Settings
-        </Link>
-      </footer>
     </div>
   );
 }

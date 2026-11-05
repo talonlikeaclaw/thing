@@ -83,7 +83,7 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
   }
 
   return (
-    <section aria-label="Filters" className="border-b rule pb-3">
+    <section aria-label="Filters">
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-1.5">
           <span className="label">Filter</span>

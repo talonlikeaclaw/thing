@@ -80,7 +80,7 @@ export function ViewSettings({
   return (
     <section
       aria-label="View settings"
-      className={embedded ? undefined : "mt-3 border-y rule py-3"}
+      className={embedded ? undefined : "mt-3 w-full rounded-[18px] glass-strong p-4"}
     >
       {embedded ? null : (
         <div className="flex items-baseline justify-between gap-2">
