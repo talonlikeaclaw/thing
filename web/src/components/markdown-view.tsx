@@ -173,7 +173,7 @@ export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewPr
               return (
                 <Link
                   to={href}
-                  className="text-accent underline decoration-line-strong hover:decoration-accent"
+                  className="text-accent underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
                 >
                   {children}
                 </Link>
@@ -184,7 +184,7 @@ export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewPr
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className="text-accent underline decoration-line-strong hover:decoration-accent"
+                className="text-accent underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
               >
                 {children}
               </a>

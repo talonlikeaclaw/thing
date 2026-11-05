@@ -6,6 +6,21 @@
  * them in a busy space does not hide them in every space.
  */
 
+/**
+ * The name a node shows. A shortened title stops at a space — `Monstera in…`,
+ * never `Monstera in the s…` — so the map points at the record instead of
+ * snipping a word in half.
+ */
+export function shortTitle(title: string, maxChars: number): string {
+  if (title.length <= maxChars) {
+    return title;
+  }
+  const cut = title.slice(0, maxChars - 1);
+  const boundary = cut.lastIndexOf(" ");
+  const head = boundary > 0 ? cut.slice(0, boundary) : cut;
+  return `${head.trimEnd()}…`;
+}
+
 /** The slice of `Storage` this module needs; a fake can stand in for it. */
 export interface GraphLabelStorage {
   getItem(key: string): string | null;

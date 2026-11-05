@@ -290,7 +290,7 @@ function TrashList({
           action={
             <Link
               to={`/s/${spaceId}`}
-              className="w-fit text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11 pointer-coarse:content-center"
+              className="inline-flex w-fit items-center text-[13px] text-accent underline decoration-accent/50 underline-offset-2 hover:decoration-accent pointer-coarse:min-h-11"
             >
               Back to the space
             </Link>

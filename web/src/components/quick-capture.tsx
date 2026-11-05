@@ -515,7 +515,7 @@ function QuickCaptureDialog({
                     <p className="text-[13px] text-muted">
                       A type is the table a record belongs to.{" "}
                       <Link
-                        className="text-accent underline decoration-accent/50 underline-offset-2"
+                        className="text-accent underline decoration-accent/50 underline-offset-2 pointer-coarse:py-3.5"
                         to={`/s/${spaceId}/schema`}
                         onClick={() => onOpenChange(false)}
                       >

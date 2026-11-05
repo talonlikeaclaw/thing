@@ -266,7 +266,7 @@ export function MonthGrid<T>({
                     <Link
                       to={hrefOf(item)}
                       title={titleOf?.(item)}
-                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised"
+                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-0"
                       onClick={(event) => {
                         // A finger cannot aim at a ~50 px chip, so a tap
                         // opens the day and its full rows.

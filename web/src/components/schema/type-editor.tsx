@@ -276,7 +276,7 @@ export function TypeEditor({
           />
         </FieldRow>
         <FieldRow label="Scheduling" htmlFor={`type-${type.key}-schedule`}>
-          <div className="flex min-h-10 items-center gap-2 pointer-coarse:min-h-11">
+          <label className="flex min-h-10 cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
             <input
               id={`type-${type.key}-schedule`}
               type="checkbox"
@@ -284,10 +284,8 @@ export function TypeEditor({
               disabled={!canEdit}
               onChange={(event) => setSchedule(event.target.checked)}
             />
-            <label htmlFor={`type-${type.key}-schedule`} className="text-[14px]">
-              Due dates, repeats and Complete
-            </label>
-          </div>
+            <span className="text-[14px]">Due dates, repeats and Complete</span>
+          </label>
           <p className="max-w-[62ch] text-[13px] text-muted">
             Values live on each record. Complete writes the last completion and advances a
             recurring due date.
@@ -388,7 +386,7 @@ export function TypeEditor({
                   ) : (
                     <Link
                       to={`/s/${spaceId}/o/${record.id}`}
-                      className="text-ink underline decoration-line-strong hover:decoration-accent"
+                      className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
                     >
                       {record.title}
                     </Link>
@@ -408,14 +406,14 @@ export function TypeEditor({
                 to={`/s/${spaceId}/t/${type.key}?filter=${encodeURIComponent(
                   filterParam(scheduleKeyFilter),
                 )}`}
-                className="text-ink underline decoration-line-strong hover:decoration-accent"
+                className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
               >
                 Show live records with schedule values
               </Link>
             ) : null}
             <Link
               to={`/s/${spaceId}/trash`}
-              className="text-ink underline decoration-line-strong hover:decoration-accent"
+              className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
             >
               Open trash
             </Link>
@@ -477,7 +475,7 @@ export function TypeEditor({
           Columns, grouping and calendar layout are per view on the{" "}
           <Link
             to={`/s/${spaceId}/t/${type.key}`}
-            className="text-ink underline decoration-line-strong hover:decoration-accent"
+            className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
           >
             type page
           </Link>

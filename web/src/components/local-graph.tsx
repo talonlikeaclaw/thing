@@ -13,9 +13,15 @@ import { cn } from "@/lib/cn";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 
 const WIDE_WIDTH = 640;
-/** A phone keeps the viewBox at its own width, so 12px labels stay 12px. */
-const COMPACT_WIDTH = 390;
+/**
+ * The phone authors its map at 320 units, like the space map, so labels scale
+ * up rather than down (390 units resolved a 12px label to 10.5px) and a
+ * 23-unit hit circle clears 44 CSS px.
+ */
+const COMPACT_WIDTH = 320;
 const HEIGHT = 320;
+/** The invisible finger target around each neighbour's mark. */
+const HIT_RADIUS = 23;
 /** Long titles would run off the ring; the tooltip and the row keep the rest. */
 const LABEL_CHARS = 26;
 /** A dense ring alternates labels between two vertical tracks and shortens them. */
@@ -225,6 +231,7 @@ export function LocalGraph({
               <title>
                 {node.title} · {typeName}
               </title>
+              <circle cx={point.x} cy={point.y} r={HIT_RADIUS} fill="transparent" />
               <circle
                 cx={point.x}
                 cy={point.y}

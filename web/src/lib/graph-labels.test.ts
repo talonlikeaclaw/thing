@@ -4,6 +4,7 @@ import {
   DEFAULT_GRAPH_LABELS,
   graphLabelsKey,
   readGraphLabels,
+  shortTitle,
   writeGraphLabels,
   type GraphLabelStorage,
 } from "@/lib/graph-labels";
@@ -67,5 +68,24 @@ describe("writeGraphLabels", () => {
       },
     };
     expect(() => writeGraphLabels(refusing, key, false)).not.toThrow();
+  });
+});
+
+describe("shortTitle", () => {
+  it("keeps a title that fits", () => {
+    expect(shortTitle("Snake plant", 18)).toBe("Snake plant");
+  });
+
+  it("stops at a space instead of snipping a word", () => {
+    expect(shortTitle("Monstera in the study", 18)).toBe("Monstera in the…");
+    expect(shortTitle("Repot the fiddle-leaf", 18)).toBe("Repot the…");
+  });
+
+  it("hard-cuts a title with no boundary to stop at", () => {
+    expect(shortTitle("Monstera", 5)).toBe("Mons…");
+  });
+
+  it("never leaves a trailing space before the ellipsis", () => {
+    expect(shortTitle("Water the monstera", 11)).toBe("Water the…");
   });
 });

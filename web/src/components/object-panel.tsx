@@ -1103,10 +1103,10 @@ export function ObjectPanel({
       </fieldset>
 
       <section aria-label="Body" className="mt-10 xl:col-span-8 xl:col-start-1 xl:mt-8">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">
           <div className="min-w-0">
-            <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-heading font-medium">
-              <AlignLeft aria-hidden size={15} strokeWidth={1.5} className="text-muted" />
+            <h2 className="label flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
               <span
                 aria-label="Unsaved change"
                 title="Unsaved change"
@@ -1116,7 +1116,7 @@ export function ObjectPanel({
                 )}
               />
               Body
-              <span className="font-mono text-[length:var(--text-small)] font-normal text-faint tnum">
+              <span className="font-mono text-[11px] font-normal tracking-normal text-faint normal-case tnum">
                 {bodyWords} {bodyWords === 1 ? "word" : "words"} · {bodyChars}{" "}
                 {bodyChars === 1 ? "character" : "characters"}
               </span>

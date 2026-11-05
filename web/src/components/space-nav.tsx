@@ -675,11 +675,11 @@ function UtilityLinks({
                     size={14}
                     className={cn("shrink-0", active ? "text-accent" : "text-faint")}
                   />
-                  <span>{item.label}</span>
+                  <span className="truncate">{item.label}</span>
                 </span>
-                {key === "schedule" && overdue > 0 ? (
+                {key === "schedule" && overdue > 0 && !reordering ? (
                   <span
-                    className="rounded-full border border-danger px-1.5 text-[11px] tnum text-danger"
+                    className="shrink-0 rounded-full border border-danger px-1.5 text-[11px] tnum text-danger"
                     title={`${overdue} overdue`}
                   >
                     {overdue}

@@ -299,7 +299,7 @@ export function PropertyEditor({
                   <li key={`${view.type}:${view.view}:${view.field}`}>
                     <Link
                       to={`/s/${spaceId}/t/${view.type}?view=${view.view}&settings=1`}
-                      className="text-ink underline decoration-line-strong hover:decoration-accent"
+                      className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
                     >
                       {view.typeName} › {view.viewName}
                     </Link>{" "}
