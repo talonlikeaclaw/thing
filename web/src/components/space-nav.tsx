@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   House,
+  Keyboard,
   LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
@@ -27,6 +28,7 @@ import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
 import { useHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
 import { useQuickCapture } from "@/components/quick-capture";
+import { useShortcuts } from "@/components/shortcut-context";
 import { ThingIcon } from "@/components/thing-icon";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
@@ -96,6 +98,7 @@ export function SpaceNav({
   const me = useMe();
   const capture = useQuickCapture();
   const palette = usePalette();
+  const shortcuts = useShortcuts();
   const { handedness } = useHandedness();
   const list: SpaceSummary[] = spaces.data ?? [];
   // The rail badge reports the whole space, never a page filter: every overdue
@@ -375,7 +378,7 @@ export function SpaceNav({
               </div>
               <div
                 ref={sheetRef}
-                className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]"
+                className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-3 pb-3 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]"
               >
                 <SpaceSwitcher
                   id="space-switcher-mobile"
@@ -413,7 +416,7 @@ export function SpaceNav({
                 <button
                   type="button"
                   aria-label={`Show ${types.length === 1 ? "the type" : `${types.length} types`} below`}
-                  className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-t rule bg-raised/60 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-left transition-colors hover:bg-raised"
+                  className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-t rule bg-raised/60 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-2 pt-2 text-left transition-colors hover:bg-raised"
                   onClick={showTypes}
                 >
                   {handedness === "left" ? (
@@ -429,6 +432,22 @@ export function SpaceNav({
                   )}
                 </button>
               ) : null}
+              {/* A phone has no `?` key. The sheet's footer is the one place
+                  the shortcut list can be reached from the thumb, and it
+                  stays put while the list above it scrolls. */}
+              <div className="flex shrink-0 items-center border-t rule pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2">
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-field px-1.5 text-[13px] text-muted transition-colors hover:text-ink"
+                  onClick={() => {
+                    close();
+                    shortcuts.open();
+                  }}
+                >
+                  <Keyboard aria-hidden size={16} />
+                  Keyboard shortcuts
+                </button>
+              </div>
             </SheetPopup>
           </SheetViewport>
         </Dialog.Portal>

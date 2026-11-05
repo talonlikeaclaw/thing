@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
-import { hotkeyLabel, isEditableTarget } from "@/lib/hotkeys";
+import {
+  hotkeyLabel,
+  isEditableTarget,
+  useGlobalHotkeys,
+  type HotkeyBinding,
+} from "@/lib/hotkeys";
 
 describe("isEditableTarget", () => {
   it("recognises text fields and selects", () => {
@@ -34,5 +40,37 @@ describe("hotkeyLabel", () => {
 
   it("prints the platform's modifier cap", () => {
     expect(hotkeyLabel("k", true)).toMatch(/^(⌘K|Ctrl K)$/);
+  });
+});
+
+function pressEscape(): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", {
+    key: "Escape",
+    bubbles: true,
+    cancelable: true,
+  });
+  window.dispatchEvent(event);
+  return event;
+}
+
+function bind(run: HotkeyBinding["run"]) {
+  renderHook(() => useGlobalHotkeys([{ key: "escape", allowInInput: true, run }]));
+}
+
+describe("useGlobalHotkeys", () => {
+  it("leaves an unclaimed key for the surface below", () => {
+    const run = vi.fn(() => false);
+    bind(run);
+    const event = pressEscape();
+    expect(run).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("prevents the default once a binding takes the key", () => {
+    const run = vi.fn();
+    bind(run);
+    const event = pressEscape();
+    expect(run).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
   });
 });

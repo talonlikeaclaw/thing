@@ -523,9 +523,14 @@ export function ObjectPanel({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      // Only an open dialog owns Escape. The palette, capture and background
+      // sheets stay mounted while closed, each with `hidden`, so a bare role
+      // query would swallow every Escape on the record.
       if (
         event.defaultPrevented ||
-        document.querySelector('[role="dialog"], [role="alertdialog"]')
+        document.querySelector(
+          '[role="dialog"]:not([hidden]), [role="alertdialog"]:not([hidden])',
+        )
       ) {
         return;
       }

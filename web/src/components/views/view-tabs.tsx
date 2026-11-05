@@ -262,6 +262,7 @@ export function ViewTabs({
                 type="button"
                 role="tab"
                 aria-selected={selected}
+                aria-controls={`view-panel-${type.key}`}
                 tabIndex={selected ? 0 : -1}
                 title={`${viewKindLabel(view.kind)} view`}
                 className={cn(

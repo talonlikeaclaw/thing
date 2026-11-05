@@ -34,6 +34,7 @@ import { PaletteProvider } from "@/components/palette-context";
 import { PageFooterProvider, usePageFooterSlot } from "@/components/page-footer";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
+import { ShortcutsProvider } from "@/components/shortcut-context";
 import { SignOutDialog } from "@/components/sign-out-dialog";
 import { TableShortcutsProvider } from "@/components/table-shortcuts";
 import { focusSheetField, sheetReturnFocus } from "@/components/ui/sheet";
@@ -240,11 +241,19 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
     escape: () => {
       if (capture.isOpen) {
         capture.close();
-      } else if (paletteOpen) {
-        setPaletteOpen(false);
-      } else if (shortcutsOpen) {
-        setShortcutsOpen(false);
+        return true;
       }
+      if (paletteOpen) {
+        setPaletteOpen(false);
+        return true;
+      }
+      if (shortcutsOpen) {
+        setShortcutsOpen(false);
+        return true;
+      }
+      // Nothing of the shell's is open: leave the key for the page below, so a
+      // record's Escape still closes its cell editor or leaves the record.
+      return false;
     },
   };
   // A viewer sees no capture action, and the `c` sheet line would lie there.
@@ -267,6 +276,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
     ];
   });
   const shortcutLabel = useGlobalHotkeys(bindings);
+  const openShortcuts = useCallback(() => setShortcutsOpen(true), []);
   // The header's cap and the registered binding read one descriptor, so the
   // advertised key cannot drift from the one that fires.
   const captureShortcut = SHORTCUTS.find((shortcut) => shortcut.id === "capture");
@@ -292,199 +302,201 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
 
   return (
     <PaletteProvider open={openPalette} isOpen={paletteOpen}>
-      <ConnectionProvider state={connection}>
-        <div className="flex min-h-dvh flex-col">
-          <ScrollRestoration />
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-full focus:border focus:border-line-interactive focus:bg-surface focus:px-4 focus:py-2 focus:text-[13px] focus:text-ink"
-          >
-            Skip to content
-          </a>
-          {/*
-            Below `lg` the header is part of the page flow: a phone, and a
-            phone on its side in particular, cannot spend a fixed 80px of a
-            short viewport on chrome the reader may already know. From `lg` it
-            sticks, and the rail and page headers offset by
-            `--shell-header-h`.
-          */}
-          <header className="z-30 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-3 lg:sticky lg:top-0">
+      <ShortcutsProvider open={openShortcuts}>
+        <ConnectionProvider state={connection}>
+          <div className="flex min-h-dvh flex-col">
+            <ScrollRestoration />
+            <a
+              href="#main-content"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-full focus:border focus:border-line-interactive focus:bg-surface focus:px-4 focus:py-2 focus:text-[13px] focus:text-ink"
+            >
+              Skip to content
+            </a>
             {/*
-              The header is a floating glass panel, not a full-bleed bar: the
-              page's top light and any scrolling content stay visible around its
-              edge, which is what makes the frost read as a material.
+              Below `lg` the header is part of the page flow: a phone, and a
+              phone on its side in particular, cannot spend a fixed 80px of a
+              short viewport on chrome the reader may already know. From `lg` it
+              sticks, and the rail and page headers offset by
+              `--shell-header-h`.
             */}
-            <div className="glass mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 rounded-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-6 sm:pr-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10 lg:rounded-[20px]">
-              <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
-                <Wordmark />
-                {/* The text below is `sm` and up; a phone still needs to see
-                    that the socket is down, without moving Search or Capture. */}
-                {spaceId && connection !== "live" ? (
-                  <span
-                    role="status"
-                    title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
-                    aria-label={
-                      connection === "connecting" ? "Connecting…" : "Offline, reconnecting"
-                    }
-                    className="size-2 shrink-0 rounded-full bg-warning sm:hidden"
-                  />
-                ) : null}
-                {/* The space navigation portals its phone trigger here, so the
-                    top bar names the space without duplicating the sheet. */}
-                <div id={PHONE_SPACE_SLOT_ID} className="min-w-0 flex-1 lg:hidden" />
-              </div>
-              <div
-                // Two groups: global chrome at the content edge and the space's
-                // own action after it, the account controls at the container's
-                // trailing edge. Below `lg` both groups sit together at the right.
-                className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4 lg:ml-0 lg:justify-between"
-              >
-                <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-                  <Button
-                    variant="ghost"
-                    aria-label={`Search and commands (${shortcutLabel})`}
-                    aria-haspopup="dialog"
-                    className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
-                    onClick={openPalette}
-                  >
-                    <Search aria-hidden size={15} />
-                    <span>Search</span>
-                    <Keycap>{shortcutLabel}</Keycap>
-                  </Button>
-                  {capture.available ? (
-                    <Button
-                      variant="ghost"
-                      aria-label={`Capture a record (${captureShortcut?.keys ?? "C"})`}
-                      aria-keyshortcuts={captureShortcut?.key ?? "c"}
-                      aria-haspopup="dialog"
-                      className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
-                      onClick={() => capture.open()}
-                    >
-                      <Plus aria-hidden size={15} />
-                      <span>Capture</span>
-                      <Keycap>{captureShortcut?.keys ?? "C"}</Keycap>
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="ghost"
-                    aria-label="Keyboard shortcuts (?)"
-                    aria-keyshortcuts="?"
-                    aria-haspopup="dialog"
-                    className="hidden min-h-11 min-w-11 shrink-0 px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:hidden"
-                    onClick={() => setShortcutsOpen(true)}
-                  >
-                    <Keyboard aria-hidden size={15} />
-                    <span className="hidden sm:inline">Shortcuts</span>
-                    <Keycap className="hidden md:inline">?</Keycap>
-                  </Button>
-                  {/* The state follows every nav action, so Search and Capture
-                      keep their positions when the connection drops. */}
+            <header className="z-30 px-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-3 lg:sticky lg:top-0">
+              {/*
+                The header is a floating glass panel, not a full-bleed bar: the
+                page's top light and any scrolling content stay visible around its
+                edge, which is what makes the frost read as a material.
+              */}
+              <div className="glass mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between gap-4 rounded-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-6 sm:pr-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10 lg:rounded-[20px]">
+                <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-none">
+                  <Wordmark />
+                  {/* The text below is `sm` and up; a phone still needs to see
+                      that the socket is down, without moving Search or Capture. */}
                   {spaceId && connection !== "live" ? (
                     <span
                       role="status"
                       title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
-                      className="hidden min-w-0 truncate font-mono text-[11px] text-warning sm:inline"
-                    >
-                      {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
-                    </span>
-                  ) : null}
-                </div>
-                {/*
-                  One labelled menu closes the row: the trigger names the
-                  signed-in account, and Account settings and Sign out are its
-                  two items. Base UI keeps the arrow-key roving, Escape and the
-                  focus return; closing without signing out returns focus to the
-                  trigger, because the menu item that opened the dialog is gone.
-                */}
-                <div className="flex shrink-0 items-center gap-2">
-                  <Menu.Root>
-                    <Menu.Trigger
-                      id={ACCOUNT_TRIGGER_ID}
-                      render={
-                        <Button
-                          variant="ghost"
-                          aria-label="Account menu"
-                          className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
-                        />
+                      aria-label={
+                        connection === "connecting" ? "Connecting…" : "Offline, reconnecting"
                       }
+                      className="size-2 shrink-0 rounded-full bg-warning sm:hidden"
+                    />
+                  ) : null}
+                  {/* The space navigation portals its phone trigger here, so the
+                      top bar names the space without duplicating the sheet. */}
+                  <div id={PHONE_SPACE_SLOT_ID} className="min-w-0 flex-1 lg:hidden" />
+                </div>
+                <div
+                  // Two groups: global chrome at the content edge and the space's
+                  // own action after it, the account controls at the container's
+                  // trailing edge. Below `lg` both groups sit together at the right.
+                  className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4 lg:ml-0 lg:justify-between"
+                >
+                  <div className="flex min-w-0 items-center gap-2 sm:gap-4">
+                    <Button
+                      variant="ghost"
+                      aria-label={`Search and commands (${shortcutLabel})`}
+                      aria-haspopup="dialog"
+                      className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
+                      onClick={openPalette}
                     >
-                      <UserRound aria-hidden size={15} />
-                      <span className="hidden max-w-[15rem] truncate sm:inline">
-                        {me.data?.email ?? "Account"}
+                      <Search aria-hidden size={15} />
+                      <span>Search</span>
+                      <Keycap>{shortcutLabel}</Keycap>
+                    </Button>
+                    {capture.available ? (
+                      <Button
+                        variant="ghost"
+                        aria-label={`Capture a record (${captureShortcut?.keys ?? "C"})`}
+                        aria-keyshortcuts={captureShortcut?.key ?? "c"}
+                        aria-haspopup="dialog"
+                        className="max-lg:hidden min-h-8 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
+                        onClick={() => capture.open()}
+                      >
+                        <Plus aria-hidden size={15} />
+                        <span>Capture</span>
+                        <Keycap>{captureShortcut?.keys ?? "C"}</Keycap>
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      aria-label="Keyboard shortcuts (?)"
+                      aria-keyshortcuts="?"
+                      aria-haspopup="dialog"
+                      className="hidden min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-2"
+                      onClick={() => setShortcutsOpen(true)}
+                    >
+                      <Keyboard aria-hidden size={15} />
+                      <span className="hidden sm:inline pointer-coarse:hidden">Shortcuts</span>
+                      <Keycap className="hidden md:inline pointer-coarse:hidden">?</Keycap>
+                    </Button>
+                    {/* The state follows every nav action, so Search and Capture
+                        keep their positions when the connection drops. */}
+                    {spaceId && connection !== "live" ? (
+                      <span
+                        role="status"
+                        title={connection === "connecting" ? "Connecting…" : "Offline, reconnecting"}
+                        className="hidden min-w-0 truncate font-mono text-[11px] text-warning sm:inline"
+                      >
+                        {connection === "connecting" ? "connecting…" : "offline · reconnecting…"}
                       </span>
-                      <ChevronDown aria-hidden size={13} className="hidden text-faint sm:inline" />
-                    </Menu.Trigger>
-                    <Menu.Portal>
-                      <Menu.Positioner sideOffset={6} align="end" className="z-50">
-                        <Menu.Popup className="glass-strong min-w-[15rem] rounded-card p-1.5 text-[13px] text-ink outline-none">
-                          <Menu.LinkItem
-                            render={<Link to="/settings" />}
-                            closeOnClick
-                            className={menuItem}
-                          >
-                            <Settings aria-hidden size={14} className="text-faint" />
-                            Account settings
-                          </Menu.LinkItem>
-                          <Menu.Separator className="my-1 h-px bg-line" />
-                          <Menu.Item
-                            className={menuItem}
-                            onClick={() => setSignOutOpen(true)}
-                          >
-                            <LogOut aria-hidden size={14} className="text-faint" />
-                            Sign out
-                          </Menu.Item>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </Menu.Root>
-                  <SignOutDialog
-                    open={signOutOpen}
-                    onOpenChange={setSignOutOpen}
-                    finalFocus={accountTriggerRef}
-                  />
+                    ) : null}
+                  </div>
+                  {/*
+                    One labelled menu closes the row: the trigger names the
+                    signed-in account, and Account settings and Sign out are its
+                    two items. Base UI keeps the arrow-key roving, Escape and the
+                    focus return; closing without signing out returns focus to the
+                    trigger, because the menu item that opened the dialog is gone.
+                  */}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Menu.Root>
+                      <Menu.Trigger
+                        id={ACCOUNT_TRIGGER_ID}
+                        render={
+                          <Button
+                            variant="ghost"
+                            aria-label="Account menu"
+                            className="min-h-11 min-w-11 px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:min-h-11"
+                          />
+                        }
+                      >
+                        <UserRound aria-hidden size={15} />
+                        <span className="hidden max-w-[15rem] truncate sm:inline">
+                          {me.data?.email ?? "Account"}
+                        </span>
+                        <ChevronDown aria-hidden size={13} className="hidden text-faint sm:inline" />
+                      </Menu.Trigger>
+                      <Menu.Portal>
+                        <Menu.Positioner sideOffset={6} align="end" className="z-50">
+                          <Menu.Popup className="glass-strong min-w-[15rem] rounded-card p-1.5 text-[13px] text-ink outline-none">
+                            <Menu.LinkItem
+                              render={<Link to="/settings" />}
+                              closeOnClick
+                              className={menuItem}
+                            >
+                              <Settings aria-hidden size={14} className="text-faint" />
+                              Account settings
+                            </Menu.LinkItem>
+                            <Menu.Separator className="my-1 h-px bg-line" />
+                            <Menu.Item
+                              className={menuItem}
+                              onClick={() => setSignOutOpen(true)}
+                            >
+                              <LogOut aria-hidden size={14} className="text-faint" />
+                              Sign out
+                            </Menu.Item>
+                          </Menu.Popup>
+                        </Menu.Positioner>
+                      </Menu.Portal>
+                    </Menu.Root>
+                    <SignOutDialog
+                      open={signOutOpen}
+                      onOpenChange={setSignOutOpen}
+                      finalFocus={accountTriggerRef}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </header>
-          <p role="status" aria-live="polite" className="sr-only">
-            {announcement}
-          </p>
-          <PageFooterProvider>
-            <main
-              id="main-content"
-              tabIndex={-1}
-              className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 focus:outline-none sm:px-6 lg:px-8 lg:py-10"
-            >
-              <TableShortcutsProvider onChange={setTableShortcuts}>
-                <Outlet />
-              </TableShortcutsProvider>
-            </main>
-            <ShellFooter />
-          </PageFooterProvider>
-          <CommandPalette
-            open={paletteOpen}
-            onOpenChange={setPaletteOpen}
-            inputRef={paletteInputRef}
-            returnFocusRef={paletteReturnFocus}
-            spaceId={spaceId}
-            {...(capture.available
-              ? {
-                  // Capture takes over focus; the closing palette must not pull
-                  // it back to the bar before the capture field keeps the tap.
-                  onCapture: () => {
-                    paletteReturnFocus.current = null;
-                    capture.open();
-                  },
-                }
-              : {})}
-          />
-          <ShortcutSheet
-            open={shortcutsOpen}
-            onOpenChange={setShortcutsOpen}
-            shortcuts={activeShortcuts}
-          />
-        </div>
-      </ConnectionProvider>
+            </header>
+            <p role="status" aria-live="polite" className="sr-only">
+              {announcement}
+            </p>
+            <PageFooterProvider>
+              <main
+                id="main-content"
+                tabIndex={-1}
+                className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 focus:outline-none sm:px-6 lg:px-8 lg:py-10"
+              >
+                <TableShortcutsProvider onChange={setTableShortcuts}>
+                  <Outlet />
+                </TableShortcutsProvider>
+              </main>
+              <ShellFooter />
+            </PageFooterProvider>
+            <CommandPalette
+              open={paletteOpen}
+              onOpenChange={setPaletteOpen}
+              inputRef={paletteInputRef}
+              returnFocusRef={paletteReturnFocus}
+              spaceId={spaceId}
+              {...(capture.available
+                ? {
+                    // Capture takes over focus; the closing palette must not pull
+                    // it back to the bar before the capture field keeps the tap.
+                    onCapture: () => {
+                      paletteReturnFocus.current = null;
+                      capture.open();
+                    },
+                  }
+                : {})}
+            />
+            <ShortcutSheet
+              open={shortcutsOpen}
+              onOpenChange={setShortcutsOpen}
+              shortcuts={activeShortcuts}
+            />
+          </div>
+        </ConnectionProvider>
+      </ShortcutsProvider>
     </PaletteProvider>
   );
 }

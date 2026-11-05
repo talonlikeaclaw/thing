@@ -1368,217 +1368,228 @@ export function TypeTable({
         </div>
       ) : null}
 
-      {objects.isError ? (
-        <div className="mt-6 grid max-w-[52ch] gap-3">
-          <FormError message={readError(objects.error)} />
-          <Button variant="ghost" className="w-fit" onClick={() => void objects.refetch()}>
-            Retry
-          </Button>
-        </div>
-      ) : objects.isPending ? (
-        <p className="mt-6 text-[13px] text-muted">Reading records…</p>
-      ) : total === 0 ? (
-        <div className="mt-6 grid max-w-[52ch] gap-3 border-t rule pt-4">
-          <p className="text-muted">
-            {hasFilter || q
-              ? "No records match this view."
-              : "This type has no records yet."}
-          </p>
-          {hasFilter || q ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {hasFilter ? (
+      {/*
+        One panel for the selected view: the tab owns it through
+        `aria-controls`, and the panel names the active tab. The records and
+        their paging are the panel's content; the strip is navigation.
+      */}
+      <div
+        role="tabpanel"
+        id={`view-panel-${type.key}`}
+        aria-labelledby={`view-tab-${view.key}`}
+      >
+        {objects.isError ? (
+          <div className="mt-6 grid max-w-[52ch] gap-3">
+            <FormError message={readError(objects.error)} />
+            <Button variant="ghost" className="w-fit" onClick={() => void objects.refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : objects.isPending ? (
+          <p className="mt-6 text-[13px] text-muted">Reading records…</p>
+        ) : total === 0 ? (
+          <div className="mt-6 grid max-w-[52ch] gap-3 border-t rule pt-4">
+            <p className="text-muted">
+              {hasFilter || q
+                ? "No records match this view."
+                : "This type has no records yet."}
+            </p>
+            {hasFilter || q ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {hasFilter ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                    onClick={clearFilter}
+                  >
+                    Clear filters
+                  </Button>
+                ) : null}
+                {q ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                    onClick={clearSearch}
+                  >
+                    Clear search
+                  </Button>
+                ) : null}
+              </div>
+            ) : canEdit ? (
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  variant="ghost"
-                  className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-                  onClick={clearFilter}
+                  className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                  onClick={() => capture.open(type.key)}
                 >
-                  Clear filters
+                  New {type.name.toLowerCase()}
                 </Button>
-              ) : null}
-              {q ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-                  onClick={clearSearch}
-                >
-                  Clear search
-                </Button>
-              ) : null}
-            </div>
-          ) : canEdit ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
-                onClick={() => capture.open(type.key)}
-              >
-                New {type.name.toLowerCase()}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
-                onClick={openDataPanel}
-              >
-                Import CSV
-              </Button>
-              {view.kind === "board" || view.kind === "gallery" ? (
                 <Button
                   type="button"
                   variant="ghost"
                   className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={openDataPanel}
                 >
-                  Open view settings
+                  Import CSV
                 </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : view.kind === "board" ? (
-        <BoardView
-          spaceId={spaceId}
-          timeZone={timeZone}
-          view={view}
-          rows={rows}
-          properties={properties}
-          canEdit={canEdit}
-          completing={complete.isPending}
-          pendingRows={pendingRows}
-          verb={verb}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onComplete={completeRecord}
-          onDuplicate={duplicateRecord}
-          onTrash={trashRecord}
-        />
-      ) : view.kind === "gallery" ? (
-        <GalleryView
-          spaceId={spaceId}
-          timeZone={timeZone}
-          type={type}
-          view={view}
-          rows={rows}
-          properties={properties}
-          canEdit={canEdit}
-          completing={complete.isPending}
-          pendingRows={pendingRows}
-          verb={verb}
-          onComplete={completeRecord}
-          onDuplicate={duplicateRecord}
-          onTrash={trashRecord}
-        />
-      ) : view.kind === "calendar" ? (
-        <CalendarView
-          spaceId={spaceId}
-          view={view}
-          {...(tableView
-            ? { tableHref: `/s/${spaceId}/t/${type.key}?view=${tableView.key}` }
-            : {})}
-          rows={rows}
-          properties={properties}
-          month={month}
-          today={today}
-          canEdit={canEdit}
-          completing={complete.isPending}
-          pendingRows={pendingRows}
-          verb={verb}
-          onComplete={completeRecord}
-          onDuplicate={duplicateRecord}
-          onTrash={trashRecord}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onMonthChange={setMonth}
-        />
-      ) : (
-        // The selection band floats over the scrollport instead of pushing the
-        // table down; the scrollport keeps room at its end so no row is
-        // permanently hidden behind it.
-        <div className="relative">
-          <TableView
-            key={view.key}
+                {view.kind === "board" || view.kind === "gallery" ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                    onClick={() => setSettingsOpen(true)}
+                  >
+                    Open view settings
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : view.kind === "board" ? (
+          <BoardView
             spaceId={spaceId}
+            timeZone={timeZone}
+            view={view}
+            rows={rows}
+            properties={properties}
+            canEdit={canEdit}
+            completing={complete.isPending}
+            pendingRows={pendingRows}
+            verb={verb}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onComplete={completeRecord}
+            onDuplicate={duplicateRecord}
+            onTrash={trashRecord}
+          />
+        ) : view.kind === "gallery" ? (
+          <GalleryView
+            spaceId={spaceId}
+            timeZone={timeZone}
             type={type}
             view={view}
             rows={rows}
             properties={properties}
             canEdit={canEdit}
             completing={complete.isPending}
-            busy={busy}
-            sorts={query.sorts}
-            selected={selection}
             pendingRows={pendingRows}
-            bulkOpen={bulkPanelOpen && selectedRows.length > 0}
-            timeZone={timeZone}
-            onSort={sortBy}
-            onToggleRow={toggleRow}
-            onToggleAll={toggleAll}
-            onClearSelection={() => setSelection(new Set())}
-            onTitleCommit={commitTitle}
-            onCellCommit={commitCell}
+            verb={verb}
             onComplete={completeRecord}
             onDuplicate={duplicateRecord}
             onTrash={trashRecord}
-            onFocusSearch={focusSearch}
-            onAddProperty={() => setAddPropertyOpen(true)}
-            layoutPending={layout.isPending}
-            onResize={commitWidth}
-            compactStatus={compactStatus}
           />
-          {canEdit && selectedRows.length > 0 ? (
-            <div className="absolute inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 md:inset-x-3 md:bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <BulkBar
-                spaceId={spaceId}
-                properties={properties}
-                initialPropertyKey={initialBulkKey}
-                requiredKeys={requiredKeys}
-                rows={selectedRows}
-                onPanelChange={setBulkPanelOpen}
-                onResult={(failed) => setSelection(new Set(failed))}
-                onClear={() => setSelection(new Set())}
-                onUndoTrash={undoBulkTrash}
-                onUndoDuplicate={undoBulkDuplicate}
-              />
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {objects.data && isTable && (total > PAGE_SIZE || page > 1) ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3">
-          <span className="font-mono text-[11px] tnum text-muted">
-            {range.first === 0 ? "0" : `${range.first}–${range.last}`} of {total}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              aria-label="Previous page"
-              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-              disabled={page <= 1}
-              onClick={() => goPage(page - 1)}
-            >
-              Prev
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              aria-label="Next page"
-              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-              disabled={page >= pageCount(total)}
-              onClick={() => goPage(page + 1)}
-            >
-              Next
-            </Button>
+        ) : view.kind === "calendar" ? (
+          <CalendarView
+            spaceId={spaceId}
+            view={view}
+            {...(tableView
+              ? { tableHref: `/s/${spaceId}/t/${type.key}?view=${tableView.key}` }
+              : {})}
+            rows={rows}
+            properties={properties}
+            month={month}
+            today={today}
+            canEdit={canEdit}
+            completing={complete.isPending}
+            pendingRows={pendingRows}
+            verb={verb}
+            onComplete={completeRecord}
+            onDuplicate={duplicateRecord}
+            onTrash={trashRecord}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onMonthChange={setMonth}
+          />
+        ) : (
+          // The selection band floats over the scrollport instead of pushing the
+          // table down; the scrollport keeps room at its end so no row is
+          // permanently hidden behind it.
+          <div className="relative">
+            <TableView
+              key={view.key}
+              spaceId={spaceId}
+              type={type}
+              view={view}
+              rows={rows}
+              properties={properties}
+              canEdit={canEdit}
+              completing={complete.isPending}
+              busy={busy}
+              sorts={query.sorts}
+              selected={selection}
+              pendingRows={pendingRows}
+              bulkOpen={bulkPanelOpen && selectedRows.length > 0}
+              timeZone={timeZone}
+              onSort={sortBy}
+              onToggleRow={toggleRow}
+              onToggleAll={toggleAll}
+              onClearSelection={() => setSelection(new Set())}
+              onTitleCommit={commitTitle}
+              onCellCommit={commitCell}
+              onComplete={completeRecord}
+              onDuplicate={duplicateRecord}
+              onTrash={trashRecord}
+              onFocusSearch={focusSearch}
+              onAddProperty={() => setAddPropertyOpen(true)}
+              layoutPending={layout.isPending}
+              onResize={commitWidth}
+              compactStatus={compactStatus}
+            />
+            {canEdit && selectedRows.length > 0 ? (
+              <div className="absolute inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 md:inset-x-3 md:bottom-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <BulkBar
+                  spaceId={spaceId}
+                  properties={properties}
+                  initialPropertyKey={initialBulkKey}
+                  requiredKeys={requiredKeys}
+                  rows={selectedRows}
+                  onPanelChange={setBulkPanelOpen}
+                  onResult={(failed) => setSelection(new Set(failed))}
+                  onClear={() => setSelection(new Set())}
+                  onUndoTrash={undoBulkTrash}
+                  onUndoDuplicate={undoBulkDuplicate}
+                />
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
-      {objects.data && !isTable && total > rows.length ? (
-        <p className="mt-2 font-mono text-[11px] text-muted">
-          Showing the first {rows.length} of {total}; open the table to page through every
-          record.
-        </p>
-      ) : null}
+        )}
+
+        {objects.data && isTable && (total > PAGE_SIZE || page > 1) ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3">
+            <span className="font-mono text-[11px] tnum text-muted">
+              {range.first === 0 ? "0" : `${range.first}–${range.last}`} of {total}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label="Previous page"
+                className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                disabled={page <= 1}
+                onClick={() => goPage(page - 1)}
+              >
+                Prev
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label="Next page"
+                className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
+                disabled={page >= pageCount(total)}
+                onClick={() => goPage(page + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {objects.data && !isTable && total > rows.length ? (
+          <p className="mt-2 font-mono text-[11px] text-muted">
+            Showing the first {rows.length} of {total}; open the table to page through every
+            record.
+          </p>
+        ) : null}
+      </div>
       {update.isPending ? <span className="sr-only">Saving</span> : null}
     </div>
   );

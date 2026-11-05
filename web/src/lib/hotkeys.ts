@@ -6,7 +6,11 @@ export interface HotkeyBinding {
   mod?: boolean;
   /** Escape must work while a field has focus; other plain keys must not. */
   allowInInput?: boolean;
-  run: (event: KeyboardEvent) => void;
+  /**
+   * Returning `false` means the key was not used: the event is left alone, so
+   * the surface below (a record's Escape, a table's selection) can take it.
+   */
+  run: (event: KeyboardEvent) => boolean | void;
 }
 
 export type ShortcutScope = "Global" | "Space" | "Table" | "Record";
@@ -162,8 +166,10 @@ export function useGlobalHotkeys(bindings: HotkeyBinding[], enabled = true): str
         if (!binding.allowInInput && (isEditableTarget(event.target) || inDialog)) {
           continue;
         }
+        if (binding.run(event) === false) {
+          continue;
+        }
         event.preventDefault();
-        binding.run(event);
         break;
       }
     };
