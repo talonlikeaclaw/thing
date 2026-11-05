@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { useSpace, useSpaceActivity, useSpaceGraph, useTypes } from "@/api/queries";
 import type { ActivityEntry, TypeSummary } from "@/api/types";
+import { InlineError } from "@/components/error-state";
 import { ThumbRow } from "@/components/handedness";
 import { usePageFooter } from "@/components/page-footer";
 import { useQuickCapture } from "@/components/quick-capture";
@@ -158,14 +159,7 @@ export function SpacePage() {
               <p className="border-t rule pt-3 text-[13px] text-muted">Reading activity…</p>
             ) : activity.isError ? (
               <div className="border-t rule pt-3">
-                <p className="text-[13px] text-muted">The activity could not be read.</p>
-                <button
-                  type="button"
-                  className="mt-1 min-h-11 text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-fine:min-h-0"
-                  onClick={() => void activity.refetch()}
-                >
-                  Retry
-                </button>
+                <InlineError error={activity.error} onRetry={() => void activity.refetch()} />
               </div>
             ) : (
               <ul className="border-t rule">
@@ -211,16 +205,7 @@ export function SpacePage() {
             ) : null}
           </div>
           {graph.isError ? (
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-[13px] text-muted">The map could not be read.</p>
-              <button
-                type="button"
-                className="min-h-11 text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-fine:min-h-0"
-                onClick={() => void graph.refetch()}
-              >
-                Retry
-              </button>
-            </div>
+            <InlineError error={graph.error} onRetry={() => void graph.refetch()} />
           ) : graph.data ? (
             <SpaceGraph
               spaceId={detail.id}

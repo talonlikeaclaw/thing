@@ -592,6 +592,21 @@ function QuickCaptureDialog({
                     <p className="text-[13px] text-muted">Reading the type…</p>
                   ) : null}
 
+                  {selected !== null && type.isError ? (
+                    <div className="grid gap-2">
+                      <p role="alert" className="text-[13px] text-danger">
+                        {readError(type.error)}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        className="w-fit"
+                        onClick={() => void type.refetch()}
+                      >
+                        Retry
+                      </Button>
+                    </div>
+                  ) : null}
+
                   {selected !== null && properties.isError ? (
                     <div className="grid gap-2">
                       <p role="alert" className="text-[13px] text-danger">

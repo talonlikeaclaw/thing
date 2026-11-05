@@ -17,6 +17,7 @@ import {
   useTrash,
   useTypes,
 } from "@/api/queries";
+import { InlineError } from "@/components/error-state";
 import { useHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import {
@@ -26,7 +27,6 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
-import { readError } from "@/lib/display";
 import { plural, relativeTime, typeLabel } from "@/lib/format";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { matchRanges, rank } from "@/lib/search";
@@ -359,9 +359,9 @@ export function CommandPalette({
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2"
             >
               {search.isError ? (
-                <p role="alert" className="px-3 py-2 text-[12px] text-danger">
-                  Could not search — {readError(search.error)}
-                </p>
+                <div className="px-3 py-2">
+                  <InlineError error={search.error} onRetry={() => void search.refetch()} />
+                </div>
               ) : null}
               {flat.length === 0 ? (
                 <p className="px-3 py-6 text-[13px] text-muted">

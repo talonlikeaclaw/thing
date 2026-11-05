@@ -55,6 +55,7 @@ import {
   writeHandedness,
   type Handedness,
 } from "@/lib/handedness";
+import { readError } from "@/lib/display";
 import { PHONE_SPACE_SLOT_ID } from "@/lib/phone";
 import { useSpaceEvents } from "@/lib/use-space-events";
 
@@ -90,8 +91,7 @@ export function AuthGate() {
             Could not check your session
           </h1>
           <p className="text-muted">
-            The server did not answer. Your spaces are still there; retry when the connection is
-            back.
+            {readError(me.error)} Your spaces are still there.
           </p>
           <Button variant="ghost" className="w-fit" onClick={() => void me.refetch()}>
             Retry

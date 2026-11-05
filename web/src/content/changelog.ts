@@ -44,6 +44,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A column's position is one pill with its number and move arrows.",
       "View settings and the CSV panel open a floating glass dialog instead of an inline band.",
       "A sheet's glass and the blurred page behind it arrive with the panel instead of a beat after it.",
+      "Every page and band that cannot read its data says so in the server's words and offers Retry, instead of leaving a placeholder or a quiet empty panel.",
+      "Known limitation: a refused view reorder is not announced; the strip keeps the order the server returned.",
+      "Known limitation: a refused move-to-trash from a record is not announced; the record stays where it was.",
     ],
   },
   {

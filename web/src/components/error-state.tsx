@@ -1,6 +1,7 @@
 import { Link, Navigate, useLocation } from "react-router";
 
 import { Button } from "@/components/ui/controls";
+import { readError } from "@/lib/display";
 import { classifyError } from "@/lib/errors";
 
 interface ErrorStateProps {
@@ -48,6 +49,33 @@ export function ErrorState({ error, subject = "This page", onRetry }: ErrorState
           </Button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+interface InlineErrorProps {
+  error: unknown;
+  onRetry?: () => void;
+}
+
+/**
+ * One refusal inside a band that has other content — the activity margin, the
+ * graph, a section of a loaded page. It prints the server's own sentence, so a
+ * failed part never reads as an empty one.
+ */
+export function InlineError({ error, onRetry }: InlineErrorProps) {
+  return (
+    <div role="alert" className="flex flex-wrap items-center gap-3">
+      <p className="text-[13px] text-muted">{readError(error)}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          className="min-h-11 text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-fine:min-h-0"
+          onClick={onRetry}
+        >
+          Retry
+        </button>
+      ) : null}
     </div>
   );
 }

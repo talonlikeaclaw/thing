@@ -2,6 +2,7 @@ import { ChevronDown, Network } from "lucide-react";
 import { useState } from "react";
 
 import { useSpaceGraph } from "@/api/queries";
+import { InlineError } from "@/components/error-state";
 import { useHandedness } from "@/components/handedness";
 import type { Backlink, ObjectLink, OutgoingLink } from "@/api/types";
 import { LocalGraph } from "@/components/local-graph";
@@ -73,16 +74,7 @@ export function GraphSection({
           typeNames={typeNames}
         />
       ) : spaceGraph.isError ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-[13px] text-muted">The space graph could not be read.</p>
-          <button
-            type="button"
-            className="min-h-11 text-[12px] text-muted underline decoration-line-strong hover:text-ink pointer-fine:min-h-0"
-            onClick={() => void spaceGraph.refetch()}
-          >
-            Retry
-          </button>
-        </div>
+        <InlineError error={spaceGraph.error} onRetry={() => void spaceGraph.refetch()} />
       ) : spaceGraph.data ? (
         <SpaceGraph
           spaceId={spaceId}
