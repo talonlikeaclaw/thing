@@ -1,5 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { Check, TriangleAlert } from "lucide-react";
+import { Popover } from "@base-ui/react/popover";
+import { Check, ChevronDown, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
@@ -54,6 +55,8 @@ export function PropertyCell({
   const [edition, setEdition] = useState(0);
   const compact = useCompactWidth();
   const button = useRef<HTMLButtonElement | null>(null);
+  /** The chip the floating editor is anchored to while it is open. */
+  const anchor = useRef<HTMLSpanElement | null>(null);
   const returnFocus = useRef(false);
   const value = cell?.value;
   const label = cell?.label ?? "";
@@ -85,7 +88,12 @@ export function PropertyCell({
     }
   }
 
-  /** The overlay editors are wider than a phone's column: open them in a sheet. */
+  /**
+   * A format that needs more room than a cell always opens an overlay: a
+   * popover anchored to the cell on a fine pointer, the sheet on a phone. The
+   * editor never renders inside the cell, so the row keeps its height and the
+   * card's scrollport cannot clip it.
+   */
   const overlayFormat =
     property.format === "select" ||
     property.format === "multi_select" ||
@@ -121,10 +129,9 @@ export function PropertyCell({
         ) : null}
       </>
     );
-    const input = (embedded: boolean) => (
+    const editor = (
       <PropertyInput
         key={edition}
-        embedded={embedded}
         spaceId={spaceId}
         property={property}
         value={attempt?.value ?? value}
@@ -132,42 +139,99 @@ export function PropertyCell({
         onCancel={finish}
       />
     );
-    if (compact && overlayFormat) {
-      return (
-        <Dialog.Root
-          open
-          onOpenChange={(next) => {
-            if (!next) {
-              finish();
-            }
-          }}
-        >
-          <Dialog.Portal>
-            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
-            <SheetViewport>
-              <SheetPopup>
-                <SheetHeader>
-                  <div className="min-w-0">
-                    <SheetTitle className="truncate">{property.name}</SheetTitle>
-                    <p className="mt-0.5 truncate text-[12px] text-muted">{rowTitle}</p>
+    if (overlayFormat) {
+      if (compact) {
+        return (
+          <Dialog.Root
+            open
+            onOpenChange={(next) => {
+              if (!next) {
+                finish();
+              }
+            }}
+          >
+            <Dialog.Portal>
+              <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+              <SheetViewport>
+                <SheetPopup>
+                  <SheetHeader>
+                    <div className="min-w-0">
+                      <SheetTitle className="truncate">{property.name}</SheetTitle>
+                      <p className="mt-0.5 truncate text-[12px] text-muted">{rowTitle}</p>
+                    </div>
+                    <SheetCloseButton label={`Close ${property.name} editor`} />
+                  </SheetHeader>
+                  <div className="grid min-h-0 flex-1 gap-2 overflow-y-auto overscroll-contain px-4 py-4">
+                    {editor}
+                    {status}
                   </div>
-                  <SheetCloseButton label={`Close ${property.name} editor`} />
-                </SheetHeader>
-                <div className="grid min-h-0 flex-1 gap-2 overflow-y-auto overscroll-contain px-4 py-4">
-                  {input(true)}
-                  {status}
-                </div>
-              </SheetPopup>
-            </SheetViewport>
-          </Dialog.Portal>
-        </Dialog.Root>
+                </SheetPopup>
+              </SheetViewport>
+            </Dialog.Portal>
+          </Dialog.Root>
+        );
+      }
+      return (
+        <>
+          {/* The cell keeps a one-line chip so the row never jumps under the
+              pointer while the editor floats above the table. */}
+          <span
+            ref={anchor}
+            className="flex min-h-8 w-full items-center gap-1.5 rounded-[8px] px-1.5 py-1 text-left text-[length:var(--text-small)] pointer-coarse:min-h-11"
+          >
+            <PropertyValue
+              property={property}
+              value={value}
+              label={label}
+              schedule={schedule}
+              missing={cell?.missing}
+              timeZone={timeZone}
+            />
+            <ChevronDown aria-hidden size={12} className="ml-auto shrink-0 text-faint" />
+          </span>
+          <Popover.Root
+            open
+            onOpenChange={(next) => {
+              if (!next) {
+                finish();
+              }
+            }}
+          >
+            <Popover.Portal>
+              <Popover.Positioner
+                anchor={anchor}
+                sideOffset={4}
+                collisionPadding={8}
+                className="z-50"
+              >
+                <Popover.Popup
+                  aria-label={`${property.name} editor for “${rowTitle}”`}
+                  className={cn(
+                    // The recurrence row holds a label, a number and a select;
+                    // it needs a little more than the shared minimum. Never
+                    // scroll sideways: an editor reads in one column.
+                    "glass-strong max-h-[min(22rem,var(--available-height))] max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-card border border-line-strong p-2 text-[13px]",
+                    property.format === "recurrence"
+                      ? "w-[max(var(--anchor-width),15rem)]"
+                      : "w-[max(var(--anchor-width),13rem)]",
+                  )}
+                >
+                  <div className="grid gap-2">
+                    {editor}
+                    {status}
+                  </div>
+                </Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+        </>
       );
     }
     return (
-      // Above the sticky action column: a compact editor is wider than its
-      // cell and must not disappear under that column's background.
+      // In-cell editors are narrower than their cell; the lift keeps them above
+      // the sticky action column.
       <div className="relative z-10 grid gap-1">
-        {input(false)}
+        {editor}
         {status}
       </div>
     );

@@ -215,22 +215,16 @@ export function TableView({
   const railSeam = railBefore
     ? "after:pointer-events-none after:absolute after:inset-y-0 after:-right-[2px] after:w-[3px] after:content-['']"
     : null;
-  const railSeamTone = railBefore
-    ? !showSelect && !compact
-      ? "after:bg-surface"
-      : "after:bg-ground"
-    : null;
+  // Every body cell is the card's surface, so the rail's seam paints it too.
+  const railSeamTone = railBefore ? "after:bg-surface" : null;
   // A pinned cell must stay opaque: a translucent wash would let the columns
   // sliding underneath show through. Hover and selected paint the wash over the
   // cell's own ground instead of replacing it with alpha.
-  const hoverGround =
-    "group-hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-ground))]!";
   const hoverSurface =
     "group-hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-surface))]!";
-  const selectedGround = "bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-ground))]";
   const selectedSurface = "bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]";
   const railSeamToneSelected = railBefore
-    ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-ground))]"
+    ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]"
     : null;
   const railHeaderClass = cn("sticky z-30 h-11 rule p-0", railEdge);
   const railBodyClass = cn("sticky z-20 rule py-1", railEdge);
@@ -423,7 +417,7 @@ export function TableView({
   // The rail header travels to whichever edge the rail occupies; the add
   // control on a phone lives there too.
   const railHeaderCell = (
-    <th scope="col" className={cn(railHeaderClass, "bg-inset")}>
+    <th scope="col" className={cn(railHeaderClass, "bg-raised")}>
       <span className="sr-only">Actions</span>
       {compact && canEdit ? (
         <button
@@ -510,7 +504,7 @@ export function TableView({
             // DOM, painted over the header while the page scrolled.
             // The card is its own scrollport, so the header parks at its top on
             // every width; the shell header floats above the card, not inside it.
-            "sticky top-0 z-30 bg-inset",
+            "sticky top-0 z-30 bg-raised",
           )}
         >
           <tr className="h-11 border-b rule">
@@ -518,7 +512,7 @@ export function TableView({
             {showSelect ? (
               <th
                 scope="col"
-                className="sticky z-30 h-11 bg-inset p-0 text-center"
+                className="sticky z-30 h-11 bg-raised p-0 text-center"
                 style={{ left: railBefore ? openWidth : 0 }}
               >
                 <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
@@ -542,7 +536,7 @@ export function TableView({
               scope="col"
               className={cn(
                 "label relative sticky z-30 h-11 border-r rule p-0 pl-3 pr-3 font-medium",
-                compact ? "bg-inset" : "bg-surface",
+                "bg-raised",
                 scrolled && "border-line-strong",
               )}
               style={{ left: pinnedOffset }}
@@ -582,7 +576,6 @@ export function TableView({
                     columnKey={key}
                     label={label}
                     format={property?.format}
-                    accent
                     sort={sortOf(key)}
                     onSort={onSort}
                     showKey={!compact}
@@ -632,8 +625,8 @@ export function TableView({
                     railBodyClass,
                     "outline-none",
                     railSeam,
-                    isSelected ? selectedGround : "bg-ground",
-                    !isSelected && hoverGround,
+                    isSelected ? selectedSurface : "bg-surface",
+                    !isSelected && hoverSurface,
                     isSelected ? railSeamToneSelected : railSeamTone,
                     railBefore ? "text-left" : "text-right",
                   )}
@@ -714,8 +707,8 @@ export function TableView({
                 className={cn(
                   "group border-b rule align-top transition-colors",
                   isSelected
-                    ? selectedGround
-                    : "hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-ground))]!",
+                    ? selectedSurface
+                    : "hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-surface))]!",
                   rowActive && "[&>td]:border-t [&>td]:border-line-strong [&>th]:border-t [&>th]:border-line-strong",
                 )}
               >
@@ -726,8 +719,8 @@ export function TableView({
                     aria-label={`Select “${row.title}”`}
                     className={cn(
                       "sticky z-10 py-1 text-center outline-none",
-                      isSelected ? selectedGround : "bg-ground",
-                      !isSelected && hoverGround,
+                      isSelected ? selectedSurface : "bg-surface",
+                      !isSelected && hoverSurface,
                     )}
                     style={{ left: railBefore ? openWidth : 0 }}
                   >
@@ -756,12 +749,10 @@ export function TableView({
                     "sticky z-20 border-r rule py-1 pr-2 text-left font-normal outline-none",
                     isSelected
                       ? compact
-                        ? selectedGround
+                        ? selectedSurface
                         : selectedSurface
-                      : compact
-                        ? "bg-ground"
-                        : "bg-surface",
-                    !isSelected && (compact ? hoverGround : hoverSurface),
+                      : "bg-surface",
+                    !isSelected && (compact ? hoverSurface : hoverSurface),
                   )}
                   style={{ left: pinnedOffset }}
                 >
@@ -1026,7 +1017,6 @@ function HeaderSort({
   columnKey,
   label,
   format,
-  accent = false,
   sort,
   onSort,
   showKey,
@@ -1035,8 +1025,6 @@ function HeaderSort({
   label: string;
   /** A property header names its format under the label; the title column has none. */
   format?: PropertyFormat;
-  /** Property names carry the accent; the title column stays ink. */
-  accent?: boolean;
   sort: Sort | undefined;
   onSort: (key: string, additive: boolean) => void;
   /** Phones drop the key surface; the label alone is the header. */
@@ -1066,7 +1054,7 @@ function HeaderSort({
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
       <span className="flex w-full min-w-0 items-center gap-1">
-        <span className={cn("truncate", accent && "text-accent")}>{label}</span>
+        <span className={cn("truncate", sort && "text-ink")}>{label}</span>
         <span className="flex w-[11px] shrink-0 items-center">
           {sort ? (
             sort.direction === "asc" ? (
@@ -1080,7 +1068,7 @@ function HeaderSort({
         </span>
       </span>
       {format && showKey ? (
-        <span className="mt-0.5 max-w-full min-w-0 truncate font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-accent uppercase">
+        <span className="mt-0.5 max-w-full min-w-0 truncate font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-faint uppercase">
           {formatLabel(format)}
         </span>
       ) : null}

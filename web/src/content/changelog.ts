@@ -24,9 +24,14 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The space's type ledger names each type once: the key appears only when it differs from the name, and the count reads 4 records.",
       "The space map's record titles can be hidden from a button beside the zoom controls.",
       "On a phone, hiding the titles draws every record instead of the five best connected.",
+      "A room, tag, link or repeat cell opens one floating editor instead of stretching the row it sits in.",
     ],
     details: [
       "The titles choice is kept per reader and per space; a space with no choice names every record.",
+      "A ledger's header is one tone across every column.",
+      "A ledger's column label reads in ink rather than the space accent; its sort arrow carries the accent.",
+      "The repeat editor fits its panel without sideways scrolling.",
+      "A sheet's glass and the blurred page behind it arrive with the panel instead of a beat after it.",
     ],
   },
   {

@@ -64,7 +64,7 @@ export function RecurrenceInput({
   }
 
   return (
-    <div className="grid min-w-[13rem] gap-1.5 glass-strong rounded-card p-2">
+    <div className="grid gap-1.5">
       <div className={row}>
         <span className="text-[12px] text-muted">Every</span>
         <div className="flex items-center gap-1.5">

@@ -367,7 +367,7 @@
       "shell": "A floating glass header inset from the top and sides, 64px tall, rounded 20px, sticky; a glass rail card at lg; a 68px glass dock on a phone with the space destination, a 56px accent capture circle and search.",
       "spaceCover": "A masthead (56px glass icon tile, display name, factual summary line, two pill actions) above a matte 22px card holding the keyed type ledger, with a glass activity card in the 4/12 margin at xl, a matte graph card under the body and a colophon line.",
       "recordSheet": "One matte 24px card: identity band, schedule strip, body, links and history. The 4/12 property margin is a left-ruled column at xl, a top-ruled block below, never a second card. A clean Saved seal is a glass pill; a dirty record sticks a glass save row above the dock on a phone and saves from the identity band at lg.",
-      "ledgerTable": "A 20px matte card clips a table whose header sits on the inset band and whose title column stays pinned. View tabs are a segmented pill; filter and sort triggers are pills; their panels are glass.",
+      "ledgerTable": "A 20px matte card clips a table with two fills: a raised band across the whole header row and the card surface for every body cell, pinned columns included. A header label is muted at rest and ink when sorted; the accent marks the sorted arrow, the active row and the selection, never the column label. The title column stays pinned. Select, multi-select, relation and recurrence cells open one floating editor: a glass-strong popover anchored to the cell at a fine pointer, the sheet on a phone, with a one-line chip left in the cell. View tabs are a segmented pill; filter and sort triggers are pills; their panels are glass.",
       "overlays": "Sheets and the command palette are glass-strong at 28px over a blurred scrim; menus and toasts are glass-strong at 18px; close controls are circles on the handed edge.",
       "quietSurfaces": "Schema, members, settings, trash, auth and account settings share one page header and matte 22px section cards; the danger section carries an Ember edge; auth is a glass top bar, the form, and a glass margin panel."
     },
@@ -442,8 +442,8 @@
       },
       {
         "name": "sheet",
-        "value": "240ms translateY(18px) + opacity in, 120ms fade out",
-        "purpose": "One entrance for every overlay; static under prefers-reduced-motion."
+        "value": "240ms translateY(18px) rise in, 120ms fade out",
+        "purpose": "One entrance for every overlay. The panel lands opaque so its glass is live in the first frame — an opacity fade would defer the frosted face; static under prefers-reduced-motion."
       }
     ],
     "breakpoints": [

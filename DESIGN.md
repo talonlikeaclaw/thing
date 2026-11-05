@@ -353,9 +353,12 @@ carries the unsaved count and Save.
 **The Ledger Table.** A type page is one glass panel above one matte ledger. The type
 masthead, the saved views and the search/Columns/Sort/Filter tools float together as the
 page's chrome; it scrolls with the page and never parks over the ledger's own column
-labels. The table itself lives in a 20px matte card with one border, its header row on the inset
-band, a pinned title column and a quiet hover/selection wash. The card clips the table;
-the table scrolls inside it. The view tabs are a recessed segmented track with the active
+labels. The table itself lives in a 20px matte card with one border. It has two fills and
+no third: a raised band for the whole header row — Title and the checkbox cell included —
+and the card's surface for every body cell, the checkbox column and both action rails
+included. A pinned column keeps its rule and never changes fill to prove it is pinned.
+The band is a lid over the card, not a second surface; the selection and hover washes
+overlay both band and body. The card clips the table; the table scrolls inside it. The view tabs are a recessed segmented track with the active
 segment on the accent wash. The strip closes the panel, sitting below the search and tools on the
 container's bottom edge, so a view is chosen where the views meet the records. Its two
 edge actions are 36 px circles (44 px coarse) on the accent wash: Reorder on the
@@ -366,20 +369,26 @@ glass.
 
 **The Property Identity Rule.** A property is named by its accent-coloured title and a
 format pill — a mono, pill-shaped marker on the 12% accent wash with the accent edge. The
-capture sheet's other fields, the ledger's column headers, the record's property margin,
-the schema property list and a type's member list share it; the record title and the
-ledger's pinned Title column stay ink. In a property row the title leads and the pill
-trails, the same as the capture sheet's other fields; a ledger column header stacks the
-pill under its label because the column is narrow, and on a phone the ledger keeps the
-accent header and drops the pill entirely. The capture sheet's icon trigger takes the same
-accent frame, and its `Type` label is accent.
+capture sheet's other fields, the record's property margin, the schema property list and a
+type's member list share it; the record title and the ledger stay ink. In a ledger the
+accent marks state — the sorted arrow, the active row, the selection — never the column
+label: a header is muted at rest, ink when its column is sorted, and the format key stays
+faint mono. In a property row the title leads and the pill trails, the same as the capture
+sheet's other fields; a ledger column header stacks the pill under its label because the
+column is narrow, and on a phone the ledger drops the pill entirely. The capture sheet's
+icon trigger takes the same accent frame, and its `Type` label is accent.
 
 **The Cell Editor Rule.** A cell edits in place for text, number, date, datetime, URL,
-email and checkbox. A phone opens one sheet for the formats that carry their own overlay —
-select, multi-select, relation, recurrence — with the property title and record title in
-the header. A select lists its options in flow inside that sheet rather than anchoring a
-popover inside a scrolling table, so nothing lands under the pinned title or the action
-rail.
+email and checkbox — the field is smaller than the cell. Select, multi-select, relation
+and recurrence need more room and always float: a popover anchored to the cell on a fine
+pointer, one sheet on a phone, both opening the same editor body. The cell keeps a
+one-line chip while the overlay is open, so the row never grows. The popover is one shell
+— glass-strong, a `--color-line-strong` edge (never an accent border), at least 13rem and
+the cell's width, at most 22rem and the space the viewport gives it, with its list
+scrolling inside and `4px` from the cell, flipping rather than leaving the viewport. It is
+portalled, so the card's scrollport and the sticky columns cannot clip or cover it.
+Escape cancels and returns focus to the cell in every case. A phone's sheet carries the
+property title and record title in its header.
 
 **The Writing Surface.** The body editor is one glass shell: its top row holds the
 formatting tools and the Write/Preview switch, and the writing well below it is an opaque
@@ -467,8 +476,10 @@ or input. A control with no focus-visible replacement is a defect.
 ## Motion
 
 One ease (`--ease-out`, `cubic-bezier(0.16, 1, 0.3, 1)`), three durations (120, 180,
-240ms). Sheets rise 18px and fade; popovers fade with a 6px rise; palette results fade
-and move 4px; toasts rise 6px; the dock's active seal changes colour, never geometry.
+240ms). Sheets rise 18px with their glass already in place — never a fade, which would
+let the frosted face arrive after the panel; popovers fade with a 6px rise; palette
+results fade and move 4px; toasts rise 6px; the dock's active seal changes colour, never
+geometry.
 Nothing animates layout, table rows, prose or scroll. Under
 `prefers-reduced-motion: reduce` every entrance is instant and colour feedback stays.
 

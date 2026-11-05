@@ -1,4 +1,3 @@
-import { Popover } from "@base-ui/react/popover";
 import { Check, X } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
@@ -22,8 +21,6 @@ import { cn } from "@/lib/cn";
 interface PropertyInputProps {
   spaceId: string;
   property: PropertyDef;
-  /** A phone sheet owns the overlay: a select lists its options in flow. */
-  embedded?: boolean;
   value: unknown;
   /** The raw value to write (`null` clears the key) and the label it shows. */
   onCommit: (value: unknown, label: string) => void;
@@ -194,7 +191,6 @@ function SelectInput({
   value,
   onCommit,
   onCancel,
-  embedded = false,
 }: PropertyInputProps) {
   const [query, setQuery] = useState("");
   const create = useUpdateProperty(spaceId, property.key);
@@ -221,9 +217,6 @@ function SelectInput({
       },
     );
   }
-
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const popupRef = useRef<HTMLDivElement | null>(null);
 
   const optionsList = (
     <>
@@ -272,25 +265,12 @@ function SelectInput({
 
   const input = (
     <input
-      ref={inputRef}
-      autoFocus={!embedded}
+      autoFocus
       aria-label={property.name}
       className={field}
       placeholder={value ? valueLabel("select", value, property) : "Choose or type"}
       value={query}
       onChange={(event) => setQuery(event.target.value)}
-      onBlur={(event) => {
-        if (embedded) {
-          return;
-        }
-        if (
-          event.relatedTarget instanceof Node &&
-          popupRef.current?.contains(event.relatedTarget)
-        ) {
-          return;
-        }
-        onCancel();
-      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -312,59 +292,13 @@ function SelectInput({
     />
   );
 
-  if (embedded) {
-    return (
-      <div className="grid gap-1.5">
-        {input}
-        <div className="max-h-64 overflow-y-auto overscroll-contain rounded-field border border-line bg-ground p-1.5 text-[13px]">
-          {optionsList}
-        </div>
-      </div>
-    );
-  }
-
+  // One body for the popover and the phone sheet: a field, then its options.
   return (
-    <div className="relative min-w-[11rem]">
-      <Popover.Root
-        open
-        onOpenChange={(next, details) => {
-          if (next) {
-            return;
-          }
-          // The input is the anchor, not a trigger, so a press on it counts as
-          // "outside" and must not cancel the edit. Any other outside press
-          // does, matching the old blur-to-close behaviour.
-          if (details.reason === "outside-press") {
-            const target = details.event.target;
-            if (target instanceof Node && inputRef.current?.contains(target)) {
-              return;
-            }
-            onCancel();
-          }
-          // Escape is handled by the input itself; no focus-out handling is
-          // needed because the popup's options never take focus.
-        }}
-      >
-        {input}
-        <Popover.Portal>
-          <Popover.Positioner
-            anchor={inputRef}
-            sideOffset={4}
-            collisionPadding={8}
-            className="z-50"
-          >
-            <Popover.Popup
-              ref={popupRef}
-              aria-label={`${property.name} options`}
-              initialFocus={false}
-              finalFocus={false}
-              className="glass-strong max-h-56 w-[var(--anchor-width)] min-w-[13rem] max-w-[calc(100vw-1rem)] overflow-auto overscroll-contain rounded-card p-1.5 text-[13px]"
-            >
-              {optionsList}
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
-      </Popover.Root>
+    <div className="grid gap-1.5">
+      {input}
+      <div className="max-h-64 overflow-y-auto overscroll-contain rounded-field border border-line bg-ground p-1.5 text-[13px]">
+        {optionsList}
+      </div>
     </div>
   );
 }
@@ -380,7 +314,7 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
   }
 
   return (
-    <div className="grid min-w-[12rem] gap-1 rounded-field border border-accent bg-ground p-2">
+    <div className="grid gap-1.5">
       <div className="max-h-52 overflow-auto">
         {(property.options ?? []).length === 0 ? (
           <p className="text-[12px] text-muted">No options yet; add them in the schema.</p>
@@ -448,7 +382,7 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
   }
 
   return (
-    <div className="grid min-w-[13rem] gap-1 rounded-field border border-accent bg-ground p-2">
+    <div className="grid gap-1.5">
       <input
         autoFocus
         aria-label={property.name}
