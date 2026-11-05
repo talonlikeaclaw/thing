@@ -34,6 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A space's icon reads as its mark at 72px beside the display title.",
       "A ledger's column label reads in ink rather than the space accent; its sort arrow carries the accent.",
       "The repeat editor fits its panel without sideways scrolling.",
+      "A schedule period with nothing due is one line among the buckets rather than a card counting zero.",
       "Columns, sort and filter share one full-width glass tool surface under the table chrome.",
       "A column's position is one pill with its number and move arrows.",
       "View settings and the CSV panel open a floating glass dialog instead of an inline band.",

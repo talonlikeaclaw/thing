@@ -175,6 +175,11 @@ function Bucket({
   onComplete: (row: AgendaRow) => void;
   onSnooze: (row: AgendaRow, days: number) => void;
 }) {
+  // An empty bucket is not a card: it is one sentence in the column. The
+  // heading and the mono count exist to frame rows, and there are none.
+  if (rows.length === 0) {
+    return <p className="text-[13px] text-muted">{empty}</p>;
+  }
   return (
     <section
       aria-label={title}
@@ -184,24 +189,20 @@ function Bucket({
         <h2 className="text-[17px] font-medium">{title}</h2>
         <span className="label tnum">{rows.length}</span>
       </div>
-      {rows.length === 0 ? (
-        <p className="pt-2 text-[13px] text-muted">{empty}</p>
-      ) : (
-        <ul>
-          {rows.map((row) => (
-            <AgendaEntry
-              key={row.id}
-              spaceId={spaceId}
-              row={row}
-              canEdit={canEdit}
-              verb={verbs[row.type] ?? "Complete"}
-              pendingId={pendingId}
-              onComplete={onComplete}
-              onSnooze={onSnooze}
-            />
-          ))}
-        </ul>
-      )}
+      <ul>
+        {rows.map((row) => (
+          <AgendaEntry
+            key={row.id}
+            spaceId={spaceId}
+            row={row}
+            canEdit={canEdit}
+            verb={verbs[row.type] ?? "Complete"}
+            pendingId={pendingId}
+            onComplete={onComplete}
+            onSnooze={onSnooze}
+          />
+        ))}
+      </ul>
     </section>
   );
 }
