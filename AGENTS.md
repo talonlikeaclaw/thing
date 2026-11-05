@@ -18,9 +18,9 @@ Two claims drive design:
 v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-through
 (`0.4.3`), v0.4.4 usability sweep (`0.4.4`), v0.4.5 schedule views (`0.4.5`), M5 search,
 links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-landing and rename
-repair patch (`0.5.1`, schema 4) and the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4),
-are implemented, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is
-still open.**
+repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4), and
+the v0.5.3 stability pass (`0.5.3`, schema 4), are implemented, not yet tagged or deployed; CI is
+green. The v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
@@ -181,7 +181,10 @@ panel and rename flow. No object file gains a key, `FORMAT_VERSION` stays
 phone dock, a cover-sheet space home, a specimen-sheet record, ledger tables, one command surface,
 one page header for the quiet surfaces, and one date grammar (`styles/globals.css`, `components/`,
 `pages/`, `DESIGN.md`, `.impeccable/design.json`). No route, read, permission, format or editor
-command changes; `FORMAT_VERSION` stays `4`.
+command changes; `FORMAT_VERSION` stays `4`. The v0.5.3 stability pass adds no route, read or
+format: it fixes the map's label placement, brings every finger target to 44 px, folds the desktop
+rail to icons, states failed reads with the server's sentence and a Retry, and brings one voice to
+the type page, the schedule's empty period and the ledger header.
 
 ## Where the plan lives
 
@@ -200,7 +203,7 @@ command changes; `FORMAT_VERSION` stays `4`.
 | `docs/plan/m5-search-links-writing.md` | The v0.5.0 spec: the derived search index, the search route and palette, wiki-link parsing and resolution, rendered links, the writing surface, the links panel, the local and space graph, docs and the release pass. Landed as `0.5.0`, schema 4. |
 | `docs/plan/m5.1-craft-and-hardening.md` | The v0.5.1 spec: the component test harness and seeded audit, links in both directions, search landing on its match, the heading/paste/preview/create editor actions, and previewed rename link repair. Landed as `0.5.1`, schema 4. |
 | `docs/plan/m5.2-visual-refresh.md` | The v0.5.2 spec: the type, colour and state foundation; the space cover sheet; the record specimen sheet; ledger tables and views; the command surface; the phone shell; the quiet surfaces; and the Night Glass material pass. Landed as `0.5.2`, schema 4. |
-| `docs/plan/m5.3-stability.md` | The v0.5.3 stability spec: the map's label layout, finger-sized targets, one ledger voice, the schedule's empty state, the tab contract and the shortcut door, offline states, and the release pass. Planned at `0.5.2`, schema 4. |
+| `docs/plan/m5.3-stability.md` | The v0.5.3 stability spec: the map's label layout, finger-sized targets, one ledger voice, the schedule's empty state, the tab contract and the shortcut door, offline states, and the release pass. Landed as `0.5.3`, schema 4. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and

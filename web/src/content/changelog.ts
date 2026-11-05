@@ -17,41 +17,46 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
-    title: "The ledger names each type once and the map can drop its titles",
-    upcoming: true,
+    version: "0.5.3",
+    title: "Stability pass",
     highlights: [
-      "The space's type ledger names each type once: the key appears only when it differs from the name, and the count reads 4 records.",
-      "The space map's record titles can be hidden from a button beside the zoom controls.",
-      "On a phone, hiding the titles draws every record instead of the five best connected.",
+      "The space map's names no longer sit on a record's mark or on another name.",
+      "A type page's name reads once; its key appears only when it differs from the name.",
+      "A finger hits what it aims for: every control on the record graph, watering calendar, trash, backlinks and schema is at least 44 px.",
+      "The desktop rail folds to a 72 px strip of icons.",
+      "The fold is remembered per reader and space.",
       "A room, tag, link or repeat cell opens one floating editor instead of stretching the row it sits in.",
+      "Every failed read states the server's reason and offers Retry.",
+      "A clear schedule period is one sentence rather than three cards counting zero.",
+      "A saved view is a real tab that controls a named panel.",
+      "The shortcut list is reachable from the header on any touch screen.",
+      "The record's title and repeat fields show a focus ring when reached from the keyboard.",
     ],
     details: [
-      "The titles choice is kept per reader and per space; a space with no choice names every record.",
+      "Names on the map are placed against node marks as well as other names.",
+      "A name that must shorten ends on a word boundary.",
+      "The titles toggle is kept per reader and per space; hiding titles on a phone draws every record.",
+      "An iconless type shows its first letter instead of one shared box.",
       "A ledger's header is one tone across every column.",
-      "A type page's masthead names the type once, like the cover's ledger.",
+      "A ledger's column label reads in ink rather than the space accent; its sort arrow carries the accent.",
+      "A saved view's DEFAULT tag clears 4.5:1 on the selected tab.",
       "A page ends on one footer rule: the space's colophon, its Settings link and the version share it.",
       "A space's icon reads as its mark at 72px beside the display title.",
-      "A ledger's column label reads in ink rather than the space accent; its sort arrow carries the accent.",
       "The repeat editor fits its panel without sideways scrolling.",
-      "A saved view is a real tab: the strip announces the record panel it controls.",
-      "A touch screen reaches the shortcut list from the header at any width.",
       "The space sheet carries the shortcut list in its footer.",
       "Escape closes an open editor before it leaves a record.",
       "An Escape that would drop a draft is caught by the unsaved-changes guard.",
-      "A schedule period with nothing due is one line among the buckets rather than a card counting zero.",
       "Columns, sort and filter share one full-width glass tool surface under the table chrome.",
       "A column's position is one pill with its number and move arrows.",
       "View settings and the CSV panel open a floating glass dialog instead of an inline band.",
       "A sheet's glass and the blurred page behind it arrive with the panel instead of a beat after it.",
-      "Every page and band that cannot read its data says so in the server's words and offers Retry, instead of leaving a placeholder or a quiet empty panel.",
       "Known limitation: a refused view reorder is not announced; the strip keeps the order the server returned.",
       "Known limitation: a refused move-to-trash from a record is not announced; the record stays where it was.",
     ],
   },
   {
     version: "0.5.2",
-    title: "Night Glass: frosted chrome and a floating dock",
+    title: "Night Glass",
     highlights: [
       "Chrome floats on frosted glass: header, rail, phone dock, sheets and palette.",
       "Data surfaces stay matte and readable under the glass.",
@@ -91,7 +96,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.5.1",
-    title: "Links, search landing and rename repair",
+    title: "Trust patch",
     highlights: [
       "A record shows the records it points at, not only the records that point at it.",
       "Opening a record from search lands on the sentence that matched, with the query marked.",
@@ -134,7 +139,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.5.0",
-    title: "Search, links and writing",
+    title: "Search links",
     highlights: [
       "Search every record's title and text from the command palette, with the sentence the match came from.",
       "See every record that points at the one you are reading, through a relation or a sentence that names it.",
@@ -286,7 +291,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.4.1",
-    title: "Everyday usability follow-ups",
+    title: "Usability follow-ups",
     highlights: [
       "Choose one shared highlight accent for a space; an owner sets it and everyone's open space changes live.",
       "Give a record an icon from its header or when you create it, and see it everywhere the record appears.",
@@ -361,7 +366,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.2.0",
-    title: "Scheduling and recurrence",
+    title: "Scheduling",
     highlights: [
       "Give a type a due date, a recurrence and a last-completed stamp.",
       "Complete a record and let the next due date advance from the completion day.",

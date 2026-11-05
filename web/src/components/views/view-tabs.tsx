@@ -279,7 +279,7 @@ export function ViewTabs({
                 <Icon aria-hidden size={14} className="shrink-0" />
                 <span className="max-w-[14rem] truncate">{view.name}</span>
                 {isDefault ? (
-                  <span className="font-mono text-[11px] tracking-[0.09em] text-faint">
+                  <span className="font-mono text-[11px] tracking-[0.09em] text-muted">
                     DEFAULT
                   </span>
                 ) : null}

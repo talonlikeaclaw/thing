@@ -900,7 +900,7 @@ export function ObjectPanel({
         {canEdit ? (
           <input
             aria-label="Title"
-            className="display mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-title outline-none placeholder:text-faint pointer-coarse:min-h-11"
+            className="display mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-title placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:min-h-11"
             maxLength={200}
             placeholder={`Untitled ${(type?.name ?? object.type).toLowerCase()}`}
             disabled={update.isPending}

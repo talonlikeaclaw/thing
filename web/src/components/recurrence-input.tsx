@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { RecurrenceKind, RecurrenceValue } from "@/api/types";
 import { useHandedness } from "@/components/handedness";
-import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
+import { Button, InlineActions, focusRing, inlineAction } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import {
   normalizeRecurrence,
@@ -20,8 +20,10 @@ interface RecurrenceInputProps {
   showHint?: boolean;
 }
 
-const control =
-  "h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] text-ink outline-none transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
+const control = cn(
+  "h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]",
+  focusRing,
+);
 
 const KIND_LABELS: Record<RecurrenceKind, string> = {
   days: "Days",
