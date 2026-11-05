@@ -49,7 +49,7 @@ function RowShell({
         to={`/s/${spaceId}/o/${row.id}`}
         className="flex min-h-11 items-start gap-2.5 py-2.5 pr-1 transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent pointer-fine:min-h-0"
       >
-        <ThingIcon icon={row.icon ?? row.type_icon} size="sm" className="mt-0.5" />
+        <ThingIcon icon={row.icon ?? row.type_icon} name={row.title} size="sm" className="mt-0.5" />
         <span className="grid min-w-0 flex-1 gap-0.5">{children}</span>
       </Link>
     </li>

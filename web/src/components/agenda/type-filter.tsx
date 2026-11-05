@@ -148,7 +148,7 @@ function TypeFilterList({
               <label className="block">
                 <ThumbRow className={ROW}>
                   <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                    <ThingIcon icon={type.icon} size="sm" />
+                    <ThingIcon icon={type.icon} name={type.name} size="sm" />
                     <span className="min-w-0 truncate">{type.name}</span>
                   </span>
                   <input

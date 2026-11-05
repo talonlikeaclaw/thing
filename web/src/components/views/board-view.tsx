@@ -110,7 +110,7 @@ export function BoardView({
                     >
                       <span className="flex items-start gap-1.5">
                         {row.icon ? (
-                          <ThingIcon icon={row.icon} size="sm" className="mt-0.5" />
+                          <ThingIcon icon={row.icon} name={row.title} size="sm" className="mt-0.5" />
                         ) : null}
                         <span
                           title={row.title}

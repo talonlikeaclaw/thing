@@ -152,6 +152,7 @@ export function RenameLinksDialog({
                   >
                     <ThingIcon
                       icon={mention.icon ?? mention.type_icon}
+                      name={mention.title}
                       size="sm"
                       className="mt-0.5"
                     />

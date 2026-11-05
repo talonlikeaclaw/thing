@@ -65,6 +65,10 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
+  /* The desktop rail: labels wide, icons folded. The space shell sets
+     `data-rail` and the grid column follows this one step. */
+  --rail-w: 13rem;
+
   --control-fine: 2.25rem;
   --control-standard: 2.5rem;
   --control-coarse: 2.75rem;
@@ -221,6 +225,10 @@
 }
 
 @layer base {
+  [data-rail="folded"] {
+    --rail-w: 4.5rem;
+  }
+
   :root {
     color-scheme: dark;
     caret-color: var(--color-accent);

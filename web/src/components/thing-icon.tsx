@@ -10,15 +10,28 @@ const BOX = {
 
 const GLYPH = { sm: 11, md: 13, lg: 19 } as const;
 
+const LETTER = {
+  sm: "text-[13px]",
+  md: "text-[16px]",
+  lg: "text-[24px]",
+} as const;
+
 interface ThingIconProps {
   icon?: string | null;
+  /** The thing's name, used for a word fallback when it has no icon. */
+  name?: string | null;
   size?: keyof typeof BOX;
   className?: string;
 }
 
-/** A fixed slot for a user-authored emoji icon; a missing one keeps the column aligned. */
-export function ThingIcon({ icon, size = "sm", className }: ThingIconProps) {
+/**
+ * A fixed slot for a user-authored emoji icon. A missing one shows the thing's
+ * first letter in the display face, so two iconless types never render the
+ * same anonymous box; without a name the slot keeps the column aligned.
+ */
+export function ThingIcon({ icon, name, size = "sm", className }: ThingIconProps) {
   const glyph = icon?.trim();
+  const letter = glyph ? "" : (name?.trim().charAt(0).toUpperCase() ?? "");
   return (
     <span
       aria-hidden
@@ -28,7 +41,13 @@ export function ThingIcon({ icon, size = "sm", className }: ThingIconProps) {
         className,
       )}
     >
-      {glyph ? glyph : <Box size={GLYPH[size]} strokeWidth={1.5} className="text-faint" />}
+      {glyph ? (
+        glyph
+      ) : letter ? (
+        <span className={cn("display font-medium text-muted", LETTER[size])}>{letter}</span>
+      ) : (
+        <Box size={GLYPH[size]} strokeWidth={1.5} className="text-faint" />
+      )}
     </span>
   );
 }

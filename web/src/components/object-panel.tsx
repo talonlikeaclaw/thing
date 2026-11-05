@@ -875,7 +875,7 @@ export function ObjectPanel({
                 disabled={update.isPending}
               />
             ) : draft.icon ? (
-              <ThingIcon icon={draft.icon} size="md" />
+              <ThingIcon icon={draft.icon} name={draft.title} size="md" />
             ) : null}
             {canEdit ? (
               <RecordOverflow

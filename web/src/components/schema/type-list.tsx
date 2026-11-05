@@ -87,7 +87,7 @@ export function TypeList({
                 onClick={() => onSelect(type.key)}
               >
                 <span className="mt-0.5">
-                  <ThingIcon icon={type.icon} size="sm" />
+                  <ThingIcon icon={type.icon} name={type.name} size="sm" />
                 </span>
                 <span className="grid min-w-0 gap-0.5">
                   <span className="flex min-w-0 items-baseline gap-2">

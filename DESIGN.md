@@ -310,8 +310,13 @@ The shell floats: an app header inset 8–12px from the top and sides, 64px tall
 full pill on a phone and 20px rounded from `lg`. Below `lg` it scrolls with the page, so
 a phone — and a phone on its side in particular — spends no fixed height on chrome; from
 `lg` it sticks while the page scrolls under it. From `lg` the space rail is a glass card
-inset from the content edge, sticky under the header. The content column is
-capped at 1400px with 16px side padding on a phone and 32px on a wide screen.
+inset from the content edge, sticky under the header. It folds to its icons on request:
+208px wide by default, 72px folded, with one 44px control in the rail's header row.
+Folded, the space switcher is the current icon over the native select, every row is a
+44px icon target, names stay in the accessibility tree and in tooltips, and the type list
+carries its name and count in the tooltip. The choice is per reader and space; the phone
+dock never folds. Width moves over 180ms on a fast-out curve and stops under reduced motion. The content
+column is capped at 1400px with 16px side padding on a phone and 32px on a wide screen.
 
 On a phone the dock is a 68px glass pill inset 8px, 12px above the home indicator. It has
 three cells: the space destination on one outer edge, a 56px accent capture circle in the
@@ -328,6 +333,10 @@ A ledger row names its type once. The mono key appears only when it differs from
 `keyFromName(name)` — a key minted from the name says nothing the name has not said, and
 it is the schema page, not the cover, that teaches it. The count is generic (`4 records`),
 never the type's own plural, for the same reason.
+
+A type or record without an emoji icon shows its first letter in the display face in the
+same icon slot, so two iconless types never render the same anonymous glyph; the neutral
+box remains only where no name is available.
 
 The space map offers one view control of its own beside the zoom cluster: a titles toggle,
 `aria-pressed`, persisted per reader and per space. Titles on, a phone draws and names the

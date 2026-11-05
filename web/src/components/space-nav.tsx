@@ -7,6 +7,8 @@ import {
   ChevronUp,
   House,
   LayoutGrid,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Settings,
@@ -42,6 +44,11 @@ interface SpaceNavProps {
   spaceId: string;
   types: TypeSummary[];
   role: Role;
+  /** The desktop rail's width; the phone sheet never folds. */
+  folded?: boolean;
+  onToggleFold?: () => void;
+  /** Unfold without writing the reader's preference, as Reorder does. */
+  onUnfold?: () => void;
 }
 
 const UTILITY: Record<NavLink, { label: string; path: string; icon: typeof House }> = {
@@ -57,10 +64,11 @@ const UTILITY: Record<NavLink, { label: string; path: string; icon: typeof House
  * accent rule, never a filled chip, so the rail stays a list rather than a
  * toolbar.
  */
-function railItem(active: boolean) {
+function railItem(active: boolean, folded = false) {
   return cn(
     "flex min-h-9 min-w-0 items-center gap-2 rounded-full py-2 pl-3 pr-2 text-[14px] text-muted transition-colors hover:bg-raised/60 hover:text-ink pointer-coarse:min-h-11",
     active && "bg-accent-wash text-accent-on-wash",
+    folded && "size-11 min-h-11 justify-center gap-0 p-0",
   );
 }
 
@@ -72,7 +80,14 @@ function railItem(active: boolean) {
  * opens the same links as a sheet, within reach of a thumb; the table is not
  * pushed below the fold.
  */
-export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
+export function SpaceNav({
+  spaceId,
+  types,
+  role,
+  folded = false,
+  onToggleFold,
+  onUnfold,
+}: SpaceNavProps) {
   const location = useLocation();
   const pathname = location.pathname;
   const spaces = useSpaces();
@@ -182,7 +197,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
       aria-label={`Switch space, currently ${space.data?.name ?? "this space"}`}
       className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-field px-1.5 text-left transition-colors hover:bg-raised data-[popup-open]:text-ink"
     >
-      <ThingIcon icon={space.data?.icon} size="sm" />
+      <ThingIcon icon={space.data?.icon} name={space.data?.name} size="sm" />
       <span className="min-w-0 flex-1 truncate text-[14px] text-ink">
         {space.data?.name ?? "This space"}
       </span>
@@ -209,7 +224,7 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
           mobileOpen && "bg-accent-wash text-accent-on-wash",
         )}
       >
-        <ThingIcon icon={space.data?.icon} size="sm" />
+        <ThingIcon icon={space.data?.icon} name={space.data?.name} size="sm" />
       </span>
       <span>Space</span>
     </Dialog.Trigger>
@@ -419,18 +434,48 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <aside className="glass hidden rounded-[22px] p-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:block lg:max-h-[calc(100dvh-var(--shell-header-h)-1.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
+      <aside
+        id="space-rail"
+        className={cn(
+          "glass hidden rounded-[22px] duration-[180ms] ease-[cubic-bezier(0.2,0,0,1)] motion-safe:transition-[padding] motion-reduce:transition-none lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:block lg:max-h-[calc(100dvh-var(--shell-header-h)-1.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain",
+          folded ? "p-2" : "p-4",
+        )}
+      >
         <SpaceSwitcher
           id="space-switcher"
           spaceId={spaceId}
           spaceName={space.data?.name ?? "This space"}
+          spaceIcon={space.data?.icon}
           role={role}
           list={list}
+          folded={folded}
+          control={
+            <button
+              type="button"
+              aria-expanded={!folded}
+              aria-controls="space-rail"
+              aria-label={folded ? "Unfold navigation" : "Fold navigation"}
+              title={folded ? "Unfold navigation" : "Fold navigation"}
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised/60 hover:text-ink"
+              onClick={() => {
+                if (!folded) {
+                  setReordering(false);
+                }
+                onToggleFold?.();
+              }}
+            >
+              {folded ? (
+                <PanelLeftOpen aria-hidden size={16} strokeWidth={1.5} />
+              ) : (
+                <PanelLeftClose aria-hidden size={16} strokeWidth={1.5} />
+              )}
+            </button>
+          }
         />
 
-        <div className="mt-4">
-          <AllSpacesLink />
-          <OverviewLink spaceId={spaceId} pathname={pathname} />
+        <div className={cn("flex flex-col", folded ? "mt-2 gap-1" : "mt-4")}>
+          <AllSpacesLink folded={folded} />
+          <OverviewLink spaceId={spaceId} pathname={pathname} folded={folded} />
           <UtilityLinks
             spaceId={spaceId}
             pathname={pathname}
@@ -438,12 +483,21 @@ export function SpaceNav({ spaceId, types, role }: SpaceNavProps) {
             overdue={overdue}
             reordering={reordering}
             onMove={move}
-            onToggleReorder={() => setReordering((current) => !current)}
+            onToggleReorder={() => {
+              onUnfold?.();
+              setReordering((current) => !current);
+            }}
+            folded={folded}
           />
         </div>
 
-        <div className="mt-4 border-t rule pt-3">
-          <TypesList spaceId={spaceId} types={types} pathname={pathname} />
+        <div className={cn("border-t rule", folded ? "mt-2 pt-2" : "mt-4 pt-3")}>
+          <TypesList
+            spaceId={spaceId}
+            types={types}
+            pathname={pathname}
+            folded={folded}
+          />
         </div>
       </aside>
     </>
@@ -496,45 +550,100 @@ function SpaceSwitcher({
   id,
   spaceId,
   spaceName,
+  spaceIcon,
   role,
   list,
+  folded = false,
+  control,
   onNavigate,
 }: {
   id: string;
   spaceId: string;
   spaceName: string;
+  spaceIcon?: string | null;
   role: Role;
   list: SpaceSummary[];
+  folded?: boolean;
+  /** The rail's fold toggle, in the same row as the Space label. */
+  control?: ReactNode;
   onNavigate?: () => void;
 }) {
   const navigate = useNavigate();
+  const current = list.find((entry) => entry.id === spaceId);
   return (
-    <div className="border-b rule pb-3">
-      <label className="label text-faint" htmlFor={id}>
-        Space
-      </label>
-      <select
-        id={id}
-        className="mt-1 h-9 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40/70 bg-raised/40 px-3 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
-        value={spaceId}
-        onChange={(event) => {
-          if (event.target.value !== spaceId) {
-            navigate(`/s/${event.target.value}`);
-            onNavigate?.();
-          }
-        }}
-      >
-        {list.some((entry) => entry.id === spaceId) ? null : (
-          <option value={spaceId}>{spaceName}</option>
+    <div className={cn("border-b rule", folded ? "pb-2" : "pb-3")}>
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          folded ? "justify-center" : "justify-between",
         )}
-        {list.map((entry) => (
-          <option key={entry.id} value={entry.id}>
-            {entry.icon ? `${entry.icon} ` : ""}
-            {entry.name}
-          </option>
-        ))}
-      </select>
-      <p className="mt-1 font-mono text-[11px] text-faint">{role}</p>
+      >
+        <label className={folded ? "sr-only" : "label text-faint"} htmlFor={id}>
+          Space
+        </label>
+        {control}
+      </div>
+      {folded ? (
+        <div className="relative mx-auto size-11 rounded-field focus-within:ring-2 focus-within:ring-accent">
+          <span
+            aria-hidden
+            className="pointer-events-none grid size-11 place-items-center rounded-field border border-line-interactive/70 bg-raised/40 text-ink"
+          >
+            <ThingIcon
+              icon={current?.icon ?? spaceIcon}
+              name={current?.name ?? spaceName}
+              size="md"
+            />
+          </span>
+          <select
+            id={id}
+            aria-label={`Space: ${current?.name ?? spaceName}`}
+            className="absolute inset-0 size-11 cursor-pointer appearance-none rounded-field opacity-0"
+            value={spaceId}
+            onChange={(event) => {
+              if (event.target.value !== spaceId) {
+                navigate(`/s/${event.target.value}`);
+                onNavigate?.();
+              }
+            }}
+          >
+            {list.some((entry) => entry.id === spaceId) ? null : (
+              <option value={spaceId}>{spaceName}</option>
+            )}
+            {list.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.icon ? `${entry.icon} ` : ""}
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <>
+          <select
+            id={id}
+            className="mt-1 h-9 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-3 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+            value={spaceId}
+            onChange={(event) => {
+              if (event.target.value !== spaceId) {
+                navigate(`/s/${event.target.value}`);
+                onNavigate?.();
+              }
+            }}
+          >
+            {list.some((entry) => entry.id === spaceId) ? null : (
+              <option value={spaceId}>{spaceName}</option>
+            )}
+            {list.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.icon ? `${entry.icon} ` : ""}
+                {entry.name}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 font-mono text-[11px] text-faint">{role}</p>
+        </>
+      )}
     </div>
   );
 }
@@ -543,42 +652,53 @@ function TypesList({
   spaceId,
   types,
   pathname,
+  folded = false,
   onNavigate,
 }: {
   spaceId: string;
   types: TypeSummary[];
   pathname: string;
+  folded?: boolean;
   onNavigate?: () => void;
 }) {
   return (
     <div>
-      <div className="flex items-baseline justify-between">
-        <span className="flex items-center gap-1.5">
-          <Table2 aria-hidden size={14} className="shrink-0 text-faint" />
-          <span className="label text-faint">Types</span>
-        </span>
-        <span className="label tnum text-faint">{types.length}</span>
-      </div>
+      {folded ? null : (
+        <div className="flex items-baseline justify-between">
+          <span className="flex items-center gap-1.5">
+            <Table2 aria-hidden size={14} className="shrink-0 text-faint" />
+            <span className="label text-faint">Types</span>
+          </span>
+          <span className="label tnum text-faint">{types.length}</span>
+        </div>
+      )}
       {types.length === 0 ? (
-        <p className="mt-2 text-[12px] text-muted">No types yet.</p>
+        folded ? null : <p className="mt-2 text-[12px] text-muted">No types yet.</p>
       ) : (
-        <ul className="mt-1">
+        <ul className={cn("flex flex-col", folded ? "gap-1" : "mt-1")}>
           {types.map((type) => {
             const to = `/s/${spaceId}/t/${type.key}`;
             const active = pathname === to;
+            const count = `${type.object_count} ${type.object_count === 1 ? "record" : "records"}`;
             return (
-              <li key={type.key}>
+              <li key={type.key} className={cn(folded && "flex justify-center")}>
                 <Link
                   to={to}
                   aria-current={active ? "page" : undefined}
+                  title={folded ? `${type.name_plural} · ${count}` : undefined}
                   onClick={onNavigate}
-                  className={cn(railItem(active), "justify-between")}
+                  className={cn(
+                    railItem(active, folded),
+                    folded ? "mx-auto" : "justify-between",
+                  )}
                 >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <ThingIcon icon={type.icon} size="sm" />
-                    <span className="truncate">{type.name_plural}</span>
+                  <span className={cn(folded ? "flex items-center" : "flex min-w-0 items-center gap-1.5")}>
+                    <ThingIcon icon={type.icon} name={type.name} size="sm" />
+                    <span className={folded ? "sr-only" : "truncate"}>{type.name_plural}</span>
                   </span>
-                  <span className="label tnum shrink-0">{type.object_count}</span>
+                  <span className={folded ? "sr-only" : "label tnum shrink-0"}>
+                    {folded ? count : type.object_count}
+                  </span>
                 </Link>
               </li>
             );
@@ -589,16 +709,23 @@ function TypesList({
   );
 }
 
-function AllSpacesLink({ onNavigate }: { onNavigate?: () => void }) {
+function AllSpacesLink({
+  folded = false,
+  onNavigate,
+}: {
+  folded?: boolean;
+  onNavigate?: () => void;
+}) {
   return (
-    <div>
+    <div className={cn(folded && "flex justify-center")}>
       <Link
         to="/"
+        title={folded ? "All spaces" : undefined}
         onClick={onNavigate}
-        className={railItem(false)}
+        className={cn(railItem(false, folded), folded && "mx-auto")}
       >
         <LayoutGrid aria-hidden size={14} className="shrink-0 text-faint" />
-        All spaces
+        <span className={folded ? "sr-only" : undefined}>All spaces</span>
       </Link>
     </div>
   );
@@ -607,24 +734,27 @@ function AllSpacesLink({ onNavigate }: { onNavigate?: () => void }) {
 function OverviewLink({
   spaceId,
   pathname,
+  folded = false,
   onNavigate,
 }: {
   spaceId: string;
   pathname: string;
+  folded?: boolean;
   onNavigate?: () => void;
 }) {
   const to = `/s/${spaceId}`;
   const active = pathname === to;
   return (
-    <div>
+    <div className={cn(folded && "flex justify-center")}>
       <Link
         to={to}
         aria-current={active ? "page" : undefined}
+        title={folded ? "Overview" : undefined}
         onClick={onNavigate}
-        className={railItem(active)}
+        className={cn(railItem(active, folded), folded && "mx-auto")}
       >
         <House aria-hidden size={14} className={cn("shrink-0", active ? "text-accent" : "text-faint")} />
-        Overview
+        <span className={folded ? "sr-only" : undefined}>Overview</span>
       </Link>
     </div>
   );
@@ -640,6 +770,7 @@ function UtilityLinks({
   onToggleReorder,
   onNavigate,
   showReorderControl,
+  folded = false,
 }: {
   spaceId: string;
   pathname: string;
@@ -651,33 +782,38 @@ function UtilityLinks({
   onNavigate?: () => void;
   /** False when the caller pins the toggle itself, as the phone sheet does. */
   showReorderControl?: boolean;
+  folded?: boolean;
 }) {
   const { handedness } = useHandedness();
   return (
     <>
-      <ul className="flex flex-col">
+      <ul className={cn("flex flex-col", folded && "gap-1")}>
         {order.map((key, index) => {
           const item = UTILITY[key];
           const Icon = item.icon;
           const to = `/s/${spaceId}/${item.path}`;
           const active = pathname === to;
           return (
-            <li key={key} className="flex items-center gap-1">
+            <li key={key} className={cn("flex items-center gap-1", folded && "justify-center")}>
               <Link
                 to={to}
                 aria-current={active ? "page" : undefined}
+                title={folded ? item.label : undefined}
                 onClick={onNavigate}
-                className={cn(railItem(active), "flex-1 justify-between")}
+                className={cn(
+                  railItem(active, folded),
+                  folded ? "mx-auto" : "flex-1 justify-between",
+                )}
               >
-                <span className="flex min-w-0 items-center gap-2">
+                <span className={cn(folded ? "flex items-center" : "flex min-w-0 items-center gap-2")}>
                   <Icon
                     aria-hidden
                     size={14}
                     className={cn("shrink-0", active ? "text-accent" : "text-faint")}
                   />
-                  <span className="truncate">{item.label}</span>
+                  <span className={folded ? "sr-only" : "truncate"}>{item.label}</span>
                 </span>
-                {key === "schedule" && overdue > 0 && !reordering ? (
+                {key === "schedule" && overdue > 0 && !reordering && !folded ? (
                   <span
                     className="shrink-0 rounded-full border border-danger px-1.5 text-[11px] tnum text-danger"
                     title={`${overdue} overdue`}
@@ -712,7 +848,7 @@ function UtilityLinks({
           );
         })}
       </ul>
-      {showReorderControl === false ? null : (
+      {showReorderControl === false || folded ? null : (
         <div
           className={cn(
             "mt-2 flex",

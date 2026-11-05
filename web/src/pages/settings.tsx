@@ -223,7 +223,7 @@ export function SettingsPage() {
         ) : (
           <div className="mt-4 grid gap-2">
             <div className="flex items-baseline gap-3">
-              <ThingIcon icon={detail.icon} size="md" />
+              <ThingIcon icon={detail.icon} name={detail.name} size="md" />
               <span className="text-[17px]">{detail.name}</span>
             </div>
             <p className="font-mono text-[12px] text-muted">{detail.timezone}</p>

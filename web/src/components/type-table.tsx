@@ -805,7 +805,7 @@ export function TypeTable({
   const pageTitle = (
     <div className="min-w-0">
       <div className="flex min-w-0 items-baseline gap-3">
-        <ThingIcon icon={type.icon} size="lg" />
+        <ThingIcon icon={type.icon} name={type.name} size="lg" />
         <h1 className="display truncate text-title">{type.name_plural}</h1>
         <span className="label tnum max-sm:hidden">{type.key}</span>
       </div>

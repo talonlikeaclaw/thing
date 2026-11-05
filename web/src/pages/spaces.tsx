@@ -36,7 +36,7 @@ function SpaceRow({ space }: { space: SpaceSummary }) {
           className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 self-stretch py-1.5 pointer-coarse:min-h-11 md:grid-cols-[minmax(0,1fr)_4rem_4rem_6rem]"
         >
           <span className="flex min-w-0 items-baseline gap-2">
-            <ThingIcon icon={space.icon} size="md" />
+            <ThingIcon icon={space.icon} name={space.name} size="md" />
             <span className="truncate text-[15px] font-medium group-hover:text-accent">
               {space.name}
             </span>

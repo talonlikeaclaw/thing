@@ -57,7 +57,7 @@ export function SpacePage() {
         <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
           <div className="flex min-w-0 items-center gap-4">
             <span className="glass grid size-14 shrink-0 place-items-center rounded-[18px] text-[30px]">
-              <ThingIcon icon={detail.icon} />
+              <ThingIcon icon={detail.icon} name={detail.name} />
             </span>
             <div className="min-w-0">
               <h1 className="display text-display break-words">{detail.name}</h1>
@@ -273,7 +273,7 @@ function TypeRow({ spaceId, type }: { spaceId: string; type: TypeSummary }) {
         to={`/s/${spaceId}/t/${type.key}`}
         className="group grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3 transition-colors hover:bg-raised/40 pointer-coarse:min-h-12"
       >
-        <ThingIcon icon={type.icon} size="md" />
+        <ThingIcon icon={type.icon} name={type.name} size="md" />
         <span className="grid min-w-0 gap-0.5">
           <span className="truncate text-[15px] font-medium group-hover:text-accent">
             {type.name}

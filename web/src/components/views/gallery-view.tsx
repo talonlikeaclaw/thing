@@ -91,12 +91,12 @@ export function GalleryView({
                 ) : (
                   <span />
                 )}
-                {tint ? null : <ThingIcon icon={type.icon} size="lg" />}
+                {tint ? null : <ThingIcon icon={type.icon} name={type.name} size="lg" />}
               </span>
               <span className="grid gap-1.5 px-3 py-2.5">
                 <span className="flex items-start gap-1.5">
                   {row.icon ? (
-                    <ThingIcon icon={row.icon} size="sm" className="mt-0.5" />
+                    <ThingIcon icon={row.icon} name={row.title} size="sm" className="mt-0.5" />
                   ) : null}
                   <span
                     title={row.title}

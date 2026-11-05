@@ -14,6 +14,13 @@ import {
   storedAccentKey,
   type AccentId,
 } from "@/lib/accent";
+import {
+  DEFAULT_RAIL,
+  railKey,
+  readRail,
+  writeRail,
+  type RailWidth,
+} from "@/lib/rail";
 import { recordVisit, visitsKey } from "@/lib/visits";
 
 /**
@@ -30,6 +37,19 @@ export function SpaceLayout() {
   const update = useUpdateSpace(spaceId ?? "");
   const error = space.error ?? types.error;
   const userId = me.data?.id;
+
+  // The desktop rail folds per reader and space; the phone never uses this.
+  const [rail, setRail] = useState<RailWidth>(DEFAULT_RAIL);
+  const railStorage = userId && spaceId ? railKey(userId, spaceId) : null;
+  useEffect(() => {
+    setRail(railStorage ? readRail(window.localStorage, railStorage) : DEFAULT_RAIL);
+  }, [railStorage]);
+  const setRailWidth = (width: RailWidth) => {
+    setRail(width);
+    if (railStorage) {
+      writeRail(window.localStorage, railStorage, width);
+    }
+  };
 
   // The shared accent: the space's own preset, else a one-time seed from the
   // v0.4 browser-local choice, else Lichen. `SpaceLayout` is the only applier.
@@ -129,8 +149,18 @@ export function SpaceLayout() {
   return (
     // The page footer already clears the phone bar (`max-lg:pb-24`), so the
     // layout adds no second reservation beneath the last block.
-    <div className="settle grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-10">
-      <SpaceNav spaceId={detail.id} types={typeList} role={detail.role} />
+    <div
+      data-rail={rail}
+      className="settle grid gap-8 duration-[180ms] ease-[cubic-bezier(0.2,0,0,1)] motion-safe:transition-[grid-template-columns] motion-reduce:transition-none lg:grid-cols-[var(--rail-w)_minmax(0,1fr)] lg:gap-10"
+    >
+      <SpaceNav
+        spaceId={detail.id}
+        types={typeList}
+        role={detail.role}
+        folded={rail === "folded"}
+        onToggleFold={() => setRailWidth(rail === "folded" ? "wide" : "folded")}
+        onUnfold={() => setRail("wide")}
+      />
       <div className="min-w-0">
         <Outlet />
       </div>
