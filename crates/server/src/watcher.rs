@@ -229,7 +229,7 @@ fn announce(
                 }
             }
         }
-        SpaceFileKind::History => {}
+        SpaceFileKind::History | SpaceFileKind::Attachment | SpaceFileKind::Thumbnail => {}
     }
 }
 

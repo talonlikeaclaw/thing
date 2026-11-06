@@ -17,6 +17,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Files and images",
+    upcoming: true,
+    highlights: [
+      "A space will keep images and files beside its records, inside the space's own storage.",
+    ],
+    details: [
+      "Bytes are named by their content, so the same upload twice is one stored file.",
+      "A backup of the space carries the files with it.",
+    ],
+  },
+  {
     version: "0.5.3",
     title: "Stability pass",
     highlights: [

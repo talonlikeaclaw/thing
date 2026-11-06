@@ -5,7 +5,8 @@
 //! the [`FileFingerprint`] it was read at; each write takes the fingerprint the
 //! caller last saw, so a concurrent edit is a `Conflict` instead of a lost file.
 
-use std::path::{Path, PathBuf};
+use std::ffi::OsStr;
+use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 use time::OffsetDateTime;
@@ -28,8 +29,25 @@ pub const OBJECTS_DIR: &str = "objects";
 pub const TRASH_DIR: &str = "trash";
 /// Revision lines, `<object-uuid>.ndjson`.
 pub const HISTORY_DIR: &str = "history";
+/// Attachment bytes, `files/<sha256>/<name>`.
+pub const FILES_DIR: &str = "files";
+/// The derived thumbnail cache, `files/.thumbs/<sha256>-<width>.jpg|png`.
+pub const THUMBS_DIR: &str = "files/.thumbs";
+/// Where an attachment write stages before its rename into place.
+pub const FILES_TMP_DIR: &str = "files/.tmp";
 /// Suffix of the temporary file an atomic write renames into place.
 pub const TMP_SUFFIX: &str = ".tmp";
+
+/// Length of the sha256 directory name every attachment path carries.
+pub const SHA256_HEX_LEN: usize = 64;
+/// Longest stored attachment name, extension included.
+pub const MAX_FILE_NAME_LEN: usize = 96;
+/// Longest stem of a stored attachment name.
+pub const MAX_FILE_STEM_LEN: usize = 64;
+/// Longest extension of a stored attachment name.
+pub const MAX_FILE_EXTENSION_LEN: usize = 8;
+/// The only widths a thumbnail is generated at.
+pub const THUMB_WIDTHS: [u32; 2] = [256, 512];
 
 /// What a file under the space directory is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +58,8 @@ pub enum SpaceFileKind {
     Object,
     Trash,
     History,
+    Attachment,
+    Thumbnail,
 }
 
 /// One file under the space directory, with its path relative to the space.
@@ -53,6 +73,12 @@ pub struct SpaceFile {
 pub fn classify(path: &Path) -> Option<SpaceFileKind> {
     if path == Path::new(SPACE_FILE) {
         return Some(SpaceFileKind::Space);
+    }
+    if is_thumbnail_path(path) {
+        return Some(SpaceFileKind::Thumbnail);
+    }
+    if is_file_path(path) {
+        return Some(SpaceFileKind::Attachment);
     }
     let parent = path.parent()?;
     let directory = parent.file_name()?.to_str()?;
@@ -96,8 +122,110 @@ pub fn history_path(id: Uuid) -> PathBuf {
     Path::new(HISTORY_DIR).join(format!("{id}.ndjson"))
 }
 
+/// The relative path of attachment bytes, `files/<sha256>/<name>`.
+pub fn file_path(hash: &str, name: &str) -> PathBuf {
+    Path::new(FILES_DIR).join(hash).join(name)
+}
+
+/// The relative path of a cached thumbnail, `files/.thumbs/<sha256>-<width>.<ext>`.
+pub fn thumb_path(hash: &str, width: u32, extension: &str) -> PathBuf {
+    Path::new(THUMBS_DIR).join(format!("{hash}-{width}.{extension}"))
+}
+
+/// Whether `path` is a canonical attachment path, `files/<sha256>/<name>`.
+///
+/// This is the one spelling a frontmatter value, a route parameter and a stored
+/// file share: three components, a lowercase hex digest and a safe name.
+pub fn is_file_path(path: &Path) -> bool {
+    let mut parts = path.components();
+    let files = parts.next();
+    let hash = parts.next();
+    let name = parts.next();
+    let rest = parts.next();
+    let canonical = files == Some(Component::Normal(OsStr::new(FILES_DIR))) && rest.is_none();
+    let named = match (hash, name) {
+        (Some(Component::Normal(hash)), Some(Component::Normal(name))) => {
+            hash.to_str().is_some_and(is_hash) && name.to_str().is_some_and(is_file_name)
+        }
+        _ => false,
+    };
+    canonical && named
+}
+
+/// The hash and name of a canonical attachment path.
+pub fn split_file_path(path: &Path) -> Option<(&str, &str)> {
+    if !is_file_path(path) {
+        return None;
+    }
+    let mut parts = path.components();
+    parts.next()?;
+    let hash = parts.next()?.as_os_str().to_str()?;
+    let name = parts.next()?.as_os_str().to_str()?;
+    Some((hash, name))
+}
+
 fn has_extension(path: &Path, extension: &str) -> bool {
     path.extension().is_some_and(|found| found == extension)
+}
+
+/// Whether `hash` is a sha256 in the layout's lowercase hex spelling.
+fn is_hash(hash: &str) -> bool {
+    hash.len() == SHA256_HEX_LEN
+        && hash
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+/// Whether `name` is a stored attachment name: a slugged stem and a sniffed
+/// extension, `monstera.png`. A name without an extension is refused.
+fn is_file_name(name: &str) -> bool {
+    if name.len() > MAX_FILE_NAME_LEN {
+        return false;
+    }
+    let Some((stem, extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    !stem.is_empty()
+        && stem.len() <= MAX_FILE_STEM_LEN
+        && !stem.starts_with('-')
+        && !stem.ends_with('-')
+        && !stem.contains("--")
+        && stem
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && !extension.is_empty()
+        && extension.len() <= MAX_FILE_EXTENSION_LEN
+        && extension
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+}
+
+/// Whether `name` is a cached thumbnail name, `<sha256>-<width>.jpg|png`.
+fn is_thumbnail_name(name: &str) -> bool {
+    let Some((stem, extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    if !matches!(extension, "jpg" | "png") {
+        return false;
+    }
+    let Some((hash, width)) = stem.rsplit_once('-') else {
+        return false;
+    };
+    let canonical_width = width.bytes().all(|byte| byte.is_ascii_digit())
+        && !width.starts_with('0')
+        && width
+            .parse::<u32>()
+            .is_ok_and(|width| THUMB_WIDTHS.contains(&width));
+    is_hash(hash) && canonical_width
+}
+
+/// Whether `path` is a cached thumbnail under `files/.thumbs/`.
+fn is_thumbnail_path(path: &Path) -> bool {
+    path.parent() == Some(Path::new(THUMBS_DIR))
+        && path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(is_thumbnail_name)
 }
 
 /// Modification time and length of a file, as recorded when it was read.
@@ -185,6 +313,23 @@ pub trait SpaceStore {
 
     /// Every revision of an object, oldest first; empty when it has none.
     fn read_revisions(&self, id: Uuid) -> Result<Vec<Revision>, CoreError>;
+
+    /// Reads the bytes of an attachment or a cached thumbnail; the path must be
+    /// one of the two grammars under `files/`.
+    fn load_attachment(&self, path: &Path) -> Result<Vec<u8>, CoreError>;
+
+    /// Writes attachment or thumbnail bytes atomically, through the staging
+    /// directory; `expected` is `None` to require the file be absent, and a
+    /// different fingerprint is a `Conflict`.
+    fn save_attachment(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+        expected: Option<FileFingerprint>,
+    ) -> Result<FileFingerprint, CoreError>;
+
+    /// Deletes an attachment or a cached thumbnail file.
+    fn remove_attachment(&self, path: &Path) -> Result<(), CoreError>;
 
     /// Renames a property key in its definition, in every type that uses it and
     /// in every object that holds a value for it, appending a revision to each
@@ -322,21 +467,41 @@ mod tests {
 
     #[test]
     fn classify_names_every_part_of_the_layout() {
+        let hash = "0".repeat(SHA256_HEX_LEN);
         for (path, kind) in [
-            ("space.yml", SpaceFileKind::Space),
-            ("types/plant.yml", SpaceFileKind::Type),
-            ("properties/room.yml", SpaceFileKind::Property),
-            ("objects/plant/monstera.md", SpaceFileKind::Object),
+            ("space.yml".to_owned(), SpaceFileKind::Space),
+            ("types/plant.yml".to_owned(), SpaceFileKind::Type),
+            ("properties/room.yml".to_owned(), SpaceFileKind::Property),
             (
-                "trash/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b.md",
+                "objects/plant/monstera.md".to_owned(),
+                SpaceFileKind::Object,
+            ),
+            (
+                "trash/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b.md".to_owned(),
                 SpaceFileKind::Trash,
             ),
             (
-                "history/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b.ndjson",
+                "history/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b.ndjson".to_owned(),
                 SpaceFileKind::History,
             ),
+            (
+                format!("files/{hash}/monstera.png"),
+                SpaceFileKind::Attachment,
+            ),
+            (
+                format!("files/{hash}/garden-notes-2026.pdf"),
+                SpaceFileKind::Attachment,
+            ),
+            (
+                format!("files/.thumbs/{hash}-256.jpg"),
+                SpaceFileKind::Thumbnail,
+            ),
+            (
+                format!("files/.thumbs/{hash}-512.png"),
+                SpaceFileKind::Thumbnail,
+            ),
         ] {
-            assert_eq!(classify(Path::new(path)), Some(kind), "{path}");
+            assert_eq!(classify(Path::new(&path)), Some(kind), "{path}");
         }
     }
 
@@ -353,6 +518,58 @@ mod tests {
             "objects/plant/room.yml",
         ] {
             assert_eq!(classify(Path::new(path)), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn classify_refuses_paths_outside_the_file_grammar() {
+        let hash = "0".repeat(SHA256_HEX_LEN);
+        for path in [
+            "files/monstera.png".to_owned(),
+            format!("files/{hash}"),
+            format!("files/{hash}/cover.png/extra"),
+            format!("files/{}/monstera.png", "0".repeat(SHA256_HEX_LEN - 1)),
+            format!("files/{hash}/monstera"),
+            format!("files/{hash}/Monstera.png"),
+            format!("files/{hash}/bad name.png"),
+            format!("files/{hash}/../escape.png"),
+            format!("files/.thumbs/{hash}-128.jpg"),
+            format!("files/.thumbs/{hash}-256.webp"),
+            "files/.tmp/0199f2c1-8f3a-7c2e-9b1d-2a4f6e8c0a1b".to_owned(),
+        ] {
+            assert_eq!(classify(Path::new(&path)), None, "{path}");
+        }
+    }
+
+    #[test]
+    fn file_paths_are_one_grammar() {
+        let hash = "0123456789abcdef".repeat(4);
+        let path = file_path(&hash, "monstera.png");
+        assert_eq!(
+            path,
+            Path::new(&format!("files/{hash}/monstera.png")),
+            "the path is the frontmatter value"
+        );
+        assert_eq!(
+            split_file_path(&path),
+            Some((hash.as_str(), "monstera.png"))
+        );
+        assert_eq!(
+            thumb_path(&hash, 256, "jpg"),
+            Path::new(&format!("files/.thumbs/{hash}-256.jpg"))
+        );
+        assert!(!is_file_path(&thumb_path(&hash, 512, "png")));
+        for path in [
+            "../escape.png",
+            "/etc/passwd",
+            "files/../escape.png",
+            "files/0123456789abcdef/monstera.png",
+            "files/0123456789abcdef/monstera.png/extra",
+            "files/0123456789abcdef/..",
+            "files/0123456789abcdef/.",
+        ] {
+            assert!(!is_file_path(Path::new(path)), "{path}");
+            assert_eq!(split_file_path(Path::new(path)), None, "{path}");
         }
     }
 

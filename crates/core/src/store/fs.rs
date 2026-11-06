@@ -47,10 +47,11 @@ pub fn restrict_file(path: &Path) -> std::io::Result<()> {
 }
 
 use super::{
-    FileFingerprint, HISTORY_DIR, OBJECTS_DIR, PROPERTIES_DIR, SPACE_FILE, SpaceFile,
-    SpaceFileKind, SpaceStore, TMP_SUFFIX, TRASH_DIR, TYPES_DIR, history_path, key_from_path,
-    property_path, remove_property_from_type, rename_property_in_object, rename_property_in_type,
-    trash_path, type_path,
+    FILES_DIR, FILES_TMP_DIR, FileFingerprint, HISTORY_DIR, OBJECTS_DIR, PROPERTIES_DIR,
+    SPACE_FILE, SpaceFile, SpaceFileKind, SpaceStore, TMP_SUFFIX, TRASH_DIR, TYPES_DIR, classify,
+    history_path, is_file_path, is_thumbnail_path, key_from_path, property_path,
+    remove_property_from_type, rename_property_in_object, rename_property_in_type, trash_path,
+    type_path,
 };
 use crate::error::CoreError;
 use crate::markdown;
@@ -78,6 +79,7 @@ impl FsSpaceStore {
             OBJECTS_DIR,
             TRASH_DIR,
             HISTORY_DIR,
+            FILES_DIR,
         ] {
             create_private_dir_all(&store.full(Path::new(dir)))?;
         }
@@ -131,6 +133,58 @@ impl FsSpaceStore {
         drop(file);
 
         fs::rename(&temp, &full)?;
+        fs::File::open(dir)?.sync_all()?;
+        Ok(fingerprint(&full)?.expect("the file was just renamed into place"))
+    }
+
+    /// Refuses a path whose file, or a directory between it and the space, is a
+    /// symlink: bytes never leave the space behind a link.
+    fn check_symlinks(&self, relative: &Path) -> Result<(), CoreError> {
+        let mut full = self.root.clone();
+        for component in relative.components() {
+            full.push(component);
+            match fs::symlink_metadata(&full) {
+                Ok(meta) if meta.file_type().is_symlink() => return Err(malformed(relative)),
+                Ok(_) => {}
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+                Err(err) => return Err(err.into()),
+            }
+        }
+        Ok(())
+    }
+
+    /// Writes bytes through the staging directory, fsyncs them and renames them
+    /// into place, so no partial attachment is ever visible.
+    fn write_bytes_atomic(
+        &self,
+        relative: &Path,
+        bytes: &[u8],
+    ) -> Result<FileFingerprint, CoreError> {
+        check_relative(relative)?;
+        let full = self.full(relative);
+        let dir = full.parent().ok_or_else(|| malformed(relative))?;
+        create_private_dir_all(dir)?;
+        let staging = self.full(Path::new(FILES_TMP_DIR));
+        create_private_dir_all(&staging)?;
+        let temp = staging.join(Uuid::new_v4().to_string());
+
+        let staged = (|| -> std::io::Result<()> {
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temp)?;
+            restrict_file(&temp)?;
+            file.write_all(bytes)?;
+            file.sync_all()
+        })();
+        if let Err(err) = staged {
+            let _ = fs::remove_file(&temp);
+            return Err(err.into());
+        }
+        if let Err(err) = fs::rename(&temp, &full) {
+            let _ = fs::remove_file(&temp);
+            return Err(err.into());
+        }
         fs::File::open(dir)?.sync_all()?;
         Ok(fingerprint(&full)?.expect("the file was just renamed into place"))
     }
@@ -210,6 +264,26 @@ impl SpaceStore for FsSpaceStore {
                 "md",
                 SpaceFileKind::Object,
             )?;
+        }
+
+        let files_dir = self.full(Path::new(FILES_DIR));
+        let staging = Path::new(FILES_TMP_DIR);
+        for directory in sorted_entries(&files_dir)? {
+            let relative = Path::new(FILES_DIR).join(&directory);
+            if relative.as_path() == staging || !self.full(&relative).is_dir() {
+                continue;
+            }
+            for name in sorted_entries(&self.full(&relative))? {
+                if name.ends_with(TMP_SUFFIX) {
+                    continue;
+                }
+                let path = relative.join(&name);
+                if let Some(kind @ (SpaceFileKind::Attachment | SpaceFileKind::Thumbnail)) =
+                    classify(&path)
+                {
+                    files.push(SpaceFile { kind, path });
+                }
+            }
         }
 
         files.sort_by(|left, right| left.path.cmp(&right.path));
@@ -457,7 +531,11 @@ impl SpaceStore for FsSpaceStore {
                         },
                     )?;
                 }
-                SpaceFileKind::Space | SpaceFileKind::Property | SpaceFileKind::History => {}
+                SpaceFileKind::Space
+                | SpaceFileKind::Property
+                | SpaceFileKind::History
+                | SpaceFileKind::Attachment
+                | SpaceFileKind::Thumbnail => {}
             }
         }
 
@@ -513,7 +591,11 @@ impl SpaceStore for FsSpaceStore {
                         },
                     )?;
                 }
-                SpaceFileKind::Space | SpaceFileKind::Property | SpaceFileKind::History => {}
+                SpaceFileKind::Space
+                | SpaceFileKind::Property
+                | SpaceFileKind::History
+                | SpaceFileKind::Attachment
+                | SpaceFileKind::Thumbnail => {}
             }
         }
         Ok(())
@@ -526,6 +608,44 @@ impl SpaceStore for FsSpaceStore {
         }
         let (text, _) = self.read(&path)?;
         text.lines().map(markdown::parse_revision).collect()
+    }
+
+    fn load_attachment(&self, path: &Path) -> Result<Vec<u8>, CoreError> {
+        if !is_stored_file(path) {
+            return Err(malformed(path));
+        }
+        self.check_symlinks(path)?;
+        fs::read(self.full(path)).map_err(|err| match err.kind() {
+            std::io::ErrorKind::NotFound => CoreError::NotFound(path.display().to_string()),
+            _ => CoreError::Io(err),
+        })
+    }
+
+    fn save_attachment(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+        expected: Option<FileFingerprint>,
+    ) -> Result<FileFingerprint, CoreError> {
+        if !is_stored_file(path) {
+            return Err(malformed(path));
+        }
+        self.check_symlinks(path)?;
+        self.guard(path, expected)?;
+        self.write_bytes_atomic(path, bytes)
+    }
+
+    fn remove_attachment(&self, path: &Path) -> Result<(), CoreError> {
+        if !is_stored_file(path) {
+            return Err(malformed(path));
+        }
+        self.check_symlinks(path)?;
+        let full = self.full(path);
+        if !full.is_file() {
+            return Err(CoreError::NotFound(path.display().to_string()));
+        }
+        fs::remove_file(&full)?;
+        fsync_dir(full.parent())
     }
 }
 
@@ -585,6 +705,12 @@ fn fsync_dir(dir: Option<&Path>) -> Result<(), CoreError> {
     Ok(())
 }
 
+/// Whether `path` is one of the two grammars the store keeps under `files/`:
+/// an attachment or a cached thumbnail.
+fn is_stored_file(path: &Path) -> bool {
+    is_file_path(path) || is_thumbnail_path(path)
+}
+
 /// Rejects a path that would escape the space directory.
 fn check_relative(path: &Path) -> Result<(), CoreError> {
     let escapes = path.is_absolute()
@@ -641,6 +767,7 @@ mod tests {
         Filter, FilterOp, Member, PropertyFormat, Role, Snapshot, TypeProperty, Value, ViewDef,
         ViewKind,
     };
+    use crate::store::{SHA256_HEX_LEN, file_path, thumb_path};
 
     fn id(n: u128) -> Uuid {
         Uuid::from_u128(n)
@@ -1323,6 +1450,147 @@ mod tests {
     }
 
     #[test]
+    fn attachment_bytes_round_trip_byte_for_byte() {
+        let (_dir, store) = store();
+        let hash = "a".repeat(SHA256_HEX_LEN);
+        let path = file_path(&hash, "monstera.png");
+        let bytes = [0x89, b'P', b'N', b'G', 0x00, 0xff, 0x0a];
+
+        let written = store.save_attachment(&path, &bytes, None).expect("save");
+        assert_eq!(written.len, bytes.len() as u64);
+        assert_eq!(store.load_attachment(&path).expect("load"), bytes);
+        assert!(store.exists(&path).expect("exists"));
+
+        store.remove_attachment(&path).expect("remove");
+        assert!(matches!(
+            store.load_attachment(&path).expect_err("gone"),
+            CoreError::NotFound(_)
+        ));
+        assert!(matches!(
+            store.remove_attachment(&path).expect_err("gone"),
+            CoreError::NotFound(_)
+        ));
+    }
+
+    #[test]
+    fn a_thumbnail_round_trips_through_the_same_store() {
+        let (_dir, store) = store();
+        let hash = "a".repeat(SHA256_HEX_LEN);
+        let path = thumb_path(&hash, 512, "png");
+        store.save_attachment(&path, b"thumb", None).expect("save");
+        assert_eq!(store.load_attachment(&path).expect("load"), b"thumb");
+        assert_eq!(classify(&path), Some(SpaceFileKind::Thumbnail));
+    }
+
+    #[test]
+    fn an_identical_write_succeeds_and_a_conflict_leaves_no_staged_file() {
+        let (dir, store) = store();
+        let hash = "a".repeat(SHA256_HEX_LEN);
+        let path = file_path(&hash, "monstera.png");
+        let first = store.save_attachment(&path, b"one", None).expect("save");
+        let second = store
+            .save_attachment(&path, b"one", Some(first))
+            .expect("an idempotent write");
+        assert_eq!(second.len, first.len);
+
+        assert!(matches!(
+            store.save_attachment(&path, b"two", None),
+            Err(CoreError::Conflict { .. })
+        ));
+        assert_eq!(store.load_attachment(&path).expect("still one"), b"one");
+
+        let staging = dir.path().join(FILES_TMP_DIR);
+        let leftovers = fs::read_dir(&staging)
+            .map(|entries| entries.count())
+            .unwrap_or(0);
+        assert_eq!(leftovers, 0, "a refused write leaves nothing staged");
+    }
+
+    #[test]
+    fn attachment_paths_outside_the_grammar_are_refused() {
+        let (_dir, store) = store();
+        let hash = "a".repeat(SHA256_HEX_LEN);
+        for path in [
+            PathBuf::from("../escape.png"),
+            PathBuf::from("/etc/passwd"),
+            Path::new("files").join("..").join("escape.png"),
+            PathBuf::from(format!("files/{}/monstera.png", "a".repeat(63))),
+            PathBuf::from(format!("files/{hash}/sub/monstera.png")),
+            PathBuf::from(format!("files/{hash}/bad name.png")),
+            PathBuf::from(SPACE_FILE),
+        ] {
+            assert!(
+                matches!(
+                    store.save_attachment(&path, b"bytes", None),
+                    Err(CoreError::ValidationFailed { .. })
+                ),
+                "{} was not refused",
+                path.display()
+            );
+            assert!(matches!(
+                store.load_attachment(&path),
+                Err(CoreError::ValidationFailed { .. })
+            ));
+            assert!(matches!(
+                store.remove_attachment(&path),
+                Err(CoreError::ValidationFailed { .. })
+            ));
+        }
+        assert!(matches!(
+            store.load_attachment(&file_path(&hash, "absent.png")),
+            Err(CoreError::NotFound(_))
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_attachment_path_is_refused() {
+        let (dir, store) = store();
+        let outside = TempDir::new().expect("outside");
+        let hash = "a".repeat(SHA256_HEX_LEN);
+        let link = dir.path().join(FILES_DIR).join(&hash);
+        std::os::unix::fs::symlink(outside.path(), &link).expect("symlink directory");
+        let path = file_path(&hash, "monstera.png");
+        assert!(matches!(
+            store.save_attachment(&path, b"bytes", None),
+            Err(CoreError::ValidationFailed { .. })
+        ));
+        assert!(
+            !outside.path().join("monstera.png").exists(),
+            "no bytes escaped the space"
+        );
+        assert!(matches!(
+            store.load_attachment(&path),
+            Err(CoreError::ValidationFailed { .. })
+        ));
+        assert!(matches!(
+            store.remove_attachment(&path),
+            Err(CoreError::ValidationFailed { .. })
+        ));
+
+        let linked = "b".repeat(SHA256_HEX_LEN);
+        let target = outside.path().join("target.png");
+        fs::write(&target, b"outside").expect("target");
+        let directory = dir.path().join(FILES_DIR).join(&linked);
+        fs::create_dir_all(&directory).expect("directory");
+        std::os::unix::fs::symlink(&target, directory.join("monstera.png")).expect("symlink file");
+        let linked_path = file_path(&linked, "monstera.png");
+        assert!(matches!(
+            store.load_attachment(&linked_path),
+            Err(CoreError::ValidationFailed { .. })
+        ));
+        assert!(matches!(
+            store.remove_attachment(&linked_path),
+            Err(CoreError::ValidationFailed { .. })
+        ));
+        assert_eq!(
+            fs::read(&target).expect("the target survives"),
+            b"outside",
+            "a read or removal never follows the link"
+        );
+    }
+
+    #[test]
     fn list_files_reports_every_canonical_file() {
         let (_dir, store) = store();
         let doc = object("plant", "Monstera");
@@ -1340,6 +1608,15 @@ mod tests {
             .move_to_trash(&trashed_path, at(1_760_100_000), None)
             .expect("trash");
         store.append_revision(id(9), &revision(1)).expect("history");
+        let hash = "a".repeat(SHA256_HEX_LEN);
+        let attachment = file_path(&hash, "monstera.png");
+        store
+            .save_attachment(&attachment, b"\x89PNG", None)
+            .expect("attachment");
+        let thumbnail = thumb_path(&hash, 256, "jpg");
+        store
+            .save_attachment(&thumbnail, b"thumb", None)
+            .expect("thumbnail");
 
         let listed: Vec<(SpaceFileKind, String)> = store
             .list_files()
@@ -1350,6 +1627,14 @@ mod tests {
         assert_eq!(
             listed,
             vec![
+                (
+                    SpaceFileKind::Thumbnail,
+                    format!("files/.thumbs/{hash}-256.jpg")
+                ),
+                (
+                    SpaceFileKind::Attachment,
+                    format!("files/{hash}/monstera.png")
+                ),
                 (SpaceFileKind::History, format!("history/{}.ndjson", id(9))),
                 (SpaceFileKind::Object, "objects/plant/fern.md".to_owned()),
                 (SpaceFileKind::Space, SPACE_FILE.to_owned()),

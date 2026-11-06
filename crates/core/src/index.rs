@@ -171,7 +171,8 @@ impl SpaceIndex {
             Some(SpaceFileKind::Type) => self.reload_type(store, path),
             Some(SpaceFileKind::Property) => self.reload_property(store, path),
             Some(SpaceFileKind::Object | SpaceFileKind::Trash) => self.reload_object(store, path),
-            Some(SpaceFileKind::History) | None => Ok(()),
+            Some(SpaceFileKind::History | SpaceFileKind::Attachment | SpaceFileKind::Thumbnail)
+            | None => Ok(()),
         }
     }
 
@@ -1026,6 +1027,36 @@ mod tests {
             Some(Vec::new())
         );
         assert_eq!(index.problems(), Problems::default());
+    }
+
+    #[test]
+    fn an_attachment_is_not_part_of_the_index() {
+        let space = Space::new().seed();
+        let hash = "a".repeat(64);
+        let attachment = store::file_path(&hash, "monstera.png");
+        space
+            .store
+            .save_attachment(&attachment, b"\x89PNG\r\n", None)
+            .expect("save attachment");
+        let thumbnail = store::thumb_path(&hash, 256, "jpg");
+        space
+            .store
+            .save_attachment(&thumbnail, b"thumb", None)
+            .expect("save thumbnail");
+
+        let index = space.index();
+        assert_eq!(index.problems(), Problems::default());
+        assert!(index.summaries("plant").is_empty());
+
+        let mut reloaded = space.index();
+        reloaded
+            .reload_file(&space.store, &attachment)
+            .expect("an attachment reloads as nothing");
+        reloaded
+            .reload_file(&space.store, &thumbnail)
+            .expect("a thumbnail reloads as nothing");
+        assert_eq!(reloaded.problems(), Problems::default());
+        assert!(reloaded.summaries("plant").is_empty());
     }
 
     #[test]
