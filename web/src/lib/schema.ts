@@ -53,6 +53,8 @@ export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "email", label: "Email" },
   { value: "relation", label: "Relation" },
   { value: "recurrence", label: "Recurrence" },
+  { value: "file", label: "File" },
+  { value: "image", label: "Image" },
 ];
 
 const FORMAT_LABELS = Object.fromEntries(

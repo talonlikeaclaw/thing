@@ -5,6 +5,7 @@ type: plant
 title: Monstera
 icon: 🪴
 cover: files/9f2c4a1b8e7d6c5b4a39281706f5e4d3c2b1a09876543210fedcba9876543210/monstera-photo.png
+cover_position: 61% 38%
 rev: 3
 created_at: 2026-10-17T12:00:00Z
 updated_at: 2026-10-19T08:15:00Z

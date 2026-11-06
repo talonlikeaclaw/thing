@@ -173,6 +173,7 @@ async fn import(
             title: record.title,
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             created_at: now,
             updated_at: now,

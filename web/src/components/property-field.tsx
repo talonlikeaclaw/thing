@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import { useRelationChoices, useTypes, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
+import { FileField } from "@/components/file-field";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatDay, readError, shortId } from "@/lib/display";
+import { fileName, fileUrl, thumbnailUrl } from "@/lib/files";
 import {
   datetimeLocal,
   fromDatetimeLocal,
@@ -56,6 +58,7 @@ export function PropertyField(props: PropertyFieldProps) {
   if (!props.canEdit) {
     return (
       <ReadOnlyValue
+        spaceId={props.spaceId}
         property={props.property}
         value={props.value}
         label={props.label}
@@ -67,7 +70,12 @@ export function PropertyField(props: PropertyFieldProps) {
   if (props.locked) {
     return (
       <div className="grid gap-1">
-        <ReadOnlyValue property={props.property} value={props.value} label={props.label} />
+        <ReadOnlyValue
+          spaceId={props.spaceId}
+          property={props.property}
+          value={props.value}
+          label={props.label}
+        />
         <span className="text-[12px] text-faint">{props.locked}</span>
       </div>
     );
@@ -82,6 +90,17 @@ export function PropertyField(props: PropertyFieldProps) {
       return <MultiSelectField {...props} />;
     case "relation":
       return <RelationField {...props} />;
+    case "file":
+    case "image":
+      return (
+        <FileField
+          spaceId={props.spaceId}
+          format={props.property.format === "image" ? "image" : "file"}
+          value={props.value}
+          disabled={!props.canEdit}
+          onChange={props.onChange}
+        />
+      );
     case "recurrence":
       return (
         <RecurrenceInput
@@ -95,16 +114,50 @@ export function PropertyField(props: PropertyFieldProps) {
 }
 
 function ReadOnlyValue({
+  spaceId,
   property,
   value,
   label,
   timeZone,
 }: {
+  spaceId: string;
   property: PropertyDef;
   value: unknown;
   label: string;
   timeZone?: string;
 }) {
+  if (property.format === "file" || property.format === "image") {
+    if (typeof value !== "string" || value === "") {
+      return <span className="text-faint">—</span>;
+    }
+    const name = label !== "" && label !== value ? label : fileName(value);
+    if (property.format === "image") {
+      return (
+        <a
+          href={fileUrl(spaceId, value)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex max-w-full items-center gap-2 text-[14px] underline decoration-line-strong hover:decoration-ink"
+        >
+          <img
+            src={thumbnailUrl(spaceId, value, 256)}
+            alt=""
+            className="size-12 shrink-0 rounded-[8px] object-cover"
+          />
+          <span className="truncate">{name}</span>
+        </a>
+      );
+    }
+    return (
+      <a
+        href={fileUrl(spaceId, value)}
+        download={name}
+        className="block max-w-full truncate text-[14px] underline decoration-line-strong hover:decoration-ink"
+      >
+        {name}
+      </a>
+    );
+  }
   if (property.format === "checkbox") {
     return isChecked(value) ? (
       <span className="inline-flex items-center gap-1.5 text-[14px] text-accent">

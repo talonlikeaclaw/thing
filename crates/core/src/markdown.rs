@@ -308,6 +308,7 @@ mod tests {
             title: "Monstera — étude 🪴".to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 3,
             created_at: at(),
             updated_at: at(),
@@ -340,11 +341,13 @@ mod tests {
         let mut with_cover = doc();
         assert!(!serialize_object(&with_cover).contains("\ncover:"));
         with_cover.cover = Some(format!("files/{}/monstera.png", "a".repeat(64)));
+        with_cover.cover_position = Some("61% 38%".to_owned());
         let text = serialize_object(&with_cover);
         assert!(
             text.contains(&format!("\ncover: files/{}/monstera.png\n", "a".repeat(64))),
             "{text}"
         );
+        assert!(text.contains("\ncover_position: 61% 38%\n"), "{text}");
         assert_eq!(parse_object(&text).expect("parses back"), with_cover);
     }
 
@@ -747,6 +750,7 @@ Watered today.
                 title: "Monstera".to_owned(),
                 icon: None,
                 cover: None,
+                cover_position: None,
                 properties: BTreeMap::from([(
                     "room".to_owned(),
                     Value::Text("kitchen".to_owned()),
@@ -778,6 +782,7 @@ Watered today.
                 title: "Monstera".to_owned(),
                 icon: None,
                 cover: None,
+                cover_position: None,
                 properties: BTreeMap::from([("days".to_owned(), Value::Number(7.0))]),
             },
             body: None,
@@ -800,6 +805,7 @@ Watered today.
                 title: "T".to_owned(),
                 icon: None,
                 cover: None,
+                cover_position: None,
                 properties: BTreeMap::new(),
             },
             body: None,

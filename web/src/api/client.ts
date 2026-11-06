@@ -81,10 +81,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return decode<T>(response);
 }
 
-/** Posts a file as `text/csv`; the server answers JSON or the same error envelope. */
-export async function sendCsv<T>(
+/** Posts raw bytes; the server answers JSON or the same error envelope. */
+async function sendBody<T>(
   path: string,
-  file: File | Blob,
+  contentType: string,
+  body: Blob,
   options: { signal?: AbortSignal } = {},
 ): Promise<T> {
   let response: Response;
@@ -94,9 +95,9 @@ export async function sendCsv<T>(
       credentials: "same-origin",
       headers: {
         accept: "application/json",
-        "content-type": "text/csv",
+        "content-type": contentType,
       },
-      body: file,
+      body,
       ...(options.signal ? { signal: options.signal } : {}),
     });
   } catch (error) {
@@ -108,6 +109,20 @@ export async function sendCsv<T>(
   }
 
   return decode<T>(response);
+}
+
+/** Posts a file as `text/csv`. */
+export function sendCsv<T>(
+  path: string,
+  file: File | Blob,
+  options: { signal?: AbortSignal } = {},
+): Promise<T> {
+  return sendBody<T>(path, "text/csv", file, options);
+}
+
+/** Posts a file's own bytes, declaring its type as the client knows it. */
+export function sendFile<T>(path: string, file: File | Blob): Promise<T> {
+  return sendBody<T>(path, file.type || "application/octet-stream", file);
 }
 
 /** The filename a `Content-Disposition` header names, when it names one. */

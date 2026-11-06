@@ -708,6 +708,7 @@ mod tests {
             title: title.to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             created_at: now,
             updated_at: now,

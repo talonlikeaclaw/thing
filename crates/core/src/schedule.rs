@@ -484,6 +484,7 @@ mod tests {
             title: "Water the monstera".to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 3,
             created_at: now,
             updated_at: now,

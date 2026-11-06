@@ -99,6 +99,17 @@ pub fn validate_object(schema: &Schema, doc: &ObjectDoc) -> Result<(), Vec<CoreE
     {
         errors.push(invalid("cover", "expected a file path"));
     }
+    if let Some(cover_position) = &doc.cover_position {
+        if crate::model::parse_cover_position(cover_position).is_none() {
+            errors.push(invalid(
+                "cover_position",
+                "expected two percentages, for example 50% 35%",
+            ));
+        }
+        if doc.cover.is_none() {
+            errors.push(invalid("cover_position", "requires a cover"));
+        }
+    }
     for (key, value) in &doc.properties {
         if is_reserved_key(key) {
             errors.push(invalid(key, "is a reserved frontmatter key"));
@@ -875,6 +886,7 @@ mod tests {
             title: title.to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             created_at: at(),
             updated_at: at(),
@@ -1097,7 +1109,23 @@ mod tests {
 
         let mut covered = with(&[]);
         covered.cover = Some(image.clone());
+        covered.cover_position = Some("61% 38%".to_owned());
         valid(validate_object(&schema, &covered));
+
+        let mut bad_position = with(&[]);
+        bad_position.cover = Some(image.clone());
+        bad_position.cover_position = Some("left".to_owned());
+        assert_eq!(
+            problems(validate_object(&schema, &bad_position)),
+            vec!["invalid cover_position: expected two percentages, for example 50% 35%"]
+        );
+
+        let mut position_without_cover = with(&[]);
+        position_without_cover.cover_position = Some("50% 50%".to_owned());
+        assert_eq!(
+            problems(validate_object(&schema, &position_without_cover)),
+            vec!["invalid cover_position: requires a cover"]
+        );
 
         let mut bad_cover = with(&[]);
         bad_cover.cover = Some("../../etc/passwd".to_owned());

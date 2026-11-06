@@ -45,6 +45,8 @@ export function operatorsFor(format: PropertyFormat): CondOp[] {
     case "text":
     case "url":
     case "email":
+    case "file":
+    case "image":
       return [...TEXT_OPS, ...empty];
     case "number":
     case "date":

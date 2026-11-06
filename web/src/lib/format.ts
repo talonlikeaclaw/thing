@@ -1,5 +1,6 @@
 import type { PropertyDef, PropertyFormat } from "@/api/types";
 import { shortId } from "@/lib/display";
+import { fileName } from "@/lib/files";
 import { recurrenceSummary } from "@/lib/schedule";
 
 /** Whether a value counts as unset, matching the server's empty-key rule. */
@@ -112,6 +113,9 @@ export function valueLabel(
     }
     case "recurrence":
       return recurrenceSummary(value);
+    case "file":
+    case "image":
+      return typeof value === "string" ? fileName(value) : plain(value);
     default:
       return plain(value);
   }

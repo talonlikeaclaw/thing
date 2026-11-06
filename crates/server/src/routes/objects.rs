@@ -33,7 +33,8 @@ use uuid::Uuid;
 
 use super::values::{Projection, object_json, space_timezone};
 use super::{
-    ApiJson, ApiQuery, clean_cover, clean_icon, clean_text, double_option, space_for, uuid_param,
+    ApiJson, ApiQuery, clean_cover, clean_cover_position, clean_icon, clean_text, double_option,
+    space_for, uuid_param,
 };
 use crate::auth::Caller;
 use crate::error::ApiError;
@@ -50,6 +51,8 @@ const BODY_KEY: &str = "body";
 const ICON_KEY: &str = "icon";
 /// The change-list name of an object's cover, next to `icon`.
 const COVER_KEY: &str = "cover";
+/// The change-list name of an object's cover focal point.
+const COVER_POSITION_KEY: &str = "cover_position";
 /// Entries the activity feed returns when the caller does not say.
 const DEFAULT_ACTIVITY: usize = 8;
 /// Most entries one activity read will return.
@@ -214,6 +217,8 @@ struct CreateObjectRequest {
     icon: Option<String>,
     #[serde(default)]
     cover: Option<String>,
+    #[serde(default)]
+    cover_position: Option<String>,
     /// Values by property key; `null` means the key is absent.
     #[serde(default)]
     properties: BTreeMap<String, Value>,
@@ -233,6 +238,7 @@ async fn create(
     let title = clean_text("title", &body.title, MAX_TITLE_LEN)?;
     let icon = clean_icon(body.icon);
     let cover = clean_cover(body.cover)?;
+    let cover_position = clean_cover_position(body.cover_position)?;
     let properties = read_properties(&body.properties)?
         .into_iter()
         .filter_map(|(key, value)| value.map(|value| (key, value)))
@@ -251,6 +257,7 @@ async fn create(
         title,
         icon,
         cover,
+        cover_position,
         rev: 1,
         created_at: now,
         updated_at: now,
@@ -405,6 +412,9 @@ struct PatchObjectRequest {
     /// `null` clears the cover; leaving it out keeps the current one.
     #[serde(default, deserialize_with = "double_option")]
     cover: Option<Option<String>>,
+    /// `null` returns the focal point to the centre; leaving it out keeps it.
+    #[serde(default, deserialize_with = "double_option")]
+    cover_position: Option<Option<String>>,
     /// Values to merge by property key; `null` removes the key.
     #[serde(default)]
     properties: Option<BTreeMap<String, Value>>,
@@ -431,6 +441,7 @@ async fn update(
         .transpose()?;
     let icon = body.icon.map(clean_icon);
     let cover = body.cover.map(clean_cover).transpose()?;
+    let cover_position = body.cover_position.map(clean_cover_position).transpose()?;
     let values = body.properties.as_ref().map(read_properties).transpose()?;
     let body_text = body.body;
     let rev = body.rev;
@@ -444,6 +455,14 @@ async fn update(
         }
         if let Some(cover) = cover {
             next.cover = cover;
+            // A focal point without an image has no meaning; clearing the cover
+            // clears the framing in the same write.
+            if next.cover.is_none() {
+                next.cover_position = None;
+            }
+        }
+        if let Some(cover_position) = cover_position {
+            next.cover_position = cover_position;
         }
         if let Some(values) = &values {
             for (key, value) in values {
@@ -1315,6 +1334,7 @@ pub fn trash_and_record(
                 title: summary.title.clone(),
                 icon: summary.icon.clone(),
                 cover: summary.cover.clone(),
+                cover_position: summary.cover_position.clone(),
                 properties: summary.properties.clone(),
             },
             body: None,
@@ -1354,6 +1374,9 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
         if revision.snapshot.cover.is_some() {
             keys.push(COVER_KEY.to_owned());
         }
+        if revision.snapshot.cover_position.is_some() {
+            keys.push(COVER_POSITION_KEY.to_owned());
+        }
         keys.extend(revision.snapshot.properties.keys().cloned());
         if revision.body.is_some() {
             keys.push(BODY_KEY.to_owned());
@@ -1368,6 +1391,9 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
     }
     if previous.snapshot.cover != revision.snapshot.cover {
         keys.push(COVER_KEY.to_owned());
+    }
+    if previous.snapshot.cover_position != revision.snapshot.cover_position {
+        keys.push(COVER_POSITION_KEY.to_owned());
     }
     for (key, value) in &revision.snapshot.properties {
         if previous.snapshot.properties.get(key) != Some(value) {
@@ -1547,6 +1573,7 @@ pub(super) fn snapshot_of(doc: &ObjectDoc) -> Snapshot {
         title: doc.title.clone(),
         icon: doc.icon.clone(),
         cover: doc.cover.clone(),
+        cover_position: doc.cover_position.clone(),
         properties: doc.properties.clone(),
     }
 }
@@ -1593,6 +1620,7 @@ mod tests {
                 title: title.to_owned(),
                 icon: None,
                 cover: None,
+                cover_position: None,
                 properties: values
                     .iter()
                     .map(|(key, value)| ((*key).to_owned(), CoreValue::Text((*value).to_owned())))
@@ -1698,6 +1726,7 @@ mod tests {
             title: "Monstera in the study".to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             updated_at: OffsetDateTime::UNIX_EPOCH,
             properties: BTreeMap::new(),

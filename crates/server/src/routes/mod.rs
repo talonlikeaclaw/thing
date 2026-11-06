@@ -249,6 +249,25 @@ pub fn clean_cover(cover: Option<String>) -> Result<Option<String>, ApiError> {
     Ok(Some(cover.to_owned()))
 }
 
+/// A cover focal point is two percentages, or nothing; `""` returns the centre
+/// and any other spelling is refused by the grammar the frontmatter uses.
+pub fn clean_cover_position(position: Option<String>) -> Result<Option<String>, ApiError> {
+    let Some(position) = position else {
+        return Ok(None);
+    };
+    let position = position.trim();
+    if position.is_empty() {
+        return Ok(None);
+    }
+    let Some((x, y)) = thing_core::model::parse_cover_position(position) else {
+        return Err(ApiError::validation(
+            "cover_position",
+            "expected two percentages, for example 50% 35%",
+        ));
+    };
+    Ok(Some(format!("{x}% {y}%")))
+}
+
 /// Tells `null` apart from a missing field, so `icon: null` clears the icon
 /// while leaving the field out leaves it alone.
 pub fn double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -2428,6 +2447,7 @@ mod tests {
                         "type": "plant",
                         "title": "Fern",
                         "cover": cover,
+                        "cover_position": "61% 38%",
                         "properties": { "room": "study" },
                     })),
                     Some(&cookie),
@@ -2435,6 +2455,7 @@ mod tests {
                 .await;
             assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
             assert_eq!(created.body["cover"], cover.as_str());
+            assert_eq!(created.body["cover_position"], "61% 38%");
             let fern = created.body["id"].as_str().expect("an id").to_owned();
             let fern_path = format!("/api/spaces/{}/objects/{fern}", garden.space);
 
@@ -2449,6 +2470,39 @@ mod tests {
                 .await;
             assert_eq!(retitled.status, StatusCode::OK, "{:?}", retitled.body);
             assert_eq!(retitled.body["cover"], cover.as_str());
+            assert_eq!(retitled.body["cover_position"], "61% 38%");
+
+            let malformed_position = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 2, "cover_position": "left" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                malformed_position.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                malformed_position.body
+            );
+            assert_eq!(malformed_position.field(), "cover_position");
+
+            let repositioned = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 2, "cover_position": "10% 90%" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                repositioned.status,
+                StatusCode::OK,
+                "{:?}",
+                repositioned.body
+            );
+            assert_eq!(repositioned.body["cover_position"], "10% 90%");
 
             let malformed = server
                 .call(
@@ -2470,7 +2524,7 @@ mod tests {
                 .call(
                     "PATCH",
                     &fern_path,
-                    Some(json!({ "rev": 2, "cover": null })),
+                    Some(json!({ "rev": 3, "cover": null })),
                     Some(&cookie),
                 )
                 .await;
@@ -2480,16 +2534,33 @@ mod tests {
                 "null clears the key: {:?}",
                 cleared.body
             );
+            assert!(
+                cleared.body.get("cover_position").is_none(),
+                "clearing the cover clears its framing: {:?}",
+                cleared.body
+            );
+
+            let no_cover_position = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 4, "cover_position": "20% 20%" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(no_cover_position.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(no_cover_position.field(), "cover_position");
 
             let reset = server
                 .call(
                     "PATCH",
                     &fern_path,
-                    Some(json!({ "rev": 3, "cover": cover })),
+                    Some(json!({ "rev": 4, "cover": cover, "cover_position": "61% 38%" })),
                     Some(&cookie),
                 )
                 .await;
-            assert_eq!(reset.body["rev"], 4);
+            assert_eq!(reset.body["rev"], 5);
+            assert_eq!(reset.body["cover_position"], "61% 38%");
 
             let list = server
                 .call("GET", &format!("{objects}?type=plant"), None, Some(&cookie))
@@ -2501,6 +2572,7 @@ mod tests {
                 .find(|row| row["title"] == "Boston fern")
                 .expect("the renamed row");
             assert_eq!(row["cover"], cover.as_str());
+            assert_eq!(row["cover_position"], "61% 38%");
 
             let raw = server
                 .call_raw("GET", &format!("{fern_path}/raw"), None, &[], Some(&cookie))
@@ -2510,13 +2582,19 @@ mod tests {
                 "{}",
                 raw.text()
             );
+            assert!(
+                raw.text().contains("\ncover_position: 61% 38%\n"),
+                "{}",
+                raw.text()
+            );
 
             let history = server
                 .call("GET", &format!("{fern_path}/history"), None, Some(&cookie))
                 .await;
             let lines = history.body.as_array().expect("lines");
-            assert_eq!(lines.len(), 4);
+            assert_eq!(lines.len(), 5);
             assert_eq!(lines[0]["snapshot"]["cover"], cover.as_str());
+            assert_eq!(lines[0]["snapshot"]["cover_position"], "61% 38%");
             assert!(
                 lines[1]["changed"]
                     .as_array()
@@ -2531,7 +2609,19 @@ mod tests {
                     .as_array()
                     .expect("changed")
                     .iter()
+                    .any(|key| key == "cover_position")
+            );
+            assert!(
+                lines[3]["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .iter()
                     .any(|key| key == "cover")
+                    && lines[3]["changed"]
+                        .as_array()
+                        .expect("changed")
+                        .iter()
+                        .any(|key| key == "cover_position")
             );
 
             // The bytes are not in the space: the write stands and health says so.
@@ -2556,6 +2646,7 @@ mod tests {
                 .await;
             assert_eq!(copy.status, StatusCode::CREATED, "{:?}", copy.body);
             assert_eq!(copy.body["cover"], cover.as_str());
+            assert_eq!(copy.body["cover_position"], "61% 38%");
 
             // `cover` is a frontmatter key, so a property may not take it.
             let reserved = server

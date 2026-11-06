@@ -429,9 +429,12 @@ with its date and due phrase in mono, plus complete and menu actions. Every visi
 — chip, day panel, empty state — comes from the shared formatter.
 
 **The Tiles.** A gallery tile is matte at the card radius (18px); its tinted cover is
-clipped by that corner, never a square band over a rounded frame. The complete and menu
-actions on a board card, gallery tile or calendar chip are 32px glass circles — 44px on a
-coarse pointer — so they read as chrome over the record's own colour.
+clipped by that corner, never a square band over a rounded frame. When the view names an
+image property, or the record carries a cover, that image fills the same clipped frame at
+16:9 with the record's stored focal point; the tint remains the fallback. The complete and
+menu actions on a board card, gallery tile or calendar chip are 32px glass circles — 44px on
+a coarse pointer — so they read as chrome over the record's own colour. An image opens the
+one lightbox: the picture at reading size, its caption, Escape and focus back on the tile.
 
 **Quiet surfaces.** Schema, members, settings, trash, auth and account settings share one
 page header and one section rhythm. Sections are matte cards at 22px; the danger section

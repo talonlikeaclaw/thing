@@ -2,11 +2,13 @@ import { Check, X } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
+import { FileField } from "@/components/file-field";
 import type { PropertyDef } from "@/api/types";
 import { useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
+import { fileName } from "@/lib/files";
 import {
   datetimeLocal,
   fromDatetimeLocal,
@@ -41,6 +43,19 @@ export function PropertyInput(props: PropertyInputProps) {
       return <MultiSelectInput {...props} />;
     case "relation":
       return <RelationInput {...props} />;
+    case "file":
+    case "image":
+      return (
+        <FileField
+          spaceId={props.spaceId}
+          format={props.property.format === "image" ? "image" : "file"}
+          value={props.value}
+          onChange={(next) =>
+            props.onCommit(next, next === null ? "" : fileName(next))
+          }
+          onCancel={props.onCancel}
+        />
+      );
     case "recurrence":
       return (
         <RecurrenceInput

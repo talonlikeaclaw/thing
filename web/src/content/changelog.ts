@@ -22,6 +22,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     upcoming: true,
     highlights: [
       "A space will keep images and files beside its records, inside the space's own storage.",
+      "A cover frames itself: choose the part of the image the 16:9 hero should keep.",
+      "Gallery tiles show a record's image cover, and any image opens at full size.",
     ],
     details: [
       "Bytes are named by their content, so the same upload twice is one stored file.",
@@ -29,6 +31,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Thumbnails are derived at 256 or 512 px on first view and cached beside the originals.",
       "A backup of the space carries the files with it.",
       "A record can carry a cover and hold a file or an image beside its other values.",
+      "A file field chooses or drops a file, shows its name and a preview, and replaces or removes it.",
+      "A refused upload keeps the value it had and offers Retry.",
+      "The cover's framing is stored with the record, so every member sees the same crop.",
+      "The lightbox closes with Escape and returns focus to the image that opened it.",
       "A reference whose bytes are missing is reported by the space's health read and never blocks the record.",
     ],
   },

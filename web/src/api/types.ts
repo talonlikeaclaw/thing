@@ -57,7 +57,9 @@ export type PropertyFormat =
   | "url"
   | "email"
   | "relation"
-  | "recurrence";
+  | "recurrence"
+  | "file"
+  | "image";
 
 export interface OptionDef {
   /** Stable identity: renaming the display name never moves a stored value. */
@@ -237,6 +239,17 @@ export interface ValueJson {
   missing?: boolean;
 }
 
+/** One stored attachment, as the upload route answers. */
+export interface UploadedFile {
+  /** The POSIX-relative path a file or image value stores. */
+  path: string;
+  hash: string;
+  /** The stored name: a slugged stem and the sniffed or original extension. */
+  name: string;
+  mime: string;
+  size: number;
+}
+
 /** One row of a view. `values` holds the selected view's fields minus `title`. */
 export interface ObjectSummary {
   id: Uuid;
@@ -244,6 +257,10 @@ export interface ObjectSummary {
   title: string;
   /** A user-authored glyph; absent when the record has none. */
   icon?: string;
+  /** The 16:9 cover image's path; absent when the record has none. */
+  cover?: string;
+  /** The cover's focal point, `"<x>% <y>%"`; absent means the centre. */
+  cover_position?: string;
   rev: number;
   updated_at: IsoDate;
   values: Record<string, ValueJson>;
@@ -289,6 +306,10 @@ export interface ObjectDetail {
   title: string;
   /** A user-authored glyph; absent when the record has none. */
   icon?: string;
+  /** The 16:9 cover image's path; absent when the record has none. */
+  cover?: string;
+  /** The cover's focal point, `"<x>% <y>%"`; absent means the centre. */
+  cover_position?: string;
   rev: number;
   created_at: IsoDate;
   updated_at: IsoDate;
@@ -464,6 +485,10 @@ export interface RevisionSnapshot {
   title: string;
   /** Absent on lines written before the field existed, and when no icon is set. */
   icon?: string;
+  /** Absent when the record had no cover at that revision. */
+  cover?: string;
+  /** The focal point in effect at that revision; absent means the centre. */
+  cover_position?: string;
   properties: Record<string, unknown>;
 }
 

@@ -332,6 +332,9 @@ pub struct ObjectDoc {
     /// An attachment path drawn as the record's hero; absent means no cover.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
+    /// The cover's focal point as `"<x>% <y>%"`; absent means the centre.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover_position: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -500,6 +503,9 @@ pub struct Snapshot {
     /// Absent on lines written before the field existed, and when no cover is set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
+    /// The focal point in effect at that revision; absent means the centre.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover_position: Option<String>,
     pub properties: BTreeMap<String, Value>,
 }
 
@@ -522,6 +528,7 @@ pub struct ObjectSummary {
     pub title: String,
     pub icon: Option<String>,
     pub cover: Option<String>,
+    pub cover_position: Option<String>,
     pub rev: u64,
     pub updated_at: OffsetDateTime,
     pub properties: BTreeMap<String, Value>,
@@ -535,6 +542,7 @@ impl From<&ObjectDoc> for ObjectSummary {
             title: doc.title.clone(),
             icon: doc.icon.clone(),
             cover: doc.cover.clone(),
+            cover_position: doc.cover_position.clone(),
             rev: doc.rev,
             updated_at: doc.updated_at,
             properties: doc.properties.clone(),
@@ -557,6 +565,22 @@ pub const TITLE_KEY: &str = "title";
 /// or the title.
 pub const UPDATED_AT_KEY: &str = "updated_at";
 
+/// Parses a cover focal point, `"<x>% <y>%"`, as two percentages in `0..=100`.
+///
+/// This is the one grammar the frontmatter, the PATCH body and both image
+/// surfaces share; a malformed value is refused rather than clamped.
+pub fn parse_cover_position(value: &str) -> Option<(u8, u8)> {
+    let (x, y) = value.trim().split_once(' ')?;
+    let percent = |part: &str| {
+        let digits = part.strip_suffix('%')?;
+        if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        digits.parse::<u8>().ok().filter(|found| *found <= 100)
+    };
+    Some((percent(x)?, percent(y)?))
+}
+
 /// Frontmatter keys no property may be named after: each one is written by the
 /// object format itself, so a property with the same key would have two writers.
 pub const RESERVED_KEYS: &[&str] = &[
@@ -566,6 +590,7 @@ pub const RESERVED_KEYS: &[&str] = &[
     "title",
     "icon",
     "cover",
+    "cover_position",
     "rev",
     "created_at",
     "updated_at",
@@ -702,6 +727,17 @@ default_view: all
         assert!(written.contains("last_completed: Last watered"));
         assert!(written.contains("complete: Water"));
         assert!(!written.contains("due:"), "an unset label is omitted");
+    }
+
+    #[test]
+    fn a_cover_position_is_two_percentages_in_range() {
+        assert_eq!(parse_cover_position("0% 100%"), Some((0, 100)));
+        assert_eq!(parse_cover_position("61% 38%"), Some((61, 38)));
+        for bad in [
+            "50", "50%", "50% 50", "101% 50%", "-1% 50%", "50%  50%", "a% 50%", "",
+        ] {
+            assert_eq!(parse_cover_position(bad), None, "{bad}");
+        }
     }
 
     #[test]

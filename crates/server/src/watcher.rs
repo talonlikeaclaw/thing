@@ -333,6 +333,7 @@ mod tests {
             title: "Fern".to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             created_at: datetime!(2026-10-17 12:00:00 UTC),
             updated_at: datetime!(2026-10-17 12:00:00 UTC),

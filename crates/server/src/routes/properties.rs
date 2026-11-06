@@ -604,6 +604,7 @@ mod tests {
             title: "Monstera".to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),

@@ -30,6 +30,9 @@ pub struct SummaryJson {
     /// The record's cover attachment; absent when it has none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
+    /// The cover's focal point; absent means the centre.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_position: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
@@ -54,6 +57,9 @@ pub struct ObjectJson {
     /// The record's cover attachment; absent when it has none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover: Option<String>,
+    /// The cover's focal point; absent means the centre.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_position: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -161,6 +167,7 @@ impl<'a> Projection<'a> {
             title: summary.title.clone(),
             icon: summary.icon.clone(),
             cover: summary.cover.clone(),
+            cover_position: summary.cover_position.clone(),
             rev: summary.rev,
             updated_at: summary.updated_at,
             values,
@@ -194,6 +201,7 @@ impl<'a> Projection<'a> {
             title: doc.title.clone(),
             icon: doc.icon.clone(),
             cover: doc.cover.clone(),
+            cover_position: doc.cover_position.clone(),
             rev: doc.rev,
             created_at: doc.created_at,
             updated_at: doc.updated_at,
@@ -488,6 +496,7 @@ mod tests {
             title: "Monstera".to_owned(),
             icon: None,
             cover: None,
+            cover_position: None,
             rev: 1,
             updated_at: OffsetDateTime::UNIX_EPOCH,
             properties: properties.clone(),

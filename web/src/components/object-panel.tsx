@@ -3,6 +3,9 @@ import {
   AlignLeft,
   ChevronRight,
   Copy,
+  ImageOff,
+  ImagePlus,
+  Move,
   MoreHorizontal,
   Pencil,
   SlidersHorizontal,
@@ -18,6 +21,7 @@ import {
   useRestoreObject,
   useTrashObject,
   useUpdateObject,
+  useUploadFile,
 } from "@/api/queries";
 import type {
   MentionBacklink,
@@ -27,6 +31,7 @@ import type {
 } from "@/api/types";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
@@ -37,6 +42,7 @@ import { FormatChip } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { formatDate, formatDateTime, formatDay, readError } from "@/lib/display";
+import { coverPoint, thumbnailUrl } from "@/lib/files";
 import { useWideLayout } from "@/lib/media";
 import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
@@ -75,6 +81,10 @@ interface Draft {
   title: string;
   /** The raw glyph; an empty string means no icon. */
   icon: string;
+  /** The cover's stored path; an empty string means no cover. */
+  cover: string;
+  /** The cover's focal point; an empty string means the centre. */
+  coverPosition: string;
   body: string;
   values: Record<string, unknown | null>;
 }
@@ -83,6 +93,8 @@ interface Baseline {
   rev: number;
   title: string;
   icon: string;
+  cover: string;
+  coverPosition: string;
   body: string;
   values: Record<string, unknown | null>;
 }
@@ -108,6 +120,8 @@ function baselineOf(object: ObjectDetail): Baseline {
     rev: object.rev,
     title: object.title,
     icon: object.icon ?? "",
+    cover: object.cover ?? "",
+    coverPosition: object.cover_position ?? "",
     body: object.body,
     values: rawValues(object),
   };
@@ -117,6 +131,8 @@ function draftOf(object: ObjectDetail): Draft {
   return {
     title: object.title,
     icon: object.icon ?? "",
+    cover: object.cover ?? "",
+    coverPosition: object.cover_position ?? "",
     body: object.body,
     values: rawValues(object),
   };
@@ -197,6 +213,11 @@ const RECORD_MENU_ITEM =
 function RecordOverflow({
   revertLabel,
   onRevert,
+  hasCover,
+  onChooseCover,
+  onRemoveCover,
+  onRepositionCover,
+  coverPending,
   typeHref,
   typeName,
   onDuplicate,
@@ -205,6 +226,12 @@ function RecordOverflow({
 }: {
   revertLabel: string | null;
   onRevert: () => void;
+  /** Whether the draft already has a cover, which makes the action a change. */
+  hasCover: boolean;
+  onChooseCover: () => void;
+  onRemoveCover: () => void;
+  onRepositionCover: () => void;
+  coverPending: boolean;
   /** The type editor, opened on the record's own type. */
   typeHref: string;
   typeName: string;
@@ -233,6 +260,34 @@ function RecordOverflow({
                 <Undo2 aria-hidden size={14} />
                 {revertLabel}
               </Popover.Close>
+            ) : null}
+            <Popover.Close
+              className={RECORD_MENU_ITEM}
+              disabled={coverPending}
+              onClick={onChooseCover}
+            >
+              <ImagePlus aria-hidden size={14} />
+              {hasCover ? "Change cover" : "Add cover"}
+            </Popover.Close>
+            {hasCover ? (
+              <>
+                <Popover.Close
+                  className={RECORD_MENU_ITEM}
+                  disabled={coverPending}
+                  onClick={onRepositionCover}
+                >
+                  <Move aria-hidden size={14} />
+                  Reposition cover
+                </Popover.Close>
+                <Popover.Close
+                  className={RECORD_MENU_ITEM}
+                  disabled={coverPending}
+                  onClick={onRemoveCover}
+                >
+                  <ImageOff aria-hidden size={14} />
+                  Remove cover
+                </Popover.Close>
+              </>
             ) : null}
             <Popover.Close
               className={RECORD_MENU_ITEM}
@@ -280,6 +335,11 @@ export function ObjectPanel({
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverAttempt, setCoverAttempt] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState(false);
+  const [repositioning, setRepositioning] = useState(false);
+  const [focusStart, setFocusStart] = useState("");
   const [confirmingTrash, setConfirmingTrash] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const [renamePrompt, setRenamePrompt] = useState<RenamePrompt | null>(null);
@@ -291,7 +351,10 @@ export function ObjectPanel({
   const [revertTokens, setRevertTokens] = useState<Record<string, number>>({});
   const lastSavedRev = useRef<number | null>(null);
   const focusBeforeSave = useRef<HTMLElement | null>(null);
+  const coverInput = useRef<HTMLInputElement | null>(null);
+  const coverOpener = useRef<HTMLElement | null>(null);
   const update = useUpdateObject(spaceId);
+  const coverUpload = useUploadFile(spaceId);
   const complete = useCompleteObject(spaceId);
   const trash = useTrashObject(spaceId);
   const restore = useRestoreObject(spaceId);
@@ -330,6 +393,8 @@ export function ObjectPanel({
 
   const titleChanged = draft.title.trim() !== baseline.title;
   const iconChanged = draft.icon.trim() !== baseline.icon;
+  const coverChanged = draft.cover.trim() !== baseline.cover;
+  const coverPositionChanged = draft.coverPosition !== baseline.coverPosition;
   const bodyChanged = draft.body !== baseline.body;
   const bodyText = draft.body.trim();
   const bodyWords = bodyText === "" ? 0 : bodyText.split(/\s+/u).length;
@@ -341,25 +406,94 @@ export function ObjectPanel({
     changedFields.length +
     (titleChanged ? 1 : 0) +
     (iconChanged ? 1 : 0) +
+    (coverChanged || coverPositionChanged ? 1 : 0) +
     (bodyChanged ? 1 : 0);
   const dirty = changeCount > 0 && !leaving;
   const wide = useWideLayout();
   const stale = object.rev !== baseline.rev;
+  const headerParts = [
+    ...(titleChanged ? ["title"] : []),
+    ...(iconChanged ? ["icon"] : []),
+    ...(coverChanged || coverPositionChanged ? ["cover"] : []),
+  ];
   const headerRevertLabel =
-    titleChanged && iconChanged
-      ? "Revert title and icon"
-      : titleChanged
-        ? "Revert title"
-        : iconChanged
-          ? "Revert icon"
-          : null;
+    headerParts.length === 0
+      ? null
+      : headerParts.length === 1
+        ? `Revert ${headerParts[0]}`
+        : headerParts.length === 2
+          ? `Revert ${headerParts[0]} and ${headerParts[1]}`
+          : `Revert ${headerParts[0]}, ${headerParts[1]} and ${headerParts[2]}`;
+  const coverFocus = coverPoint(draft.coverPosition);
+  const coverStyle = {
+    objectPosition: `${coverFocus.x}% ${coverFocus.y}%`,
+  };
 
   function revertHeader() {
     setDraft((current) => ({
       ...current,
       title: baseline.title,
       icon: baseline.icon,
+      cover: baseline.cover,
+      coverPosition: baseline.coverPosition,
     }));
+    setRepositioning(false);
+  }
+
+  /** Sets both axes from a click or a slider; the centre is stored as absent. */
+  function setCoverFocus(x: number, y: number) {
+    const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+    setDraft((current) => ({
+      ...current,
+      coverPosition: `${clamp(x)}% ${clamp(y)}%`,
+    }));
+  }
+
+  function startReposition() {
+    setFocusStart(draft.coverPosition);
+    setRepositioning(true);
+  }
+
+  function cancelReposition() {
+    setDraft((current) => ({ ...current, coverPosition: focusStart }));
+    setRepositioning(false);
+  }
+
+  function finishReposition() {
+    const point = coverPoint(draft.coverPosition);
+    setDraft((current) => ({
+      ...current,
+      coverPosition: point.x === 50 && point.y === 50 ? "" : `${point.x}% ${point.y}%`,
+    }));
+    setRepositioning(false);
+  }
+
+  /** Uploads cover bytes; the draft gets the path only after the store accepts them. */
+  function chooseCover(file: File | undefined) {
+    if (!file || !canEdit || coverUpload.isPending) {
+      return;
+    }
+    setCoverAttempt(file);
+    setCoverError(null);
+    coverUpload.mutate(file, {
+      onSuccess: (stored) => {
+        setCoverAttempt(null);
+        setRepositioning(false);
+        setDraft((current) => ({
+          ...current,
+          cover: stored.path,
+          coverPosition: "",
+        }));
+      },
+      onError: (error) => setCoverError(readError(error)),
+    });
+  }
+
+  function removeCover() {
+    setCoverAttempt(null);
+    setCoverError(null);
+    setRepositioning(false);
+    setDraft((current) => ({ ...current, cover: "", coverPosition: "" }));
   }
 
   function resetFrom(saved: ObjectDetail, remount = false) {
@@ -418,12 +552,22 @@ export function ObjectPanel({
           rev: revOverride ?? base.rev,
           title: draft.title.trim(),
           icon: draft.icon.trim() === "" ? null : draft.icon.trim(),
+          ...(draft.cover.trim() === base.cover
+            ? {}
+            : { cover: draft.cover.trim() === "" ? null : draft.cover.trim() }),
+          ...(draft.coverPosition === base.coverPosition
+            ? {}
+            : {
+                cover_position:
+                  draft.coverPosition === "" ? null : draft.coverPosition,
+              }),
           body: draft.body,
           ...(Object.keys(nextChanges).length === 0 ? {} : { properties: nextChanges }),
         },
         {
           onSuccess: (saved) => {
             resetFrom(saved);
+            setRepositioning(false);
             setConflict(null);
             setSaveError(null);
             restoreFocus();
@@ -830,6 +974,144 @@ export function ObjectPanel({
 
   return (
     <div className="settle rounded-[24px] border border-line bg-surface p-5 sm:p-6" data-record-panel>
+      <input
+        ref={coverInput}
+        aria-label="Upload cover image"
+        className="sr-only"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        disabled={!canEdit || coverUpload.isPending}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          chooseCover(file);
+        }}
+      />
+      {draft.cover !== "" ? (
+        <div className="mb-4 overflow-hidden rounded-[16px] border border-line bg-raised/40">
+          {repositioning ? (
+            <div className="relative">
+              <img
+                src={thumbnailUrl(spaceId, draft.cover, 512)}
+                alt=""
+                className="aspect-video w-full cursor-crosshair object-cover"
+                style={coverStyle}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  if (rect.width === 0 || rect.height === 0) {
+                    return;
+                  }
+                  setCoverFocus(
+                    ((event.clientX - rect.left) / rect.width) * 100,
+                    ((event.clientY - rect.top) / rect.height) * 100,
+                  );
+                }}
+              />
+              <span
+                aria-hidden
+                className="pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.6)]"
+                style={{ left: `${coverFocus.x}%`, top: `${coverFocus.y}%` }}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-label="Open cover image"
+              className="block w-full transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={(event) => {
+                coverOpener.current = event.currentTarget;
+                setCoverPreview(true);
+              }}
+            >
+              <img
+                src={thumbnailUrl(spaceId, draft.cover, 512)}
+                alt=""
+                className="aspect-video w-full object-cover"
+                style={coverStyle}
+              />
+            </button>
+          )}
+        </div>
+      ) : null}
+      {repositioning ? (
+        <div className="mb-4 grid gap-2 rounded-field border border-line bg-raised/25 p-2">
+          <label className="grid gap-1 text-[11px] text-muted">
+            Horizontal
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={coverFocus.x}
+              aria-label="Cover horizontal position"
+              className="h-11 w-full accent-accent"
+              onChange={(event) =>
+                setCoverFocus(Number(event.target.value), coverFocus.y)
+              }
+            />
+          </label>
+          <label className="grid gap-1 text-[11px] text-muted">
+            Vertical
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={coverFocus.y}
+              aria-label="Cover vertical position"
+              className="h-11 w-full accent-accent"
+              onChange={(event) =>
+                setCoverFocus(coverFocus.x, Number(event.target.value))
+              }
+            />
+          </label>
+          <ThumbRow className="flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              onClick={() => setCoverFocus(50, 50)}
+            >
+              Center
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              onClick={cancelReposition}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              onClick={finishReposition}
+            >
+              Done
+            </Button>
+          </ThumbRow>
+        </div>
+      ) : null}
+      {coverUpload.isPending ? (
+        <p role="status" className="mb-3 text-[12px] text-muted">
+          Uploading cover…
+        </p>
+      ) : null}
+      {coverError ? (
+        <div
+          role="alert"
+          className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-danger"
+        >
+          <span>{coverError}</span>
+          {coverAttempt ? (
+            <button
+              type="button"
+              className="underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11"
+              onClick={() => chooseCover(coverAttempt)}
+            >
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
       <div className="border-b rule pb-3 xl:col-span-8 xl:col-start-1">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -886,6 +1168,11 @@ export function ObjectPanel({
               <RecordOverflow
                 revertLabel={headerRevertLabel}
                 onRevert={revertHeader}
+                hasCover={draft.cover !== ""}
+                onChooseCover={() => coverInput.current?.click()}
+                onRemoveCover={removeCover}
+                onRepositionCover={startReposition}
+                coverPending={coverUpload.isPending}
                 typeHref={`/s/${spaceId}/schema?type=${encodeURIComponent(object.type)}#type-editor`}
                 typeName={type?.name ?? object.type}
                 onDuplicate={duplicateRecord}
@@ -1306,6 +1593,15 @@ export function ObjectPanel({
         />
       ) : null}
       {guard}
+      {coverPreview && draft.cover !== "" ? (
+        <ImageLightbox
+          spaceId={spaceId}
+          path={draft.cover}
+          title={object.title}
+          returnFocus={coverOpener}
+          onClose={() => setCoverPreview(false)}
+        />
+      ) : null}
     </div>
   );
 }

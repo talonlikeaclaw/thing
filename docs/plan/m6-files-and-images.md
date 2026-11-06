@@ -134,8 +134,10 @@ files/.thumbs/<sha256>-<width>.jpg|png
 |---|---|
 | `FORMAT_VERSION` | `5`; `MIN_FORMAT_VERSION` stays `1`; every 1…4 file loads and upgrades on write |
 | `ObjectDoc.cover` | `Option<String>`, a file path; absent means no cover; serialized only when set |
+| `ObjectDoc.cover_position` | `Option<String>`, two percentages `"<x>% <y>%"`; absent means the centre; legal only beside a cover |
 | `Snapshot.cover` | Added beside `icon`, so history and the activity change list can name a cover write |
-| `RESERVED_KEYS` | `cover` joins the list; no property may be keyed `cover` |
+| `Snapshot.cover_position` | Added beside `cover`, so history and the activity change list can name a framing write |
+| `RESERVED_KEYS` | `cover` and `cover_position` join the list; no property may take either key |
 | `PropertyFormat` | `File`, `Image`, serialized as `file` and `image` |
 | `value.rs` | Both formats accept a YAML/JSON string; `expected()` names "a file path" |
 | `ObjectSummary` / `ObjectJson` | Both carry `cover`; a gallery card and a record need the same field |
@@ -219,14 +221,22 @@ metadata would be ambiguous to deserialize and would duplicate facts. The path i
 
 - **Record.** `cover` renders as a 16:9 hero above the title band, `object-fit: cover`, with a
   Change/Remove pair in the record's overflow menu. It is decorative: `alt=""` when the title is
-  already adjacent. Removing writes `cover: null` through the existing PATCH and conflict path.
+  already adjacent. Removing writes `cover: null` through the existing PATCH and conflict path;
+  clearing a cover also clears its focal point in the same write.
+- **Focal point.** `cover_position` stores the chosen centre of the 16:9 crop as two percentages,
+  absent meaning the centre. Repositioning happens on the hero itself: horizontal and vertical
+  sliders, a click on the preview, Center, Cancel and Done; the value joins the record draft and
+  the ordinary save/conflict path. The hero and the gallery use the same `object-position`, so the
+  framing chosen in the record is the framing on the tile. The centre normalizes back to absent.
 - **Gallery.** `view.cover` may name an `image` property; the tile draws that image in place of the
-  typographic band. When the view has no image cover, the object's own cover is the fallback. A
-  non-image cover property keeps today's typographic tile.
+  typographic band. When the view has no such property — or the record has no value for it — the
+  object's own cover is the fallback, with the record's focal point. A named non-image cover
+  property keeps today's typographic tile.
 - **Board.** Unchanged in M6; a board card stays typographic. Image strips on lanes are out of M6 (§8).
 - **Lightbox.** One component built on the existing `SheetViewport`/`Dialog` primitives: the image
   at full width, a close control, Escape, focus return to the opener, and a caption naming the file.
-  A `file` value downloads; an `image` value opens the lightbox. No carousel.
+  A `file` value downloads; an `image` value opens the lightbox from the gallery tile, the record
+  cover and the image property. No carousel.
 
 ### 4.7 Lifecycle and GC
 
@@ -360,20 +370,26 @@ unclear, stop before writing code and ask. This preflight is not a checkpoint an
   `property-input.tsx`, `property-field.tsx`, `object-panel.tsx`, `styles/globals.css` if the
   picker needs a token.
 
-### Checkpoint 6 — Gallery covers and the lightbox
+### Checkpoint 6 — Gallery covers, cover framing and the lightbox
 
 - `gallery-view.tsx`: an `image` cover property renders `<img>` with `?w=512`, `object-fit: cover`,
-  a neutral placeholder while it loads, and the object cover as the fallback; non-image covers stay
-  typographic.
+  a neutral placeholder while it loads, and the object cover as the fallback; a fallback tile uses
+  the object's `cover_position`. Non-image covers stay typographic.
+- `cover_position` end to end: the core field and grammar, server validation and projections,
+  duplicate/history, and the record hero's reposition editor (sliders, click, Center, Cancel, Done);
+  the hero and gallery share one `object-position`.
 - `components/image-lightbox.tsx` on the existing sheet primitives: close, Escape, focus return,
   caption; opened from a gallery tile, the record cover and an image property. A `file` value
   downloads instead.
-- **Acceptance:** a gallery with an image cover shows images, not labels; a missing image keeps the
-  tile's text; Escape closes the lightbox and returns focus to the tile; the lightbox fits 390 and
-  does not scroll the page behind it.
-- **Tests:** gallery render with an image value; lightbox Escape and focus return.
-- **Files:** `gallery-view.tsx`, `image-lightbox.tsx`, `object-panel.tsx` (opener),
-  `property-input.tsx` (opener), `styles/globals.css`.
+- **Acceptance:** a gallery with an image cover shows images, not labels; the record cover appears
+  when the view names no image property; a focal point saved on the record is the tile's framing;
+  a missing image keeps the tile's text; Escape closes the lightbox and returns focus to the tile;
+  the lightbox fits 390 and does not scroll the page behind it.
+- **Tests:** gallery render with image and fallback covers; focal point grammar and PATCH; lightbox
+  Escape and focus return.
+- **Files:** `gallery-view.tsx`, `image-lightbox.tsx`, `object-panel.tsx`, `property-field.tsx`,
+  `file-field.tsx`, `model.rs`, `markdown.rs`, `validate.rs`, `routes/objects.rs`,
+  `routes/values.rs`, `styles/globals.css`.
 
 ### Checkpoint 7 — Lifecycle, GC, CSV and problems
 
@@ -457,6 +473,11 @@ unclear, stop before writing code and ask. This preflight is not a checkpoint an
     its fallback.
 14. **Files are member-only.** No public or signed URL in M6; that is a permission model, not an
     attachment detail.
+15. **One attachment per property, several properties per record.** Reaffirmed by the owner on
+    2026-11-06: a record's several files are several properties, not a list inside one value.
+16. **The cover's focal point is stored, not cropped.** `cover_position` holds two percentages and
+    drives `object-position` on the hero and the gallery tile; the original bytes are never cut.
+    Chosen by the owner on 2026-11-06 over a server-written crop.
 15. **AVIF and video are out.** M6 decodes PNG, JPEG, WebP and GIF and serves ordinary files; no
     media player and no range requests.
 
@@ -472,6 +493,8 @@ unclear, stop before writing code and ask. This preflight is not a checkpoint an
 | 6 | Board cards | **Keep typographic.** Only the gallery and the record hero gain images in M6. |
 | 7 | Same bytes under different names | **Two paths, two copies.** The path stays the fact; no name manifest. |
 | 8 | Public or signed file URLs | **No, member-only.** Sharing is a later permission model. |
+| 9 | Several files in one property | **No. One per property.** A record with many files carries many file/image properties; the value stays one path. |
+| 10 | Choosing the cover's 16:9 frame | **Stored focal point.** `cover_position` percentages drive `object-position`; no derived crop. |
 
 No open questions remain for M6. If implementation finds a new one, stop and ask the owner; do not
 decide it inside a checkpoint. M6.1 (body images) is the only committed follow-up and is not part

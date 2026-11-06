@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient, useQueries } from "@tanstack/rea
 import type { QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { ApiError, downloadFile, isUnauthenticated, request, sendCsv } from "@/api/client";
+import { ApiError, downloadFile, isUnauthenticated, request, sendCsv, sendFile } from "@/api/client";
 import type {
   Agenda,
   AgendaQuery,
@@ -30,6 +30,7 @@ import type {
   TypeProperty,
   TypeSummary,
   UpdateView,
+  UploadedFile,
   User,
   Uuid,
   ValueJson,
@@ -748,6 +749,10 @@ export interface UpdateObjectInput {
   title?: string;
   /** `null` clears the icon; leaving it out keeps the current one. */
   icon?: string | null;
+  /** `null` clears the cover; leaving it out keeps the current one. */
+  cover?: string | null;
+  /** `null` returns the focal point to the centre; leaving it out keeps it. */
+  cover_position?: string | null;
   /** `null` removes the key. */
   properties?: Record<string, unknown | null>;
   /** The markdown body, when this write carries one. */
@@ -810,6 +815,8 @@ function applyObject(
         ...row,
         title: object.title,
         icon: object.icon,
+        cover: object.cover,
+        cover_position: object.cover_position,
         rev: object.rev,
         updated_at: object.updated_at,
         values,
@@ -818,6 +825,26 @@ function applyObject(
     });
     return changed ? { ...list, objects } : list;
   });
+}
+
+/**
+ * Stores one file's bytes and returns the path a value or a cover records.
+ * Uploading is not a record write: nothing is invalidated and the caller
+ * commits the returned path through its own draft or PATCH.
+ */
+export function useUploadFile(spaceId: string) {
+  return useMutation({
+    mutationFn: (file: File | Blob) =>
+      sendFile<UploadedFile>(
+        `/api/spaces/${spaceId}/files?name=${encodeURIComponent(fileNameOf(file))}`,
+        file,
+      ),
+  });
+}
+
+/** A blob from a picker already carries its name; a bare blob does not. */
+function fileNameOf(file: File | Blob): string {
+  return file instanceof File && file.name !== "" ? file.name : "file.bin";
 }
 
 /**
@@ -836,6 +863,10 @@ export function useUpdateObject(spaceId: string) {
           rev: input.rev,
           ...(input.title === undefined ? {} : { title: input.title }),
           ...(input.icon === undefined ? {} : { icon: input.icon }),
+          ...(input.cover === undefined ? {} : { cover: input.cover }),
+          ...(input.cover_position === undefined
+            ? {}
+            : { cover_position: input.cover_position }),
           ...(input.properties === undefined ? {} : { properties: input.properties }),
           ...(input.body === undefined ? {} : { body: input.body }),
         },
@@ -861,6 +892,16 @@ export function useUpdateObject(spaceId: string) {
                     : input.icon === null
                       ? { icon: undefined }
                       : { icon: input.icon }),
+                  ...(input.cover === undefined
+                    ? {}
+                    : input.cover === null
+                      ? { cover: undefined }
+                      : { cover: input.cover }),
+                  ...(input.cover_position === undefined
+                    ? {}
+                    : input.cover_position === null
+                      ? { cover_position: undefined }
+                      : { cover_position: input.cover_position }),
                   rev: row.rev + 1,
                   updated_at: new Date().toISOString(),
                   values: input.cells ? mergeCells(row.values, input.cells) : row.values,
