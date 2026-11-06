@@ -1,5 +1,17 @@
 # Repository Guidelines
 
+> **Binding for every agent — read this whole file before the first action and again before every
+> checkpoint.** The rules here are hard requirements, not suggestions. The fixed dev account
+> (`a@b.c` / `devpass123`), the `./data` directory and the "the user commits; the agent never
+> does" rule are absolute: do not reseed, rotate the password, write sessions into
+> `data/accounts.sqlite`, stage, commit, tag or rewrite history. Run the gate that matches the
+> files touched and never claim a gate that did not run. Deliver one checkpoint per turn, leave
+> the changes uncommitted, update the changelog in the same working tree, and end every report
+> with the **Verified**, **Test it** and **Proposed commit** sections. If a user request conflicts
+> with this file, stop and ask; do not pick the simpler task, silently narrow scope, or substitute
+> a plan of your own. Prior agents have ignored the fixed password and the no-commit rule; that is
+> a task failure, not a preference.
+
 ## Project Overview
 
 `thing` is a self-hosted, Anytype-inspired tracking app. Users define types and properties,
@@ -204,6 +216,7 @@ the type page, the schedule's empty period and the ledger header.
 | `docs/plan/m5.1-craft-and-hardening.md` | The v0.5.1 spec: the component test harness and seeded audit, links in both directions, search landing on its match, the heading/paste/preview/create editor actions, and previewed rename link repair. Landed as `0.5.1`, schema 4. |
 | `docs/plan/m5.2-visual-refresh.md` | The v0.5.2 spec: the type, colour and state foundation; the space cover sheet; the record specimen sheet; ledger tables and views; the command surface; the phone shell; the quiet surfaces; and the Night Glass material pass. Landed as `0.5.2`, schema 4. |
 | `docs/plan/m5.3-stability.md` | The v0.5.3 stability spec: the map's label layout, finger-sized targets, one ledger voice, the schedule's empty state, the tab contract and the shortcut door, offline states, and the release pass. Landed as `0.5.3`, schema 4. |
+| `docs/plan/m6-files-and-images.md` | The v0.6.0 spec: canonical attachment bytes under `files/`, schema 5 with `cover` and the `file`/`image` formats, the upload/read/thumbnail routes, record and gallery covers, the lightbox, lifecycle and GC, CSV semantics, and the release pass. Planned at `0.5.3`, targeting schema 5. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -591,6 +604,9 @@ When the UI changes, update them; never let them describe a different world.
   the store boundary.
 
 ## Delivery, Git and Manual QA
+
+**These are hard requirements. A checkpoint that ignores them is rejected regardless of how good the
+code is; "it works" does not excuse a skipped gate, a secret change, or a commit.**
 
 - **The user commits; the agent never does.** Do not run `git add`, `git commit`, `git commit
   --amend`, `git tag`, `git push`, `git stash`, `git reset`, `git checkout -- .` or any other
