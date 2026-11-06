@@ -27,6 +27,9 @@ pub struct SummaryJson {
     /// The record's glyph; absent when it has none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// The record's cover attachment; absent when it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub updated_at: OffsetDateTime,
@@ -48,6 +51,9 @@ pub struct ObjectJson {
     /// The record's glyph; absent when it has none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// The record's cover attachment; absent when it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -154,6 +160,7 @@ impl<'a> Projection<'a> {
             type_key: summary.type_key.clone(),
             title: summary.title.clone(),
             icon: summary.icon.clone(),
+            cover: summary.cover.clone(),
             rev: summary.rev,
             updated_at: summary.updated_at,
             values,
@@ -186,6 +193,7 @@ impl<'a> Projection<'a> {
             type_key: doc.type_key.clone(),
             title: doc.title.clone(),
             icon: doc.icon.clone(),
+            cover: doc.cover.clone(),
             rev: doc.rev,
             created_at: doc.created_at,
             updated_at: doc.updated_at,
@@ -270,6 +278,13 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
             _ => json!({ "value": value::to_json(value), "label": plain(value) }),
         },
         PropertyFormat::Relation => relation_json(index, value),
+        PropertyFormat::File | PropertyFormat::Image => match value {
+            Value::Text(path) => json!({
+                "value": value::to_json(value),
+                "label": attachment_label(path),
+            }),
+            _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+        },
         _ => json!({ "value": value::to_json(value), "label": plain(value) }),
     }
 }
@@ -318,6 +333,15 @@ fn option_label(def: &PropertyDef, option: &str) -> String {
         .iter()
         .find(|known| known.key == option)
         .map_or_else(|| option.to_owned(), |known| known.name.clone())
+}
+
+/// The file name a file or image value shows; the path itself stays the value.
+fn attachment_label(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(path)
+        .to_owned()
 }
 
 /// A value as one line of text, for the formats that have no label of their own.
@@ -387,6 +411,16 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_file_value_labels_the_file_name_and_keeps_the_path() {
+        let index = index_of(&[property("guide", PropertyFormat::File)]);
+        let path = format!("files/{}/care-guide.pdf", "a".repeat(64));
+        assert_eq!(
+            value_json(&index, "guide", &Value::Text(path.clone())),
+            json!({ "value": path, "label": "care-guide.pdf" })
+        );
+    }
+
     /// A space holding one property definition and no objects at all.
     fn index_of(properties: &[PropertyDef]) -> SpaceIndex {
         let dir = tempfile::tempdir().expect("a temporary space");
@@ -453,6 +487,7 @@ mod tests {
             type_key: "plant".to_owned(),
             title: "Monstera".to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             updated_at: OffsetDateTime::UNIX_EPOCH,
             properties: properties.clone(),

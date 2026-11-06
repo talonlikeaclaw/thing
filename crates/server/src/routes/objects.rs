@@ -32,7 +32,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::values::{Projection, object_json, space_timezone};
-use super::{ApiJson, ApiQuery, clean_icon, clean_text, double_option, space_for, uuid_param};
+use super::{
+    ApiJson, ApiQuery, clean_cover, clean_icon, clean_text, double_option, space_for, uuid_param,
+};
 use crate::auth::Caller;
 use crate::error::ApiError;
 use crate::spaces::SpaceHandle;
@@ -46,6 +48,8 @@ const MAX_LIMIT: usize = 500;
 const BODY_KEY: &str = "body";
 /// The change-list name of an object's icon, next to `title`.
 const ICON_KEY: &str = "icon";
+/// The change-list name of an object's cover, next to `icon`.
+const COVER_KEY: &str = "cover";
 /// Entries the activity feed returns when the caller does not say.
 const DEFAULT_ACTIVITY: usize = 8;
 /// Most entries one activity read will return.
@@ -208,6 +212,8 @@ struct CreateObjectRequest {
     title: String,
     #[serde(default)]
     icon: Option<String>,
+    #[serde(default)]
+    cover: Option<String>,
     /// Values by property key; `null` means the key is absent.
     #[serde(default)]
     properties: BTreeMap<String, Value>,
@@ -226,6 +232,7 @@ async fn create(
     let handle = space_for(&state, &caller, space, Role::Editor)?;
     let title = clean_text("title", &body.title, MAX_TITLE_LEN)?;
     let icon = clean_icon(body.icon);
+    let cover = clean_cover(body.cover)?;
     let properties = read_properties(&body.properties)?
         .into_iter()
         .filter_map(|(key, value)| value.map(|value| (key, value)))
@@ -243,6 +250,7 @@ async fn create(
         type_key: body.type_key.clone(),
         title,
         icon,
+        cover,
         rev: 1,
         created_at: now,
         updated_at: now,
@@ -394,6 +402,9 @@ struct PatchObjectRequest {
     /// `null` clears the icon; leaving it out keeps the current one.
     #[serde(default, deserialize_with = "double_option")]
     icon: Option<Option<String>>,
+    /// `null` clears the cover; leaving it out keeps the current one.
+    #[serde(default, deserialize_with = "double_option")]
+    cover: Option<Option<String>>,
     /// Values to merge by property key; `null` removes the key.
     #[serde(default)]
     properties: Option<BTreeMap<String, Value>>,
@@ -419,6 +430,7 @@ async fn update(
         .map(|title| clean_text("title", title, MAX_TITLE_LEN))
         .transpose()?;
     let icon = body.icon.map(clean_icon);
+    let cover = body.cover.map(clean_cover).transpose()?;
     let values = body.properties.as_ref().map(read_properties).transpose()?;
     let body_text = body.body;
     let rev = body.rev;
@@ -429,6 +441,9 @@ async fn update(
         }
         if let Some(icon) = icon {
             next.icon = icon;
+        }
+        if let Some(cover) = cover {
+            next.cover = cover;
         }
         if let Some(values) = &values {
             for (key, value) in values {
@@ -1299,6 +1314,7 @@ pub fn trash_and_record(
             snapshot: Snapshot {
                 title: summary.title.clone(),
                 icon: summary.icon.clone(),
+                cover: summary.cover.clone(),
                 properties: summary.properties.clone(),
             },
             body: None,
@@ -1335,6 +1351,9 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
         if revision.snapshot.icon.is_some() {
             keys.push(ICON_KEY.to_owned());
         }
+        if revision.snapshot.cover.is_some() {
+            keys.push(COVER_KEY.to_owned());
+        }
         keys.extend(revision.snapshot.properties.keys().cloned());
         if revision.body.is_some() {
             keys.push(BODY_KEY.to_owned());
@@ -1346,6 +1365,9 @@ fn changed_keys(previous: Option<&Revision>, revision: &Revision) -> Vec<String>
     }
     if previous.snapshot.icon != revision.snapshot.icon {
         keys.push(ICON_KEY.to_owned());
+    }
+    if previous.snapshot.cover != revision.snapshot.cover {
+        keys.push(COVER_KEY.to_owned());
     }
     for (key, value) in &revision.snapshot.properties {
         if previous.snapshot.properties.get(key) != Some(value) {
@@ -1524,6 +1546,7 @@ pub(super) fn snapshot_of(doc: &ObjectDoc) -> Snapshot {
     Snapshot {
         title: doc.title.clone(),
         icon: doc.icon.clone(),
+        cover: doc.cover.clone(),
         properties: doc.properties.clone(),
     }
 }
@@ -1569,6 +1592,7 @@ mod tests {
             snapshot: Snapshot {
                 title: title.to_owned(),
                 icon: None,
+                cover: None,
                 properties: values
                     .iter()
                     .map(|(key, value)| ((*key).to_owned(), CoreValue::Text((*value).to_owned())))
@@ -1585,6 +1609,28 @@ mod tests {
             changed_keys(None, &first),
             vec!["title".to_owned(), "room".to_owned(), "body".to_owned()]
         );
+    }
+
+    #[test]
+    fn a_cover_is_reported_like_an_icon() {
+        let cover = format!("files/{}/monstera-photo.png", "a".repeat(64));
+        let mut first = revision(1, "Monstera", &[], None);
+        first.snapshot.cover = Some(cover.clone());
+        assert_eq!(
+            changed_keys(None, &first),
+            vec!["title".to_owned(), "cover".to_owned()]
+        );
+
+        let mut before = revision(1, "Monstera", &[], None);
+        let mut after = revision(2, "Monstera", &[], None);
+        after.snapshot.cover = Some(cover.clone());
+        assert_eq!(
+            changed_keys(Some(&before), &after),
+            vec!["cover".to_owned()]
+        );
+
+        before.snapshot.cover = Some(cover);
+        assert!(changed_keys(Some(&before), &after).is_empty());
     }
 
     #[test]
@@ -1651,6 +1697,7 @@ mod tests {
             type_key: "plant".to_owned(),
             title: "Monstera in the study".to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             updated_at: OffsetDateTime::UNIX_EPOCH,
             properties: BTreeMap::new(),

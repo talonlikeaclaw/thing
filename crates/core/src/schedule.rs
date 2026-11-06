@@ -483,6 +483,7 @@ mod tests {
             type_key: "chore".to_owned(),
             title: "Water the monstera".to_owned(),
             icon: None,
+            cover: None,
             rev: 3,
             created_at: now,
             updated_at: now,

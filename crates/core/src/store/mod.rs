@@ -48,6 +48,8 @@ pub const MAX_FILE_STEM_LEN: usize = 64;
 pub const MAX_FILE_EXTENSION_LEN: usize = 8;
 /// The only widths a thumbnail is generated at.
 pub const THUMB_WIDTHS: [u32; 2] = [256, 512];
+/// The extensions an `image` value may carry, as the sniffer writes them.
+pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "webp", "gif"];
 
 /// What a file under the space directory is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -162,6 +164,16 @@ pub fn split_file_path(path: &Path) -> Option<(&str, &str)> {
     let hash = parts.next()?.as_os_str().to_str()?;
     let name = parts.next()?.as_os_str().to_str()?;
     Some((hash, name))
+}
+
+/// Whether `path` is a canonical attachment path whose extension an `image`
+/// value may carry.
+pub fn is_image_path(path: &Path) -> bool {
+    is_file_path(path)
+        && path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| IMAGE_EXTENSIONS.contains(&extension))
 }
 
 fn has_extension(path: &Path, extension: &str) -> bool {
@@ -659,6 +671,7 @@ mod tests {
             type_key: "plant".to_owned(),
             title: "Monstera".to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: at(),
             updated_at: at(),

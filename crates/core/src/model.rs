@@ -27,6 +27,8 @@ pub enum PropertyFormat {
     Email,
     Relation,
     Recurrence,
+    File,
+    Image,
 }
 
 /// A property definition (`properties/<key>.yml`).
@@ -327,6 +329,9 @@ pub struct ObjectDoc {
     /// A user-authored glyph shown beside the title; absent means no icon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// An attachment path drawn as the record's hero; absent means no cover.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
     pub rev: u64,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
@@ -484,7 +489,7 @@ pub struct Revision {
     pub body: Option<String>,
 }
 
-/// The title, optional icon and full property map after a write.
+/// The title, optional icon and cover and full property map after a write.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
@@ -492,6 +497,9 @@ pub struct Snapshot {
     /// Absent on lines written before the field existed, and when no icon is set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
+    /// Absent on lines written before the field existed, and when no cover is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
     pub properties: BTreeMap<String, Value>,
 }
 
@@ -513,6 +521,7 @@ pub struct ObjectSummary {
     pub type_key: String,
     pub title: String,
     pub icon: Option<String>,
+    pub cover: Option<String>,
     pub rev: u64,
     pub updated_at: OffsetDateTime,
     pub properties: BTreeMap<String, Value>,
@@ -525,6 +534,7 @@ impl From<&ObjectDoc> for ObjectSummary {
             type_key: doc.type_key.clone(),
             title: doc.title.clone(),
             icon: doc.icon.clone(),
+            cover: doc.cover.clone(),
             rev: doc.rev,
             updated_at: doc.updated_at,
             properties: doc.properties.clone(),
@@ -555,6 +565,7 @@ pub const RESERVED_KEYS: &[&str] = &[
     "type",
     "title",
     "icon",
+    "cover",
     "rev",
     "created_at",
     "updated_at",

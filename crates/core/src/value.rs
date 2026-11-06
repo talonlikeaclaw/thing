@@ -31,7 +31,9 @@ pub fn parse_value(format: PropertyFormat, key: &str, raw: &Yaml) -> Result<Valu
         | PropertyFormat::Url
         | PropertyFormat::Email
         | PropertyFormat::Date
-        | PropertyFormat::Datetime => raw
+        | PropertyFormat::Datetime
+        | PropertyFormat::File
+        | PropertyFormat::Image => raw
             .as_str()
             .map(|s| Value::Text(s.to_owned()))
             .ok_or_else(|| invalid(raw)),
@@ -290,6 +292,8 @@ pub(crate) fn expected(format: PropertyFormat) -> &'static str {
         PropertyFormat::Email => "an email address",
         PropertyFormat::Relation => "an object id or a list of them",
         PropertyFormat::Recurrence => "a recurrence",
+        PropertyFormat::File => "a file path",
+        PropertyFormat::Image => "a file path",
     }
 }
 
@@ -340,6 +344,18 @@ mod tests {
         assert_eq!(
             parsed(PropertyFormat::Datetime, "2026-10-17T12:30:00Z"),
             Value::Text("2026-10-17T12:30:00Z".into())
+        );
+        let path = format!("files/{}/monstera.png", "a".repeat(64));
+        assert_eq!(
+            parsed(PropertyFormat::File, &path),
+            Value::Text(path.clone())
+        );
+        assert_eq!(parsed(PropertyFormat::Image, &path), Value::Text(path));
+        assert_eq!(expected(PropertyFormat::File), "a file path");
+        assert_eq!(expected(PropertyFormat::Image), "a file path");
+        assert_eq!(
+            to_json(&parsed(PropertyFormat::File, "files/x.png")),
+            Json::String("files/x.png".into())
         );
     }
 

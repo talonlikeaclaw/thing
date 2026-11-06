@@ -195,6 +195,7 @@ pub fn parse(schema: &Schema, def: &TypeDef, text: &str) -> CsvParse {
             type_key: def.key.clone(),
             title: title.clone(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,
@@ -311,7 +312,9 @@ fn parse_cell(property: &PropertyDef, raw: &str) -> Result<Value, String> {
         | PropertyFormat::Url
         | PropertyFormat::Email
         | PropertyFormat::Date
-        | PropertyFormat::Datetime => Value::Text(raw.to_owned()),
+        | PropertyFormat::Datetime
+        | PropertyFormat::File
+        | PropertyFormat::Image => Value::Text(raw.to_owned()),
         PropertyFormat::Number => {
             let number: f64 = raw
                 .parse()
@@ -572,6 +575,7 @@ mod tests {
             type_key: type_key.to_owned(),
             title: title.to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,
@@ -688,6 +692,19 @@ mod tests {
             record.properties.get("tags"),
             Some(&Value::List(vec!["porch".to_owned(), "study".to_owned()]))
         );
+    }
+
+    #[test]
+    fn reads_and_writes_file_and_image_paths_as_their_spelling() {
+        let path = format!("files/{}/monstera-photo.png", "a".repeat(64));
+        let value = Value::Text(path.clone());
+        for format in [PropertyFormat::File, PropertyFormat::Image] {
+            assert_eq!(
+                parse_cell(&property("field", format, &[], false), &path),
+                Ok(value.clone())
+            );
+        }
+        assert_eq!(cell(&value), path, "export is the path, never a URL");
     }
 
     #[test]

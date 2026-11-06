@@ -76,6 +76,18 @@ pub struct DuplicateSlug {
     pub objects: Vec<Uuid>,
 }
 
+/// A file or image reference whose bytes are not in the space.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingFile {
+    pub object: Uuid,
+    /// The object's file, relative to the space.
+    pub path: PathBuf,
+    /// `cover` or the property key that names the missing bytes.
+    pub field: String,
+    /// The referenced attachment path, as frontmatter spells it.
+    pub file: String,
+}
+
 /// One view that names something the space does not offer.
 ///
 /// A semantic view problem never takes the type or its other views offline: it
@@ -91,7 +103,8 @@ pub struct ViewProblem {
     pub message: String,
 }
 
-/// Every kind of file problem a space can have: unparseable, dangling, colliding.
+/// Every kind of file problem a space can have: unparseable, dangling, colliding,
+/// and a reference whose bytes are gone.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Problems {
     pub unparseable: Vec<UnparseableFile>,
@@ -101,6 +114,8 @@ pub struct Problems {
     pub invalid_timezone: Option<String>,
     /// Declared property keys that collide with a generated schedule key.
     pub schedule_key_conflicts: Vec<String>,
+    /// References to attachment bytes the space does not hold.
+    pub missing_files: Vec<MissingFile>,
     /// Views naming missing members or carrying fields their kind does not own.
     pub view_problems: Vec<ViewProblem>,
 }
@@ -128,6 +143,9 @@ pub struct SpaceIndex {
     titles: BTreeMap<(String, String), BTreeSet<Uuid>>,
     /// Derived from the live bodies, updated one document at a time.
     search: SearchIndex,
+    /// Every attachment path in the space, so a reference's bytes can be
+    /// reported missing without re-listing the tree on every read.
+    attachments: BTreeSet<PathBuf>,
     unparseable: Vec<UnparseableFile>,
 }
 
@@ -150,6 +168,7 @@ impl SpaceIndex {
             summaries: BTreeMap::new(),
             titles: BTreeMap::new(),
             search: SearchIndex::default(),
+            attachments: BTreeSet::new(),
             unparseable: Vec::new(),
         };
         index.fingerprints.insert(PathBuf::from(SPACE_FILE), at);
@@ -171,8 +190,8 @@ impl SpaceIndex {
             Some(SpaceFileKind::Type) => self.reload_type(store, path),
             Some(SpaceFileKind::Property) => self.reload_property(store, path),
             Some(SpaceFileKind::Object | SpaceFileKind::Trash) => self.reload_object(store, path),
-            Some(SpaceFileKind::History | SpaceFileKind::Attachment | SpaceFileKind::Thumbnail)
-            | None => Ok(()),
+            Some(SpaceFileKind::Attachment) => self.reload_attachment(store, path),
+            Some(SpaceFileKind::History | SpaceFileKind::Thumbnail) | None => Ok(()),
         }
     }
 
@@ -202,6 +221,7 @@ impl SpaceIndex {
                 .filter(|key| schedule::is_schedule_key(key))
                 .cloned()
                 .collect(),
+            missing_files: self.missing_files(),
             view_problems: self.view_problems(),
         }
     }
@@ -660,6 +680,75 @@ impl SpaceIndex {
         Ok(())
     }
 
+    /// Notes whether an attachment path exists, so a reference to it reads as
+    /// present or missing without listing the tree again.
+    fn reload_attachment<S: SpaceStore + ?Sized>(
+        &mut self,
+        store: &S,
+        path: &Path,
+    ) -> Result<(), CoreError> {
+        if store.exists(path)? {
+            self.attachments.insert(path.to_owned());
+        } else {
+            self.attachments.remove(path);
+        }
+        Ok(())
+    }
+
+    /// Every cover or file/image value whose bytes the space does not hold.
+    ///
+    /// A missing file is a problem, never a parse failure: the object still
+    /// loads and keeps the path it names.
+    fn missing_files(&self) -> Vec<MissingFile> {
+        let mut found = Vec::new();
+        for (id, doc) in self.objects.iter().chain(self.trash.iter()) {
+            let Some(path) = self.paths.get(id).or_else(|| self.trash_paths.get(id)) else {
+                continue;
+            };
+            if let Some(cover) = &doc.cover {
+                self.push_missing(&mut found, *id, path, "cover", cover);
+            }
+            for (key, value) in &doc.properties {
+                let Some(def) = self.property_def(key) else {
+                    continue;
+                };
+                if !matches!(def.format, PropertyFormat::File | PropertyFormat::Image) {
+                    continue;
+                }
+                let Value::Text(file) = value else {
+                    continue;
+                };
+                self.push_missing(&mut found, *id, path, key, file);
+            }
+        }
+        found.sort_by(|left, right| {
+            left.path
+                .cmp(&right.path)
+                .then_with(|| left.field.cmp(&right.field))
+                .then_with(|| left.file.cmp(&right.file))
+        });
+        found
+    }
+
+    fn push_missing(
+        &self,
+        found: &mut Vec<MissingFile>,
+        object: Uuid,
+        path: &Path,
+        field: &str,
+        file: &str,
+    ) {
+        if self.attachments.contains(Path::new(file)) {
+            return;
+        }
+        found.push(MissingFile {
+            object,
+            path: path.to_owned(),
+            field: field.to_owned(),
+            file: file.to_owned(),
+        });
+    }
+
     /// Drops every entry that used this path, including the type's row.
     fn forget_path(&mut self, path: &Path) {
         self.forget_fingerprint(path);
@@ -910,6 +999,7 @@ mod tests {
             type_key: "plant".to_owned(),
             title: title.to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: at(0),
             updated_at: at(updated),
@@ -1057,6 +1147,80 @@ mod tests {
             .expect("a thumbnail reloads as nothing");
         assert_eq!(reloaded.problems(), Problems::default());
         assert!(reloaded.summaries("plant").is_empty());
+    }
+
+    #[test]
+    fn a_reference_without_bytes_is_reported_and_never_blocks_the_record() {
+        use crate::model::{PropertyFormat, TypeProperty};
+        use crate::store::file_path;
+
+        let space = Space::new();
+        let mut def = plant_type();
+        def.properties.push(TypeProperty {
+            key: "photo".to_owned(),
+            required: false,
+            featured: false,
+        });
+        space.store.save_type(&def, None).expect("save type");
+        space
+            .store
+            .save_property(
+                &PropertyDef {
+                    key: "photo".to_owned(),
+                    name: "Photo".to_owned(),
+                    format: PropertyFormat::Image,
+                    options: Vec::new(),
+                    target_type: None,
+                    multi: false,
+                },
+                None,
+            )
+            .expect("save property");
+
+        let hash = "a".repeat(64);
+        let file = file_path(&hash, "monstera.png");
+        let spelling = file.display().to_string();
+        let mut doc = object(2, "Monstera", "Kitchen", 5);
+        doc.cover = Some(spelling.clone());
+        doc.properties
+            .insert("photo".to_owned(), Value::Text(spelling.clone()));
+        let path = object_path("Monstera");
+        space.store.save_object(&path, &doc, None).expect("object");
+
+        let mut index = space.index();
+        assert_eq!(
+            index
+                .object(Uuid::from_u128(2))
+                .map(|doc| doc.cover.clone()),
+            Some(Some(spelling.clone())),
+            "a missing file never blocks the record"
+        );
+        assert_eq!(
+            index.problems().missing_files,
+            vec![
+                MissingFile {
+                    object: Uuid::from_u128(2),
+                    path: path.clone(),
+                    field: "cover".to_owned(),
+                    file: spelling.clone(),
+                },
+                MissingFile {
+                    object: Uuid::from_u128(2),
+                    path,
+                    field: "photo".to_owned(),
+                    file: spelling,
+                },
+            ]
+        );
+
+        space
+            .store
+            .save_attachment(&file, b"\x89PNG", None)
+            .expect("save bytes");
+        index
+            .reload_file(&space.store, &file)
+            .expect("an attachment reloads as presence");
+        assert!(index.problems().missing_files.is_empty());
     }
 
     #[test]

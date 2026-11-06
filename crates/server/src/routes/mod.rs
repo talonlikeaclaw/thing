@@ -231,6 +231,22 @@ pub fn clean_icon(icon: Option<String>) -> Option<String> {
         .filter(|icon| !icon.is_empty())
 }
 
+/// A cover is an attachment path or nothing; `""` clears it and any other
+/// spelling the space could not serve is refused.
+pub fn clean_cover(cover: Option<String>) -> Result<Option<String>, ApiError> {
+    let Some(cover) = cover else {
+        return Ok(None);
+    };
+    let cover = cover.trim();
+    if cover.is_empty() {
+        return Ok(None);
+    }
+    if !thing_core::store::is_file_path(std::path::Path::new(cover)) {
+        return Err(ApiError::validation("cover", "expected a file path"));
+    }
+    Ok(Some(cover.to_owned()))
+}
+
 /// Tells `null` apart from a missing field, so `icon: null` clears the icon
 /// while leaving the field out leaves it alone.
 pub fn double_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -293,6 +309,16 @@ pub fn problems_json(problems: &Problems) -> Value {
             .collect::<Vec<_>>(),
         "invalid_timezone": problems.invalid_timezone,
         "schedule_key_conflicts": problems.schedule_key_conflicts,
+        "missing_files": problems
+            .missing_files
+            .iter()
+            .map(|missing| json!({
+                "object": missing.object,
+                "path": missing.path,
+                "field": missing.field,
+                "file": missing.file,
+            }))
+            .collect::<Vec<_>>(),
         "view_problems": problems
             .view_problems
             .iter()
@@ -766,7 +792,7 @@ mod tests {
                     .join("space.yml"),
             )
             .expect("space.yml");
-            assert!(written.starts_with("schema: 4\n"), "{written}");
+            assert!(written.starts_with("schema: 5\n"), "{written}");
             assert!(written.contains("accent: cyan\n"), "{written}");
 
             // A second space has its own appearance.
@@ -1310,7 +1336,7 @@ mod tests {
                     Some(&cookie),
                 )
                 .await;
-            assert!(raw.text().starts_with("---\nschema: 4\n"));
+            assert!(raw.text().starts_with("---\nschema: 5\n"));
 
             let again = server
                 .call_raw("POST", &url, Some("text/csv"), &export.bytes, Some(&cookie))
@@ -2291,7 +2317,7 @@ mod tests {
             let raw = server
                 .call_raw("GET", &format!("{fern_path}/raw"), None, &[], Some(&cookie))
                 .await;
-            assert!(raw.text().starts_with("---\nschema: 4\n"), "{}", raw.text());
+            assert!(raw.text().starts_with("---\nschema: 5\n"), "{}", raw.text());
             assert!(raw.text().contains("\nicon: 🌿\n"), "{}", raw.text());
 
             let history = server
@@ -2371,6 +2397,170 @@ mod tests {
                     "POST",
                     &format!("/api/spaces/{}/properties", garden.space),
                     Some(json!({ "name": "Icon", "format": "text" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(reserved.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(reserved.field(), "name");
+        });
+    }
+
+    #[test]
+    fn a_cover_patches_clears_and_reaches_every_projection() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("cover@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let objects = format!("/api/spaces/{}/objects", garden.space);
+            let hash = "a".repeat(64);
+            let cover = format!("files/{hash}/monstera-photo.png");
+            let health_path = format!("/api/spaces/{}/health", garden.space);
+
+            let created = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Fern",
+                        "cover": cover,
+                        "properties": { "room": "study" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            assert_eq!(created.body["cover"], cover.as_str());
+            let fern = created.body["id"].as_str().expect("an id").to_owned();
+            let fern_path = format!("/api/spaces/{}/objects/{fern}", garden.space);
+
+            // A patch that omits the cover keeps it; leaving it out is not a clear.
+            let retitled = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 1, "title": "Boston fern" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(retitled.status, StatusCode::OK, "{:?}", retitled.body);
+            assert_eq!(retitled.body["cover"], cover.as_str());
+
+            let malformed = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 2, "cover": "../../etc/passwd" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                malformed.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                malformed.body
+            );
+            assert_eq!(malformed.field(), "cover");
+
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 2, "cover": null })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK, "{:?}", cleared.body);
+            assert!(
+                cleared.body.get("cover").is_none(),
+                "null clears the key: {:?}",
+                cleared.body
+            );
+
+            let reset = server
+                .call(
+                    "PATCH",
+                    &fern_path,
+                    Some(json!({ "rev": 3, "cover": cover })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(reset.body["rev"], 4);
+
+            let list = server
+                .call("GET", &format!("{objects}?type=plant"), None, Some(&cookie))
+                .await;
+            let row = list.body["objects"]
+                .as_array()
+                .expect("rows")
+                .iter()
+                .find(|row| row["title"] == "Boston fern")
+                .expect("the renamed row");
+            assert_eq!(row["cover"], cover.as_str());
+
+            let raw = server
+                .call_raw("GET", &format!("{fern_path}/raw"), None, &[], Some(&cookie))
+                .await;
+            assert!(
+                raw.text().contains(&format!("\ncover: {cover}\n")),
+                "{}",
+                raw.text()
+            );
+
+            let history = server
+                .call("GET", &format!("{fern_path}/history"), None, Some(&cookie))
+                .await;
+            let lines = history.body.as_array().expect("lines");
+            assert_eq!(lines.len(), 4);
+            assert_eq!(lines[0]["snapshot"]["cover"], cover.as_str());
+            assert!(
+                lines[1]["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .iter()
+                    .all(|key| key != "cover"),
+                "a title write does not report the cover: {:?}",
+                lines[1]
+            );
+            assert!(
+                lines[2]["changed"]
+                    .as_array()
+                    .expect("changed")
+                    .iter()
+                    .any(|key| key == "cover")
+            );
+
+            // The bytes are not in the space: the write stands and health says so.
+            let health = server.call("GET", &health_path, None, Some(&cookie)).await;
+            let missing = health.body["missing_files"].as_array().expect("missing");
+            assert!(
+                missing.iter().any(|item| item["object"] == fern.as_str()
+                    && item["field"] == "cover"
+                    && item["file"] == cover.as_str()),
+                "{:?}",
+                health.body
+            );
+
+            // A duplicate shares the same path; no bytes were copied.
+            let copy = server
+                .call(
+                    "POST",
+                    &format!("{fern_path}/duplicate"),
+                    Some(json!({})),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(copy.status, StatusCode::CREATED, "{:?}", copy.body);
+            assert_eq!(copy.body["cover"], cover.as_str());
+
+            // `cover` is a frontmatter key, so a property may not take it.
+            let reserved = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/properties", garden.space),
+                    Some(json!({ "name": "Cover", "format": "text" })),
                     Some(&cookie),
                 )
                 .await;

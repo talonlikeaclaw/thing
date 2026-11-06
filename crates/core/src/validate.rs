@@ -8,6 +8,7 @@
 //! and the index's `problems()` instead.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use uuid::Uuid;
 
@@ -92,6 +93,11 @@ pub fn validate_object(schema: &Schema, doc: &ObjectDoc) -> Result<(), Vec<CoreE
             "title",
             format!("keep it under {MAX_TITLE_LEN} characters"),
         ));
+    }
+    if let Some(cover) = &doc.cover
+        && !crate::store::is_file_path(Path::new(cover))
+    {
+        errors.push(invalid("cover", "expected a file path"));
     }
     for (key, value) in &doc.properties {
         if is_reserved_key(key) {
@@ -477,6 +483,16 @@ fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Res
         (PropertyFormat::Email, Value::Text(text)) if !looks_like_email(text) => {
             Err(invalid(key, "expected an email address"))
         }
+        (PropertyFormat::File, Value::Text(path))
+            if !crate::store::is_file_path(Path::new(path)) =>
+        {
+            Err(invalid(key, "expected a file path"))
+        }
+        (PropertyFormat::Image, Value::Text(path))
+            if !crate::store::is_image_path(Path::new(path)) =>
+        {
+            Err(invalid(key, "expected an image path"))
+        }
         (PropertyFormat::Select, Value::Text(option)) => {
             check_options(property, std::iter::once(option.as_str()))
         }
@@ -589,7 +605,9 @@ fn variant_matches(property: &PropertyDef, value: &Value) -> bool {
         | PropertyFormat::Url
         | PropertyFormat::Email
         | PropertyFormat::Date
-        | PropertyFormat::Datetime => matches!(value, Value::Text(_)),
+        | PropertyFormat::Datetime
+        | PropertyFormat::File
+        | PropertyFormat::Image => matches!(value, Value::Text(_)),
         PropertyFormat::Number => matches!(value, Value::Number(_)),
         PropertyFormat::Checkbox => matches!(value, Value::Bool(_)),
         PropertyFormat::MultiSelect => matches!(value, Value::List(_)),
@@ -856,6 +874,7 @@ mod tests {
             type_key: type_key.to_owned(),
             title: title.to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: at(),
             updated_at: at(),
@@ -1012,6 +1031,92 @@ mod tests {
             vec![
                 "invalid count: expected a number, found text",
                 "invalid tags: expected a list of option keys, found text",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_file_or_image_value_must_name_a_stored_path() {
+        let guide = property("guide", PropertyFormat::File);
+        let photo = property("photo", PropertyFormat::Image);
+        let def = TypeDef {
+            key: "plant".to_owned(),
+            name: "Plant".to_owned(),
+            name_plural: "Plants".to_owned(),
+            icon: None,
+            description: String::new(),
+            schedule: false,
+            schedule_labels: Default::default(),
+            properties: vec![
+                TypeProperty {
+                    key: "guide".to_owned(),
+                    required: false,
+                    featured: false,
+                },
+                TypeProperty {
+                    key: "photo".to_owned(),
+                    required: false,
+                    featured: false,
+                },
+            ],
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
+                sorts: Vec::new(),
+                filter: Filter {
+                    op: FilterOp::And,
+                    conditions: Vec::new(),
+                },
+                columns: vec![TITLE_KEY.to_owned()],
+                widths: BTreeMap::new(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+            }],
+            default_view: "all".to_owned(),
+        };
+        let properties = BTreeMap::from([("guide".to_owned(), guide), ("photo".to_owned(), photo)]);
+        let types = BTreeMap::from([("plant".to_owned(), def)]);
+        let objects = BTreeMap::new();
+        let schema = Schema {
+            types: &types,
+            properties: &properties,
+            schedule_properties: &SCHEDULE_PROPERTIES,
+            objects: &objects,
+            trash: &objects,
+        };
+        let hash = "a".repeat(64);
+        let image = format!("files/{hash}/monstera-photo.png");
+        let document = format!("files/{hash}/care-guide.pdf");
+
+        valid(validate_object(
+            &schema,
+            &with(&[("guide", text(&document)), ("photo", text(&image))]),
+        ));
+
+        let mut covered = with(&[]);
+        covered.cover = Some(image.clone());
+        valid(validate_object(&schema, &covered));
+
+        let mut bad_cover = with(&[]);
+        bad_cover.cover = Some("../../etc/passwd".to_owned());
+        assert_eq!(
+            problems(validate_object(&schema, &bad_cover)),
+            vec!["invalid cover: expected a file path"]
+        );
+
+        assert_eq!(
+            problems(validate_object(
+                &schema,
+                &with(&[
+                    ("guide", text("notes/care.txt")),
+                    ("photo", text(&document)),
+                ])
+            )),
+            vec![
+                "invalid guide: expected a file path",
+                "invalid photo: expected an image path",
             ]
         );
     }

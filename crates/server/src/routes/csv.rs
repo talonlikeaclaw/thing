@@ -172,6 +172,7 @@ async fn import(
             type_key: type_key.clone(),
             title: record.title,
             icon: None,
+            cover: None,
             rev: 1,
             created_at: now,
             updated_at: now,

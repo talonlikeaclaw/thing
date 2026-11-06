@@ -370,6 +370,7 @@ mod tests {
             type_key: "plant".to_owned(),
             title: title.to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: at(0),
             updated_at: at(updated),

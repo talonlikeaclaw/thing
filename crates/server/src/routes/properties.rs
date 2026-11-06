@@ -603,6 +603,7 @@ mod tests {
             type_key: "plant".to_owned(),
             title: "Monstera".to_owned(),
             icon: None,
+            cover: None,
             rev: 1,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),

@@ -518,7 +518,7 @@ fn clean_name(name: &str) -> Result<String, ApiError> {
 
 #[cfg(test)]
 mod tests {
-    use thing_core::index::{Problems, ViewProblem};
+    use thing_core::index::{MissingFile, Problems, ViewProblem};
 
     use super::*;
 
@@ -567,6 +567,12 @@ mod tests {
                 field: "views.by_room.group_by".to_owned(),
                 message: "names no member: room".to_owned(),
             }],
+            missing_files: vec![MissingFile {
+                object: Uuid::nil(),
+                path: "objects/chore/water.md".into(),
+                field: "photo".to_owned(),
+                file: "files/aaaa/monstera.png".to_owned(),
+            }],
             ..Problems::default()
         };
         let body = super::super::problems_json(&problems);
@@ -579,6 +585,15 @@ mod tests {
                 "view": "by_room",
                 "field": "views.by_room.group_by",
                 "message": "names no member: room",
+            }])
+        );
+        assert_eq!(
+            body["missing_files"],
+            json!([{
+                "object": Uuid::nil(),
+                "path": "objects/chore/water.md",
+                "field": "photo",
+                "file": "files/aaaa/monstera.png",
             }])
         );
     }
