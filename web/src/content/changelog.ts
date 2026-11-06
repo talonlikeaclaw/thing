@@ -26,6 +26,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     details: [
       "Bytes are named by their content, so the same upload twice is one stored file.",
       "An upload is capped at 10 MiB, and its type comes from the bytes rather than the name.",
+      "Thumbnails are derived at 256 or 512 px on first view and cached beside the originals.",
       "A backup of the space carries the files with it.",
       "A record can carry a cover and hold a file or an image beside its other values.",
       "A reference whose bytes are missing is reported by the space's health read and never blocks the record.",

@@ -15,6 +15,7 @@ clap = { version = "4.6", features = ["derive"] }
 csv = "1"
 futures-util = "0.3"
 http-body-util = "0.1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 jiff = { version = "0.2.38", default-features = false, features = ["std", "tzdb-bundle-always"] }
 notify = "8.2"
 rusqlite = { version = "0.40", features = ["bundled"] }

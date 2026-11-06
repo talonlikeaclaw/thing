@@ -5071,6 +5071,112 @@ mod tests {
             .count()
     }
 
+    /// A PNG of the given size: RGB when opaque, RGBA with a transparent corner.
+    fn encoded_png(width: u32, height: u32, alpha: bool) -> Vec<u8> {
+        use image::{DynamicImage, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage};
+        use std::io::Cursor;
+        let image = if alpha {
+            DynamicImage::ImageRgba8(RgbaImage::from_fn(width, height, |x, y| {
+                Rgba([
+                    (x % 256) as u8,
+                    (y % 256) as u8,
+                    90,
+                    if x == 0 && y == 0 { 0 } else { 255 },
+                ])
+            }))
+        } else {
+            DynamicImage::ImageRgb8(RgbImage::from_fn(width, height, |x, y| {
+                Rgb([(x % 256) as u8, (y % 256) as u8, 90])
+            }))
+        };
+        let mut bytes = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
+            .expect("a PNG");
+        bytes
+    }
+
+    /// A JPEG whose EXIF orientation tag is `orientation`, inserted after SOI.
+    fn jpeg_with_orientation(width: u32, height: u32, orientation: u16) -> Vec<u8> {
+        use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
+        use std::io::Cursor;
+        let image = DynamicImage::ImageRgb8(RgbImage::from_fn(width, height, |x, y| {
+            Rgb([(x % 256) as u8, (y % 256) as u8, 90])
+        }));
+        let mut jpeg = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut jpeg), ImageFormat::Jpeg)
+            .expect("a JPEG");
+
+        let mut tiff = Vec::new();
+        tiff.extend_from_slice(b"II\x2a\x00");
+        tiff.extend_from_slice(&8u32.to_le_bytes());
+        tiff.extend_from_slice(&1u16.to_le_bytes());
+        tiff.extend_from_slice(&0x0112u16.to_le_bytes());
+        tiff.extend_from_slice(&3u16.to_le_bytes());
+        tiff.extend_from_slice(&1u32.to_le_bytes());
+        tiff.extend_from_slice(&u32::from(orientation).to_le_bytes());
+        tiff.extend_from_slice(&0u32.to_le_bytes());
+
+        let mut payload = b"Exif\x00\x00".to_vec();
+        payload.extend_from_slice(&tiff);
+        let mut app1 = vec![0xff, 0xe1];
+        app1.extend_from_slice(
+            &u16::try_from(payload.len() + 2)
+                .expect("an APP1 length")
+                .to_be_bytes(),
+        );
+        app1.extend_from_slice(&payload);
+
+        let mut out = jpeg[..2].to_vec();
+        out.extend_from_slice(&app1);
+        out.extend_from_slice(&jpeg[2..]);
+        out
+    }
+
+    /// Every cached thumbnail path in the space, sorted.
+    fn thumbnail_paths(server: &Server, space: &str) -> Vec<String> {
+        use thing_core::store::{SpaceFileKind, SpaceStore};
+        let handle = server
+            .state
+            .registry
+            .get(Uuid::parse_str(space).expect("a space id"))
+            .expect("the space is loaded");
+        handle
+            .store
+            .list_files()
+            .expect("the space lists")
+            .into_iter()
+            .filter(|file| file.kind == SpaceFileKind::Thumbnail)
+            .map(|file| file.path.display().to_string())
+            .collect()
+    }
+
+    /// Uploads `bytes` under `name` and returns `(hash, path)`.
+    async fn upload_file(
+        server: &Server,
+        space: &str,
+        cookie: &str,
+        name: &str,
+        content_type: &str,
+        bytes: &[u8],
+    ) -> (String, String) {
+        let upload = server
+            .call_raw(
+                "POST",
+                &format!("/api/spaces/{space}/files?name={name}"),
+                Some(content_type),
+                bytes,
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(upload.status, StatusCode::CREATED, "{:?}", upload.body);
+        (
+            upload.body["hash"].as_str().expect("a hash").to_owned(),
+            upload.body["path"].as_str().expect("a path").to_owned(),
+        )
+    }
+
     #[test]
     fn an_editor_uploads_a_png_and_a_member_reads_it_with_the_file_headers() {
         let server = server();
@@ -5321,6 +5427,246 @@ mod tests {
                 let absent = server.call_raw("GET", &uri, None, &[], Some(&cookie)).await;
                 assert_eq!(absent.status, StatusCode::NOT_FOUND, "{uri}");
             }
+        });
+    }
+
+    #[test]
+    fn a_thumbnail_is_generated_once_and_served_from_the_cache_after() {
+        use std::os::unix::fs::MetadataExt;
+        use thing_core::store::{SpaceStore, thumb_path};
+
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("thumb-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let photo = encoded_png(300, 120, false);
+            let (hash, path) = upload_file(
+                &server,
+                &space,
+                &cookie,
+                "Phone%20Photo.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+
+            let first = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}?w=256"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(first.status, StatusCode::OK, "{:?}", first.body);
+            assert_eq!(first.headers.get("content-type").unwrap(), "image/jpeg");
+            assert_eq!(
+                first.headers.get("etag").unwrap(),
+                &format!("\"{hash}-256\"")
+            );
+            assert_eq!(first.headers.get("content-disposition").unwrap(), "inline");
+            let thumbnail = image::load_from_memory(&first.bytes).expect("a JPEG thumbnail");
+            assert_eq!(thumbnail.width(), 256);
+            assert_eq!(thumbnail.height(), 102);
+            assert_eq!(
+                thumbnail_paths(&server, &space),
+                vec![format!("files/.thumbs/{hash}-256.jpg")]
+            );
+
+            // The second read serves the cache; it does not rewrite it.
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&space).expect("a space id"))
+                .expect("the space is loaded");
+            let cache = handle.store.space_dir().join(thumb_path(&hash, 256, "jpg"));
+            let inode = std::fs::metadata(&cache).expect("a cache file").ino();
+            let second = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}?w=256"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(second.status, StatusCode::OK);
+            assert_eq!(second.bytes, first.bytes);
+            assert_eq!(
+                std::fs::metadata(&cache).expect("a cache file").ino(),
+                inode
+            );
+            assert_eq!(thumbnail_paths(&server, &space).len(), 1);
+
+            // A thumbnail never upscales: a 2 px image is served as it is.
+            let tiny = encoded_png(2, 2, false);
+            let (tiny_hash, tiny_path) =
+                upload_file(&server, &space, &cookie, "tiny.png", "image/png", &tiny).await;
+            let upscale = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{tiny_path}?w=256"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(upscale.status, StatusCode::OK);
+            assert_eq!(upscale.bytes, tiny);
+            assert_eq!(
+                upscale.headers.get("etag").unwrap(),
+                &format!("\"{tiny_hash}\"")
+            );
+            assert_eq!(upscale.headers.get("content-type").unwrap(), "image/png");
+
+            // A width that is not 256 or 512 is not a thumbnail request.
+            let other = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}?w=999"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(other.status, StatusCode::OK);
+            assert_eq!(other.bytes, photo);
+            assert_eq!(other.headers.get("etag").unwrap(), &format!("\"{hash}\""));
+            assert_eq!(thumbnail_paths(&server, &space).len(), 1);
+
+            // Bytes that only carry a PNG signature cannot be decoded: the
+            // original is served, with the original ETag, and nothing is cached.
+            let broken = b"\x89PNG\r\n\x1a\nnot really a png".to_vec();
+            let (broken_hash, broken_path) =
+                upload_file(&server, &space, &cookie, "broken.png", "image/png", &broken).await;
+            let fallback = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{broken_path}?w=256"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(fallback.status, StatusCode::OK);
+            assert_eq!(fallback.bytes, broken);
+            assert_eq!(
+                fallback.headers.get("etag").unwrap(),
+                &format!("\"{broken_hash}\"")
+            );
+            assert_eq!(thumbnail_paths(&server, &space).len(), 1);
+
+            // A non-image ignores `w` entirely.
+            let (document_hash, document_path) = upload_file(
+                &server,
+                &space,
+                &cookie,
+                "notes.pdf",
+                "application/pdf",
+                b"%PDF-1.4\nnot really a pdf",
+            )
+            .await;
+            let document = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{document_path}?w=256"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(document.status, StatusCode::OK);
+            assert_eq!(
+                document.headers.get("content-type").unwrap(),
+                "application/octet-stream"
+            );
+            assert_eq!(
+                document.headers.get("etag").unwrap(),
+                &format!("\"{document_hash}\"")
+            );
+        });
+    }
+
+    #[test]
+    fn an_exif_orientation_is_applied_before_the_thumbnail_is_scaled() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("exif-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let photo = jpeg_with_orientation(600, 300, 6);
+            let (_, path) = upload_file(
+                &server,
+                &space,
+                &cookie,
+                "portrait.jpg",
+                "image/jpeg",
+                &photo,
+            )
+            .await;
+
+            let read = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}?w=256"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(read.status, StatusCode::OK, "{:?}", read.body);
+            assert_eq!(read.headers.get("content-type").unwrap(), "image/jpeg");
+            let thumbnail = image::load_from_memory(&read.bytes).expect("a JPEG thumbnail");
+            // 600 × 300 rotated 90° is 300 × 600, so the 256 px width implies 512 px.
+            assert_eq!(thumbnail.width(), 256);
+            assert_eq!(thumbnail.height(), 512);
+        });
+    }
+
+    #[test]
+    fn a_transparent_image_caches_a_png_thumbnail_that_keeps_its_alpha() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("alpha-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let photo = encoded_png(600, 200, true);
+            let (hash, path) =
+                upload_file(&server, &space, &cookie, "alpha.png", "image/png", &photo).await;
+
+            let read = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}?w=512"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(read.status, StatusCode::OK, "{:?}", read.body);
+            assert_eq!(read.headers.get("content-type").unwrap(), "image/png");
+            assert_eq!(
+                read.headers.get("etag").unwrap(),
+                &format!("\"{hash}-512\"")
+            );
+            assert_eq!(
+                thumbnail_paths(&server, &space),
+                vec![format!("files/.thumbs/{hash}-512.png")]
+            );
+
+            let thumbnail = image::load_from_memory(&read.bytes).expect("a PNG thumbnail");
+            assert_eq!(thumbnail.width(), 512);
+            assert!(thumbnail.color().has_alpha());
+            let rgba = thumbnail.to_rgba8();
+            assert!(
+                rgba.pixels().any(|pixel| pixel[3] < 255),
+                "a transparent source keeps a transparent pixel"
+            );
         });
     }
 }

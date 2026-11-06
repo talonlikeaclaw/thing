@@ -7,6 +7,7 @@
 //! or viewer request is refused without buffering a file.
 
 use std::fmt::Write;
+use std::io::Cursor;
 use std::path::Path as FsPath;
 
 use axum::body::{Body, to_bytes};
@@ -15,12 +16,19 @@ use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use image::ImageEncoder;
+use image::codecs::jpeg::JpegEncoder;
+use image::codecs::png::PngEncoder;
+use image::imageops::FilterType;
+use image::{ColorType, DynamicImage, ImageDecoder, ImageReader, Limits};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use thing_core::error::CoreError;
 use thing_core::model::Role;
 use thing_core::slug::slugify;
-use thing_core::store::{MAX_FILE_EXTENSION_LEN, SpaceStore, file_path, is_file_path};
+use thing_core::store::{
+    MAX_FILE_EXTENSION_LEN, SpaceStore, THUMB_WIDTHS, file_path, is_file_path, thumb_path,
+};
 
 use super::{ApiQuery, space_for, uuid_param};
 use crate::auth::Caller;
@@ -33,6 +41,14 @@ const MAX_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
 const MAX_RAW_NAME_LEN: usize = 255;
 /// The content type a stored non-image file is served as.
 const GENERIC_MIME: &str = "application/octet-stream";
+/// JPEG quality of an opaque thumbnail; visually faithful at a quarter of the bytes.
+const THUMB_QUALITY: u8 = 82;
+/// Largest side the thumbnail decoder will accept.
+const MAX_IMAGE_SIDE: u32 = 12_000;
+/// Largest pixel count the thumbnail decoder will accept (40 megapixels).
+const MAX_IMAGE_PIXELS: u64 = 40_000_000;
+/// The cache-control every stored byte carries.
+const FILE_CACHE_CONTROL: &str = "private, max-age=31536000, immutable";
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -141,18 +157,23 @@ async fn upload(
     Ok((status, Json(body)).into_response())
 }
 
-/// `GET /api/spaces/{space}/files/{hash}/{name}` [viewer]
+/// `GET /api/spaces/{space}/files/{hash}/{name}[?w=256|512]` [viewer]
 ///
 /// The canonical pair reconstructs the stored path; anything else is a `404`.
 /// An image is inline, every other type is an attachment, and the ETag is the
 /// content hash so a repeat read can be answered from the client's cache.
+///
+/// `?w=` on an image serves a derived thumbnail, generated once into
+/// `files/.thumbs/`. Any other width, a non-image, or an image the decoder
+/// cannot reduce serves the original bytes with the original ETag instead.
 async fn read(
     State(state): State<SharedState>,
     caller: Caller,
     Path((space, hash, name)): Path<(String, String, String)>,
-    query: ApiQuery,
+    mut query: ApiQuery,
 ) -> Result<Response, ApiError> {
     let space = uuid_param(&space, "space")?;
+    let requested_width = query.raw("w");
     query.finish()?;
     let handle = space_for(&state, &caller, space, Role::Viewer)?;
 
@@ -162,21 +183,201 @@ async fn read(
     }
     let bytes = handle.store.load_attachment(&path)?;
     let sniffed = sniff(&bytes);
+
+    let width = requested_width
+        .as_deref()
+        .and_then(|raw| raw.parse::<u32>().ok())
+        .filter(|width| THUMB_WIDTHS.contains(width));
+    if let Some(width) = width
+        && sniffed.is_image()
+    {
+        if let Some(thumbnail) = cached_thumbnail(&handle.store, &hash, width)? {
+            return thumbnail_response(thumbnail, &hash, width);
+        }
+        if let Some(thumbnail) = build_thumbnail(&bytes, width) {
+            let cache = thumb_path(&hash, width, thumbnail.extension);
+            match handle.store.save_attachment(&cache, &thumbnail.bytes, None) {
+                Ok(_) => {}
+                // Another reader wrote the same derived bytes first; either
+                // copy is correct, so serve the one on disk.
+                Err(CoreError::Conflict { .. }) => {
+                    if let Some(stored) = cached_thumbnail(&handle.store, &hash, width)? {
+                        return thumbnail_response(stored, &hash, width);
+                    }
+                }
+                Err(err) => tracing::warn!(
+                    path = %cache.display(),
+                    %err,
+                    "thumbnail could not be cached"
+                ),
+            }
+            return thumbnail_response(thumbnail, &hash, width);
+        }
+    }
+
+    original_response(bytes, sniffed, &name, &hash)
+}
+
+/// A derived thumbnail, encoded but not necessarily cached.
+struct Thumbnail {
+    bytes: Vec<u8>,
+    extension: &'static str,
+}
+
+impl Thumbnail {
+    fn mime(&self) -> &'static str {
+        match self.extension {
+            "png" => "image/png",
+            _ => "image/jpeg",
+        }
+    }
+}
+
+/// Reads a cached thumbnail, if one of the two encodings is present.
+fn cached_thumbnail(
+    store: &impl SpaceStore,
+    hash: &str,
+    width: u32,
+) -> Result<Option<Thumbnail>, ApiError> {
+    for extension in ["jpg", "png"] {
+        let path = thumb_path(hash, width, extension);
+        match store.load_attachment(&path) {
+            Ok(bytes) => {
+                return Ok(Some(Thumbnail { bytes, extension }));
+            }
+            Err(CoreError::NotFound(_)) => {}
+            Err(err) => return Err(err.into()),
+        }
+    }
+    Ok(None)
+}
+
+/// Decodes, orients and scales `bytes` to `width`. `None` means the original is
+/// the answer: unreadable bytes, oversized dimensions, an orientation the
+/// decoder could not report, or an image already at or below the width (a
+/// thumbnail never upscales).
+fn build_thumbnail(bytes: &[u8], width: u32) -> Option<Thumbnail> {
+    let mut reader = match ImageReader::new(Cursor::new(bytes)).with_guessed_format() {
+        Ok(reader) => reader,
+        Err(err) => {
+            tracing::warn!(%err, "thumbnail skipped: the image header could not be read");
+            return None;
+        }
+    };
+    let mut limits = Limits::default();
+    limits.max_image_width = Some(MAX_IMAGE_SIDE);
+    limits.max_image_height = Some(MAX_IMAGE_SIDE);
+    reader.limits(limits);
+    let mut decoder = match reader.into_decoder() {
+        Ok(decoder) => decoder,
+        Err(err) => {
+            tracing::warn!(%err, "thumbnail skipped: the image could not be decoded");
+            return None;
+        }
+    };
+    let (source_width, source_height) = decoder.dimensions();
+    if source_width == 0
+        || source_height == 0
+        || u64::from(source_width) * u64::from(source_height) > MAX_IMAGE_PIXELS
+    {
+        tracing::warn!(
+            source_width,
+            source_height,
+            "thumbnail skipped: the image is larger than the decode bounds"
+        );
+        return None;
+    }
+    // The orientation is read before any pixels are scaled, so a phone photo is
+    // upright in the tile. A decoder that errors here cannot be trusted with the
+    // rotation, so the original is served instead of a sideways thumbnail.
+    let orientation = match decoder.orientation() {
+        Ok(orientation) => orientation,
+        Err(err) => {
+            tracing::warn!(%err, "thumbnail skipped: the image orientation could not be read");
+            return None;
+        }
+    };
+    let mut image = match DynamicImage::from_decoder(decoder) {
+        Ok(image) => image,
+        Err(err) => {
+            tracing::warn!(%err, "thumbnail skipped: the image could not be decoded");
+            return None;
+        }
+    };
+    image.apply_orientation(orientation);
+    if image.width() <= width {
+        return None;
+    }
+    let resized = image.resize(width, u32::MAX, FilterType::Lanczos3);
+    encode_thumbnail(&resized)
+}
+
+/// JPEG for an opaque image, PNG when the source carries an alpha channel.
+fn encode_thumbnail(image: &DynamicImage) -> Option<Thumbnail> {
+    let mut bytes = Vec::new();
+    if image.color().has_alpha() {
+        let rgba = image.to_rgba8();
+        PngEncoder::new(&mut bytes)
+            .write_image(
+                rgba.as_raw(),
+                rgba.width(),
+                rgba.height(),
+                ColorType::Rgba8.into(),
+            )
+            .map_err(|err| {
+                tracing::warn!(%err, "thumbnail skipped: the image could not be encoded");
+            })
+            .ok()?;
+        Some(Thumbnail {
+            bytes,
+            extension: "png",
+        })
+    } else {
+        let rgb = image.to_rgb8();
+        JpegEncoder::new_with_quality(&mut bytes, THUMB_QUALITY)
+            .encode_image(&rgb)
+            .map_err(|err| {
+                tracing::warn!(%err, "thumbnail skipped: the image could not be encoded");
+            })
+            .ok()?;
+        Some(Thumbnail {
+            bytes,
+            extension: "jpg",
+        })
+    }
+}
+
+/// A cached thumbnail's response; its ETag names the source hash and the width.
+fn thumbnail_response(thumbnail: Thumbnail, hash: &str, width: u32) -> Result<Response, ApiError> {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, thumbnail.mime())
+        .header(header::CONTENT_LENGTH, thumbnail.bytes.len())
+        .header(header::ETAG, format!("\"{hash}-{width}\""))
+        .header(header::CACHE_CONTROL, FILE_CACHE_CONTROL)
+        .header(header::CONTENT_DISPOSITION, "inline")
+        .body(Body::from(thumbnail.bytes))
+        .map_err(|err| ApiError::internal(err.to_string()))
+}
+
+/// The stored bytes themselves, as an inline image or a download.
+fn original_response(
+    bytes: Vec<u8>,
+    sniffed: Sniffed,
+    name: &str,
+    hash: &str,
+) -> Result<Response, ApiError> {
     let disposition = if sniffed.is_image() {
         "inline".to_owned()
     } else {
         format!("attachment; filename=\"{name}\"")
     };
-
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, sniffed.mime())
         .header(header::CONTENT_LENGTH, bytes.len())
         .header(header::ETAG, format!("\"{hash}\""))
-        .header(
-            header::CACHE_CONTROL,
-            "private, max-age=31536000, immutable",
-        )
+        .header(header::CACHE_CONTROL, FILE_CACHE_CONTROL)
         .header(header::CONTENT_DISPOSITION, disposition)
         .body(Body::from(bytes))
         .map_err(|err| ApiError::internal(err.to_string()))
