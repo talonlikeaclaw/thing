@@ -31,6 +31,30 @@ impl ApiError {
         Self::new(StatusCode::FORBIDDEN, "forbidden", message)
     }
 
+    /// `400` — the request itself is malformed: a path where a name belongs.
+    pub fn bad_request(field: &str, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            code: "bad_request",
+            message: message.into(),
+            details: json!({ "field": field }),
+        }
+    }
+
+    /// `413` — the body is larger than the route accepts.
+    pub fn too_large(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large", message)
+    }
+
+    /// `415` — the bytes are not a type this route accepts.
+    pub fn unsupported_media_type(message: impl Into<String>) -> Self {
+        Self::new(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "unsupported_media_type",
+            message,
+        )
+    }
+
     /// `404` — nothing here, or not for this caller.
     pub fn not_found(what: impl std::fmt::Display) -> Self {
         Self::new(
@@ -272,6 +296,21 @@ mod tests {
                 "unauthenticated",
             ),
             (ApiError::forbidden("x"), StatusCode::FORBIDDEN, "forbidden"),
+            (
+                ApiError::bad_request("name", "x"),
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+            ),
+            (
+                ApiError::too_large("x"),
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "payload_too_large",
+            ),
+            (
+                ApiError::unsupported_media_type("x"),
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                "unsupported_media_type",
+            ),
             (ApiError::not_found("x"), StatusCode::NOT_FOUND, "not_found"),
             (
                 ApiError::from(CoreError::AlreadyExists("x".to_owned())),

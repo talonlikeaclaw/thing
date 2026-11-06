@@ -7,6 +7,7 @@
 
 mod auth;
 mod csv;
+mod files;
 mod objects;
 mod properties;
 mod search;
@@ -62,6 +63,7 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .merge(properties::routes())
         .merge(csv::routes())
         .merge(search::routes())
+        .merge(files::routes())
         .merge(objects::routes())
         .merge(crate::events::routes())
         .route("/api", any(no_such_route))
@@ -5041,6 +5043,284 @@ mod tests {
                 .await;
             assert_eq!(sorted.status, StatusCode::OK, "{:?}", sorted.body);
             assert_eq!(sorted.body["objects"][0]["title"], "Fern");
+        });
+    }
+    /// A real 1 × 1 PNG: the magic bytes, a valid IHDR, one red pixel and IEND.
+    const PNG_1X1: &[u8] = &[
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f,
+        0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0xf8,
+        0xcf, 0xc0, 0xf0, 0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0x00, 0x00,
+        0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+    ];
+
+    /// The stored attachment count, so a repeat upload can prove it wrote nothing.
+    fn attachment_count(server: &Server, space: &str) -> usize {
+        use thing_core::store::{SpaceFileKind, SpaceStore};
+        let handle = server
+            .state
+            .registry
+            .get(Uuid::parse_str(space).expect("a space id"))
+            .expect("the space is loaded");
+        handle
+            .store
+            .list_files()
+            .expect("the space lists")
+            .into_iter()
+            .filter(|file| file.kind == SpaceFileKind::Attachment)
+            .count()
+    }
+
+    #[test]
+    fn an_editor_uploads_a_png_and_a_member_reads_it_with_the_file_headers() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("files-owner@example.com", None).await;
+            let owner_cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &owner_cookie, "Garden").await;
+
+            let upload = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files?name=Garden-Photo.PNG"),
+                    Some("image/png"),
+                    PNG_1X1,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(upload.status, StatusCode::CREATED, "{:?}", upload.body);
+            let path = upload.body["path"].as_str().expect("a path").to_owned();
+            let hash = upload.body["hash"].as_str().expect("a hash");
+            assert_eq!(hash.len(), 64);
+            assert_eq!(path, format!("files/{hash}/garden-photo.png"));
+            assert_eq!(upload.body["name"], "garden-photo.png");
+            assert_eq!(upload.body["mime"], "image/png");
+            assert_eq!(upload.body["size"], PNG_1X1.len());
+            assert_eq!(attachment_count(&server, &space), 1);
+
+            let read = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}"),
+                    None,
+                    &[],
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(read.status, StatusCode::OK);
+            assert_eq!(read.bytes, PNG_1X1);
+            assert_eq!(read.headers.get("content-type").unwrap(), "image/png");
+            assert_eq!(read.headers.get("etag").unwrap(), &format!("\"{hash}\""));
+            assert_eq!(read.headers.get("content-disposition").unwrap(), "inline");
+            assert_eq!(
+                read.headers.get("cache-control").unwrap(),
+                "private, max-age=31536000, immutable"
+            );
+            assert_eq!(
+                read.headers.get("content-length").unwrap(),
+                &PNG_1X1.len().to_string()
+            );
+
+            // A viewer may read and may not write.
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server
+                .register("files-viewer@example.com", Some(&code))
+                .await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let viewed = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}"),
+                    None,
+                    &[],
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(viewed.status, StatusCode::OK);
+            let refused = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files?name=copy.png"),
+                    Some("image/png"),
+                    PNG_1X1,
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::FORBIDDEN);
+            assert_eq!(refused.code(), "forbidden");
+
+            // A member of another space cannot tell this file exists.
+            let work = create_space(&server, &owner_cookie, "Work").await;
+            let work_invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{work}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            let work_code = work_invite.body["code"]
+                .as_str()
+                .expect("a code")
+                .to_owned();
+            let stranger = server
+                .register("files-stranger@example.com", Some(&work_code))
+                .await;
+            let stranger_cookie = cookie_of(&stranger).to_owned();
+            let leaked = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{path}"),
+                    None,
+                    &[],
+                    Some(&stranger_cookie),
+                )
+                .await;
+            assert_eq!(leaked.status, StatusCode::NOT_FOUND);
+            assert_eq!(leaked.code(), "not_found");
+            assert!(!leaked.text().contains(hash));
+        });
+    }
+
+    #[test]
+    fn an_upload_is_idempotent_and_refuses_a_path_a_lie_and_an_oversize_body() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("repeat-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+            let url = format!("/api/spaces/{space}/files?name=monstera.png");
+
+            let first = server
+                .call_raw("POST", &url, Some("image/png"), PNG_1X1, Some(&cookie))
+                .await;
+            assert_eq!(first.status, StatusCode::CREATED);
+            let second = server
+                .call_raw("POST", &url, Some("image/png"), PNG_1X1, Some(&cookie))
+                .await;
+            assert_eq!(second.status, StatusCode::OK, "{:?}", second.body);
+            assert_eq!(second.body["path"], first.body["path"]);
+            assert_eq!(attachment_count(&server, &space), 1);
+
+            // A name is a name, never a directory to climb out of.
+            for name in ["../escape.png", "sub/dir.png", "..", "a\\b.png"] {
+                let refused = server
+                    .call_raw(
+                        "POST",
+                        &format!("/api/spaces/{space}/files?name={name}"),
+                        Some("image/png"),
+                        PNG_1X1,
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(refused.status, StatusCode::BAD_REQUEST, "{name}");
+                assert_eq!(refused.code(), "bad_request");
+                assert_eq!(refused.field(), "name");
+            }
+
+            // The body, not the header, decides what the bytes are.
+            let lie = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files?name=not-a-photo.png"),
+                    Some("image/png"),
+                    b"this is text, not an image",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(lie.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+            assert_eq!(lie.code(), "unsupported_media_type");
+
+            let svg = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files?name=mark.svg"),
+                    Some("image/svg+xml"),
+                    b"<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(svg.status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+
+            // A generic file keeps its extension and downloads.
+            let document = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files?name=Field%20Notes.PDF"),
+                    Some("application/pdf"),
+                    b"%PDF-1.4\nnot really a pdf",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(document.status, StatusCode::CREATED, "{:?}", document.body);
+            assert_eq!(document.body["name"], "field-notes.pdf");
+            assert_eq!(document.body["mime"], "application/octet-stream");
+            let stored = document.body["path"].as_str().expect("a path");
+            let download = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/{stored}"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(download.status, StatusCode::OK);
+            assert_eq!(
+                download.headers.get("content-type").unwrap(),
+                "application/octet-stream"
+            );
+            assert_eq!(
+                download.headers.get("content-disposition").unwrap(),
+                "attachment; filename=\"field-notes.pdf\""
+            );
+
+            // 10 MiB + 1 is refused by the server with the app's sentence.
+            let oversized = vec![0u8; 10 * 1024 * 1024 + 1];
+            let refused = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files?name=big.bin"),
+                    Some("application/octet-stream"),
+                    &oversized,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::PAYLOAD_TOO_LARGE);
+            assert_eq!(refused.code(), "payload_too_large");
+            assert!(refused.text().contains("10 MiB"));
+            assert_eq!(attachment_count(&server, &space), 2);
+
+            // Without a name there is no file, and a non-canonical pair is not
+            // a path the store will read.
+            let nameless = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{space}/files"),
+                    Some("image/png"),
+                    PNG_1X1,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(nameless.status, StatusCode::BAD_REQUEST);
+            let hash = first.body["hash"].as_str().expect("a hash");
+            for uri in [
+                format!("/api/spaces/{space}/files/not-a-hash/monstera.png"),
+                format!("/api/spaces/{space}/files/{hash}/missing.png"),
+            ] {
+                let absent = server.call_raw("GET", &uri, None, &[], Some(&cookie)).await;
+                assert_eq!(absent.status, StatusCode::NOT_FOUND, "{uri}");
+            }
         });
     }
 }
