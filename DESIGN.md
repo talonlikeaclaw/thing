@@ -16,10 +16,13 @@ colors:
   glass: "rgba(30,38,32,0.55)"
   glass-strong: "rgba(36,44,38,0.62)"
   glass-edge: "rgba(255,255,255,0.12)"
+  pane-wash: "rgba(10,14,11,0.62)"
+  pane-glass: "color-mix(in srgb, {colors.accent} 10%, {colors.glass})"
   accent: "#c8d96b"
   accent-ink: "#14180f"
   accent-on-wash: "#c8d96b"
   accent-wash: "#c8d96b1e"
+  accent-wash-hover: "color-mix(in srgb, {colors.accent} 24%, transparent)"
   danger: "#f08a72"
   warning: "#dcaa54"
 typography:
@@ -222,6 +225,9 @@ gradient on a component.
 ### The tint and the accent
 - **Accent Wash** (`{colors.accent-wash}`): the only tint, 12% of the chosen accent. It
   marks selection, the active destination, the search match and drag.
+- **Accent Wash Hover** (`{colors.accent-wash-hover}`): the same tint one step up, 24%,
+  for a hover or focus that must be seen: a card pane under the pointer and a menu row.
+  It is derived from the accent, so all six accents and every space accent follow.
 - **Accent on Wash** (`{colors.accent-on-wash}`): accent as text on the wash. Dark uses
   the accent itself; light darkens it so all six clear 4.5:1 over the wash on every
   surface. Lichen's light on-wash is `#525f18`.
@@ -432,8 +438,16 @@ with its date and due phrase in mono, plus complete and menu actions. Every visi
 clipped by that corner, never a square band over a rounded frame. When the view names an
 image property, or the record carries a cover, that image fills the same clipped frame at
 16:9 with the record's stored focal point; the tint remains the fallback. The complete and
-menu actions on a board card, gallery tile or calendar chip are 32px glass circles — 44px on
-a coarse pointer — so they read as chrome over the record's own colour. An image opens the
+menu actions on a board card, gallery tile or calendar chip are 32px frosted circles — 44px on
+a coarse pointer. On a matte surface the pane is a real piece of glass — the glass fill with a
+trace of the space's own colour mixed in, the lit rim and a blur near its own size, with the
+space accent on the glyph. On a cover the fill
+is dropped — an ink wash over a picture reads as one flat plate and hides it — so the picture
+is the material and the glyph carries the contrast: a light mark with a dark halo, which holds
+on a bright sky and a dark leaf alike. Under the pointer either pane takes the accent wash
+hover, the space's own colour one step up, laid over whichever body it has. The menu a kebab
+opens washes the neutral ground behind its own blur, never the green glass, because a cover can
+sit behind it. An image opens the
 one lightbox: the picture at reading size, its caption, Escape and focus back on the tile.
 
 **Quiet surfaces.** Schema, members, settings, trash, auth and account settings share one
@@ -479,8 +493,10 @@ sheets 28px. A single control never mixes corners.
 - **Segmented control.** A pill track on a translucent surface with a 4px inset; the
   active segment is a pill on the accent wash, never a sliding animation the user must
   wait for.
-- **Menu and popover.** Glass-strong panel at 18px, 6px inset, 10px rows, accent wash on
-  the highlighted row. The trigger is a pill with a field edge.
+- **Menu and popover.** Glass-strong panel at 18px, 6px inset, 10px rows, the accent wash
+  hover on the highlighted row. The trigger is a pill with a field edge. The menu a card
+  pane opens is the exception: it washes the neutral ground at 62% so a cover behind it
+  cannot take the text away.
 - **Sheet and dialog.** One glass-strong panel at 28px, a 20px blur, and a scrim that only
   blurs 5px and dims to 90% (96% in light) — no colour fill, so the page stays
   recognisable around and under the material, a 240ms rise from 18px, one close control (a 36px circle, 44px

@@ -24,6 +24,11 @@
   --color-glass-strong: rgba(36, 44, 38, 0.62);
   --color-glass-edge: rgba(255, 255, 255, 0.12);
   --color-glass-hover: rgba(255, 255, 255, 0.07);
+  /* The pane's menus sit over pictures, so their fill is the neutral ground
+     rather than the green glass: text needs a tone the cover cannot take away. */
+  --color-pane-wash: rgba(10, 14, 11, 0.62);
+  /* A neutral solid for a browser that cannot blur; never the green surface. */
+  --color-action-fallback: #343834;
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
   --color-accent-on-wash: #c8d96b;
@@ -98,6 +103,18 @@
   /* The shell header's painted height: 4rem of content, its top offset and the
      safe-area inset. Sticky content below it offsets by this token. */
   --shell-header-h: calc(5rem + env(safe-area-inset-top));
+}
+
+/*
+ * Two tokens derived from whichever accent is in force: the wash one step up for
+ * hover and focus, and the pane's glass with a trace of the space's colour. Both
+ * are declared outside `@theme` because the compiler flattens a theme value that
+ * references another theme value into one accent's literal hex, which would pin
+ * every space to Lichen.
+ */
+:root {
+  --color-accent-wash-hover: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  --color-pane-glass: color-mix(in srgb, var(--color-accent) 10%, var(--color-glass));
 }
 
 /*
@@ -212,6 +229,8 @@
     --color-glass-strong: rgba(252, 251, 246, 0.6);
     --color-glass-edge: rgba(255, 255, 255, 0.85);
     --color-glass-hover: rgba(255, 255, 255, 0.55);
+    --color-pane-wash: rgba(255, 255, 255, 0.7);
+    --color-action-fallback: #ecece7;
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
     --color-accent-on-wash: #525f18;
@@ -407,6 +426,88 @@
 
     .glass-strong {
       background: var(--color-surface);
+    }
+  }
+
+  /*
+   * The small chrome circle over a card or photo: the glass material at its
+   * most refractive, a lit rim and an inner highlight.
+   *
+   * Over a matte card it is a real pane of glass — the glass fill with a trace
+   * of the space's own colour, a blur near its own size, and the accent on the
+   * glyph, so the control has a body on a surface that gives it nothing to
+   * refract. Over a cover the fill is dropped: an ink wash there reads as one
+   * flat green plate and hides the picture the pane sits on, so the picture
+   * itself is the material and the glyph carries the contrast.
+   */
+  .card-action {
+    border: 1px solid var(--color-glass-edge);
+    background: var(--color-pane-glass);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 6px 16px -12px rgba(0, 0, 0, 0.8);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    color: var(--color-accent);
+  }
+
+  /*
+   * Over a picture, the accent cannot promise contrast: the cover decides the
+   * ground. The pane goes clear and the glyph goes light with two dark rings —
+   * a tight edge that holds the mark on a white sky, a soft one that carries it
+   * on a dark leaf.
+   */
+  .card-action-photo {
+    background: transparent;
+    color: #ffffff;
+  }
+
+  .card-action-photo svg {
+    filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  }
+
+  /*
+   * The pane's menu, at menu scale. The blur is the material, but the panel
+   * holds 13px text over a cover, so it keeps one thing the pane cannot: a
+   * wash of the neutral ground. It is a tone, not a colour — the picture still
+   * reads through it — and the light scheme washes white for its dark ink.
+   */
+  .card-menu {
+    border: 1px solid var(--color-glass-edge);
+    background: var(--color-pane-wash);
+    box-shadow: var(--shadow-float);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    animation: pop-in var(--duration-base) var(--ease-out);
+  }
+
+  /* The one state that fills: the space's own wash laid over the pane's body,
+     so a glass pane keeps its glass and a clear one stays clear. */
+  .card-action:hover {
+    background:
+      linear-gradient(var(--color-accent-wash-hover), var(--color-accent-wash-hover)),
+      var(--color-pane-glass);
+  }
+
+  .card-action-photo:hover {
+    background: var(--color-accent-wash-hover);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .card-action {
+      background: color-mix(in srgb, var(--color-accent) 10%, var(--color-action-fallback));
+    }
+
+    /* No blur to sit on, so the photo pane takes a scrim: the light glyph and
+       the rim need a ground the cover cannot take away. */
+    .card-action-photo {
+      background: rgba(10, 14, 11, 0.62);
+    }
+
+    .card-action-photo:hover {
+      background:
+        linear-gradient(var(--color-accent-wash-hover), var(--color-accent-wash-hover)),
+        rgba(10, 14, 11, 0.62);
     }
   }
 

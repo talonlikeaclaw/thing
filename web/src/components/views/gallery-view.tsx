@@ -90,6 +90,7 @@ export function GalleryView({
                   pending={pendingRows.has(row.id)}
                   showComplete={row.schedule !== undefined && row.schedule.status !== "done"}
                   verb={verb}
+                  onImage={imagePath !== undefined}
                   onComplete={() => onComplete(row)}
                   onDuplicate={() => onDuplicate(row)}
                   onTrash={() => onTrash(row)}

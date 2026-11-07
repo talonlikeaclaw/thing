@@ -24,10 +24,23 @@ interface CardActionsProps {
    * gutter beside it.
    */
   menuCompleteOnCoarse?: boolean;
+  /**
+   * The tile sits on a picture, so the glyph cannot borrow the accent: it goes
+   * light with a dark halo, which holds on a bright sky and a dark leaf alike.
+   */
+  onImage?: boolean;
 }
 
+const menuItem =
+  "w-full rounded-[8px] px-2 py-1.5 text-left hover:bg-[var(--color-accent-wash-hover)] focus:bg-[var(--color-accent-wash-hover)] focus:outline-none pointer-coarse:min-h-11";
+
 const button =
-  "inline-flex h-8 w-8 items-center justify-center rounded-full border border-glass-edge bg-glass/85 text-muted shadow-[0_6px_16px_-12px_rgba(0,0,0,0.8)] backdrop-blur-md transition-colors hover:bg-raised/80 hover:text-accent disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11";
+  "card-action inline-flex h-8 w-8 items-center justify-center rounded-full transition-[background-color,color,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)] active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:w-11";
+
+/** The pane's glyph treatment, then any per-surface modifiers. */
+function buttonClass(onImage: boolean, extra?: string | false) {
+  return cn(button, onImage && "card-action-photo", extra);
+}
 
 const MENU_WIDTH = 168;
 const MENU_GAP = 4;
@@ -55,6 +68,7 @@ export function CardActions({
   onDuplicate,
   onTrash,
   menuCompleteOnCoarse = false,
+  onImage = false,
 }: CardActionsProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0 });
@@ -175,10 +189,10 @@ export function CardActions({
           aria-label={`${verb} ${row.title}`}
           title={verb}
           disabled={completing || pending}
-          className={cn(button, menuCompleteOnCoarse && "pointer-coarse:hidden")}
+          className={buttonClass(onImage, menuCompleteOnCoarse && "pointer-coarse:hidden")}
           onClick={onComplete}
         >
-          <Check aria-hidden size={14} />
+          <Check aria-hidden size={15} strokeWidth={2.4} />
         </button>
       ) : null}
       <button
@@ -188,10 +202,10 @@ export function CardActions({
         aria-haspopup="menu"
         aria-expanded={open}
         title="Actions"
-        className={button}
+        className={buttonClass(onImage)}
         onClick={toggle}
       >
-        <MoreHorizontal aria-hidden size={15} />
+        <MoreHorizontal aria-hidden size={16} strokeWidth={2.4} />
       </button>
       {open
         ? createPortal(
@@ -199,7 +213,7 @@ export function CardActions({
               ref={menu}
               role="menu"
               aria-label={`Actions for ${row.title}`}
-              className="glass-strong fixed z-50 min-w-[10rem] rounded-card p-1.5 text-[13px]"
+              className="card-menu fixed z-50 min-w-[10rem] rounded-card p-1.5 text-[13px]"
               style={{ top: position.top, left: position.left, width: MENU_WIDTH }}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -212,7 +226,7 @@ export function CardActions({
               <Link
                 role="menuitem"
                 to={`/s/${spaceId}/o/${row.id}`}
-                className="block rounded-[8px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none pointer-coarse:min-h-11"
+                className={menuItem}
                 onClick={() => setOpen(false)}
               >
                 Open
@@ -221,7 +235,7 @@ export function CardActions({
                 <button
                   type="button"
                   role="menuitem"
-                  className="hidden w-full rounded-[8px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:block pointer-coarse:min-h-11"
+                  className={cn(menuItem, "hidden disabled:opacity-50 pointer-coarse:block")}
                   disabled={completing || pending}
                   onClick={() => {
                     setOpen(false);
@@ -234,9 +248,7 @@ export function CardActions({
               <button
                 type="button"
                 role="menuitem"
-                className={cn(
-                  "block w-full rounded-[8px] px-2 py-1.5 text-left hover:bg-raised focus:bg-raised focus:outline-none pointer-coarse:min-h-11",
-                )}
+                className={menuItem}
                 disabled={pending}
                 onClick={() => {
                   setOpen(false);
@@ -248,7 +260,7 @@ export function CardActions({
               <button
                 type="button"
                 role="menuitem"
-                className="block w-full rounded-[8px] px-2 py-1.5 text-left text-danger hover:bg-raised focus:bg-raised focus:outline-none disabled:opacity-50 pointer-coarse:min-h-11"
+                className={cn(menuItem, "text-danger disabled:opacity-50")}
                 disabled={pending}
                 onClick={() => {
                   setOpen(false);
