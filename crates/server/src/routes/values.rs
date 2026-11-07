@@ -293,6 +293,13 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
             }),
             _ => json!({ "value": value::to_json(value), "label": plain(value) }),
         },
+        PropertyFormat::Attachments => match value {
+            Value::List(paths) => json!({
+                "value": value::to_json(value),
+                "label": attachments_label(paths),
+            }),
+            _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+        },
         _ => json!({ "value": value::to_json(value), "label": plain(value) }),
     }
 }
@@ -350,6 +357,15 @@ fn attachment_label(path: &str) -> String {
         .and_then(|name| name.to_str())
         .unwrap_or(path)
         .to_owned()
+}
+
+/// An attachments value: one name for one file, a count for a collection.
+fn attachments_label(paths: &[String]) -> String {
+    match paths {
+        [] => String::new(),
+        [path] => attachment_label(path),
+        [_, _, ..] => format!("{} files", paths.len()),
+    }
 }
 
 /// A value as one line of text, for the formats that have no label of their own.
@@ -426,6 +442,29 @@ mod tests {
         assert_eq!(
             value_json(&index, "guide", &Value::Text(path.clone())),
             json!({ "value": path, "label": "care-guide.pdf" })
+        );
+    }
+
+    #[test]
+    fn an_attachments_value_labels_a_name_or_a_count() {
+        let index = index_of(&[property("photos", PropertyFormat::Attachments)]);
+        let one = format!("files/{}/monstera.png", "a".repeat(64));
+        let two = format!("files/{}/fern.jpg", "b".repeat(64));
+        assert_eq!(
+            value_json(&index, "photos", &Value::List(Vec::new())),
+            json!({ "value": [], "label": "" })
+        );
+        assert_eq!(
+            value_json(&index, "photos", &Value::List(vec![one.clone()])),
+            json!({ "value": [one.clone()], "label": "monstera.png" })
+        );
+        assert_eq!(
+            value_json(
+                &index,
+                "photos",
+                &Value::List(vec![one.clone(), two.clone()])
+            ),
+            json!({ "value": [one, two], "label": "2 files" })
         );
     }
 

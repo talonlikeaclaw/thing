@@ -1,12 +1,14 @@
-//! Attachment bytes: one upload surface and one read surface.
+//! Attachment bytes: one library read, one upload and one byte read.
 //!
+//! The library names every stored path once, with the records that use it; it
+//! is the one read that answers "what files does this space hold?".
 //! The bytes live in the space's own `files/` tree, addressed by their SHA-256.
 //! Nothing here parses multipart: the body is the file and the name is a query
 //! parameter, so the upload has one field and no parser to jail. The caller is
 //! resolved — and the role checked — before the body is read, so an anonymous
 //! or viewer request is refused without buffering a file.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::io::Cursor;
 use std::path::Path as FsPath;
@@ -30,8 +32,9 @@ use thing_core::model::Role;
 use thing_core::slug::slugify;
 use thing_core::store::{
     MAX_FILE_EXTENSION_LEN, SpaceFileKind, SpaceStore, THUMB_WIDTHS, file_path, is_file_path,
-    split_file_path, split_thumb_path, thumb_path,
+    is_image_path, split_file_path, split_thumb_path, thumb_path,
 };
+use uuid::Uuid;
 
 use super::{ApiQuery, space_for, uuid_param};
 use crate::auth::Caller;
@@ -56,9 +59,109 @@ const FILE_CACHE_CONTROL: &str = "private, max-age=31536000, immutable";
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/spaces/{space}/files", post(upload))
+        .route("/api/spaces/{space}/files", get(library).post(upload))
         .route("/api/spaces/{space}/files/gc", post(gc))
         .route("/api/spaces/{space}/files/{hash}/{name}", get(read))
+}
+
+/// `GET /api/spaces/{space}/files` [viewer]
+///
+/// Every stored path once, with the live or trashed records that name it and
+/// what the space's bytes add up to. A reference whose bytes are gone is not a
+/// card: the library lists what the space holds, not what it wishes it held.
+async fn library(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path(space): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Viewer)?;
+
+    let files = handle.store.list_files()?;
+    let (mut uses, referenced) = handle.with_index(|index| {
+        let mut uses: BTreeMap<PathBuf, Vec<(Uuid, serde_json::Value)>> = BTreeMap::new();
+        let mut referenced = BTreeSet::new();
+        for reference in index.attachment_references() {
+            let path = PathBuf::from(&reference.file);
+            referenced.insert(path.clone());
+            let records = uses.entry(path).or_default();
+            // One chip per record even when the record names the bytes twice.
+            if records.iter().any(|(id, _)| *id == reference.object) {
+                continue;
+            }
+            let field_name = match reference.field.as_str() {
+                "cover" => "Cover".to_owned(),
+                "body" => "Body".to_owned(),
+                key => index
+                    .property_def(key)
+                    .map_or_else(|| key.to_owned(), |def| def.name.clone()),
+            };
+            let type_name = index
+                .type_def(&reference.type_key)
+                .map_or_else(|| reference.type_key.clone(), |def| def.name.clone());
+            let updated_at = reference
+                .updated_at
+                .format(&time::format_description::well_known::Rfc3339)
+                .expect("an RFC 3339 timestamp always formats");
+            records.push((
+                reference.object,
+                json!({
+                    "id": reference.object,
+                    "rev": reference.rev,
+                    "title": reference.title,
+                    "icon": reference.icon,
+                    "type_key": reference.type_key,
+                    "type_name": type_name,
+                    "field": reference.field,
+                    "field_name": field_name,
+                    "trashed": reference.trashed,
+                    "updated_at": updated_at,
+                }),
+            ));
+        }
+        (uses, referenced)
+    });
+
+    let mut items = Vec::new();
+    let mut total_bytes = 0_u64;
+    let mut unused_bytes = 0_u64;
+    for file in files {
+        if file.kind != SpaceFileKind::Attachment {
+            continue;
+        }
+        let Some((_, name)) = split_file_path(&file.path) else {
+            continue;
+        };
+        // A file that vanished between listing and measuring is not a card.
+        let Ok(size) = handle.store.attachment_len(&file.path) else {
+            continue;
+        };
+        let records = uses.remove(&file.path).unwrap_or_default();
+        let unused = !referenced.contains(&file.path);
+        total_bytes += size;
+        if unused {
+            unused_bytes += size;
+        }
+        items.push((
+            name.to_lowercase(),
+            posix(&file.path),
+            json!({
+                "path": posix(&file.path),
+                "name": name,
+                "size": size,
+                "kind": if is_image_path(&file.path) { "image" } else { "file" },
+                "unused": unused,
+                "records": records.into_iter().map(|(_, record)| record).collect::<Vec<_>>(),
+            }),
+        ));
+    }
+    items.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+
+    Ok(Json(json!({
+        "items": items.into_iter().map(|(_, _, item)| item).collect::<Vec<_>>(),
+        "total_bytes": total_bytes,
+        "unused_bytes": unused_bytes,
+    })))
 }
 
 /// `POST /api/spaces/{space}/files?name=<name>` [editor]

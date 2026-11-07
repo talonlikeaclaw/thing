@@ -6095,4 +6095,407 @@ mod tests {
             assert_eq!(list.body["total"], 2, "the refused row wrote nothing");
         });
     }
+
+    /// Adds an `attachments` property named Photos to the Garden's plant type.
+    async fn photos_property(server: &Server, cookie: &str, space: &str) {
+        let created = server
+            .call(
+                "POST",
+                &format!("/api/spaces/{space}/properties"),
+                Some(json!({ "name": "Photos", "format": "attachments" })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+        assert_eq!(created.body["format"], "attachments");
+        let patched = server
+            .call(
+                "PATCH",
+                &format!("/api/spaces/{space}/types/plant"),
+                Some(json!({ "properties": [{ "key": "room" }, { "key": "photos" }] })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+    }
+
+    #[test]
+    fn the_library_lists_each_path_once_with_its_records_and_totals() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("library-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            photos_property(&server, &cookie, &garden.space).await;
+
+            let photo = encoded_png(300, 120, false);
+            let (_, photo_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "monstera.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            let guide = b"%PDF-1.4\nnot really a pdf";
+            let (_, guide_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "Notes.PDF",
+                "application/pdf",
+                guide,
+            )
+            .await;
+            assert!(guide_path.ends_with("/notes.pdf"), "{guide_path}");
+
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({
+                        "rev": 1,
+                        "cover": photo_path,
+                        "properties": { "photos": [photo_path, guide_path] },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            let library = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/files", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(library.status, StatusCode::OK, "{:?}", library.body);
+            let items = library.body["items"].as_array().expect("items");
+            assert_eq!(items.len(), 2);
+
+            assert_eq!(items[0]["name"], "monstera.png");
+            assert_eq!(items[0]["path"], photo_path.as_str());
+            assert_eq!(items[0]["kind"], "image");
+            assert_eq!(items[0]["size"], photo.len());
+            // The cover and the list name the same bytes; the cover wins the chip.
+            let records = items[0]["records"].as_array().expect("records");
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0]["id"], garden.plant.as_str());
+            assert_eq!(records[0]["rev"], 2);
+            assert_eq!(records[0]["title"], "Monstera in the study");
+            assert!(
+                records[0]["icon"].is_null(),
+                "the record carries no icon of its own"
+            );
+            assert_eq!(records[0]["type_key"], "plant");
+            assert_eq!(records[0]["type_name"], "Plant");
+            assert_eq!(records[0]["field"], "cover");
+            assert_eq!(records[0]["field_name"], "Cover");
+            assert_eq!(records[0]["trashed"], false);
+            assert!(records[0]["updated_at"].is_string());
+
+            assert_eq!(items[1]["name"], "notes.pdf");
+            assert_eq!(items[1]["path"], guide_path.as_str());
+            assert_eq!(items[1]["kind"], "file");
+            assert_eq!(items[1]["size"], guide.len());
+            assert_eq!(items[1]["unused"], false);
+            assert_eq!(items[1]["records"][0]["field"], "photos");
+            assert_eq!(items[1]["records"][0]["field_name"], "Photos");
+
+            let total = (photo.len() + guide.len()) as u64;
+            assert_eq!(library.body["total_bytes"], total);
+            assert_eq!(library.body["unused_bytes"], 0);
+
+            // An upload no record names is a card with no chips.
+            let extra = encoded_png(40, 40, false);
+            let (_, extra_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "extra.png",
+                "image/png",
+                &extra,
+            )
+            .await;
+            let library = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/files", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            let items = library.body["items"].as_array().expect("items");
+            assert_eq!(items.len(), 3);
+            let orphan = items
+                .iter()
+                .find(|item| item["path"] == extra_path.as_str())
+                .expect("the unattached upload is listed");
+            assert_eq!(orphan["unused"], true);
+            assert_eq!(orphan["records"], json!([]));
+            assert_eq!(library.body["total_bytes"], total + extra.len() as u64);
+            assert_eq!(library.body["unused_bytes"], extra.len() as u64);
+        });
+    }
+
+    #[test]
+    fn the_library_answers_a_viewer_and_hides_from_a_stranger() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server
+                .register("library-role-owner@example.com", None)
+                .await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let url = format!("/api/spaces/{}/files", garden.space);
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", garden.space),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server
+                .register("library-viewer@example.com", Some(&code))
+                .await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let viewed = server.call("GET", &url, None, Some(&viewer_cookie)).await;
+            assert_eq!(viewed.status, StatusCode::OK, "{:?}", viewed.body);
+            assert_eq!(viewed.body["items"], json!([]));
+
+            // A member of another space cannot read this one's library.
+            let work = create_space(&server, &cookie, "Work").await;
+            let work_invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{work}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let work_code = work_invite.body["code"]
+                .as_str()
+                .expect("a code")
+                .to_owned();
+            let stranger = server
+                .register("library-stranger@example.com", Some(&work_code))
+                .await;
+            let stranger_cookie = cookie_of(&stranger).to_owned();
+            let hidden = server.call("GET", &url, None, Some(&stranger_cookie)).await;
+            assert_eq!(hidden.status, StatusCode::NOT_FOUND);
+            assert_eq!(hidden.code(), "not_found");
+        });
+    }
+
+    #[test]
+    fn a_trashed_use_is_listed_and_keeps_its_bytes_off_the_unused_list() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server
+                .register("library-trash-owner@example.com", None)
+                .await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            photos_property(&server, &cookie, &garden.space).await;
+
+            let photo = encoded_png(300, 120, false);
+            let (_, photo_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "fern.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            let second = encoded_png(120, 300, false);
+            let (_, second_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "fern-two.png",
+                "image/png",
+                &second,
+            )
+            .await;
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({
+                        "rev": 1,
+                        "properties": { "photos": [photo_path, second_path] },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            let trashed = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(trashed.status, StatusCode::OK, "{:?}", trashed.body);
+
+            let library = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/files", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(library.status, StatusCode::OK, "{:?}", library.body);
+            let items = library.body["items"].as_array().expect("items");
+            assert_eq!(items.len(), 2);
+            for item in items {
+                assert_eq!(item["unused"], false);
+                assert_eq!(item["records"][0]["trashed"], true);
+            }
+            assert_eq!(library.body["unused_bytes"], 0);
+
+            // A trashed reference is a reference: collection keeps the bytes.
+            let collected = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/files/gc", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(collected.status, StatusCode::OK, "{:?}", collected.body);
+            assert_eq!(collected.body["removed"], 0);
+            assert_eq!(
+                attachment_count(&server, &garden.space),
+                2,
+                "both list entries are references"
+            );
+        });
+    }
+
+    #[test]
+    fn csv_carries_attachment_lists_and_refuses_a_missing_path() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("csv-photos@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            photos_property(&server, &cookie, &garden.space).await;
+
+            let photo = encoded_png(300, 120, false);
+            let (_, photo_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "monstera.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            let guide = b"plain notes";
+            let (_, guide_path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "notes.txt",
+                "text/plain",
+                guide,
+            )
+            .await;
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({
+                        "rev": 1,
+                        "properties": { "photos": [photo_path, guide_path] },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            let exported = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/types/plant/export", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(exported.status, StatusCode::OK);
+            let text = exported.text();
+            let header = text
+                .trim_start_matches('\u{feff}')
+                .lines()
+                .next()
+                .expect("a header");
+            assert_eq!(header, "title,room,photos,_body");
+            assert!(text.contains(&photo_path), "{text}");
+            assert!(text.contains(&guide_path), "{text}");
+
+            // Importing the same array creates another record.
+            let field = format!(
+                "\"{}\"",
+                serde_json::to_string(&vec![photo_path.as_str(), guide_path.as_str()])
+                    .expect("a JSON array")
+                    .replace('"', "\"\"")
+            );
+            let csv = format!("title,room,photos\nFern by the door,kitchen,{field}\n");
+            let imported = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{}/types/plant/import", garden.space),
+                    Some("text/csv"),
+                    csv.as_bytes(),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(imported.status, StatusCode::CREATED, "{:?}", imported.body);
+
+            // A path the space cannot serve is a row error naming the field.
+            let absent = format!("files/{}/ghost.png", "b".repeat(64));
+            let field = format!(
+                "\"{}\"",
+                serde_json::to_string(&vec![absent.as_str()])
+                    .expect("a JSON array")
+                    .replace('"', "\"\"")
+            );
+            let missing = format!("title,room,photos\nMoss,kitchen,{field}\n");
+            let refused = server
+                .call_raw(
+                    "POST",
+                    &format!("/api/spaces/{}/types/plant/import", garden.space),
+                    Some("text/csv"),
+                    missing.as_bytes(),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+            let problem = &refused.body["error"]["details"]["errors"][0];
+            assert_eq!(problem["row"], 1);
+            assert_eq!(problem["field"], "photos");
+            assert!(
+                problem["message"]
+                    .as_str()
+                    .expect("a message")
+                    .contains(&absent)
+            );
+        });
+    }
 }

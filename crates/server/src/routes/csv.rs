@@ -246,23 +246,25 @@ fn parse_against(index: &SpaceIndex, type_key: &str, text: &str) -> Result<CsvPa
             let Some(property) = index.property_def(key) else {
                 continue;
             };
-            if !matches!(
-                property.format,
-                PropertyFormat::File | PropertyFormat::Image
-            ) {
-                continue;
-            }
-            let Cell::Text(path) = value else {
-                continue;
+            let paths: Vec<&str> = match (property.format, value) {
+                (PropertyFormat::File | PropertyFormat::Image, Cell::Text(path)) => {
+                    vec![path.as_str()]
+                }
+                (PropertyFormat::Attachments, Cell::List(paths)) => {
+                    paths.iter().map(String::as_str).collect()
+                }
+                _ => continue,
             };
-            if index.has_attachment(std::path::Path::new(path)) {
-                continue;
+            for path in paths {
+                if index.has_attachment(std::path::Path::new(path)) {
+                    continue;
+                }
+                parsed.problems.push(CsvProblem {
+                    row: record.row,
+                    field: key.clone(),
+                    message: format!("{path} is not in this space"),
+                });
             }
-            parsed.problems.push(CsvProblem {
-                row: record.row,
-                field: key.clone(),
-                message: format!("{path} is not in this space"),
-            });
         }
     }
     Ok(parsed)
