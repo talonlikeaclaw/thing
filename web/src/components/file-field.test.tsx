@@ -41,7 +41,9 @@ describe("FileField", () => {
 
     renderWithProviders(<Controlled />);
     expect(screen.getByText("notes.pdf")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Remove file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for file" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     expect(
       screen.getByRole("button", { name: "Choose file or drop it here" }),
@@ -64,5 +66,42 @@ describe("FileField", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("sets an image value as the record's cover", () => {
+    const onSetCover = vi.fn();
+    renderWithProviders(
+      <FileField
+        spaceId="s1"
+        format="image"
+        value="files/abc/photo.png"
+        coverPath=""
+        onSetCover={onSetCover}
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for image" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as cover" }));
+    expect(onSetCover).toHaveBeenCalledWith("files/abc/photo.png");
+  });
+
+  it("marks the cover instead of offering to set it again", () => {
+    renderWithProviders(
+      <FileField
+        spaceId="s1"
+        format="image"
+        value="files/abc/photo.png"
+        coverPath="files/abc/photo.png"
+        onSetCover={vi.fn()}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Cover")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Actions for image" }));
+    expect(
+      screen.queryByRole("menuitem", { name: "Set as cover" }),
+    ).not.toBeInTheDocument();
   });
 });

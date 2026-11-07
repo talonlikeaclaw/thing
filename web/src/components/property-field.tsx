@@ -102,6 +102,8 @@ export function PropertyField(props: PropertyFieldProps) {
           format={props.property.format === "image" ? "image" : "file"}
           value={props.value}
           disabled={!props.canEdit}
+          coverPath={props.coverPath}
+          onSetCover={props.onSetCover}
           onChange={props.onChange}
         />
       );

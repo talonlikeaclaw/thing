@@ -58,20 +58,21 @@ describe("ImageLightbox", () => {
     expect(screen.getByText("Pothos")).toBeInTheDocument();
   });
 
-  it("steps through the set with the arrow keys", () => {
+  it("steps through the set with the arrow keys pressed inside the dialog", () => {
     renderWithProviders(<Controlled />);
+    const dialog = screen.getByRole("dialog");
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(dialog, { key: "ArrowRight" });
     expect(screen.getByText("2 / 4")).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(dialog, { key: "ArrowRight" });
+    fireEvent.keyDown(dialog, { key: "ArrowRight" });
     expect(screen.getByText("4 / 4")).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(dialog, { key: "ArrowRight" });
     expect(screen.getByText("1 / 4")).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    fireEvent.keyDown(dialog, { key: "ArrowLeft" });
     expect(screen.getByText("4 / 4")).toBeInTheDocument();
   });
 

@@ -381,19 +381,28 @@ frame.
 **The Attachments Field.** A set of files is one control: a bordered frame holding a
 square thumbnail grid for images and a full-width row for every other file, in upload
 order. Each image tile carries its own remove control, and the record page offers
-`Set as cover` on a tile that is not already the cover; the current cover wears a
-`Cover` chip instead, so the target is never ambiguous. `Add files` opens a multiple
-picker and the frame also accepts a drop; `Paste` reads the clipboard and refuses with
-one sentence rather than failing silently. A thumbnail opens the one lightbox over the
-set, at the tile that was touched. In a table cell the same field stages its edits and
-commits the whole list once, on `Done`.
+Each tile carries the same action pane a gallery tile uses — over a picture it is the
+clear photo treatment with the haloed glyph — opening one menu with `Set as cover` and
+`Remove`; a single image property carries the same menu beside Replace. The current cover is marked on the
+picture itself: a starred `Cover` pill outlined in the space's colour at the tile's
+top-left, clear of the action pane at the top-right, so the state reads without a
+caption-sized toggle or extra row. Removing a file asks first, in a small inline confirmation with
+Remove and Keep, so a stray tap never drops it from the draft. The pane and the action
+rows follow the thumb edge — Remove is the row's far end from the hand, and the rows
+align to it — and every tile action is 44px on a coarse pointer. `Add files` opens a
+multiple picker and the frame also accepts a drop; `Paste` reads the clipboard and
+refuses with one sentence rather than failing silently. A thumbnail opens the one
+lightbox over the set, at the tile that was touched. In a table cell the same field
+stages its edits and commits the whole list once, on `Done`.
 
 **The Lightbox.** One image overlay, and it is the sheet language rather than a second
 modal: the ground is the page's own scrim, the picture is bounded by the viewport with its
 caption in the sheet header, and the close control follows the pointer floor — 36px on a
-fine pointer, 44px when coarse. When the opener passes a set of pictures, the header carries
-a previous and next control that wrap at either end and a mono `n / count` counter beside
-them, and the arrow keys step the same set. Escape closes it, focus returns to the image that
+fine pointer, 44px when coarse. When the opener passes a set of pictures, the surface is a neutral
+grey frosted loupe rather than the space's tinted glass, the picture sits in a fixed
+stage, and a previous and next pane of the gallery's own size wraps at its left and right
+edges — positions that do not move with the image's own size — while the header carries
+a mono `n / count` counter, and the arrow keys step the same set. Escape closes it, focus returns to the image that
 opened it, and the page behind does not scroll. A file value is not an image: it downloads,
 and never opens this overlay.
 

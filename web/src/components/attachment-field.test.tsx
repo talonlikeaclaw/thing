@@ -59,7 +59,7 @@ describe("AttachmentField", () => {
     });
 
     expect(
-      await screen.findByRole("button", { name: "Remove second.png" }),
+      await screen.findByRole("button", { name: "Actions for second.png" }),
     ).toBeInTheDocument();
     expect(screen.getByText("notes.pdf")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -101,7 +101,7 @@ describe("AttachmentField", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(
-      await screen.findByRole("button", { name: "Remove retry.png" }),
+      await screen.findByRole("button", { name: "Actions for retry.png" }),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(onChange).toHaveBeenLastCalledWith([
@@ -117,7 +117,12 @@ describe("AttachmentField", () => {
       <Controlled initial={["files/a/one.png"]} onChange={onChange} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove one.png" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for one.png" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     expect(onChange).toHaveBeenLastCalledWith(null);
     expect(
@@ -135,11 +140,31 @@ describe("AttachmentField", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove one.png" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for one.png" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(onChange).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onChange).toHaveBeenCalledExactlyOnceWith(["files/b/two.png"]);
+  });
+
+  it("keeps the item when the removal is declined", () => {
+    const onChange = vi.fn();
+    renderWithProviders(
+      <Controlled initial={["files/a/one.png"]} onChange={onChange} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for one.png" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Actions for one.png" }),
+    ).toBeInTheDocument();
   });
 
   it("opens the lightbox at the clicked image", async () => {

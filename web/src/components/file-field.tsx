@@ -1,7 +1,9 @@
-import { FileText, Image as ImageIcon, Upload, X } from "lucide-react";
+import { FileText, Image as ImageIcon, Upload } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 
 import { useUploadFile } from "@/api/queries";
+import { AttachmentMenu } from "@/components/attachment-menu";
+import { ThumbRow, useHandedness } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
@@ -25,6 +27,10 @@ interface FileFieldProps {
   onChange: (value: string | null) => void;
   /** Present in a cell editor, which can be dismissed without a value. */
   onCancel?: () => void;
+  /** An image value can become the record's cover; absent leaves it alone. */
+  onSetCover?: (path: string) => void;
+  /** The path the record already uses as its cover. */
+  coverPath?: string;
 }
 
 /**
@@ -39,6 +45,8 @@ export function FileField({
   disabled = false,
   onChange,
   onCancel,
+  onSetCover,
+  coverPath,
 }: FileFieldProps) {
   const upload = useUploadFile(spaceId);
   const input = useRef<HTMLInputElement | null>(null);
@@ -46,7 +54,10 @@ export function FileField({
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
+  const { handedness } = useHandedness();
+  const left = handedness === "left";
   const path = typeof value === "string" && value.trim() !== "" ? value.trim() : null;
   const image = format === "image";
   const noun = image ? "image" : "file";
@@ -185,32 +196,35 @@ export function FileField({
             )}
             <span className="text-[11px] text-faint">{image ? "Image" : "File"}</span>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          {/* The destructive action sits furthest from the thumb edge, so a
+              reach never lands on it by mistake: reversed DOM order in left mode. */}
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-1",
+              left ? "mr-auto flex-row-reverse" : "ml-auto",
+            )}
+          >
+            <AttachmentMenu
+              label={noun}
+              canSetCover={image && onSetCover !== undefined && path !== coverPath}
+              disabled={busy}
+              onSetCover={() => onSetCover?.(path)}
+              onRemove={() => setConfirming(true)}
+            />
+            {image && onSetCover && path === coverPath ? (
+              <span className="inline-flex min-h-8 items-center rounded-full bg-accent-wash px-2.5 text-[12px] text-accent-on-wash pointer-coarse:min-h-11">
+                Cover
+              </span>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
-              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
               disabled={busy}
               onClick={() => input.current?.click()}
             >
               Replace
             </Button>
-            <button
-              type="button"
-              aria-label={`Remove ${noun}`}
-              className={cn(
-                "inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 pointer-coarse:size-11",
-                focusRing,
-              )}
-              disabled={busy}
-              onClick={() => {
-                setAttempt(null);
-                setError(null);
-                onChange(null);
-              }}
-            >
-              <X aria-hidden size={15} />
-            </button>
           </div>
         </div>
       ) : (
@@ -232,6 +246,43 @@ export function FileField({
         </button>
       )}
 
+      {confirming ? (
+        <div
+          role="alertdialog"
+          aria-label={`Remove ${noun}?`}
+          className="grid gap-2 rounded-[10px] border border-line-strong bg-ground/60 p-2"
+        >
+          <p className="text-[12px] text-muted">
+            Remove {path ? `“${fileName(path)}”` : `this ${noun}`} from this record?
+          </p>
+          <ThumbRow className="flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={cn(
+                "text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11",
+                focusRing,
+              )}
+              onClick={() => setConfirming(false)}
+            >
+              Keep
+            </button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={busy}
+              onClick={() => {
+                setConfirming(false);
+                setAttempt(null);
+                setError(null);
+                onChange(null);
+              }}
+            >
+              Remove
+            </Button>
+          </ThumbRow>
+        </div>
+      ) : null}
       {upload.isPending ? (
         <span role="status" className="text-[11px] text-muted">
           Uploading…

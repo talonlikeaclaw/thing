@@ -467,6 +467,27 @@
   }
 
   /*
+   * The same pane with the space's colour removed, for the photo viewer: the
+   * launcher is a picture, so the chrome judges it against grey. The rim,
+   * inset light and blur are the card action's own, so the overlay and a
+   * gallery tile read as one family.
+   */
+  .card-action-neutral {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(20, 20, 20, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 6px 16px -12px rgba(0, 0, 0, 0.8);
+    -webkit-backdrop-filter: blur(10px) saturate(100%);
+    backdrop-filter: blur(10px) saturate(100%);
+    color: #ffffff;
+  }
+
+  .card-action-neutral:hover {
+    background: rgba(20, 20, 20, 0.72);
+  }
+
+  /*
    * The pane's menu, at menu scale. The blur is the material, but the panel
    * holds 13px text over a cover, so it keeps one thing the pane cannot: a
    * wash of the neutral ground. It is a tone, not a colour — the picture still
@@ -637,6 +658,27 @@
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .sheet-popup::before {
       background: var(--color-surface);
+    }
+  }
+
+  /*
+   * The photo viewer is a neutral loupe, not the space's tinted glass: a picture
+   * is judged against grey, in either scheme, and the space's colour never
+   * washes through it.
+   */
+  .sheet-popup[data-photo]::before {
+    background: rgba(26, 26, 26, 0.68);
+    -webkit-backdrop-filter: blur(24px) saturate(100%);
+    backdrop-filter: blur(24px) saturate(100%);
+  }
+
+  .sheet-popup[data-photo] {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .sheet-popup[data-photo]::before {
+      background: rgba(26, 26, 26, 0.94);
     }
   }
 

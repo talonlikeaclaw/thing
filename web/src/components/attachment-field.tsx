@@ -1,7 +1,9 @@
-import { ClipboardPaste, FileText, Image as ImageIcon, Plus, X } from "lucide-react";
+import { ClipboardPaste, FileText, Image as ImageIcon, Plus, Star } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 
 import { useUploadFile } from "@/api/queries";
+import { AttachmentMenu } from "@/components/attachment-menu";
+import { ThumbRow } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
@@ -83,12 +85,19 @@ export function AttachmentField({
   const [pasteError, setPasteError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<number | null>(null);
+  /** The path whose removal is waiting for confirmation. */
+  const [removing, setRemoving] = useState<string | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const stored = storedPaths(value);
   const list = defer ? draft : stored;
   const images = imagePaths(list);
   const files = list.filter((path) => !isImagePath(path));
   const busy = uploading || disabled;
+
+  function remove(path: string) {
+    write(list.filter((entry) => entry !== path));
+    setRemoving(null);
+  }
 
   function write(next: string[]) {
     if (defer) {
@@ -225,36 +234,20 @@ export function AttachmentField({
                     className="aspect-square w-full rounded-[8px] border rule object-cover"
                   />
                 </button>
-                <button
-                  type="button"
-                  aria-label={`Remove ${fileName(path)}`}
-                  className={cn(
-                    "absolute top-1 right-1 inline-flex size-9 items-center justify-center rounded-full bg-ground/85 text-muted backdrop-blur transition-colors hover:text-ink disabled:opacity-50 pointer-coarse:size-11",
-                    focusRing,
-                  )}
+                <AttachmentMenu
+                  label={fileName(path)}
+                  onImage
+                  canSetCover={onSetCover !== undefined && !cover}
                   disabled={busy}
-                  onClick={() => write(list.filter((entry) => entry !== path))}
-                >
-                  <X aria-hidden size={14} />
-                </button>
-                {onSetCover ? (
-                  cover ? (
-                    <span className="pointer-coarse:absolute pointer-coarse:bottom-1 pointer-coarse:left-1 inline-flex items-center rounded-full bg-accent-wash px-1.5 text-[10px] text-accent-on-wash">
-                      Cover
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      className={cn(
-                        "pointer-coarse:absolute pointer-coarse:bottom-1 pointer-coarse:left-1 mt-1 text-[10px] text-muted underline decoration-line-strong hover:text-ink disabled:opacity-50 pointer-coarse:mt-0 pointer-coarse:min-h-11",
-                        focusRing,
-                      )}
-                      disabled={busy}
-                      onClick={() => onSetCover(path)}
-                    >
-                      Set as cover
-                    </button>
-                  )
+                  onSetCover={() => onSetCover?.(path)}
+                  onRemove={() => setRemoving(path)}
+                  className="absolute top-1 right-1"
+                />
+                {cover ? (
+                  <span className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-full border border-accent/80 bg-black/55 px-2 py-1 text-[11px] text-white backdrop-blur-md">
+                    <Star aria-hidden size={12} className="text-accent" />
+                    Cover
+                  </span>
                 ) : null}
               </li>
             );
@@ -279,18 +272,11 @@ export function AttachmentField({
               >
                 {fileName(path)}
               </a>
-              <button
-                type="button"
-                aria-label={`Remove ${fileName(path)}`}
-                className={cn(
-                  "inline-flex size-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink disabled:opacity-50 pointer-coarse:size-11",
-                  focusRing,
-                )}
+              <AttachmentMenu
+                label={fileName(path)}
                 disabled={busy}
-                onClick={() => write(list.filter((entry) => entry !== path))}
-              >
-                <X aria-hidden size={14} />
-              </button>
+                onRemove={() => setRemoving(path)}
+              />
             </li>
           ))}
         </ul>
@@ -311,7 +297,7 @@ export function AttachmentField({
         </button>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <ThumbRow className="flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -334,14 +320,6 @@ export function AttachmentField({
         </Button>
         {defer ? (
           <>
-            <Button
-              type="button"
-              className="ml-auto min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
-              disabled={busy}
-              onClick={() => onChange(draft.length === 0 ? null : draft)}
-            >
-              Done
-            </Button>
             {onCancel ? (
               <button
                 type="button"
@@ -354,9 +332,50 @@ export function AttachmentField({
                 Cancel
               </button>
             ) : null}
+            <Button
+              type="button"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={busy}
+              onClick={() => onChange(draft.length === 0 ? null : draft)}
+            >
+              Done
+            </Button>
           </>
         ) : null}
-      </div>
+      </ThumbRow>
+
+      {removing ? (
+        <div
+          role="alertdialog"
+          aria-label={`Remove ${fileName(removing)}?`}
+          className="grid gap-2 rounded-[10px] border border-line-strong bg-ground/60 p-2"
+        >
+          <p className="text-[12px] text-muted">
+            Remove “{fileName(removing)}” from this record?
+          </p>
+          <ThumbRow className="flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={cn(
+                "text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11",
+                focusRing,
+              )}
+              onClick={() => setRemoving(null)}
+            >
+              Keep
+            </button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={busy}
+              onClick={() => remove(removing)}
+            >
+              Remove
+            </Button>
+          </ThumbRow>
+        </div>
+      ) : null}
 
       {uploading ? (
         <span role="status" className="text-[11px] text-muted">

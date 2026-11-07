@@ -31,7 +31,8 @@ interface CardActionsProps {
   onImage?: boolean;
 }
 
-const menuItem =
+/** One row of any card or attachment action menu, at the shared menu scale. */
+export const cardMenuItem =
   "w-full rounded-[8px] px-2 py-1.5 text-left hover:bg-[var(--color-accent-wash-hover)] focus:bg-[var(--color-accent-wash-hover)] focus:outline-none pointer-coarse:min-h-11";
 
 const button =
@@ -226,7 +227,7 @@ export function CardActions({
               <Link
                 role="menuitem"
                 to={`/s/${spaceId}/o/${row.id}`}
-                className={menuItem}
+                className={cardMenuItem}
                 onClick={() => setOpen(false)}
               >
                 Open
@@ -235,7 +236,7 @@ export function CardActions({
                 <button
                   type="button"
                   role="menuitem"
-                  className={cn(menuItem, "hidden disabled:opacity-50 pointer-coarse:block")}
+                  className={cn(cardMenuItem, "hidden disabled:opacity-50 pointer-coarse:block")}
                   disabled={completing || pending}
                   onClick={() => {
                     setOpen(false);
@@ -248,7 +249,7 @@ export function CardActions({
               <button
                 type="button"
                 role="menuitem"
-                className={menuItem}
+                className={cardMenuItem}
                 disabled={pending}
                 onClick={() => {
                   setOpen(false);
@@ -260,7 +261,7 @@ export function CardActions({
               <button
                 type="button"
                 role="menuitem"
-                className={cn(menuItem, "text-danger disabled:opacity-50")}
+                className={cn(cardMenuItem, "text-danger disabled:opacity-50")}
                 disabled={pending}
                 onClick={() => {
                   setOpen(false);

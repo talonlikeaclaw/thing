@@ -32,9 +32,10 @@ interface ImageLightboxProps {
 
 /**
  * One image at reading size over a scrim, with previous and next when the
- * caller opens a set. Built on the sheet primitives so the phone keyboard and
- * safe-area geometry are not a second modal system; Base UI's dialog owns
- * Escape, the backdrop and returning focus to the opener.
+ * caller opens a set. The picture sits in a fixed stage, so the arrows never
+ * move when the image's own size changes. Built on the sheet primitives so the
+ * phone keyboard and safe-area geometry are not a second modal system; Base
+ * UI's dialog owns Escape, the backdrop and returning focus to the opener.
  */
 export function ImageLightbox({
   spaceId,
@@ -46,15 +47,15 @@ export function ImageLightbox({
 }: ImageLightboxProps) {
   const count = images.length;
   const current = images[index] ?? images[0];
-  const caption = current
-    ? (current.title ?? fileName(current.path))
-    : "";
+  const caption = current ? (current.title ?? fileName(current.path)) : "";
   const multiple = count > 1;
 
   useEffect(() => {
     if (!multiple) {
       return;
     }
+    // Capture at the window: the dialog's own key handling swallows bubble
+    // events, so a bubble listener never sees the arrow keys.
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "ArrowLeft") {
         event.preventDefault();
@@ -64,8 +65,8 @@ export function ImageLightbox({
         onIndexChange((index + 1) % count);
       }
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [count, index, multiple, onIndexChange]);
 
   if (!current) {
@@ -85,50 +86,58 @@ export function ImageLightbox({
         <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
         <SheetViewport placement="center">
           <SheetPopup
+            data-photo=""
             finalFocus={returnFocus}
-            className="max-w-[min(94vw,72rem)] p-2"
+            className="w-[min(94vw,72rem)] p-2"
           >
             <div className="flex items-center justify-between gap-3 px-1 pb-2">
-              <SheetTitle className="truncate text-[length:var(--text-small)] font-medium">
+              <SheetTitle className="min-w-0 truncate text-[length:var(--text-small)] font-medium text-white">
                 {caption}
               </SheetTitle>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-2">
                 {multiple ? (
-                  <>
-                    <IconButton
-                      label="Previous image"
-                      variant="quiet"
-                      size={36}
-                      onClick={() =>
-                        onIndexChange((index - 1 + count) % count)
-                      }
-                    >
-                      <ChevronLeft aria-hidden size={18} />
-                    </IconButton>
-                    <span
-                      aria-live="polite"
-                      className="min-w-[3.5rem] text-center font-mono text-[11px] tabular-nums text-faint"
-                    >
-                      {index + 1} / {count}
-                    </span>
-                    <IconButton
-                      label="Next image"
-                      variant="quiet"
-                      size={36}
-                      onClick={() => onIndexChange((index + 1) % count)}
-                    >
-                      <ChevronRight aria-hidden size={18} />
-                    </IconButton>
-                  </>
+                  <span
+                    aria-live="polite"
+                    className="min-w-[3.5rem] text-center font-mono text-[11px] tabular-nums text-white/60"
+                  >
+                    {index + 1} / {count}
+                  </span>
                 ) : null}
-                <SheetCloseButton label="Close image" />
+                <SheetCloseButton
+                  label="Close image"
+                  className="text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-white"
+                />
               </div>
             </div>
-            <img
-              src={fileUrl(spaceId, current.path)}
-              alt={caption}
-              className="max-h-[calc(var(--vv-height,100vh)-8rem)] w-full overscroll-contain rounded-[12px] object-contain"
-            />
+            <div className="relative flex h-[calc(var(--vv-height,100vh)-8rem)] items-center justify-center overflow-hidden rounded-[12px]">
+              <img
+                src={fileUrl(spaceId, current.path)}
+                alt={caption}
+                className="max-h-full max-w-full overscroll-contain rounded-[12px] object-contain"
+              />
+              {multiple ? (
+                <>
+                  <IconButton
+                    label="Previous image"
+                    size={32}
+                    variant="quiet"
+                    className="card-action-neutral absolute top-[calc(50%-1rem)] left-2 focus-visible:outline-white"
+                    onClick={() => onIndexChange((index - 1 + count) % count)}
+                  >
+                    <ChevronLeft aria-hidden size={16} strokeWidth={2.4} />
+                  </IconButton>
+                  <IconButton
+                    label="Next image"
+                    size={32}
+                    variant="quiet"
+                    className="card-action-neutral absolute top-[calc(50%-1rem)] right-2 focus-visible:outline-white"
+                    onClick={() => onIndexChange((index + 1) % count)}
+                  >
+                    <ChevronRight aria-hidden size={16} strokeWidth={2.4} />
+                  </IconButton>
+                </>
+              ) : null}
+            </div>
           </SheetPopup>
         </SheetViewport>
       </Dialog.Portal>
