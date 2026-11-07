@@ -88,6 +88,17 @@ pub struct MissingFile {
     pub file: String,
 }
 
+/// One attachment path an object names, with where it names it.
+struct AttachmentReference<'a> {
+    object: Uuid,
+    /// The object's file, relative to the space.
+    path: &'a Path,
+    /// `cover` or the property key that names the bytes.
+    field: &'a str,
+    /// The referenced attachment path, as frontmatter spells it.
+    file: &'a str,
+}
+
 /// One view that names something the space does not offer.
 ///
 /// A semantic view problem never takes the type or its other views offline: it
@@ -701,12 +712,43 @@ impl SpaceIndex {
     /// loads and keeps the path it names.
     fn missing_files(&self) -> Vec<MissingFile> {
         let mut found = Vec::new();
+        for reference in self.attachment_references() {
+            if self.attachments.contains(Path::new(reference.file)) {
+                continue;
+            }
+            found.push(MissingFile {
+                object: reference.object,
+                path: reference.path.to_owned(),
+                field: reference.field.to_owned(),
+                file: reference.file.to_owned(),
+            });
+        }
+        found.sort_by(|left, right| {
+            left.path
+                .cmp(&right.path)
+                .then_with(|| left.field.cmp(&right.field))
+                .then_with(|| left.file.cmp(&right.file))
+        });
+        found
+    }
+
+    /// Every attachment path a live or trashed object names: its cover and each
+    /// file or image value, with the field that names it.
+    ///
+    /// A trashed object still counts, so its bytes survive until it is purged.
+    fn attachment_references(&self) -> Vec<AttachmentReference<'_>> {
+        let mut found = Vec::new();
         for (id, doc) in self.objects.iter().chain(self.trash.iter()) {
             let Some(path) = self.paths.get(id).or_else(|| self.trash_paths.get(id)) else {
                 continue;
             };
             if let Some(cover) = &doc.cover {
-                self.push_missing(&mut found, *id, path, "cover", cover);
+                found.push(AttachmentReference {
+                    object: *id,
+                    path,
+                    field: "cover",
+                    file: cover,
+                });
             }
             for (key, value) in &doc.properties {
                 let Some(def) = self.property_def(key) else {
@@ -718,35 +760,30 @@ impl SpaceIndex {
                 let Value::Text(file) = value else {
                     continue;
                 };
-                self.push_missing(&mut found, *id, path, key, file);
+                found.push(AttachmentReference {
+                    object: *id,
+                    path,
+                    field: key,
+                    file,
+                });
             }
         }
-        found.sort_by(|left, right| {
-            left.path
-                .cmp(&right.path)
-                .then_with(|| left.field.cmp(&right.field))
-                .then_with(|| left.file.cmp(&right.file))
-        });
         found
     }
 
-    fn push_missing(
-        &self,
-        found: &mut Vec<MissingFile>,
-        object: Uuid,
-        path: &Path,
-        field: &str,
-        file: &str,
-    ) {
-        if self.attachments.contains(Path::new(file)) {
-            return;
-        }
-        found.push(MissingFile {
-            object,
-            path: path.to_owned(),
-            field: field.to_owned(),
-            file: file.to_owned(),
-        });
+    /// Every attachment path the space's live and trashed objects reference,
+    /// as frontmatter spells it. The owner's garbage collection removes exactly
+    /// the bytes under `files/` that this does not name.
+    pub fn referenced_files(&self) -> BTreeSet<PathBuf> {
+        self.attachment_references()
+            .into_iter()
+            .map(|reference| PathBuf::from(reference.file))
+            .collect()
+    }
+
+    /// Whether the space holds the bytes a file or image value names.
+    pub fn has_attachment(&self, path: &Path) -> bool {
+        self.attachments.contains(path)
     }
 
     /// Drops every entry that used this path, including the type's row.
@@ -1222,6 +1259,83 @@ mod tests {
             .reload_file(&space.store, &file)
             .expect("an attachment reloads as presence");
         assert!(index.problems().missing_files.is_empty());
+    }
+
+    #[test]
+    fn referenced_files_collects_covers_and_file_values_live_or_trashed() {
+        use crate::store::file_path;
+
+        let space = Space::new();
+        let mut def = plant_type();
+        def.properties.push(TypeProperty {
+            key: "photo".to_owned(),
+            required: false,
+            featured: false,
+        });
+        space.store.save_type(&def, None).expect("save type");
+        space
+            .store
+            .save_property(
+                &PropertyDef {
+                    key: "photo".to_owned(),
+                    name: "Photo".to_owned(),
+                    format: PropertyFormat::Image,
+                    options: Vec::new(),
+                    target_type: None,
+                    multi: false,
+                },
+                None,
+            )
+            .expect("save property");
+
+        let photo = file_path(&"a".repeat(64), "monstera.png");
+        let guide = file_path(&"b".repeat(64), "guide.pdf");
+        let cover = file_path(&"c".repeat(64), "cover.png");
+
+        let mut live = object(2, "Monstera", "Kitchen", 5);
+        live.cover = Some(cover.display().to_string());
+        live.properties
+            .insert("photo".to_owned(), Value::Text(photo.display().to_string()));
+        space
+            .store
+            .save_object(&object_path("Monstera"), &live, None)
+            .expect("object");
+
+        // A trashed object still owns its bytes until it is purged.
+        let mut trashed = object(3, "Ficus", "Attic", 6);
+        trashed.trashed_at = Some(at(9));
+        trashed.trashed_from = Some(object_path("Ficus").display().to_string());
+        trashed
+            .properties
+            .insert("photo".to_owned(), Value::Text(guide.display().to_string()));
+        space
+            .store
+            .save_object(Path::new("trash/3.md"), &trashed, None)
+            .expect("trash");
+
+        let mut index = space.index();
+        assert_eq!(
+            index.referenced_files(),
+            BTreeSet::from([photo.clone(), guide.clone(), cover.clone()])
+        );
+        assert!(
+            !index.has_attachment(&photo),
+            "a reference is not the bytes"
+        );
+
+        space
+            .store
+            .save_attachment(&photo, b"\x89PNG", None)
+            .expect("save bytes");
+        assert!(
+            index.referenced_files().contains(&photo),
+            "a reloaded index names the reference either way"
+        );
+        index
+            .reload_file(&space.store, &photo)
+            .expect("an attachment reloads as presence");
+        assert!(index.has_attachment(&photo));
+        assert_eq!(index.problems().missing_files.len(), 2);
     }
 
     #[test]

@@ -41,6 +41,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A tile's action and menu light up in the space's own colour under the pointer.",
       "A tile's action menu keeps the picture visible behind it and stays readable over one.",
       "A reference whose bytes are missing is reported by the space's health read and never blocks the record.",
+      "Purging a record takes every file that only it named, and an owner can collect the rest on demand.",
+      "A file another record names, live or in the trash, stays until the last of those records is gone.",
+      "A file or image column carries its path through a CSV file, and a row naming bytes the space does not hold is refused by row.",
     ],
   },
   {

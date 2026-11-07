@@ -55,8 +55,10 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
-  Files are written as schema 4; every schema-1…3 file still loads, and a record's icon and a
-  space's accent are optional frontmatter keys rather than properties.
+  Files are written as schema 5; every schema-1…4 file still loads, and a record's icon, cover and
+  cover framing are optional frontmatter keys rather than properties. Attachment bytes live beside
+  the markdown in each space's `files/` tree, named by their content, so a copy of the space
+  directory is the whole space.
 - **One Rust core, reused.** `thing-core` holds the domain model, validation, query engine and
   file format. `thing-server` is the I/O shell, and later binaries (CLI, Tauri desktop, MCP
   server) link the same core.
@@ -91,7 +93,8 @@ cargo test --workspace
 # Set a password for an existing account (reads the password from stdin)
 cargo run -p thing-server -- set-password --email you@example.com
 
-# Print the files a space could not parse or whose relations are dangling
+# Print a space's file problems: unparseable files, dangling relations and
+# attachments whose bytes are missing
 cargo run -p thing-server -- reindex --space <space-uuid>
 ```
 
@@ -183,8 +186,10 @@ another host must reach it.
 `THING_COOKIE_SECURE` defaults to `true`; set it to `false` (or use the dev compose file) when
 testing over plain HTTP on localhost. Set `THING_PUBLIC_URL` in the environment (or a `.env` file
 beside `docker-compose.yml`) to the URL people actually open. `./data` is the entire application
-state: the markdown files, revision history and the accounts database. Back it up; there is no other
-copy. Its files must be writable by the container's UID/GID, and the server creates them
+state: the markdown files, the attachment bytes under each space's `files/` tree, revision history
+and the accounts database. Back it up; there is no other copy. A space's `files/.thumbs/` directory
+holds derived thumbnails: exclude it to keep the backup smaller, and the next view of each image
+rebuilds it. Its files must be writable by the container's UID/GID, and the server creates them
 owner-only.
 
 ### SPA

@@ -963,8 +963,9 @@ async fn restore(
 
 /// `DELETE /api/spaces/{space}/trash/{object}` [editor]
 ///
-/// The only operation in the API that destroys data: the trash file and the
-/// object's whole history go.
+/// The only operation in the API that destroys data: the trash file, the
+/// object's whole history and any attachment bytes no other live or trashed
+/// object references go.
 async fn purge(
     State(state): State<SharedState>,
     caller: Caller,
@@ -988,6 +989,9 @@ async fn purge(
 
     handle.store.purge(id)?;
     handle.with_index_mut(|index| index.reload_file(&handle.store, &from))?;
+    // The object is out of the index, so its bytes are unreferenced exactly when
+    // nothing else named them. This is the same scan the owner's GC runs.
+    super::files::collect_garbage(&handle)?;
     handle.broadcast(
         "object.purged",
         json!({ "id": trashed.id, "type": trashed.type_key, "rev": trashed.rev }),

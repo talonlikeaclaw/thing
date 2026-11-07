@@ -651,6 +651,19 @@ impl SpaceStore for FsSpaceStore {
         fs::remove_file(&full)?;
         fsync_dir(full.parent())
     }
+
+    fn attachment_len(&self, path: &Path) -> Result<u64, CoreError> {
+        if !is_stored_file(path) {
+            return Err(malformed(path));
+        }
+        self.check_symlinks(path)?;
+        fs::metadata(self.full(path))
+            .map(|metadata| metadata.len())
+            .map_err(|err| match err.kind() {
+                std::io::ErrorKind::NotFound => CoreError::NotFound(path.display().to_string()),
+                _ => CoreError::Io(err),
+            })
+    }
 }
 
 /// Lists `<dir>/*.<extension>`, skipping atomic-write temp files.
@@ -1469,11 +1482,19 @@ mod tests {
         let written = store.save_attachment(&path, &bytes, None).expect("save");
         assert_eq!(written.len, bytes.len() as u64);
         assert_eq!(store.load_attachment(&path).expect("load"), bytes);
+        assert_eq!(
+            store.attachment_len(&path).expect("length"),
+            bytes.len() as u64
+        );
         assert!(store.exists(&path).expect("exists"));
 
         store.remove_attachment(&path).expect("remove");
         assert!(matches!(
             store.load_attachment(&path).expect_err("gone"),
+            CoreError::NotFound(_)
+        ));
+        assert!(matches!(
+            store.attachment_len(&path).expect_err("gone"),
             CoreError::NotFound(_)
         ));
         assert!(matches!(
@@ -1543,6 +1564,10 @@ mod tests {
             ));
             assert!(matches!(
                 store.remove_attachment(&path),
+                Err(CoreError::ValidationFailed { .. })
+            ));
+            assert!(matches!(
+                store.attachment_len(&path),
                 Err(CoreError::ValidationFailed { .. })
             ));
         }

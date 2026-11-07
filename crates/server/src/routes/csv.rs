@@ -16,7 +16,7 @@ use axum::{Json, Router};
 use serde_json::{Value, json};
 use thing_core::csv::{self as codec, CsvParse, CsvProblem};
 use thing_core::index::SpaceIndex;
-use thing_core::model::{ObjectDoc, Revision, RevisionAction, Role};
+use thing_core::model::{ObjectDoc, PropertyFormat, Revision, RevisionAction, Role, Value as Cell};
 use thing_core::store::SpaceStore;
 use thing_core::value;
 use time::OffsetDateTime;
@@ -231,12 +231,41 @@ async fn import(
         .into_response())
 }
 
-/// Parses against the current index, refusing a type that does not exist.
+/// Parses against the current index, refusing a type that does not exist and
+/// any file or image cell whose bytes the space does not hold.
+///
+/// CSV carries no bytes, so a path imports only as a reference to a file the
+/// space already stores; a missing one is a row error naming the path.
 fn parse_against(index: &SpaceIndex, type_key: &str, text: &str) -> Result<CsvParse, ApiError> {
     let def = index
         .type_def(type_key)
         .ok_or_else(|| ApiError::not_found(format!("type {type_key}")))?;
-    Ok(codec::parse(&index.schema(), def, text))
+    let mut parsed = codec::parse(&index.schema(), def, text);
+    for record in &parsed.records {
+        for (key, value) in &record.properties {
+            let Some(property) = index.property_def(key) else {
+                continue;
+            };
+            if !matches!(
+                property.format,
+                PropertyFormat::File | PropertyFormat::Image
+            ) {
+                continue;
+            }
+            let Cell::Text(path) = value else {
+                continue;
+            };
+            if index.has_attachment(std::path::Path::new(path)) {
+                continue;
+            }
+            parsed.problems.push(CsvProblem {
+                row: record.row,
+                field: key.clone(),
+                message: format!("{path} is not in this space"),
+            });
+        }
+    }
+    Ok(parsed)
 }
 
 /// Refuses a file over the row cap before anything is written.

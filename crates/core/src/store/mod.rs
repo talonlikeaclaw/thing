@@ -166,6 +166,17 @@ pub fn split_file_path(path: &Path) -> Option<(&str, &str)> {
     Some((hash, name))
 }
 
+/// The source hash and width of a cached thumbnail, `files/.thumbs/<hash>-<width>.<ext>`.
+pub fn split_thumb_path(path: &Path) -> Option<(&str, u32)> {
+    if !is_thumbnail_path(path) {
+        return None;
+    }
+    let name = path.file_name()?.to_str()?;
+    let (stem, _extension) = name.rsplit_once('.')?;
+    let (hash, width) = stem.rsplit_once('-')?;
+    Some((hash, width.parse().ok()?))
+}
+
 /// Whether `path` is a canonical attachment path whose extension an `image`
 /// value may carry.
 pub fn is_image_path(path: &Path) -> bool {
@@ -342,6 +353,9 @@ pub trait SpaceStore {
 
     /// Deletes an attachment or a cached thumbnail file.
     fn remove_attachment(&self, path: &Path) -> Result<(), CoreError>;
+
+    /// Byte length of an attachment or a cached thumbnail, without reading it.
+    fn attachment_len(&self, path: &Path) -> Result<u64, CoreError>;
 
     /// Renames a property key in its definition, in every type that uses it and
     /// in every object that holds a value for it, appending a revision to each
@@ -570,6 +584,15 @@ mod tests {
             thumb_path(&hash, 256, "jpg"),
             Path::new(&format!("files/.thumbs/{hash}-256.jpg"))
         );
+        assert_eq!(
+            split_thumb_path(&thumb_path(&hash, 256, "jpg")),
+            Some((hash.as_str(), 256))
+        );
+        assert_eq!(
+            split_thumb_path(&thumb_path(&hash, 512, "png")),
+            Some((hash.as_str(), 512))
+        );
+        assert_eq!(split_thumb_path(&path), None);
         assert!(!is_file_path(&thumb_path(&hash, 512, "png")));
         for path in [
             "../escape.png",

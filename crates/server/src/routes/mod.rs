@@ -5760,4 +5760,339 @@ mod tests {
             );
         });
     }
+
+    #[test]
+    fn collecting_unreferenced_files_requires_the_owner_and_keeps_referenced_bytes() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("gc-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let gc = format!("/api/spaces/{}/files/gc", garden.space);
+            let photo = encoded_png(600, 200, false);
+            let (_, path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "orphan.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            // A cached thumbnail is derived bytes too, and goes with its source.
+            server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/{path}?w=256", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(attachment_count(&server, &garden.space), 1);
+            assert_eq!(thumbnail_paths(&server, &garden.space).len(), 1);
+
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", garden.space),
+                    Some(json!({ "role": "editor" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let editor = server.register("gc-editor@example.com", Some(&code)).await;
+            let editor_cookie = cookie_of(&editor).to_owned();
+            let refused = server.call("POST", &gc, None, Some(&editor_cookie)).await;
+            assert_eq!(refused.status, StatusCode::FORBIDDEN);
+            assert_eq!(refused.code(), "forbidden");
+            assert_eq!(attachment_count(&server, &garden.space), 1);
+
+            let collected = server.call("POST", &gc, None, Some(&cookie)).await;
+            assert_eq!(collected.status, StatusCode::OK, "{:?}", collected.body);
+            assert_eq!(collected.body["removed"], 1);
+            assert!(
+                collected.body["freed_bytes"].as_u64().expect("bytes") > photo.len() as u64,
+                "the thumbnail's bytes are counted too: {:?}",
+                collected.body
+            );
+            assert_eq!(attachment_count(&server, &garden.space), 0);
+            assert!(thumbnail_paths(&server, &garden.space).is_empty());
+
+            // The same bytes upload again: the collection removed them, not the source.
+            let (_, path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "orphan.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            let covered = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({ "rev": 1, "cover": path })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(covered.status, StatusCode::OK, "{:?}", covered.body);
+
+            let kept = server.call("POST", &gc, None, Some(&cookie)).await;
+            assert_eq!(kept.status, StatusCode::OK);
+            assert_eq!(kept.body["removed"], 0);
+            assert_eq!(attachment_count(&server, &garden.space), 1);
+
+            // Clearing the value is an ordinary write; only the collection removes
+            // the bytes a record no longer names.
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/objects/{}", garden.space, garden.plant),
+                    Some(json!({ "rev": 2, "cover": null })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK, "{:?}", cleared.body);
+            assert_eq!(attachment_count(&server, &garden.space), 1);
+            let swept = server.call("POST", &gc, None, Some(&cookie)).await;
+            assert_eq!(swept.body["removed"], 1);
+            assert_eq!(attachment_count(&server, &garden.space), 0);
+        });
+    }
+
+    #[test]
+    fn purging_a_record_keeps_bytes_another_record_still_names() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("purge-owner@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let photo = encoded_png(600, 200, false);
+            let (_, path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "cover.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/{path}?w=256", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+
+            let second = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/objects", garden.space),
+                    Some(json!({ "type": "plant", "title": "Fern" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(second.status, StatusCode::CREATED, "{:?}", second.body);
+            let fern = second.body["id"].as_str().expect("an id").to_owned();
+
+            // Duplicating would share this path too; here two records are given
+            // the same cover explicitly.
+            for id in [&garden.plant, &fern] {
+                let patched = server
+                    .call(
+                        "PATCH",
+                        &format!("/api/spaces/{}/objects/{id}", garden.space),
+                        Some(json!({ "rev": 1, "cover": path })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+            }
+            for id in [&garden.plant, &fern] {
+                let trashed = server
+                    .call(
+                        "DELETE",
+                        &format!("/api/spaces/{}/objects/{id}", garden.space),
+                        None,
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(trashed.status, StatusCode::OK, "{:?}", trashed.body);
+            }
+            // A trashed record still owns its bytes.
+            assert_eq!(attachment_count(&server, &garden.space), 1);
+
+            let first_purge = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{}/trash/{}", garden.space, garden.plant),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(first_purge.status, StatusCode::NO_CONTENT);
+            assert_eq!(
+                attachment_count(&server, &garden.space),
+                1,
+                "the other record still names the file"
+            );
+            assert_eq!(thumbnail_paths(&server, &garden.space).len(), 1);
+
+            let last_purge = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{}/trash/{fern}", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(last_purge.status, StatusCode::NO_CONTENT);
+            assert_eq!(attachment_count(&server, &garden.space), 0);
+            assert!(
+                thumbnail_paths(&server, &garden.space).is_empty(),
+                "the last reference takes the derived bytes with it"
+            );
+        });
+    }
+
+    #[test]
+    fn a_csv_file_column_travels_by_path_and_refuses_a_missing_one() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("csv-files@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            let property = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/properties", garden.space),
+                    Some(json!({ "name": "Photo", "format": "image" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(property.status, StatusCode::CREATED, "{:?}", property.body);
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/types/plant", garden.space),
+                    Some(json!({
+                        "properties": [{ "key": "room" }, { "key": "photo" }]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+            let photo = encoded_png(300, 120, false);
+            let (_, path) = upload_file(
+                &server,
+                &garden.space,
+                &cookie,
+                "fern.png",
+                "image/png",
+                &photo,
+            )
+            .await;
+            let url = format!("/api/spaces/{}/types/plant/import", garden.space);
+            let csv = format!("title,room,photo\nFern by the door,kitchen,{path}\n");
+
+            let dry = server
+                .call_raw(
+                    "POST",
+                    &format!("{url}?dry_run=true"),
+                    Some("text/csv"),
+                    csv.as_bytes(),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(dry.status, StatusCode::OK, "{:?}", dry.body);
+            assert_eq!(dry.body["valid"], true, "{:?}", dry.body);
+            assert_eq!(dry.body["preview"][0]["values"]["photo"], path.as_str());
+
+            let commit = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    csv.as_bytes(),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(commit.status, StatusCode::CREATED, "{:?}", commit.body);
+            let id = commit.body["created"][0]["id"]
+                .as_str()
+                .expect("an id")
+                .to_owned();
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects/{id}", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(detail.status, StatusCode::OK, "{:?}", detail.body);
+            assert_eq!(detail.body["properties"]["photo"]["value"], path.as_str());
+            assert_eq!(detail.body["properties"]["photo"]["label"], "fern.png");
+
+            // Export writes the path, not the bytes.
+            let export = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{}/types/plant/export", garden.space),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(export.status, StatusCode::OK);
+            assert!(
+                export.text().contains(&format!(",{path},")),
+                "{}",
+                export.text()
+            );
+
+            // CSV carries no bytes: a path the space cannot serve is a row error.
+            let absent = format!("files/{}/ghost.png", "b".repeat(64));
+            let missing = format!("title,room,photo\nMoss,kitchen,{absent}\n");
+            let refused = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    missing.as_bytes(),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+            let problem = &refused.body["error"]["details"]["errors"][0];
+            assert_eq!(problem["row"], 1);
+            assert_eq!(problem["field"], "photo");
+            assert!(
+                problem["message"]
+                    .as_str()
+                    .expect("a message")
+                    .contains(&absent)
+            );
+
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.body["total"], 2, "the refused row wrote nothing");
+        });
+    }
 }

@@ -6,9 +6,11 @@
 //! resolved — and the role checked — before the body is read, so an anonymous
 //! or viewer request is refused without buffering a file.
 
+use std::collections::BTreeSet;
 use std::fmt::Write;
 use std::io::Cursor;
 use std::path::Path as FsPath;
+use std::path::PathBuf;
 
 use axum::body::{Body, to_bytes};
 use axum::extract::{Path, Request, State};
@@ -27,12 +29,14 @@ use thing_core::error::CoreError;
 use thing_core::model::Role;
 use thing_core::slug::slugify;
 use thing_core::store::{
-    MAX_FILE_EXTENSION_LEN, SpaceStore, THUMB_WIDTHS, file_path, is_file_path, thumb_path,
+    MAX_FILE_EXTENSION_LEN, SpaceFileKind, SpaceStore, THUMB_WIDTHS, file_path, is_file_path,
+    split_file_path, split_thumb_path, thumb_path,
 };
 
 use super::{ApiQuery, space_for, uuid_param};
 use crate::auth::Caller;
 use crate::error::ApiError;
+use crate::spaces::SpaceHandle;
 use crate::state::SharedState;
 
 /// Most bytes one upload may carry; the refusal names this number.
@@ -53,6 +57,7 @@ const FILE_CACHE_CONTROL: &str = "private, max-age=31536000, immutable";
 pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/spaces/{space}/files", post(upload))
+        .route("/api/spaces/{space}/files/gc", post(gc))
         .route("/api/spaces/{space}/files/{hash}/{name}", get(read))
 }
 
@@ -154,7 +159,108 @@ async fn upload(
         },
     };
 
+    // The index tracks which attachment paths exist, so a record that names this
+    // file right after the upload is not reported missing before the watcher runs.
+    handle.with_index_mut(|index| index.reload_file(&handle.store, &path))?;
+
     Ok((status, Json(body)).into_response())
+}
+
+/// `POST /api/spaces/{space}/files/gc` [owner]
+///
+/// Deletes every attachment and derived thumbnail no live or trashed object
+/// references. It is the cleanup path for an upload that never reached a
+/// record and for bytes whose value a record dropped; an ordinary write never
+/// scans the space.
+async fn gc(
+    State(state): State<SharedState>,
+    caller: Caller,
+    Path(space): Path<String>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let space = uuid_param(&space, "space")?;
+    let handle = space_for(&state, &caller, space, Role::Owner)?;
+    let _guard = handle.write.lock().await;
+    let report = collect_garbage(&handle)?;
+    tracing::info!(
+        space = %space,
+        user = %caller.user.id,
+        removed = report.removed,
+        freed_bytes = report.freed_bytes,
+        "files collected"
+    );
+    Ok(Json(json!({
+        "removed": report.removed,
+        "freed_bytes": report.freed_bytes,
+    })))
+}
+
+/// What one garbage collection removed.
+pub(super) struct GcReport {
+    /// Attachment files removed; a thumbnail is not counted as a file.
+    pub removed: usize,
+    /// Every byte removed, thumbnails included.
+    pub freed_bytes: u64,
+}
+
+/// Removes the bytes under `files/` that nothing references.
+///
+/// The caller holds the space write lock, so the reference set cannot change
+/// between the scan and the deletions. A path a trashed object names stays: a
+/// restore must find its bytes. A thumbnail goes when no referenced attachment
+/// carries its source hash.
+pub(super) fn collect_garbage(handle: &SpaceHandle) -> Result<GcReport, ApiError> {
+    let (referenced, hashes) = handle.with_index(|index| {
+        let referenced = index.referenced_files();
+        let hashes: BTreeSet<String> = referenced
+            .iter()
+            .filter_map(|path| split_file_path(path).map(|(hash, _)| hash.to_owned()))
+            .collect();
+        (referenced, hashes)
+    });
+
+    let mut report = GcReport {
+        removed: 0,
+        freed_bytes: 0,
+    };
+    let mut removed: Vec<PathBuf> = Vec::new();
+    for file in handle.store.list_files()? {
+        let orphaned = match file.kind {
+            SpaceFileKind::Attachment => !referenced.contains(&file.path),
+            SpaceFileKind::Thumbnail => {
+                split_thumb_path(&file.path).is_none_or(|(hash, _)| !hashes.contains(hash))
+            }
+            _ => continue,
+        };
+        if !orphaned {
+            continue;
+        }
+        let bytes = match handle.store.attachment_len(&file.path) {
+            Ok(bytes) => bytes,
+            // Already gone: someone else collected it first, which is the result asked for.
+            Err(CoreError::NotFound(_)) => 0,
+            Err(err) => return Err(err.into()),
+        };
+        match handle.store.remove_attachment(&file.path) {
+            Ok(()) => {}
+            Err(CoreError::NotFound(_)) => continue,
+            Err(err) => return Err(err.into()),
+        }
+        report.freed_bytes = report.freed_bytes.saturating_add(bytes);
+        if file.kind == SpaceFileKind::Attachment {
+            report.removed += 1;
+            removed.push(file.path);
+        }
+    }
+
+    if !removed.is_empty() {
+        handle.with_index_mut(|index| -> Result<(), CoreError> {
+            for path in &removed {
+                index.reload_file(&handle.store, path)?;
+            }
+            Ok(())
+        })?;
+    }
+    Ok(report)
 }
 
 /// `GET /api/spaces/{space}/files/{hash}/{name}[?w=256|512]` [viewer]

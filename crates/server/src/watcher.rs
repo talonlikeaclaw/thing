@@ -430,6 +430,63 @@ mod tests {
     }
 
     #[test]
+    fn an_external_attachment_change_updates_presence_without_an_event() {
+        use thing_core::store::file_path;
+
+        let (_root, registry, handle, mut events) = loaded_space();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let types = handle.store.space_dir().join(type_path("plant"));
+            handle
+                .store
+                .save_type(&plant(), None)
+                .expect("writes the type");
+            apply(&registry, HashSet::from([types])).await;
+
+            let hash = "a".repeat(64);
+            let attachment = file_path(&hash, "photo.png");
+            let mut doc = object(Uuid::now_v7());
+            doc.cover = Some(attachment.display().to_string());
+            let relative = Path::new("objects").join("plant").join("fern.md");
+            handle
+                .store
+                .save_object(&relative, &doc, None)
+                .expect("writes an object");
+            let object_file = handle.store.space_dir().join(&relative);
+            apply(&registry, HashSet::from([object_file])).await;
+            assert_eq!(
+                handle.with_index(|index| index.problems().missing_files.len()),
+                1,
+                "the object loads and names bytes the space does not hold"
+            );
+            // Subscribe after the object's own event; the attachment arms are next.
+            events = handle.events.subscribe();
+
+            handle
+                .store
+                .save_attachment(&attachment, b"\x89PNG", None)
+                .expect("writes bytes");
+            let absolute = handle.store.space_dir().join(&attachment);
+            apply(&registry, HashSet::from([absolute.clone()])).await;
+            assert!(handle.with_index(|index| index.has_attachment(&attachment)));
+            assert!(handle.with_index(|index| index.problems().missing_files.is_empty()));
+
+            fs::remove_file(&absolute).expect("an external delete");
+            apply(&registry, HashSet::from([absolute])).await;
+            assert!(!handle.with_index(|index| index.has_attachment(&attachment)));
+            assert_eq!(
+                handle.with_index(|index| index.problems().missing_files.len()),
+                1,
+                "an external rm shows in the health read"
+            );
+            assert!(
+                events.try_recv().is_err(),
+                "an attachment is not a record change"
+            );
+        });
+    }
+
+    #[test]
     fn an_unparseable_object_is_announced_as_gone() {
         let (_root, registry, handle, mut events) = loaded_space();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");
