@@ -45,6 +45,11 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 - **Record icons.** Give a record an emoji from its header or at capture; it then appears in the
   table's title cell, home recents, the command palette, board cards, gallery tiles and Trash. A
   record without one keeps its previous layout.
+- **Files and images.** Attach a file or an image to a record; the bytes live in the space's own
+  `files/` tree, named by their content, so one copy of the directory is still the whole space. An
+  image property can fill the gallery tiles, a record can carry a 16:9 cover whose focal point is
+  stored with it, and any image opens in a lightbox that closes with Escape. A missing file is
+  reported by the space's health read and never blocks the record.
 - **Made for a phone.** Search, capture and every menu rise from the bottom and stay above the
   on-screen keyboard; the page uses the whole screen on a notched phone. A toast clears the keyboard
   and the bottom bar, and the emoji picker opens in front of the form it belongs to. The type
@@ -71,6 +76,19 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 crates/core/     thing-core — domain model, format, validation, query, store
 crates/server/   thing-server — axum HTTP shell
 web/             Vite + React 19 SPA
+```
+
+A space on disk:
+
+```
+space.yml
+types/            one <key>.yml per type
+properties/       one <key>.yml per property
+objects/<type>/   one <slug>.md per live record
+trash/            one <uuid>.md per trashed record
+history/          one <uuid>.ndjson per record
+files/<sha256>/   attachment bytes, named by their content
+files/.thumbs/    derived thumbnails; safe to exclude from a backup
 ```
 
 ## Development

@@ -158,7 +158,7 @@ export function FileField({
               <button
                 type="button"
                 className={cn(
-                  "block max-w-full truncate text-left text-[14px] text-ink underline decoration-line-strong hover:decoration-ink",
+                  "block max-w-full min-w-0 text-left text-[14px] text-ink underline decoration-line-strong hover:decoration-ink pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center",
                   focusRing,
                 )}
                 onClick={(event) => {
@@ -166,18 +166,18 @@ export function FileField({
                   setPreview(true);
                 }}
               >
-                {fileName(path)}
+                <span className="truncate">{fileName(path)}</span>
               </button>
             ) : (
               <a
                 href={fileUrl(spaceId, path)}
                 download={fileName(path)}
                 className={cn(
-                  "block truncate text-[14px] text-ink underline decoration-line-strong hover:decoration-ink",
+                  "block max-w-full min-w-0 text-[14px] text-ink underline decoration-line-strong hover:decoration-ink pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center",
                   focusRing,
                 )}
               >
-                {fileName(path)}
+                <span className="truncate">{fileName(path)}</span>
               </a>
             )}
             <span className="text-[11px] text-faint">{image ? "Image" : "File"}</span>

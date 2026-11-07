@@ -32,9 +32,10 @@ ordinary spaces through the generic CSV path rather than a bespoke importer.
 
 ## Positioning
 
-The data is plain markdown files with YAML frontmatter on the filesystem, so backups, grep, git,
-diff and export come free and the store is portable: copy a space directory anywhere and it still
-knows its own schema, members and records. Structure is separated from prose — properties carry the
+The data is plain markdown files with YAML frontmatter on the filesystem, plus the attachment bytes
+a record carries under the space's own `files/` tree, so backups, grep, git, diff and export come
+free and the store is portable: copy a space directory anywhere and it still knows its own schema,
+members, records and files. Structure is separated from prose — properties carry the
 structure, one markdown body carries the writing. The bundled schema is powerful through the Excel
 model rather than through a query language. A hosted knowledge tool could not truthfully copy the
 "your files are the database" claim; a file-based notes tool could not offer the typed tables,
@@ -63,7 +64,12 @@ frontmatter stores, never a display name; an unset value is an absent key, never
 `[]`; a relation whose target is gone is kept and surfaced, never dropped; writes are atomic;
 there is exactly one spelling for every concept, with no aliases or compatibility shims; and a
 file whose `schema` version the reader does not understand is refused loudly rather than guessed
-at. Space content never lives in a database — only accounts, sessions and invites do.
+at. Space content never lives in a database — only accounts, sessions and invites do. Attachment
+bytes are content too: they stay under the space's `files/` tree, named by their SHA-256, and their
+frontmatter value is that path. A record's cover is a frontmatter key, not a property, and its
+focal point is stored as two percentages rather than a cropped copy, so the original bytes are
+never edited. The reader writes schema 5 and still opens every schema-1…4 space, upgrading a file
+on its next write.
 
 ## Brand Commitments
 

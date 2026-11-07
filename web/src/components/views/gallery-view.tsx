@@ -138,7 +138,7 @@ export function GalleryView({
                 )}
                 <Link
                   to={`/s/${spaceId}/o/${row.id}`}
-                  className="grid gap-1.5 px-3 py-2.5"
+                  className="grid gap-1.5 px-3 py-2.5 pointer-coarse:min-h-11"
                 >
                   <span className="flex items-start gap-1.5">
                     {row.icon ? (

@@ -366,6 +366,25 @@ a second card. The clean `Saved` seal is a small glass pill in the identity band
 dirty, one glass action row sticks above the dock on a phone; from `lg` the identity band
 carries the unsaved count and Save.
 
+**The Cover Hero.** A record's cover opens the card inside its padding: a 16:9 image in a
+16px inner frame with one hairline, `object-fit: cover`, above the identity band. The
+hero is the card's first element and nothing sits over it; the identity band keeps its
+own spacing below. Change and Remove live in the record's overflow menu, so the picture
+never carries chrome over it. Repositioning trades the hero for the same frame with a
+crosshair cursor and the stored centre marked; a click on the picture and the two sliders
+below move it, Center returns it to 50% 50%, and Cancel and Done close the editor. The
+preview draws the same `object-position` as the gallery tile, so the framing is chosen
+where it is seen. The copy is plain: Change cover, Remove cover, Reposition, Center.
+An absent cover leaves the card at the identity band; there is no empty placeholder
+frame.
+
+**The Lightbox.** One image overlay, and it is the sheet language rather than a second
+modal: the ground is the page's own scrim, the picture is bounded by the viewport with its
+caption in the sheet header, and the close control follows the pointer floor — 36px on a
+fine pointer, 44px when coarse. Escape closes it, focus returns to the image that opened
+it, and the page behind does not scroll. A file value is not an image: it downloads, and
+never opens this overlay.
+
 **The Ledger Table.** A type page is one glass panel above one matte ledger. The type
 masthead, the saved views and the search/Columns/Sort/Filter tools float together as the
 page's chrome; it scrolls with the page and never parks over the ledger's own column
@@ -437,7 +456,9 @@ with its date and due phrase in mono, plus complete and menu actions. Every visi
 **The Tiles.** A gallery tile is matte at the card radius (18px); its tinted cover is
 clipped by that corner, never a square band over a rounded frame. When the view names an
 image property, or the record carries a cover, that image fills the same clipped frame at
-16:9 with the record's stored focal point; the tint remains the fallback. The complete and
+16:9 with the record's stored focal point; the tint remains the fallback. The tile asks for
+the 512px derived copy, holds a neutral matte while it loads, and never stretches the
+original into the frame; the full bytes are the lightbox's business. The complete and
 menu actions on a board card, gallery tile or calendar chip are 32px frosted circles — 44px on
 a coarse pointer. On a matte surface the pane is a real piece of glass — the glass fill with a
 trace of the space's own colour mixed in, the lit rim and a blur near its own size, with the

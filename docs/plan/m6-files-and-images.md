@@ -1,6 +1,6 @@
 # Milestone 6 — files and images
 
-**Status: PLANNED 2026-11-05 at workspace `0.5.3`.** v0.6.0 is the first format change since
+**Status: LANDED 2026-11-06 at workspace `0.6.0`.** v0.6.0 is the first format change since
 schema 4. It makes attachment bytes part of the canonical space: files live under `files/`, object
 frontmatter references them by path, images render as properties and covers, and a record, a
 gallery tile and a file row all reach the same hashed bytes. No database enters the space, no

@@ -17,13 +17,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.6.0",
     title: "Files and images",
-    upcoming: true,
     highlights: [
-      "A space will keep images and files beside its records, inside the space's own storage.",
+      "A space keeps images and files beside its records, inside the space's own storage.",
       "A cover frames itself: choose the part of the image the 16:9 hero should keep.",
       "Gallery tiles show a record's image cover, and any image opens at full size.",
+      "A tile loads a smaller copy of an image, made once and kept beside the original.",
     ],
     details: [
       "Bytes are named by their content, so the same upload twice is one stored file.",
@@ -44,6 +44,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Purging a record takes every file that only it named, and an owner can collect the rest on demand.",
       "A file another record names, live or in the trash, stays until the last of those records is gone.",
       "A file or image column carries its path through a CSV file, and a row naming bytes the space does not hold is refused by row.",
+      "A space written by an older version opens and upgrades itself on its first save.",
     ],
   },
   {
