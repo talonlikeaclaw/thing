@@ -1,5 +1,24 @@
 /** Attachment paths: one URL spelling for a stored file and its thumbnail. */
 
+/** The upload ceiling the server enforces, mirrored for a local refusal. */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/** The `accept` value for an image picker; the decoder accepts only these. */
+export const ACCEPTED_IMAGES = "image/png,image/jpeg,image/webp,image/gif";
+
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
+
+/** Whether a browser-declared MIME type is one the store can decode. */
+export function isAcceptedImageType(type: string): boolean {
+  return IMAGE_TYPES.includes(type);
+}
+
+/** Whether a stored path names bytes an image tile can render. */
+export function isImagePath(path: string): boolean {
+  return IMAGE_EXTENSIONS.test(path);
+}
+
 /** The stored file's name, without its hash directory. */
 export function fileName(path: string): string {
   const name = path.split("/").pop() ?? path;
@@ -8,6 +27,16 @@ export function fileName(path: string): string {
   } catch {
     return name;
   }
+}
+
+/** The image paths of an `attachments` value, in the order it stores them. */
+export function imagePaths(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(
+    (entry): entry is string => typeof entry === "string" && isImagePath(entry),
+  );
 }
 
 /** The member-only read URL for a stored path. */

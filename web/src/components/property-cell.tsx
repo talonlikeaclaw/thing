@@ -1,6 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { Popover } from "@base-ui/react/popover";
-import { Check, ChevronDown, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, FileText, Image as ImageIcon, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
@@ -16,6 +16,7 @@ import {
 import { useCompactWidth } from "@/lib/media";
 import { formatDateTime, formatDay } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
+import { imagePaths } from "@/lib/files";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
 import { cn } from "@/lib/cn";
 
@@ -100,7 +101,8 @@ export function PropertyCell({
     property.format === "relation" ||
     property.format === "recurrence" ||
     property.format === "file" ||
-    property.format === "image";
+    property.format === "image" ||
+    property.format === "attachments";
 
   if (editing && canEdit) {
     const status = (
@@ -215,7 +217,9 @@ export function PropertyCell({
                     "glass-strong max-h-[min(22rem,var(--available-height))] max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-card border border-line-strong p-2 text-[13px]",
                     property.format === "recurrence"
                       ? "w-[max(var(--anchor-width),15rem)]"
-                      : "w-[max(var(--anchor-width),13rem)]",
+                      : property.format === "attachments"
+                        ? "w-[max(var(--anchor-width),20rem)]"
+                        : "w-[max(var(--anchor-width),13rem)]",
                   )}
                 >
                   <div className="grid gap-2">
@@ -405,6 +409,27 @@ export function PropertyValue({
     ) : (
       <span aria-hidden className="text-faint">
         —
+      </span>
+    );
+  }
+
+  if (property.format === "attachments") {
+    if (isBlank(value) || label === "") {
+      return (
+        <span aria-hidden className="text-faint">
+          —
+        </span>
+      );
+    }
+    const images = imagePaths(value);
+    return (
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        {images.length > 0 ? (
+          <ImageIcon aria-hidden size={13} className="shrink-0 text-muted" />
+        ) : (
+          <FileText aria-hidden size={13} className="shrink-0 text-muted" />
+        )}
+        <span className="truncate">{label}</span>
       </span>
     );
   }

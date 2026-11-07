@@ -21,9 +21,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Files, photos and the library",
     upcoming: true,
     highlights: [
+      "A record holds a set of files and photos in one field, not one at a time.",
+      "Photos in a set read as a grid of thumbnails, and any of them opens full size.",
+      "A photo in a set becomes the record's cover in one action.",
+      "A gallery tile can take its picture from a photo set.",
       "A set of photos opens as one overlay you can step through with the arrow keys.",
     ],
     details: [
+      "Files and photos append in the order you add them.",
+      "Paste a photo from the clipboard straight into a set.",
+      "A refused upload leaves the set as it was and offers Retry.",
+      "A table cell shows how many files a set holds and saves the whole set with Done.",
       "The overlay wraps at either end and counts the picture you are on.",
     ],
   },

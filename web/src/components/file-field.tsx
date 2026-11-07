@@ -6,7 +6,14 @@ import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
-import { fileName, fileUrl, thumbnailUrl } from "@/lib/files";
+import {
+  ACCEPTED_IMAGES,
+  MAX_UPLOAD_BYTES,
+  fileName,
+  fileUrl,
+  isAcceptedImageType,
+  thumbnailUrl,
+} from "@/lib/files";
 
 interface FileFieldProps {
   spaceId: string;
@@ -19,10 +26,6 @@ interface FileFieldProps {
   /** Present in a cell editor, which can be dismissed without a value. */
   onCancel?: () => void;
 }
-
-const ACCEPTED_IMAGES = "image/png,image/jpeg,image/webp,image/gif";
-const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 /**
  * One file or image value: choose or drop bytes, see what is stored, replace it
@@ -74,7 +77,7 @@ export function FileField({
       setError("A file may be at most 10 MiB.");
       return;
     }
-    if (image && file.type !== "" && !IMAGE_TYPES.has(file.type)) {
+    if (image && file.type !== "" && !isAcceptedImageType(file.type)) {
       setAttempt(null);
       setError("Choose a PNG, JPEG, WebP or GIF image.");
       return;

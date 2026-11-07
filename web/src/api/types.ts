@@ -59,7 +59,8 @@ export type PropertyFormat =
   | "relation"
   | "recurrence"
   | "file"
-  | "image";
+  | "image"
+  | "attachments";
 
 export interface OptionDef {
   /** Stable identity: renaming the display name never moves a stored value. */

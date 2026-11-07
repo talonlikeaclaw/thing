@@ -4,12 +4,13 @@ import { useState } from "react";
 
 import { useRelationChoices, useTypes, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
+import { AttachmentField } from "@/components/attachment-field";
 import { FileField } from "@/components/file-field";
 import { ThumbRow, useHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatDay, readError, shortId } from "@/lib/display";
-import { fileName, fileUrl, thumbnailUrl } from "@/lib/files";
+import { fileName, fileUrl, isImagePath, thumbnailUrl } from "@/lib/files";
 import {
   datetimeLocal,
   fromDatetimeLocal,
@@ -36,6 +37,9 @@ interface PropertyFieldProps {
   /** The space's calendar zone, used by the date shortcuts. */
   timeZone?: string;
   onChange: (value: unknown | null) => void;
+  /** The record's current cover; the attachment tiles mark it and set it. */
+  coverPath?: string;
+  onSetCover?: (path: string) => void;
   /** A field whose text cannot be saved (a half-typed number) disables Save. */
   onInvalid: (invalid: boolean) => void;
 }
@@ -101,6 +105,17 @@ export function PropertyField(props: PropertyFieldProps) {
           onChange={props.onChange}
         />
       );
+    case "attachments":
+      return (
+        <AttachmentField
+          spaceId={props.spaceId}
+          value={props.value}
+          disabled={!props.canEdit}
+          coverPath={props.coverPath}
+          onSetCover={props.onSetCover}
+          onChange={props.onChange}
+        />
+      );
     case "recurrence":
       return (
         <RecurrenceInput
@@ -156,6 +171,47 @@ function ReadOnlyValue({
       >
         {name}
       </a>
+    );
+  }
+  if (property.format === "attachments") {
+    const entries = Array.isArray(value)
+      ? value.filter((entry): entry is string => typeof entry === "string")
+      : [];
+    if (entries.length === 0) {
+      return <span className="text-faint">—</span>;
+    }
+    return (
+      <ul className="grid gap-1.5">
+        {entries.map((path) =>
+          isImagePath(path) ? (
+            <li key={path}>
+              <a
+                href={fileUrl(spaceId, path)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-2 text-[14px] underline decoration-line-strong hover:decoration-ink"
+              >
+                <img
+                  src={thumbnailUrl(spaceId, path, 256)}
+                  alt=""
+                  className="size-12 shrink-0 rounded-[8px] object-cover"
+                />
+                <span className="truncate">{fileName(path)}</span>
+              </a>
+            </li>
+          ) : (
+            <li key={path}>
+              <a
+                href={fileUrl(spaceId, path)}
+                download={fileName(path)}
+                className="block max-w-full truncate text-[14px] underline decoration-line-strong hover:decoration-ink"
+              >
+                {fileName(path)}
+              </a>
+            </li>
+          ),
+        )}
+      </ul>
     );
   }
   if (property.format === "checkbox") {

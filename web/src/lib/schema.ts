@@ -55,6 +55,7 @@ export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "recurrence", label: "Recurrence" },
   { value: "file", label: "File" },
   { value: "image", label: "Image" },
+  { value: "attachments", label: "Attachments" },
 ];
 
 const FORMAT_LABELS = Object.fromEntries(

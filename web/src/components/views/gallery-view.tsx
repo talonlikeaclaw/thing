@@ -6,7 +6,7 @@ import { ImageLightbox } from "@/components/image-lightbox";
 import { PropertyValue } from "@/components/property-cell";
 import { ThingIcon } from "@/components/thing-icon";
 import { CardActions } from "@/components/views/card-actions";
-import { coverPoint, thumbnailUrl } from "@/lib/files";
+import { coverPoint, imagePaths, thumbnailUrl } from "@/lib/files";
 
 interface GalleryViewProps {
   spaceId: string;
@@ -65,12 +65,18 @@ export function GalleryView({
             typeof coverValue === "string" &&
             coverValue !== ""
               ? coverValue
-              : undefined;
+              : cover?.format === "attachments"
+                ? imagePaths(coverValue)[0]
+                : undefined;
           // A non-image cover property keeps the typographic tile; the record's
           // own cover is only the fallback when no such property was chosen.
           const imagePath =
             propertyImage ??
-            (cover?.format === "image" || cover === undefined ? row.cover : undefined);
+            (cover?.format === "image" ||
+            cover?.format === "attachments" ||
+            cover === undefined
+              ? row.cover
+              : undefined);
           const point = coverPoint(row.cover_position);
           const objectPosition = `${point.x}% ${point.y}%`;
           // Option colours are user data: the editor stores hex, an older space

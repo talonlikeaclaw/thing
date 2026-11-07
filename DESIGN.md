@@ -378,6 +378,16 @@ where it is seen. The copy is plain: Change cover, Remove cover, Reposition, Cen
 An absent cover leaves the card at the identity band; there is no empty placeholder
 frame.
 
+**The Attachments Field.** A set of files is one control: a bordered frame holding a
+square thumbnail grid for images and a full-width row for every other file, in upload
+order. Each image tile carries its own remove control, and the record page offers
+`Set as cover` on a tile that is not already the cover; the current cover wears a
+`Cover` chip instead, so the target is never ambiguous. `Add files` opens a multiple
+picker and the frame also accepts a drop; `Paste` reads the clipboard and refuses with
+one sentence rather than failing silently. A thumbnail opens the one lightbox over the
+set, at the tile that was touched. In a table cell the same field stages its edits and
+commits the whole list once, on `Done`.
+
 **The Lightbox.** One image overlay, and it is the sheet language rather than a second
 modal: the ground is the page's own scrim, the picture is bounded by the viewport with its
 caption in the sheet header, and the close control follows the pointer floor — 36px on a
@@ -457,7 +467,7 @@ with its date and due phrase in mono, plus complete and menu actions. Every visi
 
 **The Tiles.** A gallery tile is matte at the card radius (18px); its tinted cover is
 clipped by that corner, never a square band over a rounded frame. When the view names an
-image property, or the record carries a cover, that image fills the same clipped frame at
+image property or a photo set, or the record carries a cover, that image fills the same clipped frame at
 16:9 with the record's stored focal point; the tint remains the fallback. The tile asks for
 the 512px derived copy, holds a neutral matte while it loads, and never stretches the
 original into the frame; the full bytes are the lightbox's business. The complete and

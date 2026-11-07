@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PropertyDef } from "@/api/types";
 import {
   datetimeLocal,
+  formatBytes,
   fromDatetimeLocal,
   isBlank,
   optionName,
@@ -151,5 +152,28 @@ describe("relationChips", () => {
 
   it("has no chips for an empty relation", () => {
     expect(relationChips([], "")).toEqual([]);
+  });
+
+  it("writes a byte count in exact bytes then one decimal", () => {
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(-4)).toBe("0 B");
+    expect(formatBytes(999)).toBe("999 B");
+    expect(formatBytes(1024)).toBe("1.0 KiB");
+    expect(formatBytes(1434)).toBe("1.4 KiB");
+    expect(formatBytes(3.2 * 1024 * 1024)).toBe("3.2 MiB");
+    expect(formatBytes(1024 ** 3)).toBe("1.0 GiB");
+  });
+
+  it("labels an attachments list by its one file or its count", () => {
+    const property = {
+      key: "photos",
+      name: "Photos",
+      format: "attachments" as const,
+    };
+    expect(valueLabel("attachments", ["files/a/one.png"], property)).toBe("one.png");
+    expect(
+      valueLabel("attachments", ["files/a/one.png", "files/b/two.png"], property),
+    ).toBe("2 files");
+    expect(valueLabel("attachments", [], property)).toBe("");
   });
 });

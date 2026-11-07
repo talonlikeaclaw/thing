@@ -2,6 +2,7 @@ import { Check, X } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
 import { useRelationChoices, useUpdateProperty } from "@/api/queries";
+import { AttachmentField } from "@/components/attachment-field";
 import { FileField } from "@/components/file-field";
 import type { PropertyDef } from "@/api/types";
 import { useHandedness } from "@/components/handedness";
@@ -52,6 +53,18 @@ export function PropertyInput(props: PropertyInputProps) {
           value={props.value}
           onChange={(next) =>
             props.onCommit(next, next === null ? "" : fileName(next))
+          }
+          onCancel={props.onCancel}
+        />
+      );
+    case "attachments":
+      return (
+        <AttachmentField
+          spaceId={props.spaceId}
+          value={props.value}
+          defer
+          onChange={(list) =>
+            props.onCommit(list, valueLabel("attachments", list, props.property))
           }
           onCancel={props.onCancel}
         />

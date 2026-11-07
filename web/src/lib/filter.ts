@@ -61,6 +61,8 @@ export function operatorsFor(format: PropertyFormat): CondOp[] {
     case "relation":
     case "recurrence":
       return ["equal", "not_equal", ...empty];
+    case "attachments":
+      return [...empty];
   }
 }
 

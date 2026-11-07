@@ -116,9 +116,35 @@ export function valueLabel(
     case "file":
     case "image":
       return typeof value === "string" ? fileName(value) : plain(value);
+    case "attachments":
+      if (!Array.isArray(value)) {
+        return plain(value);
+      }
+      if (value.length === 1 && typeof value[0] === "string") {
+        return fileName(value[0]);
+      }
+      return `${value.length} files`;
     default:
       return plain(value);
   }
+}
+
+/** A byte count in the one storage grammar: exact bytes, then one decimal. */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+  if (bytes < 1024) {
+    return `${Math.round(bytes)} B`;
+  }
+  const units = ["KiB", "MiB", "GiB", "TiB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(1)} ${units[unit]}`;
 }
 
 /** The text a text-like input starts with; lists and booleans are not text. */

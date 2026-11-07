@@ -949,6 +949,14 @@ export function ObjectPanel({
             canEdit={canEdit}
             timeZone={timeZone}
             locked={key === "last_completed_at" ? "Set by Complete" : undefined}
+            coverPath={draft.cover}
+            onSetCover={(path) =>
+              setDraft((current) => ({
+                ...current,
+                cover: path,
+                coverPosition: "",
+              }))
+            }
             onChange={(value) =>
               setDraft((current) => ({
                 ...current,
