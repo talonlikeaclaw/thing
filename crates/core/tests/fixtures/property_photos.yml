@@ -1,0 +1,4 @@
+schema: 6
+key: photos
+name: Photos
+format: attachments

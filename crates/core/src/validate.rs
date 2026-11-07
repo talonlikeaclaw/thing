@@ -14,9 +14,9 @@ use uuid::Uuid;
 
 use crate::error::CoreError;
 use crate::model::{
-    CondOp, Condition, Filter, MAX_COLUMN_WIDTH, MAX_VIEW_NAME_LEN, MAX_VIEWS, MIN_COLUMN_WIDTH,
-    ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY,
-    Value, ViewDef, ViewKind, is_reserved_key,
+    CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_VIEW_NAME_LEN, MAX_VIEWS,
+    MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
+    TypeProperty, UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
 };
 use crate::value;
 
@@ -504,6 +504,7 @@ fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Res
         {
             Err(invalid(key, "expected an image path"))
         }
+        (PropertyFormat::Attachments, Value::List(paths)) => validate_attachments(key, paths),
         (PropertyFormat::Select, Value::Text(option)) => {
             check_options(property, std::iter::once(option.as_str()))
         }
@@ -527,6 +528,11 @@ fn validate_condition(
         return Err(not_on_type(def, &condition.property));
     };
     let key = column.key;
+    if column.format == PropertyFormat::Attachments
+        && !matches!(condition.condition, CondOp::IsEmpty | CondOp::IsNotEmpty)
+    {
+        return Err(invalid(key, "supports only is_empty and is_not_empty"));
+    }
     match condition.condition {
         CondOp::IsEmpty | CondOp::IsNotEmpty => match condition.value {
             None => Ok(()),
@@ -621,11 +627,35 @@ fn variant_matches(property: &PropertyDef, value: &Value) -> bool {
         | PropertyFormat::Image => matches!(value, Value::Text(_)),
         PropertyFormat::Number => matches!(value, Value::Number(_)),
         PropertyFormat::Checkbox => matches!(value, Value::Bool(_)),
-        PropertyFormat::MultiSelect => matches!(value, Value::List(_)),
+        PropertyFormat::MultiSelect | PropertyFormat::Attachments => {
+            matches!(value, Value::List(_))
+        }
         PropertyFormat::Relation if property.multi => matches!(value, Value::List(_)),
         PropertyFormat::Relation => matches!(value, Value::Text(_)),
         PropertyFormat::Recurrence => matches!(value, Value::Recurrence(_)),
     }
+}
+
+/// Every path must be canonical, the list must fit the cap, and no file may
+/// appear twice: a set-backed grid has no meaning for a repeated path.
+fn validate_attachments(key: &str, paths: &[String]) -> Result<(), CoreError> {
+    if paths.len() > MAX_ATTACHMENTS {
+        return Err(invalid(
+            key,
+            format!("holds at most {MAX_ATTACHMENTS} files"),
+        ));
+    }
+    if paths
+        .iter()
+        .any(|path| !crate::store::is_file_path(Path::new(path)))
+    {
+        return Err(invalid(key, "expected a list of file paths"));
+    }
+    let mut seen = BTreeSet::new();
+    if paths.iter().any(|path| !seen.insert(path.as_str())) {
+        return Err(invalid(key, "lists the same file twice"));
+    }
+    Ok(())
 }
 
 fn value_is_scalar(value: &Value, list_allowed: bool) -> bool {
@@ -803,6 +833,7 @@ mod tests {
                 related,
                 many,
                 property("repeat", PropertyFormat::Recurrence),
+                property("photos", PropertyFormat::Attachments),
             ]
             .into_iter()
             .map(|def| (def.key.clone(), def))
@@ -810,7 +841,7 @@ mod tests {
 
             let listed = [
                 "room", "count", "done", "watered", "seen", "link", "mail", "status", "tags",
-                "related", "many", "repeat",
+                "related", "many", "repeat", "photos",
             ];
             let def = TypeDef {
                 key: "plant".to_owned(),
@@ -1044,6 +1075,76 @@ mod tests {
                 "invalid count: expected a number, found text",
                 "invalid tags: expected a list of option keys, found text",
             ]
+        );
+    }
+
+    #[test]
+    fn an_attachments_value_must_be_a_unique_list_of_stored_paths() {
+        let fixture = Fixture::new();
+        let hash = "a".repeat(64);
+        let png = format!("files/{hash}/monstera.png");
+        let jpg = format!("files/{hash}/fern.jpg");
+        valid(validate_object(
+            &fixture.schema(),
+            &with(&[("room", text("Kitchen")), ("photos", list(&[&png, &jpg]))]),
+        ));
+
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[
+                    ("room", text("Kitchen")),
+                    ("photos", list(&[&png, "monstera.png"])),
+                ])
+            )),
+            vec!["invalid photos: expected a list of file paths"]
+        );
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("Kitchen")), ("photos", list(&[&png, &png]))])
+            )),
+            vec!["invalid photos: lists the same file twice"]
+        );
+
+        let too_many: Vec<String> = (0..=MAX_ATTACHMENTS)
+            .map(|n| format!("files/{hash}/file-{n}.png"))
+            .collect();
+        let too_many: Vec<&str> = too_many.iter().map(String::as_str).collect();
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("Kitchen")), ("photos", list(&too_many))])
+            )),
+            vec!["invalid photos: holds at most 200 files"]
+        );
+    }
+
+    #[test]
+    fn attachments_filter_only_by_emptyness() {
+        let fixture = Fixture::new();
+        let def = &fixture.types["plant"];
+        let filter = |condition| Filter {
+            op: FilterOp::And,
+            conditions: vec![condition],
+        };
+        valid(validate_filter(
+            &fixture.schema(),
+            def,
+            &filter(condition("photos", CondOp::IsEmpty, None)),
+        ));
+        valid(validate_filter(
+            &fixture.schema(),
+            def,
+            &filter(condition("photos", CondOp::IsNotEmpty, None)),
+        ));
+        assert_eq!(
+            problems(validate_filter(
+                &fixture.schema(),
+                def,
+                &filter(condition("photos", CondOp::Contains, Some(text("x")))),
+            )),
+            vec!["invalid photos: supports only is_empty and is_not_empty"]
         );
     }
 

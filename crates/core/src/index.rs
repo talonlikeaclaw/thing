@@ -8,6 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::CoreError;
@@ -89,14 +90,21 @@ pub struct MissingFile {
 }
 
 /// One attachment path an object names, with where it names it.
-struct AttachmentReference<'a> {
-    object: Uuid,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttachmentReference {
+    pub object: Uuid,
     /// The object's file, relative to the space.
-    path: &'a Path,
-    /// `cover` or the property key that names the bytes.
-    field: &'a str,
+    pub path: PathBuf,
+    pub title: String,
+    pub icon: Option<String>,
+    pub type_key: String,
+    pub rev: u64,
+    pub updated_at: OffsetDateTime,
+    /// `cover`, `body` or the property key that names the bytes.
+    pub field: String,
     /// The referenced attachment path, as frontmatter spells it.
-    file: &'a str,
+    pub file: String,
+    pub trashed: bool,
 }
 
 /// One view that names something the space does not offer.
@@ -713,14 +721,14 @@ impl SpaceIndex {
     fn missing_files(&self) -> Vec<MissingFile> {
         let mut found = Vec::new();
         for reference in self.attachment_references() {
-            if self.attachments.contains(Path::new(reference.file)) {
+            if self.attachments.contains(Path::new(&reference.file)) {
                 continue;
             }
             found.push(MissingFile {
                 object: reference.object,
-                path: reference.path.to_owned(),
-                field: reference.field.to_owned(),
-                file: reference.file.to_owned(),
+                path: reference.path,
+                field: reference.field,
+                file: reference.file,
             });
         }
         found.sort_by(|left, right| {
@@ -733,39 +741,49 @@ impl SpaceIndex {
     }
 
     /// Every attachment path a live or trashed object names: its cover and each
-    /// file or image value, with the field that names it.
+    /// file, image or attachments value, with the field that names it.
     ///
     /// A trashed object still counts, so its bytes survive until it is purged.
-    fn attachment_references(&self) -> Vec<AttachmentReference<'_>> {
+    pub fn attachment_references(&self) -> Vec<AttachmentReference> {
         let mut found = Vec::new();
-        for (id, doc) in self.objects.iter().chain(self.trash.iter()) {
+        let live = self.objects.iter().map(|(id, doc)| (id, doc, false));
+        let trashed = self.trash.iter().map(|(id, doc)| (id, doc, true));
+        for (id, doc, trashed) in live.chain(trashed) {
             let Some(path) = self.paths.get(id).or_else(|| self.trash_paths.get(id)) else {
                 continue;
             };
-            if let Some(cover) = &doc.cover {
+            let mut push = |field: &str, file: &str| {
                 found.push(AttachmentReference {
                     object: *id,
-                    path,
-                    field: "cover",
-                    file: cover,
+                    path: path.to_owned(),
+                    title: doc.title.clone(),
+                    icon: doc.icon.clone(),
+                    type_key: doc.type_key.clone(),
+                    rev: doc.rev,
+                    updated_at: doc.updated_at,
+                    field: field.to_owned(),
+                    file: file.to_owned(),
+                    trashed,
                 });
+            };
+            if let Some(cover) = &doc.cover {
+                push("cover", cover);
             }
             for (key, value) in &doc.properties {
                 let Some(def) = self.property_def(key) else {
                     continue;
                 };
-                if !matches!(def.format, PropertyFormat::File | PropertyFormat::Image) {
-                    continue;
+                match (def.format, value) {
+                    (PropertyFormat::File | PropertyFormat::Image, Value::Text(file)) => {
+                        push(key, file);
+                    }
+                    (PropertyFormat::Attachments, Value::List(files)) => {
+                        for file in files {
+                            push(key, file);
+                        }
+                    }
+                    _ => {}
                 }
-                let Value::Text(file) = value else {
-                    continue;
-                };
-                found.push(AttachmentReference {
-                    object: *id,
-                    path,
-                    field: key,
-                    file,
-                });
             }
         }
         found
@@ -1336,6 +1354,70 @@ mod tests {
             .expect("an attachment reloads as presence");
         assert!(index.has_attachment(&photo));
         assert_eq!(index.problems().missing_files.len(), 2);
+    }
+
+    #[test]
+    fn an_attachment_list_names_every_path_with_its_record() {
+        use crate::store::file_path;
+
+        let space = Space::new();
+        let mut def = plant_type();
+        def.properties.push(TypeProperty {
+            key: "photos".to_owned(),
+            required: false,
+            featured: false,
+        });
+        space.store.save_type(&def, None).expect("save type");
+        space
+            .store
+            .save_property(
+                &PropertyDef {
+                    key: "photos".to_owned(),
+                    name: "Photos".to_owned(),
+                    format: PropertyFormat::Attachments,
+                    options: Vec::new(),
+                    target_type: None,
+                    multi: false,
+                },
+                None,
+            )
+            .expect("save property");
+
+        let one = file_path(&"a".repeat(64), "monstera.png");
+        let two = file_path(&"b".repeat(64), "fern.jpg");
+        let mut live = object(2, "Monstera", "Kitchen", 5);
+        live.icon = Some("🪴".to_owned());
+        live.properties.insert(
+            "photos".to_owned(),
+            Value::List(vec![one.display().to_string(), two.display().to_string()]),
+        );
+        space
+            .store
+            .save_object(&object_path("Monstera"), &live, None)
+            .expect("object");
+
+        let index = space.index();
+        assert!(
+            index
+                .referenced_files()
+                .is_superset(&BTreeSet::from([one.clone(), two.clone()])),
+            "both list entries are referenced"
+        );
+        let references = index.attachment_references();
+        assert_eq!(references.len(), 2);
+        assert_eq!(references[0].field, "photos");
+        assert_eq!(references[0].file, one.display().to_string());
+        assert_eq!(references[0].title, "Monstera");
+        assert_eq!(references[0].icon.as_deref(), Some("🪴"));
+        assert_eq!(references[0].type_key, "plant");
+        assert_eq!(references[0].rev, live.rev);
+        assert!(!references[0].trashed);
+        assert_eq!(references[1].file, two.display().to_string());
+        assert_eq!(
+            index.problems().missing_files.len(),
+            2,
+            "neither file has bytes yet"
+        );
     }
 
     #[test]

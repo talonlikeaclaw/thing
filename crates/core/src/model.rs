@@ -29,6 +29,7 @@ pub enum PropertyFormat {
     Recurrence,
     File,
     Image,
+    Attachments,
 }
 
 /// A property definition (`properties/<key>.yml`).
@@ -153,6 +154,9 @@ pub struct TypeProperty {
 
 /// The most views one type may carry.
 pub const MAX_VIEWS: usize = 50;
+
+/// The most paths one `attachments` property may hold.
+pub const MAX_ATTACHMENTS: usize = 200;
 
 /// The longest view name, in characters.
 pub const MAX_VIEW_NAME_LEN: usize = 80;
@@ -307,7 +311,8 @@ pub struct Recurrence {
 }
 
 /// A property value; the property's format decides which variant is legal.
-/// `Select` is `Text`; `MultiSelect` is `List`; `Recurrence` is a mapping.
+/// `Select` is `Text`; `MultiSelect` is `List`; `Attachments` is `List`;
+/// `Recurrence` is a mapping.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {

@@ -46,6 +46,9 @@ pub fn parse_value(format: PropertyFormat, key: &str, raw: &Yaml) -> Result<Valu
         PropertyFormat::MultiSelect => string_list(raw)
             .map(Value::List)
             .ok_or_else(|| invalid(raw)),
+        PropertyFormat::Attachments => string_list(raw)
+            .map(Value::List)
+            .ok_or_else(|| invalid(raw)),
         PropertyFormat::Relation if raw.is_sequence() => string_list(raw)
             .map(Value::List)
             .ok_or_else(|| invalid(raw)),
@@ -137,6 +140,12 @@ pub fn compare(format: PropertyFormat, a: &Value, b: &Value) -> Ordering {
             PropertyFormat::Datetime => compare_parsed(x, y, parse_datetime),
             _ => compare_text(x, y),
         },
+        (Value::List(x), Value::List(y)) if format == PropertyFormat::Attachments => x
+            .iter()
+            .zip(y)
+            .map(|(xi, yi)| compare_text(basename(xi), basename(yi)))
+            .find(|ord| *ord != Ordering::Equal)
+            .unwrap_or_else(|| x.len().cmp(&y.len())),
         (Value::List(x), Value::List(y)) => x
             .iter()
             .zip(y)
@@ -177,6 +186,11 @@ pub fn compare_options(
             .unwrap_or_else(|| x.len().cmp(&y.len())),
         _ => rank(a).cmp(&rank(b)),
     }
+}
+
+/// The part of a path after the last `/`, for ordering attachments by name.
+fn basename(path: &str) -> &str {
+    path.rsplit_once('/').map_or(path, |(_, name)| name)
 }
 
 /// A recurrence's total order: kind, interval, weekday, then month day.
@@ -294,6 +308,7 @@ pub(crate) fn expected(format: PropertyFormat) -> &'static str {
         PropertyFormat::Recurrence => "a recurrence",
         PropertyFormat::File => "a file path",
         PropertyFormat::Image => "a file path",
+        PropertyFormat::Attachments => "a list of file paths",
     }
 }
 
@@ -405,6 +420,39 @@ mod tests {
     }
 
     #[test]
+    fn parses_attachment_lists_and_sorts_by_basename() {
+        let alpha = format!("files/{}/alpha.png", "a".repeat(64));
+        let beta = format!("files/{}/beta.jpg", "b".repeat(64));
+        assert_eq!(
+            parsed(PropertyFormat::Attachments, &format!("[{alpha}, {beta}]")),
+            Value::List(vec![alpha.clone(), beta.clone()])
+        );
+        assert_eq!(
+            expected(PropertyFormat::Attachments),
+            "a list of file paths"
+        );
+        let list = Value::List(vec![alpha.clone(), beta.clone()]);
+        let swapped = Value::List(vec![beta.clone(), alpha.clone()]);
+        assert_eq!(
+            compare(PropertyFormat::Attachments, &list, &swapped),
+            Ordering::Less,
+            "the basenames decide, not the hash directories"
+        );
+        assert_eq!(
+            compare(PropertyFormat::Attachments, &list, &list),
+            Ordering::Equal
+        );
+
+        // Same basenames under different hashes are the same attachment name.
+        let one = Value::List(vec![format!("files/{}/same.png", "a".repeat(64))]);
+        let two = Value::List(vec![format!("files/{}/same.png", "b".repeat(64))]);
+        assert_eq!(
+            compare(PropertyFormat::Attachments, &one, &two),
+            Ordering::Equal
+        );
+    }
+
+    #[test]
     fn rejects_the_wrong_yaml_kind() {
         for (format, raw) in [
             (PropertyFormat::Text, "7"),
@@ -414,6 +462,8 @@ mod tests {
             (PropertyFormat::Checkbox, "\"yes\""),
             (PropertyFormat::MultiSelect, "easy"),
             (PropertyFormat::MultiSelect, "[1, 2]"),
+            (PropertyFormat::Attachments, "files/x.png"),
+            (PropertyFormat::Attachments, "[1, 2]"),
             (PropertyFormat::Relation, "3"),
             (PropertyFormat::Select, "null"),
         ] {

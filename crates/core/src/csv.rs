@@ -334,6 +334,10 @@ fn parse_cell(property: &PropertyDef, raw: &str) -> Result<Value, String> {
             serde_json::from_str::<Vec<String>>(raw)
                 .map_err(|error| format!("expected a JSON array of option keys: {error}"))?,
         ),
+        PropertyFormat::Attachments => Value::List(
+            serde_json::from_str::<Vec<String>>(raw)
+                .map_err(|error| format!("expected a JSON array of file paths: {error}"))?,
+        ),
         PropertyFormat::Relation if property.multi => Value::List(
             serde_json::from_str::<Vec<String>>(raw)
                 .map_err(|error| format!("expected a JSON array of object ids: {error}"))?,
@@ -707,6 +711,22 @@ mod tests {
             );
         }
         assert_eq!(cell(&value), path, "export is the path, never a URL");
+    }
+
+    #[test]
+    fn reads_and_writes_attachment_lists_as_json() {
+        let one = format!("files/{}/monstera.png", "a".repeat(64));
+        let two = format!("files/{}/fern.jpg", "b".repeat(64));
+        let value = Value::List(vec![one.clone(), two.clone()]);
+        let attachments = property("field", PropertyFormat::Attachments, &[], false);
+        let json = format!("[\"{one}\",\"{two}\"]");
+        assert_eq!(parse_cell(&attachments, &json), Ok(value.clone()));
+        assert_eq!(cell(&value), json);
+        assert!(
+            parse_cell(&attachments, "not json")
+                .expect_err("refused")
+                .contains("expected a JSON array of file paths")
+        );
     }
 
     #[test]
