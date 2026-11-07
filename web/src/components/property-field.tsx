@@ -6,7 +6,7 @@ import { useRelationChoices, useTypes, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
 import { AttachmentField } from "@/components/attachment-field";
 import { FileField } from "@/components/file-field";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatDay, readError, shortId } from "@/lib/display";
@@ -430,7 +430,7 @@ function TextField({
 }
 
 function CheckboxField({ property, value, onChange }: PropertyFieldProps) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   return (
     <label className="block cursor-pointer text-[14px]">
       <ThumbRow
@@ -666,7 +666,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
   const [query, setQuery] = useState("");
   const { choices, loading } = useRelationChoices(spaceId, property, open);
   const types = useTypes(spaceId);
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const multi = property.multi === true;
   const selected = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")

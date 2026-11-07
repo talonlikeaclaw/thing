@@ -2,10 +2,12 @@ import { useRef, useState } from "react";
 import { Link } from "react-router";
 
 import type { ObjectSummary, PropertyDef, TypeDef, ViewDef } from "@/api/types";
+import { useThumbHandedness } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { PropertyValue } from "@/components/property-cell";
 import { ThingIcon } from "@/components/thing-icon";
 import { CardActions } from "@/components/views/card-actions";
+import { cn } from "@/lib/cn";
 import { coverPoint, imagePaths, thumbnailUrl } from "@/lib/files";
 
 interface GalleryViewProps {
@@ -44,6 +46,7 @@ export function GalleryView({
   onDuplicate,
   onTrash,
 }: GalleryViewProps) {
+  const handedness = useThumbHandedness();
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const cover = view.cover ? propertyByKey.get(view.cover) : undefined;
   const cards = view.columns.filter((key) => key !== "title");
@@ -87,9 +90,13 @@ export function GalleryView({
             : undefined;
           return (
             <li key={row.id} className="relative min-w-0">
-              <div className="absolute top-1 right-1 z-10">
+              <div
+                className={cn(
+                  "absolute top-1 z-10",
+                  handedness === "left" ? "left-1" : "right-1",
+                )}
+              >
                 <CardActions
-                  spaceId={spaceId}
                   row={row}
                   canEdit={canEdit}
                   completing={completing}

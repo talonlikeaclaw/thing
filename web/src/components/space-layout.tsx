@@ -147,8 +147,8 @@ export function SpaceLayout() {
   }
 
   return (
-    // The page footer already clears the phone bar (`max-lg:pb-24`), so the
-    // layout adds no second reservation beneath the last block.
+    // The page footer already clears the phone bar with its safe-area
+    // padding, so the layout adds no second reservation beneath the last block.
     <div
       data-rail={rail}
       className="settle grid gap-8 duration-[180ms] ease-[cubic-bezier(0.2,0,0,1)] motion-safe:transition-[grid-template-columns] motion-reduce:transition-none lg:grid-cols-[var(--rail-w)_minmax(0,1fr)] lg:gap-10"

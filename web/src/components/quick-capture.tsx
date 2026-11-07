@@ -22,7 +22,7 @@ import {
   useType,
   useTypes,
 } from "@/api/queries";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { PropertyField } from "@/components/property-field";
 import { Button } from "@/components/ui/controls";
@@ -399,7 +399,7 @@ function QuickCaptureDialog({
     resetDraft();
     onOpenChange(false);
   }
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   // An optional field that went invalid while the disclosure was open must not
   // become invisible: the Create guard needs it on screen.
   const optionalInvalid = optional.some((property) => invalid.has(property.key));

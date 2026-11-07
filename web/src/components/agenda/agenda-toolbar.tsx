@@ -1,7 +1,7 @@
 import type { TypeSummary } from "@/api/types";
 import { AgendaHorizons } from "@/components/agenda/agenda-list";
 import { TypeFilter } from "@/components/agenda/type-filter";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import type { AgendaHorizon, AgendaView } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
 
@@ -30,7 +30,8 @@ export function AgendaToolbar({
   /** The phone layout: the range pill takes the row's width. */
   stretch: boolean;
 }) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
+  const left = stretch && handedness === "left";
   const range =
     view === "list" ? (
       <AgendaHorizons horizon={horizon} onChange={onHorizonChange} stretch={stretch} />
@@ -54,10 +55,10 @@ export function AgendaToolbar({
         // filter is the only child, so it must still sit at the thumb edge
         // instead of at the start of a full-width row.
         stretch && "w-full",
-        stretch && (handedness === "left" ? "justify-start" : "justify-end"),
+        stretch && (left ? "justify-start" : "justify-end"),
       )}
     >
-      {handedness === "left" ? (
+      {left ? (
         <>
           {filter}
           {range}

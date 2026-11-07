@@ -3,7 +3,7 @@ import { useRef, useState, type DragEvent } from "react";
 
 import { useUploadFile } from "@/api/queries";
 import { AttachmentMenu } from "@/components/attachment-menu";
-import { ThumbRow } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
@@ -77,6 +77,7 @@ export function AttachmentField({
   coverPath,
   defer = false,
 }: AttachmentFieldProps) {
+  const handedness = useThumbHandedness();
   const upload = useUploadFile(spaceId);
   const input = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState<string[]>(() => storedPaths(value));
@@ -241,10 +242,18 @@ export function AttachmentField({
                   disabled={busy}
                   onSetCover={() => onSetCover?.(path)}
                   onRemove={() => setRemoving(path)}
-                  className="absolute top-1 right-1"
+                  className={cn(
+                    "absolute top-1",
+                    handedness === "left" ? "left-1" : "right-1",
+                  )}
                 />
                 {cover ? (
-                  <span className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-full border border-accent/80 bg-black/55 px-2 py-1 text-[11px] text-white backdrop-blur-md">
+                  <span
+                    className={cn(
+                      "absolute top-1 inline-flex items-center gap-1 rounded-full border border-accent/80 bg-black/55 px-2 py-1 text-[11px] text-white backdrop-blur-md",
+                      handedness === "left" ? "right-1" : "left-1",
+                    )}
+                  >
                     <Star aria-hidden size={12} className="text-accent" />
                     Cover
                   </span>
@@ -258,20 +267,28 @@ export function AttachmentField({
       {files.length > 0 ? (
         <ul className="grid gap-1">
           {files.map((path) => (
-            <li key={path} className="flex items-center gap-2">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-ground text-muted">
-                <FileText aria-hidden size={16} />
+            <li
+              key={path}
+              className={cn(
+                "flex items-center gap-2",
+                handedness === "left" && "flex-row-reverse",
+              )}
+            >
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-ground text-muted">
+                  <FileText aria-hidden size={16} />
+                </span>
+                <a
+                  href={fileUrl(spaceId, path)}
+                  download={fileName(path)}
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[13px] text-ink underline decoration-line-strong hover:decoration-ink",
+                    focusRing,
+                  )}
+                >
+                  {fileName(path)}
+                </a>
               </span>
-              <a
-                href={fileUrl(spaceId, path)}
-                download={fileName(path)}
-                className={cn(
-                  "min-w-0 flex-1 truncate text-[13px] text-ink underline decoration-line-strong hover:decoration-ink",
-                  focusRing,
-                )}
-              >
-                {fileName(path)}
-              </a>
               <AttachmentMenu
                 label={fileName(path)}
                 disabled={busy}
@@ -353,7 +370,16 @@ export function AttachmentField({
           <p className="text-[12px] text-muted">
             Remove “{fileName(removing)}” from this record?
           </p>
-          <ThumbRow className="flex-wrap items-center gap-2">
+          <ThumbRow className="flex-wrap items-center gap-2 lg:justify-start">
+            <Button
+              type="button"
+              variant="destructive"
+              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+              disabled={busy}
+              onClick={() => remove(removing)}
+            >
+              Remove
+            </Button>
             <button
               type="button"
               className={cn(
@@ -364,15 +390,6 @@ export function AttachmentField({
             >
               Keep
             </button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
-              disabled={busy}
-              onClick={() => remove(removing)}
-            >
-              Remove
-            </Button>
           </ThumbRow>
         </div>
       ) : null}

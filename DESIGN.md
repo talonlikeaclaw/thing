@@ -562,10 +562,19 @@ Nothing animates layout, table rows, prose or scroll. Under
 
 ## Handedness
 
-Reading order never moves: page headers, prose, table columns, graph nodes and settings
-rows never mirror. Thumb actions do: dialog and sheet closes, action rows, the save row
-and the dock's outer destinations. `ThumbRow` moves the primary action inside its own
-row. The dock's capture circle stays centred in both modes.
+Handedness is the device in the hand, not the desktop. Below `lg`, the next
+thumb action sits on the chosen edge and the most-used action sits nearest it:
+dialog and sheet closes, action rows, the save row, card and attachment menus,
+gallery and board action corners, the calendar's day panel, pagination and the
+dock's outer destinations. `ThumbRow` reverses the DOM so paint, Tab and
+screen-reader order agree, and `useThumbHandedness` holds every one of those
+surfaces to the phone shell. From `lg` the preference is inert: the desktop
+keeps one layout, and `ThumbRow` renders its canonical order.
+
+Reading order never moves: page headers, prose, table columns, graph nodes and
+settings rows never mirror. The dock's capture circle stays centred in both
+modes. A destructive confirmation puts the safe action at the thumb edge and
+the destructive one a slot inward.
 
 ## Accessibility and inclusion
 

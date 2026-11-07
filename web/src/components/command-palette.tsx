@@ -18,7 +18,7 @@ import {
   useTypes,
 } from "@/api/queries";
 import { InlineError } from "@/components/error-state";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import {
   SheetCloseButton,
@@ -299,7 +299,7 @@ export function CommandPalette({
     }
   }
 
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const close = <SheetCloseButton label="Close search" />;
 
   let offset = 0;

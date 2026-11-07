@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { RecurrenceKind, RecurrenceValue } from "@/api/types";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { Button, InlineActions, focusRing, inlineAction } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import {
@@ -39,7 +39,7 @@ export function RecurrenceInput({
   autoFocus = false,
   showHint = true,
 }: RecurrenceInputProps) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const [draft, setDraft] = useState(() => recurrenceDraft(value));
   const [error, setError] = useState<string | null>(null);
   // Labels stay on the left; only the controls move to the thumb edge.

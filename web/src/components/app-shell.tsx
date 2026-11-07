@@ -381,12 +381,12 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                       aria-label="Keyboard shortcuts (?)"
                       aria-keyshortcuts="?"
                       aria-haspopup="dialog"
-                      className="hidden min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[13px] sm:inline-flex sm:min-h-8 sm:min-w-0 sm:px-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-2"
+                      className="hidden min-h-11 min-w-11 shrink-0 items-center justify-center px-2 text-[13px] sm:min-h-8 sm:min-w-0 sm:px-3 lg:inline-flex"
                       onClick={() => setShortcutsOpen(true)}
                     >
                       <Keyboard aria-hidden size={15} />
-                      <span className="hidden sm:inline pointer-coarse:hidden">Shortcuts</span>
-                      <Keycap className="hidden md:inline pointer-coarse:hidden">?</Keycap>
+                      <span className="hidden sm:inline">Shortcuts</span>
+                      <Keycap className="hidden md:inline">?</Keycap>
                     </Button>
                     {/* The state follows every nav action, so Search and Capture
                         keep their positions when the connection drops. */}
@@ -509,7 +509,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
 function ShellFooter() {
   const pageFooter = usePageFooterSlot();
   return (
-    <footer className="mx-auto w-full max-w-[1400px] px-4 py-6 max-lg:pb-28 sm:px-6 lg:px-8">
+    <footer className="mx-auto w-full max-w-[1400px] px-4 py-6 max-lg:pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-t rule pt-4">
         {pageFooter ? <div className="min-w-0">{pageFooter()}</div> : null}
         <div className="ml-auto flex items-baseline gap-3">

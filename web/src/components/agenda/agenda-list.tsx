@@ -4,7 +4,7 @@ import type { AgendaRow } from "@/api/types";
 import { SnoozeMenu } from "@/components/agenda/snooze-menu";
 import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
 import { ClearFilterButton } from "@/components/agenda/type-filter";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { agendaBuckets, AGENDA_HORIZONS, type AgendaHorizon } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
@@ -226,7 +226,7 @@ function AgendaEntry({
   onComplete: (row: AgendaRow) => void;
   onSnooze: (row: AgendaRow, days: number) => void;
 }) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const phrase = duePhrase(row.status, row.days_until_due);
   const leftHanded = handedness === "left";
 
@@ -235,8 +235,8 @@ function AgendaEntry({
       className={cn(
         "grid grid-cols-[minmax(0,1fr)_fit-content(12rem)] items-center gap-x-4 border-b rule last:border-b-0 pointer-coarse:min-h-11",
         leftHanded
-          ? "max-sm:grid-cols-[fit-content(45%)_minmax(0,1fr)]"
-          : "max-sm:grid-cols-[minmax(0,1fr)_fit-content(45%)]",
+          ? "max-lg:grid-cols-[fit-content(45%)_minmax(0,1fr)]"
+          : "max-lg:grid-cols-[minmax(0,1fr)_fit-content(45%)]",
       )}
     >
       {/* The content block is the link; the verb stays its own target beside it. */}
@@ -244,7 +244,7 @@ function AgendaEntry({
         to={`/s/${spaceId}/o/${row.id}`}
         className={cn(
           "col-start-1 row-start-1 group block min-w-0 py-3 text-ink",
-          leftHanded && "max-sm:col-start-2",
+          leftHanded && "max-lg:col-start-2",
         )}
       >
         <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -273,7 +273,7 @@ function AgendaEntry({
         <div
           className={cn(
             "col-start-2 row-start-1 flex min-w-0 items-center",
-            leftHanded && "max-sm:col-start-1",
+            leftHanded && "max-lg:col-start-1",
           )}
         >
           <ThumbRow className="min-w-0 items-center gap-0.5">

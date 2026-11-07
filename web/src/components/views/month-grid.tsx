@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
+import { useThumbHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 import { formatDay } from "@/lib/display";
 import { isCoarsePointer } from "@/lib/media";
@@ -64,6 +65,7 @@ export function MonthGrid<T>({
   className,
   onMonthChange,
 }: MonthGridProps<T>) {
+  const handedness = useThumbHandedness();
   const [dayOpen, setDayOpen] = useState<{
     date: string;
     coarse: boolean;
@@ -176,7 +178,12 @@ export function MonthGrid<T>({
         className,
       )}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div
+        className={cn(
+          "flex flex-wrap items-baseline justify-between gap-2",
+          handedness === "left" && "flex-row-reverse",
+        )}
+      >
         <h2 className="text-heading font-medium">{label}</h2>
         <div className="flex items-center gap-1">
           <button
@@ -329,7 +336,12 @@ export function MonthGrid<T>({
                 }
               }}
             >
-              <div className="flex shrink-0 items-baseline justify-between gap-2">
+              <div
+                className={cn(
+                  "flex shrink-0 items-baseline justify-between gap-2",
+                  handedness === "left" && "flex-row-reverse",
+                )}
+              >
                 <span className="label">{formatDay(dayOpen.date)}</span>
                 <button
                   type="button"

@@ -17,7 +17,7 @@ import { AgendaToolbar } from "@/components/agenda/agenda-toolbar";
 import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
-import { ThumbRow } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { useToast } from "@/components/ui/toast";
 import {
   agendaParams,
@@ -114,6 +114,7 @@ export function AgendaPage() {
   const snooze = useSnoozeObject(spaceId ?? "");
   const toast = useToast();
   const compact = useCompactWidth();
+  const handedness = useThumbHandedness();
 
   function update(patch: Partial<AgendaState>) {
     const next = { ...state, ...patch, types: normalizeAgendaTypes(patch.types ?? state.types) };
@@ -243,7 +244,12 @@ export function AgendaPage() {
   // closes the panel under them.
   const header = (
     <header className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:z-20">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div
+        className={cn(
+          "flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3",
+          compact && handedness === "left" && "flex-row-reverse",
+        )}
+      >
         <h1 className="display text-display">Schedule</h1>
         {viewSwitch}
       </div>

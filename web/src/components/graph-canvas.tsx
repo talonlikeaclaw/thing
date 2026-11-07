@@ -1,7 +1,7 @@
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 
 const MIN_ZOOM = 0.6;
@@ -53,7 +53,7 @@ export function GraphCanvas({
   onNodeDrag,
   children,
 }: GraphCanvasProps) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const leftHanded = handedness === "left";
   const [view, setView] = useState<View>(RESET_VIEW);
   const [dragging, setDragging] = useState(false);

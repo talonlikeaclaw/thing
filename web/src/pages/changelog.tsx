@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { Link } from "react-router";
 
 import { CHANGELOG } from "@/content/changelog";
+import { ThumbRow } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import { useRouteMeta } from "@/lib/route";
@@ -109,11 +110,11 @@ export function ChangelogPage() {
         </div>
       </div>
 
-      <div className="mt-8">
+      <ThumbRow className="mt-8 items-center lg:justify-start">
         <Button variant="ghost" render={<Link to="/" />}>
           All spaces
         </Button>
-      </div>
+      </ThumbRow>
     </div>
   );
 }

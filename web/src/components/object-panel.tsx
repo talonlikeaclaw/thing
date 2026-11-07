@@ -29,7 +29,7 @@ import type {
   PropertyDef,
   TypeDef,
 } from "@/api/types";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { MarkdownEditor } from "@/components/markdown-editor";
@@ -239,7 +239,7 @@ function RecordOverflow({
   duplicating: boolean;
   duplicateDisabled: boolean;
 }) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   return (
     <Popover.Root>
       <Popover.Trigger
@@ -330,6 +330,7 @@ export function ObjectPanel({
   onClearHighlight,
   children,
 }: ObjectPanelProps) {
+  const handedness = useThumbHandedness();
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
   const [draft, setDraft] = useState<Draft>(() => draftOf(object));
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
@@ -1122,14 +1123,24 @@ export function ObjectPanel({
       ) : null}
       <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
       <div className="border-b rule pb-3 xl:col-span-8 xl:col-start-1">
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-x-2 gap-y-1",
+            handedness === "left" && "flex-row-reverse",
+          )}
+        >
           <span className="flex min-w-0 items-center gap-2">
             {/* A type without an icon renders no slot at all: the stand-in box
                 reads as a broken image beside the record's own icon control. */}
             {type?.icon ? <ThingIcon icon={type.icon} size="md" /> : null}
             <span className="label truncate">{type?.name ?? object.type}</span>
           </span>
-          <span className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              "flex min-w-0 items-center gap-3",
+              handedness === "left" && "flex-row-reverse",
+            )}
+          >
           <RecordIdentity
             objectId={object.id}
             rev={baseline.rev}
@@ -1403,7 +1414,12 @@ export function ObjectPanel({
       </fieldset>
 
       <section aria-label="Body" className="mt-10 xl:col-span-8 xl:col-start-1 xl:mt-8">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">
+        <div
+          className={cn(
+            "mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2",
+            handedness === "left" && "flex-row-reverse",
+          )}
+        >
           <div className="min-w-0">
             <h2 className="label flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
@@ -1503,19 +1519,19 @@ export function ObjectPanel({
               </p>
               <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
-                  variant="ghost"
-                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                  onClick={() => setConfirmingTrash(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
                   variant="destructive"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                   disabled={trash.isPending}
                   onClick={moveToTrash}
                 >
                   {trash.isPending ? "Moving…" : "Move to trash"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  onClick={() => setConfirmingTrash(false)}
+                >
+                  Cancel
                 </Button>
               </ThumbRow>
             </div>

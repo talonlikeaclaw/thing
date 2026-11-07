@@ -1,14 +1,13 @@
 import { Check, MoreHorizontal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router";
 
 import type { ObjectSummary } from "@/api/types";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
+import { useWideLayout } from "@/lib/media";
 
 interface CardActionsProps {
-  spaceId: string;
   row: ObjectSummary;
   canEdit: boolean;
   completing: boolean;
@@ -58,7 +57,6 @@ const VIEWPORT_MARGIN = 8;
  * card's own buttons.
  */
 export function CardActions({
-  spaceId,
   row,
   canEdit,
   completing,
@@ -76,7 +74,8 @@ export function CardActions({
   const container = useRef<HTMLDivElement | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const menu = useRef<HTMLDivElement | null>(null);
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
+  const wide = useWideLayout();
 
   /** The trigger's leading edge in left mode, trailing edge in right mode. */
   function anchorLeft(rect: DOMRect): number {
@@ -162,6 +161,34 @@ export function CardActions({
     return null;
   }
 
+  const completeButton = showComplete ? (
+    <button
+      type="button"
+      aria-label={`${verb} ${row.title}`}
+      title={verb}
+      disabled={completing || pending}
+      className={buttonClass(onImage, menuCompleteOnCoarse && "pointer-coarse:hidden")}
+      onClick={onComplete}
+    >
+      <Check aria-hidden size={15} strokeWidth={2.4} />
+    </button>
+  ) : null;
+
+  const menuButton = (
+    <button
+      ref={trigger}
+      type="button"
+      aria-label={`Actions for ${row.title}`}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      title="Actions"
+      className={buttonClass(onImage)}
+      onClick={toggle}
+    >
+      <MoreHorizontal aria-hidden size={16} strokeWidth={2.4} />
+    </button>
+  );
+
   return (
     <div
       ref={container}
@@ -184,30 +211,17 @@ export function CardActions({
         }
       }}
     >
-      {showComplete ? (
-        <button
-          type="button"
-          aria-label={`${verb} ${row.title}`}
-          title={verb}
-          disabled={completing || pending}
-          className={buttonClass(onImage, menuCompleteOnCoarse && "pointer-coarse:hidden")}
-          onClick={onComplete}
-        >
-          <Check aria-hidden size={15} strokeWidth={2.4} />
-        </button>
-      ) : null}
-      <button
-        ref={trigger}
-        type="button"
-        aria-label={`Actions for ${row.title}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title="Actions"
-        className={buttonClass(onImage)}
-        onClick={toggle}
-      >
-        <MoreHorizontal aria-hidden size={16} strokeWidth={2.4} />
-      </button>
+      {wide || handedness === "left" ? (
+        <>
+          {completeButton}
+          {menuButton}
+        </>
+      ) : (
+        <>
+          {menuButton}
+          {completeButton}
+        </>
+      )}
       {open
         ? createPortal(
             <div
@@ -224,14 +238,6 @@ export function CardActions({
                 }
               }}
             >
-              <Link
-                role="menuitem"
-                to={`/s/${spaceId}/o/${row.id}`}
-                className={cardMenuItem}
-                onClick={() => setOpen(false)}
-              >
-                Open
-              </Link>
               {showComplete && menuCompleteOnCoarse ? (
                 <button
                   type="button"

@@ -30,7 +30,7 @@ import type {
   ViewDef,
   WriteResult,
 } from "@/api/types";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
@@ -163,7 +163,7 @@ export function TableView({
   const coarse = useCoarsePointer();
   // The action rail is a control, not data: it lives at the thumb edge, so the
   // title and the properties stay in their schema order beside it.
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const railBefore = handedness === "left";
   const saved = savedWidths(view, flexKeys, compact);
   // On a phone the checkbox column is hidden until the reader asks to select,
@@ -835,7 +835,7 @@ function RowActionsMenu({
   onTrash: () => void;
 }) {
   const canComplete = row.schedule !== undefined && row.schedule.status !== "done";
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const navigate = useNavigate();
   const item =
     "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";

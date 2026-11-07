@@ -314,20 +314,20 @@ function TrashList({
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  variant="ghost"
-                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                  disabled={selectedIds.length === 0 || bulkRestore.isPending}
-                  onClick={() => void restoreSelected()}
-                >
-                  {bulkRestore.isPending ? "Restoring…" : "Restore"}
-                </Button>
-                <Button
                   variant="destructive"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                   disabled={selectedIds.length === 0 || bulkPurge.isPending}
                   onClick={() => setBulkConfirm(true)}
                 >
                   Purge forever
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  disabled={selectedIds.length === 0 || bulkRestore.isPending}
+                  onClick={() => void restoreSelected()}
+                >
+                  {bulkRestore.isPending ? "Restoring…" : "Restore"}
                 </Button>
               </div>
             </ThumbRow>
@@ -363,6 +363,14 @@ function TrashList({
               </div>
               <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
+                  variant="destructive"
+                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                  disabled={!purgeConfirmed || bulkPurge.isPending}
+                  onClick={() => void purgeSelected()}
+                >
+                  {bulkPurge.isPending ? "Purging…" : "Purge forever"}
+                </Button>
+                <Button
                   variant="ghost"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                   disabled={bulkPurge.isPending}
@@ -372,14 +380,6 @@ function TrashList({
                   }}
                 >
                   Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                  disabled={!purgeConfirmed || bulkPurge.isPending}
-                  onClick={() => void purgeSelected()}
-                >
-                  {bulkPurge.isPending ? "Purging…" : "Purge forever"}
                 </Button>
               </ThumbRow>
             </div>
@@ -457,14 +457,6 @@ function TrashList({
 
                     {canEdit && !isConfirming ? (
                       <ThumbRow className="flex-wrap items-center gap-2 md:justify-end">
-                        <Button
-                          variant="ghost"
-                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                          disabled={isPending}
-                          onClick={() => void restoreOne(item)}
-                        >
-                          {isPending ? "Working…" : "Restore"}
-                        </Button>
                         <button
                           type="button"
                           className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"
@@ -476,6 +468,14 @@ function TrashList({
                         >
                           Purge
                         </button>
+                        <Button
+                          variant="ghost"
+                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                          disabled={isPending}
+                          onClick={() => void restoreOne(item)}
+                        >
+                          {isPending ? "Working…" : "Restore"}
+                        </Button>
                       </ThumbRow>
                     ) : canEdit ? (
                       <span aria-hidden />
@@ -507,6 +507,14 @@ function TrashList({
                       </div>
                       <ThumbRow className="flex-wrap items-center gap-2">
                         <Button
+                          variant="destructive"
+                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+                          disabled={!rowPurgeConfirmed || isPending}
+                          onClick={() => void purgeOne(item)}
+                        >
+                          {isPending ? "Purging…" : "Purge forever"}
+                        </Button>
+                        <Button
                           variant="ghost"
                           className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
                           disabled={isPending}
@@ -516,14 +524,6 @@ function TrashList({
                           }}
                         >
                           Cancel
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-                          disabled={!rowPurgeConfirmed || isPending}
-                          onClick={() => void purgeOne(item)}
-                        >
-                          {isPending ? "Purging…" : "Purge forever"}
                         </Button>
                       </ThumbRow>
                     </div>

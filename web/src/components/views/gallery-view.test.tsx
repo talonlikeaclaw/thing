@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ObjectSummary, PropertyDef, TypeDef, ViewDef } from "@/api/types";
@@ -41,6 +41,7 @@ function galleryOf(
   view: ViewDef,
   properties: PropertyDef[],
   values: ObjectSummary["values"] = {},
+  canEdit = false,
 ) {
   return (
     <GalleryView
@@ -49,7 +50,7 @@ function galleryOf(
       view={view}
       rows={[{ ...row, values }]}
       properties={properties}
-      canEdit={false}
+      canEdit={canEdit}
       completing={false}
       pendingRows={new Set()}
       verb="Water"
@@ -92,6 +93,16 @@ describe("GalleryView image covers", () => {
     );
     expect(container.querySelector("img")).toBeNull();
     expect(screen.getByText("Study")).toBeInTheDocument();
+  });
+
+  it("keeps the tile link out of the action menu", async () => {
+    renderWithProviders(galleryOf(gallery, [], {}, true));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Monstera" }));
+
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).queryByRole("menuitem", { name: "Open" })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "Duplicate" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Move to trash" })).toBeInTheDocument();
   });
 
   it("opens the image and returns focus to the tile on Escape", async () => {

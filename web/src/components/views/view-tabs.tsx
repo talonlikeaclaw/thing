@@ -12,7 +12,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useCreateView, useMoveView } from "@/api/queries";
-import { ThumbRow } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import type {
   CreateView,
   PropertyDef,
@@ -81,6 +81,7 @@ export function ViewTabs({
   onSelect,
   onCreated,
 }: ViewTabsProps) {
+  const handedness = useThumbHandedness();
   const create = useCreateView(spaceId, type.key);
   const move = useMoveView(spaceId, type.key);
   const compact = useCompactWidth();
@@ -221,9 +222,8 @@ export function ViewTabs({
 
   return (
     <div className="mt-4">
-      <ThumbRow className="items-center justify-center gap-1.5">
-        <div className="flex min-w-0 max-w-full items-center justify-center gap-1.5">
-        {reorderSlot}
+      <div className="flex min-w-0 max-w-full items-center justify-center gap-1.5">
+        {handedness === "left" ? newViewSlot : reorderSlot}
         <div
           role="tablist"
           aria-label="Saved views"
@@ -322,9 +322,8 @@ export function ViewTabs({
             );
           })}
         </div>
-        {newViewSlot}
-        </div>
-      </ThumbRow>
+        {handedness === "left" ? reorderSlot : newViewSlot}
+      </div>
 
       {open && canEdit ? (
         <form

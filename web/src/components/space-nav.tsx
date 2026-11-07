@@ -25,7 +25,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 
 import { useAgenda, useMe, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
 import { useQuickCapture } from "@/components/quick-capture";
 import { useShortcuts } from "@/components/shortcut-context";
@@ -99,7 +99,7 @@ export function SpaceNav({
   const capture = useQuickCapture();
   const palette = usePalette();
   const shortcuts = useShortcuts();
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const list: SpaceSummary[] = spaces.data ?? [];
   // The rail badge reports the whole space, never a page filter: every overdue
   // row is inside the default window.
@@ -261,16 +261,22 @@ export function SpaceNav({
     </BarAction>
   );
 
+  const captureSlot = capture.available ? (
+    captureAction
+  ) : (
+    <span key="capture-empty" aria-hidden className="size-14" />
+  );
+
   const barActions = (
     <>
       {handedness === "left" ? (
         <>
           {searchAction}
-          {capture.available ? captureAction : null}
+          {captureSlot}
         </>
       ) : (
         <>
-          {capture.available ? captureAction : null}
+          {captureSlot}
           {searchAction}
         </>
       )}
@@ -435,7 +441,12 @@ export function SpaceNav({
               {/* A phone has no `?` key. The sheet's footer is the one place
                   the shortcut list can be reached from the thumb, and it
                   stays put while the list above it scrolls. */}
-              <div className="flex shrink-0 items-center border-t rule pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2">
+              <div
+                className={cn(
+                  "flex shrink-0 items-center border-t rule pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2",
+                  handedness === "left" ? "justify-start" : "justify-end",
+                )}
+              >
                 <button
                   type="button"
                   className="inline-flex min-h-11 items-center gap-2 rounded-field px-1.5 text-[13px] text-muted transition-colors hover:text-ink"
@@ -803,7 +814,7 @@ function UtilityLinks({
   showReorderControl?: boolean;
   folded?: boolean;
 }) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   return (
     <>
       <ul className={cn("flex flex-col", folded && "gap-1")}>

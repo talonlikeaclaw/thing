@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover";
 import { AlarmClock } from "lucide-react";
 import { useState } from "react";
 
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import {
   SheetCloseButton,
   SheetHeader,
@@ -46,7 +46,7 @@ export function SnoozeMenu({
   onSnooze: (days: number) => void;
 }) {
   const compact = useCompactWidth();
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const [open, setOpen] = useState(false);
   const label = `Snooze “${title}”`;
   const trigger = <AlarmClock aria-hidden size={14} />;
@@ -137,6 +137,7 @@ export function SnoozeMenu({
 
 /** The presets and the bounded field, shared by the popover and the sheet. */
 function SnoozeBody({ onSnooze }: { onSnooze: (days: number) => void }) {
+  const handedness = useThumbHandedness();
   const [text, setText] = useState("2");
   const days = parseSnoozeDays(text);
 
@@ -152,7 +153,10 @@ function SnoozeBody({ onSnooze }: { onSnooze: (days: number) => void }) {
         ))}
       </ul>
       <form
-        className="mt-1 flex items-center gap-2 border-t rule pt-2"
+        className={cn(
+          "mt-1 flex items-center gap-2 border-t rule pt-2",
+          handedness === "left" && "flex-row-reverse",
+        )}
         onSubmit={(event) => {
           event.preventDefault();
           if (days !== undefined) {

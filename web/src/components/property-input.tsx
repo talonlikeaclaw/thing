@@ -5,7 +5,7 @@ import { useRelationChoices, useUpdateProperty } from "@/api/queries";
 import { AttachmentField } from "@/components/attachment-field";
 import { FileField } from "@/components/file-field";
 import type { PropertyDef } from "@/api/types";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button, InlineActions, inlineAction } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
@@ -385,7 +385,7 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
 
 function RelationInput({ spaceId, property, value, onCommit, onCancel }: PropertyInputProps) {
   const { choices, loading } = useRelationChoices(spaceId, property, true);
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const initialIds = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : typeof value === "string"

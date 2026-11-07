@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { useCreateProperty, useUpdateType, useUpdateView } from "@/api/queries";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import type { PropertyDef, PropertyFormat, TypeDef, ViewDef } from "@/api/types";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
@@ -124,7 +124,7 @@ export function AddPropertyDialog({
     }
   }
 
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const title = (
     <div>
       <Dialog.Title className="text-[17px] font-medium">Add property</Dialog.Title>

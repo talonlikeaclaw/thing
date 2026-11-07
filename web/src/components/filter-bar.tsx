@@ -11,6 +11,7 @@ import type {
   PropertyFormat,
   TypeDef,
 } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { RecurrenceInput } from "@/components/recurrence-input";
 import { Button } from "@/components/ui/controls";
 import {
@@ -185,15 +186,17 @@ export function FilterBar({ spaceId, type, properties, filter, onChange }: Filte
         </ul>
       )}
 
-      <Button
-        type="button"
-        variant="ghost"
-        className="mt-2 min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
-        onClick={add}
-      >
-        <Plus aria-hidden size={13} />
-        Add condition
-      </Button>
+      <ThumbRow className="mt-2 items-center lg:justify-start">
+        <Button
+          type="button"
+          variant="ghost"
+          className="min-h-7 px-2 text-[12px] pointer-coarse:min-h-11"
+          onClick={add}
+        >
+          <Plus aria-hidden size={13} />
+          Add condition
+        </Button>
+      </ThumbRow>
     </section>
   );
 }

@@ -36,29 +36,26 @@ export function isCoarsePointer(): boolean {
     : false;
 }
 
+// One listener set per question: the subscribe function keeps its identity
+// across renders, so a component re-render does not resubscribe.
+const subscribeWide = subscribeMedia(WIDE_QUERY);
+const readWide = readMedia(WIDE_QUERY);
+const subscribeCompact = subscribeMedia(COMPACT_QUERY);
+const readCompact = readMedia(COMPACT_QUERY);
+const subscribeCoarse = subscribeMedia(COARSE_QUERY);
+const readCoarse = readMedia(COARSE_QUERY);
+
 /** The desktop shell, where the record carries Save in its identity band. */
 export function useWideLayout(): boolean {
-  return useSyncExternalStore(
-    subscribeMedia(WIDE_QUERY),
-    readMedia(WIDE_QUERY),
-    () => false,
-  );
+  return useSyncExternalStore(subscribeWide, readWide, () => false);
 }
 
 /** Width-only compaction, as the type page already uses. */
 export function useCompactWidth(): boolean {
-  return useSyncExternalStore(
-    subscribeMedia(COMPACT_QUERY),
-    readMedia(COMPACT_QUERY),
-    () => false,
-  );
+  return useSyncExternalStore(subscribeCompact, readCompact, () => false);
 }
 
 /** A touch-first device: no fine pointer, e.g. a phone or a tablet. */
 export function useCoarsePointer(): boolean {
-  return useSyncExternalStore(
-    subscribeMedia(COARSE_QUERY),
-    readMedia(COARSE_QUERY),
-    () => false,
-  );
+  return useSyncExternalStore(subscribeCoarse, readCoarse, () => false);
 }

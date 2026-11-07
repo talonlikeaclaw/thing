@@ -12,6 +12,7 @@ import {
 } from "@/api/queries";
 import type { Invite, Member, Role, SpaceDetail } from "@/api/types";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ErrorState } from "@/components/error-state";
 import { Button, FormError, SelectField, fieldFrame } from "@/components/ui/controls";
 import { EmptyState, PageHeader, SectionRule } from "@/components/ui/page";
@@ -120,6 +121,7 @@ function MemberList({
   owner: boolean;
   currentUser: string | undefined;
 }) {
+  const handedness = useThumbHandedness();
   const setMember = useSetMember(spaceId);
   const removeMember = useRemoveMember(spaceId);
   const navigate = useNavigate();
@@ -187,7 +189,12 @@ function MemberList({
                     </span>
                   </span>
                 </span>
-                <span className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "flex items-center gap-2",
+                    handedness === "left" && "order-first",
+                  )}
+                >
                   {saving ? <span className="label">saving</span> : null}
                   {owner ? (
                     <select
@@ -253,7 +260,7 @@ function MemberList({
                       ? "Remove yourself? You will lose access to this space and its files."
                       : `Remove ${member.name}? They will lose access to this space.`}
                   </p>
-                  <div className="flex items-center gap-2">
+                  <ThumbRow className="flex-wrap items-center gap-2 lg:justify-start">
                     <Button
                       variant="destructive"
                       className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -270,7 +277,7 @@ function MemberList({
                     >
                       Cancel
                     </Button>
-                  </div>
+                  </ThumbRow>
                 </div>
               ) : null}
 

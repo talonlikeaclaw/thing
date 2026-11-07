@@ -2,7 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import { useEffect, useRef, type ComponentProps, type RefObject } from "react";
 
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 import { lockDocumentScroll } from "@/lib/scroll-lock";
 import { applyViewportMetrics, subscribeVisualViewport } from "@/lib/viewport";
@@ -113,7 +113,7 @@ export function SheetCloseButton({
   className,
   ...props
 }: Omit<ComponentProps<typeof Dialog.Close>, "children"> & { label: string }) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   return (
     <Dialog.Close
       aria-label={label}

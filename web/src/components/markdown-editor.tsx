@@ -23,7 +23,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { useCreateObject, useSearch, useTypes } from "@/api/queries";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { caretContent, caretRect, scrollTopForCaret } from "@/lib/caret";
 import { cn } from "@/lib/cn";
@@ -167,7 +167,7 @@ export function MarkdownEditor({
 
   const coarse = useCoarsePointer();
   const compact = useCompactWidth();
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const immersed = coarse && mode === "write";
   const pageScroll = useRef(0);
   const wasImmersed = useRef(false);
@@ -760,7 +760,14 @@ export function MarkdownEditor({
       )}
     >
       {immersed ? (
-        <ThumbRow className="glass mb-2 items-center gap-1.5 rounded-full py-1 pr-[max(0.5rem,env(safe-area-inset-right))] pl-3">
+        <ThumbRow
+          className={cn(
+            "glass mb-2 items-center gap-1.5 rounded-full py-1 pl-3",
+            handedness === "left"
+              ? "pr-3 pl-[max(0.5rem,env(safe-area-inset-left))]"
+              : "pr-[max(0.5rem,env(safe-area-inset-right))]",
+          )}
+        >
           <span className="label mr-auto">Writing</span>
           <button
             type="button"
@@ -795,27 +802,23 @@ export function MarkdownEditor({
       >
         <div
           className={cn(
-            "flex flex-wrap items-center gap-0 sm:gap-1",
-            compact
-              ? mode === "write"
-                ? "justify-around"
-                : handedness === "left"
-                  ? "justify-start"
-                  : "justify-end"
-              : mode === "write"
-                ? "justify-between"
-                : handedness === "left"
-                  ? "justify-start"
-                  : "justify-end",
+            "flex flex-wrap items-center gap-1",
+            mode === "write"
+              ? handedness === "left"
+                ? "flex-row-reverse"
+                : "flex-row"
+              : handedness === "left"
+                ? "justify-start"
+                : "justify-end",
           )}
         >
           {mode === "write" ? (
             <div
               role="toolbar"
               aria-label="Body editor"
-              className="flex min-w-0 flex-col items-center gap-0.5 sm:flex-1 sm:flex-row sm:items-center sm:gap-1"
+              className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-0 sm:flex-nowrap sm:gap-1"
             >
-              <div className="flex items-center justify-center gap-0 sm:contents">
+              <div className="contents">
                 <HeadingMenu
                   disabled={disabled}
                   onPick={(level) =>
@@ -837,7 +840,7 @@ export function MarkdownEditor({
                   </button>
                 ))}
               </div>
-              <div className="flex items-center justify-center gap-0 sm:contents">
+              <div className="contents">
                 {tools.slice(4).map((tool) => (
                   <button
                     key={tool.label}
@@ -866,7 +869,13 @@ export function MarkdownEditor({
               </div>
             </div>
           ) : null}
-          <div className="flex shrink-0 items-center justify-center">
+          <div
+            className={cn(
+              "flex shrink-0 items-center",
+              mode === "preview" &&
+                (handedness === "left" ? "justify-start" : "justify-end"),
+            )}
+          >
             <BodyModeSwitch
               mode={mode}
               onChange={changeMode}
@@ -1036,7 +1045,7 @@ function HeadingMenu({
   onPick: (level: 1 | 2 | 3) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger

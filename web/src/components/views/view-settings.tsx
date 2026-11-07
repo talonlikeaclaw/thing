@@ -7,6 +7,7 @@ import {
   useUpdateView,
 } from "@/api/queries";
 import type { PropertyDef, TypeDef, ViewDef } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { readError } from "@/lib/display";
 import { viewKindLabel } from "@/components/views/view-tabs";
@@ -240,25 +241,27 @@ export function ViewSettings({
             A type needs at least one view. Create another before deleting this one.
           </p>
         ) : confirming ? (
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="grid gap-2">
             <p className="text-[13px] text-ink">Delete “{view.name}”? This cannot be undone.</p>
-            <Button
-              type="button"
-              variant="destructive"
-              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={remove.isPending}
-              onClick={destroy}
-            >
-              {remove.isPending ? "Deleting…" : "Delete view"}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-              onClick={() => setConfirming(false)}
-            >
-              Keep view
-            </Button>
+            <ThumbRow className="flex-wrap items-center gap-3 lg:justify-start">
+              <Button
+                type="button"
+                variant="destructive"
+                className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+                disabled={remove.isPending}
+                onClick={destroy}
+              >
+                {remove.isPending ? "Deleting…" : "Delete view"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+                onClick={() => setConfirming(false)}
+              >
+                Keep view
+              </Button>
+            </ThumbRow>
           </div>
         ) : (
           <Button

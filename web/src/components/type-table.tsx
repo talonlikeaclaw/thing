@@ -51,7 +51,7 @@ import type {
 } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { AddPropertyDialog } from "@/components/add-property";
-import { useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterBar } from "@/components/filter-bar";
 import { SortBar } from "@/components/sort-bar";
@@ -184,7 +184,7 @@ export function TypeTable({
   const [viewPanel, setViewPanel] = useState<"menu" | "settings" | "save" | "data">(
     "menu",
   );
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
 
   const tableShortcuts = useMemo(
     () => (isTable ? (canEdit ? TABLE_SHORTCUTS : TABLE_VIEWER_SHORTCUTS) : NO_SHORTCUTS),
@@ -538,27 +538,44 @@ export function TypeTable({
           onChange={(event) => setSaveAsName(event.target.value)}
         />
       </div>
-      <Button
-        type="submit"
-        className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-        disabled={!saveAsName.trim() || createView.isPending}
-      >
-        {createView.isPending ? "Creating…" : "Create view"}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-        onClick={() => {
-          if (compact) {
-            closeViewSheet();
-          } else {
-            setSaveAsOpen(false);
-          }
-        }}
-      >
-        Cancel
-      </Button>
+      {compact ? null : (
+        <>
+          <Button
+            type="submit"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            disabled={!saveAsName.trim() || createView.isPending}
+          >
+            {createView.isPending ? "Creating…" : "Create view"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            onClick={() => setSaveAsOpen(false)}
+          >
+            Cancel
+          </Button>
+        </>
+      )}
+      {compact ? (
+        <ThumbRow className="flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            onClick={closeViewSheet}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+            disabled={!saveAsName.trim() || createView.isPending}
+          >
+            {createView.isPending ? "Creating…" : "Create view"}
+          </Button>
+        </ThumbRow>
+      ) : null}
       <div className="min-w-[12rem] flex-1">
         <FormError message={createView.error ? readError(createView.error) : null} />
       </div>
@@ -847,10 +864,15 @@ export function TypeTable({
       <span className="max-sm:sr-only">Edit type</span>
     </Link>
   ) : null;
-  // The header is reading order, not a thumb row: the title leads and the
-  // action pair stays at the trailing edge in both handedness modes. The
-  // primary sits last, so paint, Tab and screen-reader order agree.
-  const recordActions = (
+  // The title leads. On a phone the action pair takes its own full-width line,
+  // so the primary New action reaches the thumb edge; on desktop it stays the
+  // header's trailing cluster.
+  const recordActions = compact ? (
+    <ThumbRow className="w-full items-center gap-3">
+      {editTypeLink}
+      {newRecordButton}
+    </ThumbRow>
+  ) : (
     <div className="flex shrink-0 items-center gap-3">
       {editTypeLink}
       {newRecordButton}
@@ -1071,12 +1093,22 @@ export function TypeTable({
 
   const compactStatus =
     compact && (dirty || hasOverrides) ? (
-      <div className="flex min-w-0 items-center justify-between gap-2">
+      <div
+        className={cn(
+          "flex min-w-0 items-center justify-between gap-2",
+          handedness === "left" && "flex-row-reverse",
+        )}
+      >
         <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
           {dirty ? "View changed" : "Search applied"}
         </span>
-        <span className="flex shrink-0 items-center gap-1">
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1",
+            handedness === "left" && "flex-row-reverse",
+          )}
+        >
           {hasOverrides ? (
             <Button
               type="button"
@@ -1114,7 +1146,12 @@ export function TypeTable({
       */}
       <header>
         <div className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4">
-          <div className="flex flex-nowrap items-start justify-between gap-x-4">
+          <div
+            className={cn(
+              "flex items-start justify-between gap-x-4",
+              compact ? "flex-wrap gap-y-2" : "flex-nowrap",
+            )}
+          >
             {pageTitle}
             {recordActions}
           </div>
@@ -1286,8 +1323,17 @@ export function TypeTable({
             <SheetViewport placement="center">
               <SheetPopup className="max-w-[36rem]">
                 <SheetHeader>
-                  <SheetTitle>View settings</SheetTitle>
-                  <SheetCloseButton label="Close view settings" />
+                  {handedness === "left" ? (
+                    <>
+                      <SheetCloseButton label="Close view settings" />
+                      <SheetTitle>View settings</SheetTitle>
+                    </>
+                  ) : (
+                    <>
+                      <SheetTitle>View settings</SheetTitle>
+                      <SheetCloseButton label="Close view settings" />
+                    </>
+                  )}
                 </SheetHeader>
                 <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
                   <ViewSettings
@@ -1313,8 +1359,17 @@ export function TypeTable({
             <SheetViewport placement="center">
               <SheetPopup className="max-w-[44rem]">
                 <SheetHeader>
-                  <SheetTitle>Data — CSV</SheetTitle>
-                  <SheetCloseButton label="Close data panel" />
+                  {handedness === "left" ? (
+                    <>
+                      <SheetCloseButton label="Close data panel" />
+                      <SheetTitle>Data — CSV</SheetTitle>
+                    </>
+                  ) : (
+                    <>
+                      <SheetTitle>Data — CSV</SheetTitle>
+                      <SheetCloseButton label="Close data panel" />
+                    </>
+                  )}
                 </SheetHeader>
                 <div className="min-h-0 overflow-y-auto overscroll-contain p-4">
                   <DataPanel
@@ -1395,7 +1450,7 @@ export function TypeTable({
                 : "This type has no records yet."}
             </p>
             {hasFilter || q ? (
-              <div className="flex flex-wrap items-center gap-2">
+              <ThumbRow className="flex-wrap items-center gap-2">
                 {hasFilter ? (
                   <Button
                     type="button"
@@ -1416,16 +1471,9 @@ export function TypeTable({
                     Clear search
                   </Button>
                 ) : null}
-              </div>
+              </ThumbRow>
             ) : canEdit ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
-                  onClick={() => capture.open(type.key)}
-                >
-                  New {type.name.toLowerCase()}
-                </Button>
+              <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1444,7 +1492,14 @@ export function TypeTable({
                     Open view settings
                   </Button>
                 ) : null}
-              </div>
+                <Button
+                  type="button"
+                  className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                  onClick={() => capture.open(type.key)}
+                >
+                  New {type.name.toLowerCase()}
+                </Button>
+              </ThumbRow>
             ) : null}
           </div>
         ) : view.kind === "board" ? (
@@ -1555,11 +1610,21 @@ export function TypeTable({
         )}
 
         {objects.data && isTable && (total > PAGE_SIZE || page > 1) ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3">
+          <div
+            className={cn(
+              "mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3",
+              handedness === "left" && "flex-row-reverse",
+            )}
+          >
             <span className="font-mono text-[11px] tnum text-muted">
               {range.first === 0 ? "0" : `${range.first}–${range.last}`} of {total}
             </span>
-            <div className="flex items-center gap-1">
+            <div
+              className={cn(
+                "flex items-center gap-1",
+                handedness === "left" && "flex-row-reverse",
+              )}
+            >
               <Button
                 type="button"
                 variant="ghost"
@@ -1623,6 +1688,7 @@ function SearchBox({
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
 }) {
+  const handedness = useThumbHandedness();
   const [text, setText] = useState(value);
   const committed = useRef(value);
   const submitRef = useRef(onSubmit);
@@ -1683,6 +1749,7 @@ function SearchBox({
       className={cn(
         "flex min-w-0 items-center gap-1.5",
         compact ? "flex-1" : "min-w-[12rem] flex-1",
+        compact && handedness === "left" && "flex-row-reverse",
       )}
     >
     <form

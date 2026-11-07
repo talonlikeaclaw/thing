@@ -35,6 +35,9 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Removing a file asks first, so a stray tap never drops it.",
       "A table cell shows how many files a set holds and saves the whole set with Done.",
       "The overlay wraps at either end and counts the picture you are on.",
+      "On a phone, every action row, sheet close and card menu follows the hand you set; desktop keeps one layout.",
+      "A gallery tile's menu offers Duplicate and Move to trash, not a second Open.",
+      "Keyboard shortcuts no longer take a slot in the phone header; the space sheet holds them.",
     ],
   },
   {

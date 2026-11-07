@@ -85,7 +85,6 @@ export function CalendarView({
   function actions(row: ObjectSummary) {
     return (
       <CardActions
-        spaceId={spaceId}
         row={row}
         canEdit={canEdit}
         completing={completing}

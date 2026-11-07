@@ -1,7 +1,7 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { useRef } from "react";
 
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import {
   SheetCloseButton,
   SheetHeader,
@@ -21,7 +21,7 @@ interface ShortcutSheetProps {
 
 /** The `?` overlay: one keyed list of every active shortcut. */
 export function ShortcutSheet({ open, onOpenChange, shortcuts }: ShortcutSheetProps) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   // The sheet itself is the first stop: the reference should be readable before
   // the reader is offered a way out of it.
   const panelRef = useRef<HTMLDivElement>(null);

@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, type RefObject } from "react";
 
+import { useThumbHandedness } from "@/components/handedness";
 import { IconButton } from "@/components/ui/controls";
 import {
   SheetCloseButton,
@@ -9,6 +10,7 @@ import {
   SheetTitle,
   SheetViewport,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/cn";
 import { fileName, fileUrl } from "@/lib/files";
 
 /** One stored image the lightbox can show. */
@@ -45,6 +47,7 @@ export function ImageLightbox({
   returnFocus,
   onClose,
 }: ImageLightboxProps) {
+  const handedness = useThumbHandedness();
   const count = images.length;
   const current = images[index] ?? images[0];
   const caption = current ? (current.title ?? fileName(current.path)) : "";
@@ -73,6 +76,36 @@ export function ImageLightbox({
     return null;
   }
 
+  const counter = multiple ? (
+    <span
+      aria-live="polite"
+      className="min-w-[3.5rem] text-center font-mono text-[11px] tabular-nums text-white/60"
+    >
+      {index + 1} / {count}
+    </span>
+  ) : null;
+  const closeButton = (
+    <SheetCloseButton
+      label="Close image"
+      className="text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-white"
+    />
+  );
+  const controls = (
+    <div className="flex shrink-0 items-center gap-2">
+      {handedness === "left" ? (
+        <>
+          {closeButton}
+          {counter}
+        </>
+      ) : (
+        <>
+          {counter}
+          {closeButton}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <Dialog.Root
       open
@@ -90,24 +123,17 @@ export function ImageLightbox({
             finalFocus={returnFocus}
             className="w-[min(94vw,72rem)] p-2"
           >
-            <div className="flex items-center justify-between gap-3 px-1 pb-2">
+            <div
+              className={cn(
+                "flex items-center gap-3 px-1 pb-2",
+                handedness === "left" ? "justify-start" : "justify-between",
+              )}
+            >
+              {handedness === "left" ? controls : null}
               <SheetTitle className="min-w-0 truncate text-[length:var(--text-small)] font-medium text-white">
                 {caption}
               </SheetTitle>
-              <div className="flex shrink-0 items-center gap-2">
-                {multiple ? (
-                  <span
-                    aria-live="polite"
-                    className="min-w-[3.5rem] text-center font-mono text-[11px] tabular-nums text-white/60"
-                  >
-                    {index + 1} / {count}
-                  </span>
-                ) : null}
-                <SheetCloseButton
-                  label="Close image"
-                  className="text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-white"
-                />
-              </div>
+              {handedness === "left" ? null : controls}
             </div>
             <div className="relative flex h-[calc(var(--vv-height,100vh)-8rem)] items-center justify-center overflow-hidden rounded-[12px]">
               <img

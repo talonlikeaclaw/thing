@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import type { TypeSummary } from "@/api/types";
 import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import {
   SheetCloseButton,
@@ -35,7 +35,7 @@ export function TypeFilter({
   onChange: (types: string[]) => void;
 }) {
   const compact = useCompactWidth();
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const [open, setOpen] = useState(false);
   const count = selected.length;
   const label = count > 0 ? `Filter, ${count} type${count === 1 ? "" : "s"}` : "Filter";

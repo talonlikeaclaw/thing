@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { ColumnChoice } from "@/lib/filter";
 import { addSort, moveSort, removeSort, withSortDirection, withSortEmpty } from "@/lib/filter";
 import type { Sort } from "@/api/types";
+import { useThumbHandedness } from "@/components/handedness";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/controls";
 
 interface SortBarProps {
@@ -14,6 +16,7 @@ interface SortBarProps {
 
 /** The type view's order, edited in place; the first row wins the tie. */
 export function SortBar({ columns, sorts, onChange }: SortBarProps) {
+  const handedness = useThumbHandedness();
   const unused = columns.filter((column) => !sorts.some((sort) => sort.property === column.key));
   const [pending, setPending] = useState(unused[0]?.key ?? "");
   const addKey = unused.some((column) => column.key === pending)
@@ -146,7 +149,12 @@ export function SortBar({ columns, sorts, onChange }: SortBarProps) {
       )}
 
       {unused.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div
+          className={cn(
+            "mt-2 flex flex-wrap items-center gap-2",
+            handedness === "left" && "flex-row-reverse",
+          )}
+        >
           <select
             aria-label="Add a sort column"
             className="h-8 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-1.5 text-[12px] text-ink pointer-coarse:h-11 pointer-coarse:text-[16px]"

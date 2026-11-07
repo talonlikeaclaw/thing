@@ -30,7 +30,7 @@ export function PageHeader({ title, sentence, meta, actions, className }: PageHe
             </p>
           ) : null}
           {actions ? (
-            <ThumbRow className="shrink-0 flex-wrap items-center gap-[var(--space-2)]">
+            <ThumbRow className="max-lg:w-full shrink-0 flex-wrap items-center gap-[var(--space-2)]">
               {actions}
             </ThumbRow>
           ) : null}

@@ -4,6 +4,7 @@ import { Check, ChevronDown, FileText, Image as ImageIcon, TriangleAlert } from 
 import { useEffect, useRef, useState } from "react";
 
 import type { PropertyDef, ScheduleState, ValueJson, WriteResult } from "@/api/types";
+import { useThumbHandedness } from "@/components/handedness";
 import { PropertyInput, TitleInput } from "@/components/property-input";
 import { ThingIcon } from "@/components/thing-icon";
 import {
@@ -55,6 +56,7 @@ export function PropertyCell({
   const [attempt, setAttempt] = useState<CellCommit | null>(null);
   const [edition, setEdition] = useState(0);
   const compact = useCompactWidth();
+  const handedness = useThumbHandedness();
   const button = useRef<HTMLButtonElement | null>(null);
   /** The chip the floating editor is anchored to while it is open. */
   const anchor = useRef<HTMLSpanElement | null>(null);
@@ -159,11 +161,23 @@ export function PropertyCell({
               <SheetViewport>
                 <SheetPopup>
                   <SheetHeader>
-                    <div className="min-w-0">
-                      <SheetTitle className="truncate">{property.name}</SheetTitle>
-                      <p className="mt-0.5 truncate text-[12px] text-muted">{rowTitle}</p>
-                    </div>
-                    <SheetCloseButton label={`Close ${property.name} editor`} />
+                    {handedness === "left" ? (
+                      <>
+                        <SheetCloseButton label={`Close ${property.name} editor`} />
+                        <div className="min-w-0">
+                          <SheetTitle className="truncate">{property.name}</SheetTitle>
+                          <p className="mt-0.5 truncate text-[12px] text-muted">{rowTitle}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="min-w-0">
+                          <SheetTitle className="truncate">{property.name}</SheetTitle>
+                          <p className="mt-0.5 truncate text-[12px] text-muted">{rowTitle}</p>
+                        </div>
+                        <SheetCloseButton label={`Close ${property.name} editor`} />
+                      </>
+                    )}
                   </SheetHeader>
                   <div className="grid min-h-0 flex-1 gap-2 overflow-y-auto overscroll-contain px-4 py-4">
                     {editor}

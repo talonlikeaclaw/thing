@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover";
 import { Smile, SmilePlus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { EMOJI_GROUPS, searchEmoji, type EmojiEntry } from "@/lib/emoji";
@@ -71,7 +71,7 @@ export function IconPicker({
   const compact = useCompactWidth();
   const coarse = useCoarsePointer();
   const sheet = compact || coarse;
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
@@ -353,7 +353,12 @@ function EmojiPanel({
 
   const footer = (
     <>
-      <div className="flex items-center gap-2">
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          handedness === "left" && "flex-row-reverse",
+        )}
+      >
         <input
           value={custom}
           onChange={(event) => setCustom(event.target.value)}

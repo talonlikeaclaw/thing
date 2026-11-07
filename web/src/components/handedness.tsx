@@ -2,6 +2,7 @@ import { Children, createContext, use, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { DEFAULT_HANDEDNESS, type Handedness } from "@/lib/handedness";
+import { useWideLayout } from "@/lib/media";
 
 interface HandednessApi {
   handedness: Handedness;
@@ -33,11 +34,23 @@ export function useHandedness(): HandednessApi {
 }
 
 /**
+ * The hand a thumb control answers to. Handedness is a device-in-hand
+ * preference: from `lg` the desktop keeps its one reading layout, so every
+ * thumb-zone surface and `ThumbRow` asks this instead of the raw choice.
+ */
+export function useThumbHandedness(): Handedness {
+  const { handedness } = useHandedness();
+  const wide = useWideLayout();
+  return wide ? DEFAULT_HANDEDNESS : handedness;
+}
+
+/**
  * A shared action row whose primary child sits at the thumb edge. Call sites
  * keep the canonical right-handed order (secondary and status first, primary
- * last); in left mode the children are reversed in the DOM so paint, Tab and
- * screen-reader order agree. `Children.toArray` keeps each child's key, so
- * React moves rather than remounts it.
+ * last); on a phone in left mode the children are reversed in the DOM so paint,
+ * Tab and screen-reader order agree, while the desktop keeps the canonical
+ * order. `Children.toArray` keeps each child's key, so React moves rather than
+ * remounts it.
  */
 export function ThumbRow({
   children,
@@ -46,7 +59,7 @@ export function ThumbRow({
   children: ReactNode;
   className?: string;
 }) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const items = Children.toArray(children);
   return (
     <div

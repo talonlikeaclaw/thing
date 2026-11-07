@@ -8,7 +8,7 @@ import {
   type BulkResult,
 } from "@/api/queries";
 import type { ObjectSummary, PropertyDef, Uuid } from "@/api/types";
-import { ThumbRow } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { PropertyInput } from "@/components/property-input";
 import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -58,6 +58,7 @@ export function BulkBar({
   onUndoTrash,
   onUndoDuplicate,
 }: BulkBarProps) {
+  const handedness = useThumbHandedness();
   const toast = useToast();
   const update = useBulkUpdateObjects(spaceId);
   const duplicate = useBulkDuplicateObjects(spaceId);
@@ -307,7 +308,12 @@ export function BulkBar({
           aria-labelledby="bulk-property-title"
           className="mt-2 border-t rule pt-2"
         >
-          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div
+            className={cn(
+              "flex flex-wrap items-start justify-between gap-x-4 gap-y-2",
+              handedness === "left" && "flex-row-reverse",
+            )}
+          >
             <div className="min-w-[16rem] flex-1">
               <p id="bulk-property-title" className="text-[12px] font-medium text-ink">
                 Set a property on {count} {plural(count)}
@@ -317,16 +323,14 @@ export function BulkBar({
                 alone.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <ThumbRow className="flex-wrap items-center gap-2">
               <Button
-                ref={applyRef}
                 type="button"
+                variant="ghost"
                 className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-                disabled={busy}
-                aria-describedby="bulk-property-status"
-                onClick={applyDraft}
+                onClick={closePanel}
               >
-                {update.isPending ? "Applying…" : `Apply to ${count} ${plural(count)}`}
+                Close
               </Button>
               <Button
                 type="button"
@@ -343,14 +347,16 @@ export function BulkBar({
                 Remove value
               </Button>
               <Button
+                ref={applyRef}
                 type="button"
-                variant="ghost"
                 className="min-h-8 px-3 text-[12px] pointer-coarse:min-h-11"
-                onClick={closePanel}
+                disabled={busy}
+                aria-describedby="bulk-property-status"
+                onClick={applyDraft}
               >
-                Close
+                {update.isPending ? "Applying…" : `Apply to ${count} ${plural(count)}`}
               </Button>
-            </div>
+            </ThumbRow>
           </div>
           <div className="mt-2 flex flex-wrap items-start gap-2">
             <label className="grid gap-1">

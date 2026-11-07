@@ -3,7 +3,7 @@ import { useRef, useState, type DragEvent } from "react";
 
 import { useUploadFile } from "@/api/queries";
 import { AttachmentMenu } from "@/components/attachment-menu";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
@@ -56,7 +56,7 @@ export function FileField({
   const [preview, setPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const left = handedness === "left";
   const path = typeof value === "string" && value.trim() !== "" ? value.trim() : null;
   const image = format === "image";
@@ -143,6 +143,12 @@ export function FileField({
 
       {path ? (
         <div className="flex flex-wrap items-center gap-2">
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-2",
+              left && "order-2",
+            )}
+          >
           {image ? (
             <button
               type="button"
@@ -196,12 +202,13 @@ export function FileField({
             )}
             <span className="text-[11px] text-faint">{image ? "Image" : "File"}</span>
           </div>
+          </div>
           {/* The destructive action sits furthest from the thumb edge, so a
               reach never lands on it by mistake: reversed DOM order in left mode. */}
           <div
             className={cn(
               "flex shrink-0 items-center gap-1",
-              left ? "mr-auto flex-row-reverse" : "ml-auto",
+              left && "order-1 flex-row-reverse",
             )}
           >
             <AttachmentMenu
@@ -255,17 +262,7 @@ export function FileField({
           <p className="text-[12px] text-muted">
             Remove {path ? `“${fileName(path)}”` : `this ${noun}`} from this record?
           </p>
-          <ThumbRow className="flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={cn(
-                "text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11",
-                focusRing,
-              )}
-              onClick={() => setConfirming(false)}
-            >
-              Keep
-            </button>
+          <ThumbRow className="flex-wrap items-center gap-2 lg:justify-start">
             <Button
               type="button"
               variant="destructive"
@@ -280,6 +277,16 @@ export function FileField({
             >
               Remove
             </Button>
+            <button
+              type="button"
+              className={cn(
+                "text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11",
+                focusRing,
+              )}
+              onClick={() => setConfirming(false)}
+            >
+              Keep
+            </button>
           </ThumbRow>
         </div>
       ) : null}
@@ -312,8 +319,9 @@ export function FileField({
         <button
           type="button"
           className={cn(
-            "justify-self-start text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11",
+            "text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11",
             focusRing,
+            left ? "justify-self-start" : "justify-self-end",
           )}
           onClick={onCancel}
         >

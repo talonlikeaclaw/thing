@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { fetchObjectDetail, queryKeys, useTypes } from "@/api/queries";
 import type { MentionBacklink, ObjectDetail } from "@/api/types";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError } from "@/components/ui/controls";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
@@ -46,7 +46,7 @@ export function RenameLinksDialog({
   onRenameOnly,
   onCancel,
 }: RenameLinksDialogProps) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const queryClient = useQueryClient();
   const [sources, setSources] = useState<MentionSource[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

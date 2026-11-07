@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router";
 import { useSpace, useSpaceActivity, useSpaceGraph, useTypes } from "@/api/queries";
 import type { ActivityEntry, TypeSummary } from "@/api/types";
 import { InlineError } from "@/components/error-state";
-import { ThumbRow, useHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { usePageFooter } from "@/components/page-footer";
 import { useQuickCapture } from "@/components/quick-capture";
 import { SpaceGraph } from "@/components/space-graph";
@@ -58,7 +58,6 @@ export function SpacePage() {
     return <p className="text-[13px] text-muted">Reading the space…</p>;
   }
   const canEdit = detail.role !== "viewer";
-  const { handedness } = useHandedness();
   const typeList = types.data ?? [];
   const written = activity.data?.entries ?? [];
   const shown = written.slice(0, MARGIN_ACTIVITY);
@@ -75,10 +74,7 @@ export function SpacePage() {
     <div className="settle">
       <header className="px-1 pb-7">
         <div
-          className={cn(
-            "flex flex-wrap items-start justify-between gap-x-8 gap-y-5",
-            handedness === "left" && "flex-row-reverse",
-          )}
+          className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5"
         >
           <div className="flex min-w-0 items-center gap-4">
             <span className="glass grid size-18 shrink-0 place-items-center rounded-[22px]">
@@ -91,7 +87,7 @@ export function SpacePage() {
               </p>
             </div>
           </div>
-          <ThumbRow className="flex flex-wrap items-center gap-2">
+          <ThumbRow className="max-lg:w-full flex flex-wrap items-center gap-2">
             <Button variant="ghost" render={<Link to={`/s/${detail.id}/agenda`} />}>
               Open schedule
             </Button>

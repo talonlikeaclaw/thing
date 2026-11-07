@@ -4,7 +4,9 @@ import type { ObjectSummary, PropertyDef, ViewDef } from "@/api/types";
 import { PropertyValue } from "@/components/property-cell";
 import { Button } from "@/components/ui/controls";
 import { ThingIcon } from "@/components/thing-icon";
+import { useThumbHandedness } from "@/components/handedness";
 import { CardActions } from "@/components/views/card-actions";
+import { cn } from "@/lib/cn";
 import { groupRows } from "@/lib/views";
 
 interface BoardViewProps {
@@ -68,6 +70,7 @@ export function BoardView({
     );
   }
 
+  const handedness = useThumbHandedness();
   const lanes = groupRows(rows, group);
 
   return (
@@ -89,9 +92,13 @@ export function BoardView({
               <ul className="mt-2 grid gap-1.5">
                 {lane.rows.map((row) => (
                   <li key={row.id} className="relative">
-                    <div className="absolute top-1 right-1 z-10">
+                    <div
+                      className={cn(
+                        "absolute top-1 z-10",
+                        handedness === "left" ? "left-1" : "right-1",
+                      )}
+                    >
                       <CardActions
-                        spaceId={spaceId}
                         row={row}
                         canEdit={canEdit}
                         completing={completing}
@@ -106,7 +113,12 @@ export function BoardView({
                     </div>
                     <Link
                       to={`/s/${spaceId}/o/${row.id}`}
-                      className="block rounded-[16px] border border-line bg-surface px-2.5 py-2 pr-[4.75rem] transition-colors hover:border-line-strong pointer-coarse:pr-2.5"
+                      className={cn(
+                        "block rounded-[16px] border border-line bg-surface px-2.5 py-2 transition-colors hover:border-line-strong",
+                        handedness === "left"
+                          ? "pl-[4.75rem] pointer-coarse:pl-12"
+                          : "pr-[4.75rem] pointer-coarse:pr-12",
+                      )}
                     >
                       <span className="flex items-start gap-1.5">
                         {row.icon ? (

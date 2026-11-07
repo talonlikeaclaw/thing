@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { useSpaceGraph } from "@/api/queries";
 import { InlineError } from "@/components/error-state";
-import { useHandedness } from "@/components/handedness";
+import { useThumbHandedness } from "@/components/handedness";
 import type { Backlink, ObjectLink, OutgoingLink } from "@/api/types";
 import { LocalGraph } from "@/components/local-graph";
 import { SpaceGraph } from "@/components/space-graph";
@@ -35,7 +35,7 @@ export function GraphSection({
   backlinks,
   typeNames,
 }: GraphSectionProps) {
-  const { handedness } = useHandedness();
+  const handedness = useThumbHandedness();
   const leftHanded = handedness === "left";
   const [scope, setScope] = useState<Scope>("local");
   const spaceGraph = useSpaceGraph(spaceId, scope === "space");
