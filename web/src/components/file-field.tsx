@@ -269,8 +269,9 @@ export function FileField({
       {preview && path ? (
         <ImageLightbox
           spaceId={spaceId}
-          path={path}
-          title={fileName(path)}
+          images={[{ path, title: fileName(path) }]}
+          index={0}
+          onIndexChange={() => {}}
           returnFocus={opener}
           onClose={() => setPreview(false)}
         />

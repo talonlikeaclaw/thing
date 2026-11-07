@@ -1596,8 +1596,9 @@ export function ObjectPanel({
       {coverPreview && draft.cover !== "" ? (
         <ImageLightbox
           spaceId={spaceId}
-          path={draft.cover}
-          title={object.title}
+          images={[{ path: draft.cover, title: object.title }]}
+          index={0}
+          onIndexChange={() => {}}
           returnFocus={coverOpener}
           onClose={() => setCoverPreview(false)}
         />

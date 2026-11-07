@@ -17,6 +17,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Files, photos and the library",
+    upcoming: true,
+    highlights: [
+      "A set of photos opens as one overlay you can step through with the arrow keys.",
+    ],
+    details: [
+      "The overlay wraps at either end and counts the picture you are on.",
+    ],
+  },
+  {
     version: "0.6.0",
     title: "Files and images",
     highlights: [

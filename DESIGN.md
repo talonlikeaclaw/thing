@@ -381,9 +381,11 @@ frame.
 **The Lightbox.** One image overlay, and it is the sheet language rather than a second
 modal: the ground is the page's own scrim, the picture is bounded by the viewport with its
 caption in the sheet header, and the close control follows the pointer floor — 36px on a
-fine pointer, 44px when coarse. Escape closes it, focus returns to the image that opened
-it, and the page behind does not scroll. A file value is not an image: it downloads, and
-never opens this overlay.
+fine pointer, 44px when coarse. When the opener passes a set of pictures, the header carries
+a previous and next control that wrap at either end and a mono `n / count` counter beside
+them, and the arrow keys step the same set. Escape closes it, focus returns to the image that
+opened it, and the page behind does not scroll. A file value is not an image: it downloads,
+and never opens this overlay.
 
 **The Ledger Table.** A type page is one glass panel above one matte ledger. The type
 masthead, the saved views and the search/Columns/Sort/Filter tools float together as the

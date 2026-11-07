@@ -192,8 +192,9 @@ export function GalleryView({
       {preview ? (
         <ImageLightbox
           spaceId={spaceId}
-          path={preview.path}
-          title={preview.title}
+          images={[{ path: preview.path, title: preview.title }]}
+          index={0}
+          onIndexChange={() => {}}
           returnFocus={opener}
           onClose={() => setPreview(null)}
         />
