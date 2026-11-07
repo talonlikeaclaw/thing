@@ -190,7 +190,7 @@ export function HistoryPanel({
               <div className="mt-4">
                 <span className="label">Body at this revision</span>
                 <div className="mt-1 max-h-[18rem] overflow-auto overscroll-contain rounded-full border border-line-interactive/70 bg-raised/40 px-3">
-                  <MarkdownView text={current.body} />
+                  <MarkdownView text={current.body} spaceId={spaceId} />
                 </div>
               </div>
             ) : rows.length === 0 ? (

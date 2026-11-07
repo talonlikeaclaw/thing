@@ -457,6 +457,32 @@ export function insertWikiLink(
 }
 
 /**
+ * Inserts uploaded images as markdown at the selection.
+ *
+ * Each image renders as its own paragraph; the alt text is the file's own name
+ * and the caret lands after the last one, so a writer can keep typing.
+ */
+export function insertImages(
+  value: string,
+  start: number,
+  end: number,
+  images: { path: string; name: string }[],
+): Edit {
+  if (images.length === 0) {
+    return { value, start, end };
+  }
+  const inserted = images
+    .map((image) => `![${image.name.replace(/([[\]])/g, "\\$1")}](${image.path})`)
+    .join("\n\n");
+  const caret = start + inserted.length;
+  return {
+    value: value.slice(0, start) + inserted + value.slice(end),
+    start: caret,
+    end: caret,
+  };
+}
+
+/**
  * Recognises a `/` command trigger ending at the caret.
  *
  * The slash must open its line (whitespace only before it, at most three
@@ -514,7 +540,8 @@ export type SlashEffect =
   | { kind: "inline"; marker: string; placeholder: string }
   | { kind: "block" }
   | { kind: "link" }
-  | { kind: "wiki" };
+  | { kind: "wiki" }
+  | { kind: "image" };
 
 /** One row of the `/` menu. */
 export interface SlashCommand {
@@ -618,6 +645,13 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     marker: "[[…]]",
     effect: { kind: "wiki" },
   },
+  {
+    id: "image",
+    names: ["image", "img", "photo", "picture"],
+    label: "Image",
+    marker: "![]()",
+    effect: { kind: "image" },
+  },
 ];
 
 /**
@@ -676,6 +710,10 @@ export function applySlashCommand(
       return insertLink(removed, caret, caret);
     case "wiki":
       return insertWikiLink(removed, caret, caret, "");
+    case "image":
+      // The picker needs a user gesture and uploads bytes later; the command
+      // only clears its own trigger and leaves the caret where the image lands.
+      return { value: removed, start: caret, end: caret };
   }
 }
 

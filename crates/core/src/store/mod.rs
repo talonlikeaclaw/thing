@@ -187,6 +187,42 @@ pub fn is_image_path(path: &Path) -> bool {
             .is_some_and(|extension| IMAGE_EXTENSIONS.contains(&extension))
 }
 
+/// Every attachment path a markdown body names, in first-mention order.
+///
+/// A body renders `![alt](files/<sha256>/<name>)`, the same spelling
+/// frontmatter carries, so garbage collection and the missing-file report have
+/// to see it. Each `files/` occurrence is followed by its `[A-Za-z0-9._/-]` run;
+/// a run that is not [`is_file_path`] is prose, not a reference.
+pub fn paths_in_body(body: &str) -> Vec<String> {
+    let mut paths: Vec<String> = Vec::new();
+    let mut cursor = 0;
+    while let Some(offset) = body[cursor..].find(FILES_DIR) {
+        let start = cursor + offset;
+        let after = start + FILES_DIR.len();
+        if !body[after..].starts_with('/') {
+            // `filesystem` is prose; only the directory opens a path.
+            cursor = after;
+            continue;
+        }
+        let name = after + 1;
+        let run = body[name..]
+            .bytes()
+            .position(|byte| !is_body_path_byte(byte))
+            .unwrap_or(body.len() - name);
+        let token = &body[start..name + run];
+        if is_file_path(Path::new(token)) && !paths.iter().any(|known| known == token) {
+            paths.push(token.to_owned());
+        }
+        cursor = name + run;
+    }
+    paths
+}
+
+/// The bytes a `files/` token in prose spans; it ends at the first other one.
+fn is_body_path_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'/' | b'-')
+}
+
 fn has_extension(path: &Path, extension: &str) -> bool {
     path.extension().is_some_and(|found| found == extension)
 }
@@ -759,6 +795,24 @@ mod tests {
         assert_eq!(def.views[1].columns, vec!["title"]);
         assert_eq!(def.views[1].group_by, None);
         assert!(!remove_property_from_type(&mut def, "room"));
+    }
+
+    #[test]
+    fn paths_in_body_names_every_stored_path_once() {
+        let first = format!("files/{}/leaf.png", "a".repeat(SHA256_HEX_LEN));
+        let second = format!("files/{}/notes.pdf", "b".repeat(SHA256_HEX_LEN));
+        let body = format!(
+            "![leaf]({first})\n\nA second look: {first}\n\n[notes]: {second}\n\n\
+             The filesystem is not a path, and files/ is a directory.\n\n\
+             ![bad](files/not-a-hash/leaf.png)\n"
+        );
+
+        assert_eq!(paths_in_body(&body), vec![first, second]);
+    }
+
+    #[test]
+    fn paths_in_body_ignores_prose_that_only_mentions_the_directory() {
+        assert!(paths_in_body("No images here; files/ stays a word.").is_empty());
     }
 
     #[test]

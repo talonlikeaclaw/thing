@@ -71,6 +71,29 @@ function stubEditor({
   });
 }
 
+/** The editor's own reads plus an image upload that stores `files/aa/leaf.png`. */
+function stubImageEditor() {
+  return stubFetch((input, init) => {
+    const url = requestUrl(input);
+    if (url.endsWith("/api/spaces/s1/types")) {
+      return jsonResponse(plantTypes);
+    }
+    if (url.includes("/api/spaces/s1/search")) {
+      return jsonResponse(emptySearch);
+    }
+    if (url.includes("/api/spaces/s1/files?name=leaf.png") && init?.method === "POST") {
+      return jsonResponse({
+        path: "files/aa/leaf.png",
+        hash: "aa",
+        name: "leaf.png",
+        mime: "image/png",
+        size: 3,
+      });
+    }
+    throw new Error(`unstubbed ${url}`);
+  });
+}
+
 function EditorHost({
   initial = "",
   dirty,
@@ -241,6 +264,75 @@ describe("MarkdownEditor", () => {
     );
     expect(field().selectionStart).toBe(1);
     expect(field().selectionEnd).toBe(9);
+  });
+
+  it("uploads a pasted image and inserts the stored path at the caret", async () => {
+    stubImageEditor();
+    renderWithProviders(<EditorHost initial="Watered." />);
+
+    type("Watered. ");
+    const leaf = new File([new Uint8Array([1, 2, 3])], "leaf.png", { type: "image/png" });
+    fireEvent.paste(field(), { clipboardData: { files: [leaf], getData: () => "" } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("body").textContent).toBe(
+        "Watered. ![leaf.png](files/aa/leaf.png)",
+      ),
+    );
+    expect(field().value).toBe("Watered. ![leaf.png](files/aa/leaf.png)");
+  });
+
+  it("opens the file browser from the toolbar and inserts the chosen image", async () => {
+    stubImageEditor();
+    const click = vi.spyOn(HTMLInputElement.prototype, "click");
+    renderWithProviders(<EditorHost />);
+
+    type("Watered. ");
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    expect(click).toHaveBeenCalledTimes(1);
+
+    const leaf = new File([new Uint8Array([1, 2, 3])], "leaf.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Insert image"), { target: { files: [leaf] } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("body").textContent).toBe(
+        "Watered. ![leaf.png](files/aa/leaf.png)",
+      ),
+    );
+  });
+
+  it("opens the picker from /image and inserts where the command stood", async () => {
+    stubImageEditor();
+    vi.spyOn(HTMLInputElement.prototype, "click");
+    renderWithProviders(<EditorHost />);
+
+    type("/image");
+    fireEvent.keyDown(field(), { key: "Enter" });
+
+    expect(field().value).toBe("");
+
+    const leaf = new File([new Uint8Array([1, 2, 3])], "leaf.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Insert image"), { target: { files: [leaf] } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("body").textContent).toBe("![leaf.png](files/aa/leaf.png)"),
+    );
+  });
+
+  it("refuses a picked file that is not an image", () => {
+    stubImageEditor();
+    vi.spyOn(HTMLInputElement.prototype, "click");
+    renderWithProviders(<EditorHost />);
+
+    type("Watered. ");
+    fireEvent.click(screen.getByRole("button", { name: "Image" }));
+    const notes = new File(["notes"], "notes.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText("Insert image"), { target: { files: [notes] } });
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Choose a PNG, JPEG, WebP or GIF image.",
+    );
+    expect(screen.getByTestId("body").textContent).toBe("Watered. ");
   });
 
   it("leaves a paste alone without a selection", () => {

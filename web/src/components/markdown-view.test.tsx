@@ -8,6 +8,31 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("MarkdownView images", () => {
+  it("serves a stored body image through the space route", () => {
+    const { container } = renderWithProviders(
+      <MarkdownView text={"![leaf](files/ab/leaf.png)"} spaceId="s1" />,
+    );
+
+    const image = container.querySelector("img");
+    expect(image).toHaveAttribute("src", "/api/spaces/s1/files/ab/leaf.png");
+    expect(image).toHaveAttribute("loading", "lazy");
+    expect(screen.getByRole("button", { name: "Open image leaf.png" })).toBeInTheDocument();
+  });
+
+  it("leaves an external image alone and offers no lightbox", () => {
+    const { container } = renderWithProviders(
+      <MarkdownView text={"![leaf](https://example.com/leaf.png)"} spaceId="s1" />,
+    );
+
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://example.com/leaf.png",
+    );
+    expect(container.querySelector("button")).toBeNull();
+  });
+});
+
 describe("MarkdownView highlight", () => {
   it("marks every occurrence of the query, case-insensitively", () => {
     const { container } = renderWithProviders(

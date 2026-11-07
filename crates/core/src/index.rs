@@ -740,8 +740,9 @@ impl SpaceIndex {
         found
     }
 
-    /// Every attachment path a live or trashed object names: its cover and each
-    /// file, image or attachments value, with the field that names it.
+    /// Every attachment path a live or trashed object names: its cover, each
+    /// file, image or attachments value, and each stored path its body renders,
+    /// with the field that names it.
     ///
     /// A trashed object still counts, so its bytes survive until it is purged.
     pub fn attachment_references(&self) -> Vec<AttachmentReference> {
@@ -784,6 +785,9 @@ impl SpaceIndex {
                     }
                     _ => {}
                 }
+            }
+            for file in store::paths_in_body(&doc.body) {
+                push("body", &file);
             }
         }
         found
@@ -1418,6 +1422,49 @@ mod tests {
             2,
             "neither file has bytes yet"
         );
+    }
+
+    #[test]
+    fn a_body_image_is_a_reference_and_reports_its_missing_bytes() {
+        use crate::store::file_path;
+
+        let space = Space::new().seed();
+        let hash = "b".repeat(64);
+        let image = file_path(&hash, "leaf.png");
+        let mut doc = object(2, "Monstera", "Kitchen", 5);
+        doc.body = format!("![leaf]({})\n", image.display());
+        let path = object_path("Monstera");
+        space.store.save_object(&path, &doc, None).expect("object");
+
+        let mut index = space.index();
+        assert_eq!(
+            index.referenced_files(),
+            BTreeSet::from([image.clone()]),
+            "a body image protects its bytes from collection"
+        );
+        assert_eq!(
+            index.problems().missing_files,
+            vec![MissingFile {
+                object: Uuid::from_u128(2),
+                path: path.clone(),
+                field: "body".to_owned(),
+                file: image.display().to_string(),
+            }]
+        );
+        let references = index.attachment_references();
+        assert_eq!(references.len(), 1);
+        assert_eq!(references[0].field, "body");
+        assert_eq!(references[0].title, "Monstera");
+        assert_eq!(references[0].path, path);
+
+        space
+            .store
+            .save_attachment(&image, b"\x89PNG", None)
+            .expect("save bytes");
+        index
+            .reload_file(&space.store, &image)
+            .expect("an attachment reloads as presence");
+        assert!(index.problems().missing_files.is_empty());
     }
 
     #[test]

@@ -5,6 +5,7 @@ import {
   continueList,
   indentSelection,
   insertFencedBlock,
+  insertImages,
   insertLink,
   insertWikiLink,
   isInFence,
@@ -377,6 +378,55 @@ describe("applySlashCommand", () => {
     expect(
       applySlashCommand("/h1 Title", 3, { start: 0, query: "h1" }, command("h1")),
     ).toEqual({ value: "# Title", start: 2, end: 2 });
+  });
+});
+
+describe("insertImages", () => {
+  it("inserts one image at the caret with its name as alt text", () => {
+    expect(
+      insertImages("Watered.\n", 9, 9, [{ path: "files/a/leaf.png", name: "leaf.png" }]),
+    ).toEqual({
+      value: "Watered.\n![leaf.png](files/a/leaf.png)",
+      start: 38,
+      end: 38,
+    });
+  });
+
+  it("separates several images into blocks and replaces the selection", () => {
+    const images = [
+      { path: "files/a/leaf.png", name: "leaf.png" },
+      { path: "files/b/roots.jpg", name: "roots.jpg" },
+    ];
+
+    expect(insertImages("before replaced after", 7, 15, images)).toEqual({
+      value:
+        "before ![leaf.png](files/a/leaf.png)\n\n![roots.jpg](files/b/roots.jpg) after",
+      start: 69,
+      end: 69,
+    });
+  });
+
+  it("leaves the text alone when nothing was stored", () => {
+    expect(insertImages("Watered.", 3, 3, [])).toEqual({
+      value: "Watered.",
+      start: 3,
+      end: 3,
+    });
+  });
+});
+
+describe("the image command", () => {
+  it("matches a few spellings and clears its own trigger", () => {
+    expect(matchSlash("img").map((row) => row.id)).toContain("image");
+    expect(
+      applySlashCommand("/image", 6, { start: 0, query: "image" }, command("image")),
+    ).toEqual({ value: "", start: 0, end: 0 });
+  });
+
+  it("strips the trigger from the middle of a line", () => {
+    expect(
+      applySlashCommand("Watered. /img", 13, { start: 9, query: "img" }, command("image")),
+    ).toEqual({ value: "Watered. ", start: 9, end: 9 });
   });
 });
 

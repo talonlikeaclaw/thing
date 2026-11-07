@@ -4,6 +4,7 @@ import {
   Brackets,
   Code,
   Heading2,
+  Image as ImageIcon,
   Italic,
   Link2,
   List,
@@ -22,17 +23,24 @@ import {
 
 import { createPortal } from "react-dom";
 
-import { useCreateObject, useSearch, useTypes } from "@/api/queries";
+import { useCreateObject, useSearch, useTypes, useUploadFile } from "@/api/queries";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
-import { Button } from "@/components/ui/controls";
+import { Button, focusRing } from "@/components/ui/controls";
 import { caretContent, caretRect, scrollTopForCaret } from "@/lib/caret";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
 import { readError } from "@/lib/display";
 import {
+  ACCEPTED_IMAGES,
+  fileName,
+  isAcceptedImageType,
+  MAX_UPLOAD_BYTES,
+} from "@/lib/files";
+import {
   applySlashCommand,
   continueList,
   indentSelection,
+  insertImages,
   insertLink,
   insertWikiLink,
   matchSlash,
@@ -175,6 +183,22 @@ export function MarkdownEditor({
   const revealUntil = useRef(0);
   const create = useCreateObject(spaceId);
   const types = useTypes(spaceId);
+  /* Pasted or dropped images upload into the space and land in the body. */
+  const upload = useUploadFile(spaceId);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFailure, setUploadFailure] = useState<{
+    files: File[];
+    error: string;
+    at: { start: number; end: number };
+  } | null>(null);
+  /** The freshest body, so an upload landing after typing inserts correctly. */
+  const latest = useRef(value);
+  latest.current = value;
+  /** One upload batch at a time; a second paste joins the first. */
+  const uploadingRef = useRef(false);
+  /** The file browser the toolbar and `/image` share, and where its picks land. */
+  const picker = useRef<HTMLInputElement | null>(null);
+  const pickAt = useRef<{ start: number; end: number } | null>(null);
   const typeByKey = new Map((types.data ?? []).map((type) => [type.key, type]));
   const wikiQuery = menu?.mode === "wiki" ? menu.query : "";
   const suggestion =
@@ -552,12 +576,84 @@ export function MarkdownEditor({
     });
   }
 
+  /** The image files a paste or drop carries; anything else stays the browser's. */
+  function imageFiles(list: FileList | null | undefined): File[] {
+    return Array.from(list ?? []).filter((file) => isAcceptedImageType(file.type));
+  }
+
+  /**
+   * Uploads pasted or dropped images one at a time, then inserts the stored
+   * paths at the selection they landed on. A refusal leaves the text alone and
+   * offers Retry over the files that did not make it.
+   */
+  async function uploadImages(files: File[], at: { start: number; end: number }) {
+    if (disabled || uploadingRef.current || files.length === 0) {
+      return;
+    }
+    uploadingRef.current = true;
+    setUploadFailure(null);
+    setUploading(true);
+    const stored: { path: string; name: string }[] = [];
+    const retry: File[] = [];
+    let refusal: string | null = null;
+    try {
+      for (const file of files) {
+        if (file.size > MAX_UPLOAD_BYTES) {
+          refusal ??= "A file may be at most 10 MiB.";
+          continue;
+        }
+        try {
+          const result = await upload.mutateAsync(file);
+          stored.push({
+            path: result.path,
+            name: file.name !== "" ? file.name : fileName(result.path),
+          });
+        } catch (error) {
+          retry.push(file);
+          refusal ??= readError(error);
+        }
+      }
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+    }
+    if (stored.length > 0) {
+      // The writer may have typed while the bytes travelled; clamp the remembered
+      // selection onto the body as it is now.
+      const body = latest.current;
+      const start = Math.min(at.start, body.length);
+      const end = Math.min(Math.max(at.end, start), body.length);
+      apply(insertImages(body, start, end, stored));
+    }
+    if (refusal !== null) {
+      setUploadFailure({ files: retry, error: refusal, at });
+    }
+  }
+
+  /** Opens the file browser; the chosen images land where `at` says. */
+  function pickImages(at: { start: number; end: number } = selectionRange()) {
+    if (disabled) {
+      return;
+    }
+    pickAt.current = at;
+    picker.current?.click();
+  }
+
   /** One URL pasted over a selection becomes a markdown link; anything else is a normal paste. */
   function onPaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
     if (disabled) {
       return;
     }
     const textarea = event.currentTarget;
+    const images = imageFiles(event.clipboardData.files);
+    if (images.length > 0) {
+      event.preventDefault();
+      void uploadImages(images, {
+        start: textarea.selectionStart,
+        end: textarea.selectionEnd,
+      });
+      return;
+    }
     const edit = pasteLink(
       value,
       textarea.selectionStart,
@@ -569,6 +665,21 @@ export function MarkdownEditor({
     }
     event.preventDefault();
     apply(edit);
+  }
+
+  /** An image dropped on the field uploads and lands where the caret is. */
+  function onDrop(event: React.DragEvent<HTMLTextAreaElement>) {
+    const images = imageFiles(event.dataTransfer.files);
+    if (disabled || images.length === 0) {
+      return;
+    }
+    event.preventDefault();
+    const textarea = event.currentTarget;
+    textarea.focus();
+    void uploadImages(images, {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    });
   }
 
   /** A tap on prose opens the writer; an interactive child keeps its own job. */
@@ -690,6 +801,10 @@ export function MarkdownEditor({
       const { end } = selectionRange();
       const edit = applySlashCommand(value, end, open, row);
       apply(edit);
+      if (row.effect.kind === "image") {
+        pickImages({ start: edit.start, end: edit.end });
+        return;
+      }
       if (row.effect.kind === "wiki") {
         setActive(0);
         setMenu({ mode: "wiki", start: edit.start - 2, query: "", caret: edit.start });
@@ -866,6 +981,17 @@ export function MarkdownEditor({
                 >
                   <Brackets aria-hidden className="h-4 w-4" />
                 </button>
+                <button
+                  type="button"
+                  aria-label="Image"
+                  title="Image"
+                  disabled={disabled}
+                  className={TOOL}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => pickImages()}
+                >
+                  <ImageIcon aria-hidden className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ) : null}
@@ -899,6 +1025,32 @@ export function MarkdownEditor({
             immersed && "flex min-h-0 flex-1 flex-col",
           )}
         >
+          {uploading || uploadFailure ? (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px]">
+              {uploading ? (
+                <span role="status" className="text-muted">
+                  Uploading image…
+                </span>
+              ) : null}
+              {uploadFailure ? (
+                <div role="alert" className="flex flex-wrap items-center gap-2 text-danger">
+                  <span>{uploadFailure.error}</span>
+                  {uploadFailure.files.length > 0 ? (
+                    <button
+                      type="button"
+                      className={cn(
+                        "underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11",
+                        focusRing,
+                      )}
+                      onClick={() => void uploadImages(uploadFailure.files, uploadFailure.at)}
+                    >
+                      Retry
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div
             className={cn(
               "relative",
@@ -925,12 +1077,45 @@ export function MarkdownEditor({
               value={value}
               onChange={onInput}
               onPaste={onPaste}
+              onDrop={onDrop}
+              onDragOver={(event) => {
+                if (!disabled && event.dataTransfer.types.includes("Files")) {
+                  event.preventDefault();
+                }
+              }}
               onFocus={() => {
                 enteredWrite.current = true;
               }}
               onKeyDown={onKeyDown}
               onScroll={place}
               onSelect={onSelect}
+            />
+            <input
+              ref={picker}
+              type="file"
+              accept={ACCEPTED_IMAGES}
+              multiple
+              aria-label="Insert image"
+              className="sr-only"
+              disabled={disabled || uploading}
+              onChange={(event) => {
+                const at = pickAt.current ?? selectionRange();
+                const chosen = Array.from(event.target.files ?? []);
+                // Clearing the field lets the same file be chosen again.
+                event.target.value = "";
+                const images = chosen.filter((file) => isAcceptedImageType(file.type));
+                if (images.length === 0) {
+                  if (chosen.length > 0) {
+                    setUploadFailure({
+                      files: [],
+                      error: "Choose a PNG, JPEG, WebP or GIF image.",
+                      at,
+                    });
+                  }
+                  return;
+                }
+                void uploadImages(images, at);
+              }}
             />
           </div>
 
