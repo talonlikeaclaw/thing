@@ -5,6 +5,7 @@ import { SpaceLayout } from "@/components/space-layout";
 import { AgendaPage } from "@/pages/agenda";
 import { ChangelogPage } from "@/pages/changelog";
 import { JoinPage } from "@/pages/join";
+import { LibraryPage } from "@/pages/library";
 import { LoginPage } from "@/pages/login";
 import { MembersPage } from "@/pages/members";
 import { NotFoundPage } from "@/pages/not-found";
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
               { index: true, element: <SpacePage /> },
               { path: "t/:typeKey", element: <TypeTablePage /> },
               { path: "agenda", element: <AgendaPage /> },
+              { path: "library", element: <LibraryPage /> },
               { path: "o/:objectId", element: <ObjectPage /> },
               { path: "schema", element: <SchemaPage /> },
               { path: "members", element: <MembersPage /> },

@@ -12,6 +12,7 @@ import type {
   CsvPreview,
   DuplicateObjectInput,
   Invite,
+  Library,
   ObjectDetail,
   ObjectList,
   ObjectsQuery,
@@ -51,6 +52,7 @@ export const queryKeys = {
   history: (id: string, objectId: string) =>
     ["space", id, "object", objectId, "history"] as const,
   trash: (id: string) => ["space", id, "trash"] as const,
+  library: (id: string) => ["library", id] as const,
   invites: (id: string) => ["space", id, "invites"] as const,
   relation: (id: string, type: string) => ["space", id, "relation", type] as const,
   graph: (id: string) => ["space", id, "graph"] as const,
@@ -692,6 +694,33 @@ export function useHistory(spaceId: string | undefined, objectId: string | undef
     queryKey: queryKeys.history(spaceId ?? "", objectId ?? ""),
     queryFn: () => request<Revision[]>(`/api/spaces/${spaceId}/objects/${objectId}/history`),
     enabled: Boolean(spaceId && objectId),
+  });
+}
+
+/**
+ * Every stored attachment with the records that name it, plus the space's byte
+ * totals. Owner and viewer both read it; only an owner may collect.
+ */
+export function useLibrary(spaceId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.library(spaceId ?? ""),
+    queryFn: () => request<Library>(`/api/spaces/${spaceId}/files`),
+    enabled: Boolean(spaceId),
+  });
+}
+
+/** Removes the bytes no record, cover or body names; reports what it freed. */
+export function useCollectGarbage(spaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      request<{ removed: number; freed_bytes: number }>(
+        `/api/spaces/${spaceId}/files/gc`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.library(spaceId) });
+    },
   });
 }
 

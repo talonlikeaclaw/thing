@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A gallery tile can take its picture from a photo set.",
       "A set of photos opens as one overlay you can step through with the arrow keys.",
       "Photos pasted or dropped into a body upload into the space and render in the record.",
+      "A Library lists every file and photo, with the records that use each one.",
     ],
     details: [
       "Files and photos append in the order you add them.",
@@ -38,6 +39,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The overlay wraps at either end and counts the picture you are on.",
       "A body image opens at full size, and its bytes survive collecting unused files.",
       "The body toolbar's image button and the `/image` command pick a photo from the file browser.",
+      "Filter the Library by photos, files, type or name; sort by recent, name or size.",
+      "Space settings show what the attachments weigh and collect the bytes no record names.",
       "On a phone, every action row, sheet close and card menu follows the hand you set; desktop keeps one layout.",
       "A gallery tile's menu offers Duplicate and Move to trash, not a second Open.",
       "Keyboard shortcuts no longer take a slot in the phone header; the space sheet holds them.",

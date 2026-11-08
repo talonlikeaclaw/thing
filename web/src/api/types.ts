@@ -251,6 +251,42 @@ export interface UploadedFile {
   size: number;
 }
 
+/** One live or trashed record that names a stored file. */
+export interface LibraryRecord {
+  id: Uuid;
+  rev: number;
+  title: string;
+  icon: string | null;
+  type_key: string;
+  type_name: string;
+  /** `cover`, `body` or the property key that names the bytes. */
+  field: string;
+  /** `Cover`, `Body` or the property's label. */
+  field_name: string;
+  trashed: boolean;
+  updated_at: string;
+}
+
+/** One stored attachment with the records that name it. */
+export interface LibraryItem {
+  /** The canonical path, `files/<sha256>/<name>`. */
+  path: string;
+  /** The stored file name, without its hash directory. */
+  name: string;
+  size: number;
+  kind: "image" | "file";
+  /** No live or trashed record, cover or body names these bytes. */
+  unused: boolean;
+  records: LibraryRecord[];
+}
+
+/** The space's whole attachment tree, as the library reads it. */
+export interface Library {
+  items: LibraryItem[];
+  total_bytes: number;
+  unused_bytes: number;
+}
+
 /** One row of a view. `values` holds the selected view's fields minus `title`. */
 export interface ObjectSummary {
   id: Uuid;

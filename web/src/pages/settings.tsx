@@ -3,7 +3,9 @@ import { useNavigate, useParams } from "react-router";
 
 import {
   type UpdateSpace,
+  useCollectGarbage,
   useDeleteSpace,
+  useLibrary,
   useSpace,
   useUpdateSpace,
 } from "@/api/queries";
@@ -23,6 +25,7 @@ import {
   type AccentId,
 } from "@/lib/accent";
 import { readError } from "@/lib/display";
+import { formatBytes } from "@/lib/format";
 import { useRouteMeta } from "@/lib/route";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { timezoneNames } from "@/lib/timezone";
@@ -253,6 +256,8 @@ export function SettingsPage() {
         />
         <FormError message={accentUpdate.error ? readError(accentUpdate.error) : null} />
       </section>
+
+      <StorageSection spaceId={detail.id} owner={owner} />
       </div>
 
       {guard}
@@ -292,5 +297,74 @@ export function SettingsPage() {
         </section>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The space's attachment storage: what the bytes weigh, what nothing names, and
+ * the owner's one collection. A reader sees the totals but no action.
+ */
+export function StorageSection({ spaceId, owner }: { spaceId: string; owner: boolean }) {
+  const library = useLibrary(spaceId);
+  const collect = useCollectGarbage(spaceId);
+  const toast = useToast();
+
+  /** Owners reclaim the bytes nothing references; the toast reports the total. */
+  const onCollect = () => {
+    if (!owner || collect.isPending) {
+      return;
+    }
+    collect.mutate(undefined, {
+      onSuccess: (report) =>
+        toast.showToast(
+          `Removed ${report.removed} file${report.removed === 1 ? "" : "s"}, freed ${formatBytes(report.freed_bytes)}`,
+        ),
+    });
+  };
+
+  return (
+    <section
+      aria-labelledby="space-storage"
+      className="rounded-[22px] border border-line bg-surface p-5 sm:p-6"
+    >
+      <SectionRule
+        id="space-storage"
+        title="Attachments"
+        count={library.data ? formatBytes(library.data.total_bytes) : undefined}
+      />
+      {library.isPending ? (
+        <p className="mt-4 text-[13px] text-muted">Measuring the storage…</p>
+      ) : library.data ? (
+        <>
+          <p className="mt-4 text-[13px] text-muted">
+            {formatBytes(library.data.total_bytes)} used by this space's covers, attachments and
+            bodies.
+            {library.data.unused_bytes > 0
+              ? ` ${formatBytes(library.data.unused_bytes)} belongs to files no record names.`
+              : " Nothing is waiting to be collected."}
+          </p>
+          <FormError message={collect.error ? readError(collect.error) : null} />
+          {owner ? (
+            <ThumbRow className="mt-4 flex-wrap items-center gap-3">
+              <Button
+                variant="ghost"
+                className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
+                disabled={collect.isPending || library.data.unused_bytes === 0}
+                onClick={onCollect}
+              >
+                {collect.isPending ? "Collecting…" : "Collect unused"}
+              </Button>
+              <span className="text-[12px] text-faint">
+                Removes only the bytes no record, cover or body names.
+              </span>
+            </ThumbRow>
+          ) : (
+            <p className="mt-3 text-[13px] text-muted">
+              Only an owner can collect unused files.
+            </p>
+          )}
+        </>
+      ) : null}
+    </section>
   );
 }

@@ -38,7 +38,13 @@ export function AgendaToolbar({
     ) : null;
   const filter =
     types.length > 0 ? (
-      <TypeFilter types={types} selected={selected} onChange={onTypesChange} />
+      <TypeFilter
+        types={types}
+        selected={selected}
+        onChange={onTypesChange}
+        allLabel="All scheduled types"
+        title="Filter the schedule"
+      />
     ) : null;
   if (!range && !filter) {
     return null;

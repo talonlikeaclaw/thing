@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   House,
+  Images,
   Keyboard,
   LayoutGrid,
   PanelLeftClose,
@@ -56,6 +57,7 @@ interface SpaceNavProps {
 const UTILITY: Record<NavLink, { label: string; path: string; icon: typeof House }> = {
   schedule: { label: "Schedule", path: "agenda", icon: CalendarDays },
   schema: { label: "Schema", path: "schema", icon: Shapes },
+  library: { label: "Library", path: "library", icon: Images },
   members: { label: "Members", path: "members", icon: Users },
   settings: { label: "Settings", path: "settings", icon: Settings },
   trash: { label: "Trash", path: "trash", icon: Trash2 },

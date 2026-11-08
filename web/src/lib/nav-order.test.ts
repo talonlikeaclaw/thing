@@ -49,6 +49,7 @@ describe("readNavOrder", () => {
       "schedule",
       "members",
       "schema",
+      "library",
       "settings",
     ]);
   });
@@ -64,6 +65,7 @@ describe("writeNavOrder", () => {
       "schedule",
       "schema",
       "settings",
+      "library",
     ]);
 
     expect(() =>
@@ -86,6 +88,7 @@ describe("moveNavLink", () => {
     const order = [...DEFAULT_NAV_ORDER];
     expect(moveNavLink(order, "settings", -1)).toEqual([
       "schema",
+      "library",
       "schedule",
       "members",
       "settings",
@@ -93,6 +96,7 @@ describe("moveNavLink", () => {
     ]);
     expect(moveNavLink(order, "schedule", 1)).toEqual([
       "schema",
+      "library",
       "members",
       "schedule",
       "trash",

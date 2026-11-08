@@ -1,8 +1,15 @@
 /** The space rail's links, in their shipped order. */
-export type NavLink = "schedule" | "schema" | "members" | "settings" | "trash";
+export type NavLink =
+  | "schedule"
+  | "schema"
+  | "library"
+  | "members"
+  | "settings"
+  | "trash";
 
 export const DEFAULT_NAV_ORDER: NavLink[] = [
   "schema",
+  "library",
   "schedule",
   "members",
   "trash",

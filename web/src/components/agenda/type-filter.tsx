@@ -28,11 +28,17 @@ export function TypeFilter({
   types,
   selected,
   onChange,
+  allLabel = "All types",
+  title = "Filter by type",
 }: {
   types: readonly TypeSummary[];
-  /** The active keys; empty means every scheduled type. */
+  /** The active keys; empty means every type. */
   selected: readonly string[];
   onChange: (types: string[]) => void;
+  /** The row that selects every type, worded for the surface. */
+  allLabel?: string;
+  /** The phone sheet's title, worded for the surface. */
+  title?: string;
 }) {
   const compact = useCompactWidth();
   const handedness = useThumbHandedness();
@@ -50,7 +56,12 @@ export function TypeFilter({
   );
 
   const body = (
-    <TypeFilterList types={types} selected={selected} onChange={onChange} />
+    <TypeFilterList
+      types={types}
+      selected={selected}
+      onChange={onChange}
+      allLabel={allLabel}
+    />
   );
 
   if (!compact) {
@@ -77,9 +88,7 @@ export function TypeFilter({
   }
 
   const close = <SheetCloseButton label="Close filter" />;
-  const title = (
-    <SheetTitle className="min-w-0 flex-1 truncate">Filter the schedule</SheetTitle>
-  );
+  const heading = <SheetTitle className="min-w-0 flex-1 truncate">{title}</SheetTitle>;
 
   return (
     <>
@@ -109,11 +118,11 @@ export function TypeFilter({
                 {handedness === "left" ? (
                   <>
                     {close}
-                    {title}
+                    {heading}
                   </>
                 ) : (
                   <>
-                    {title}
+                    {heading}
                     {close}
                   </>
                 )}
@@ -133,10 +142,12 @@ function TypeFilterList({
   types,
   selected,
   onChange,
+  allLabel,
 }: {
   types: readonly TypeSummary[];
   selected: readonly string[];
   onChange: (types: string[]) => void;
+  allLabel: string;
 }) {
   return (
     <div>
@@ -177,7 +188,7 @@ function TypeFilterList({
           className="label min-h-8 rounded-[8px] px-2 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
           onClick={() => onChange(types.map((type) => type.key))}
         >
-          All scheduled types
+          {allLabel}
         </button>
         <button
           type="button"
