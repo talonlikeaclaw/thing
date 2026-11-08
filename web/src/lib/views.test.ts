@@ -11,7 +11,7 @@ import {
   monthGrid,
   monthOf,
   movedViewSlot,
-  moveViewColumn,
+  moveViewColumnTo,
   queryIsDirty,
   recordsByDate,
   selectedView,
@@ -185,14 +185,24 @@ describe("column layout", () => {
     expect(withColumn(table, "room", false).columns).toEqual(["title", "due_date"]);
   });
 
-  it("moves a column after title but never moves title", () => {
-    expect(moveViewColumn(table, "due_date", -1)).toEqual([
+  it("moves a column to an exact slot, clamped to the first movable one", () => {
+    expect(moveViewColumnTo(table, "due_date", 1)).toEqual([
       "title",
       "due_date",
       "room",
     ]);
-    expect(moveViewColumn(table, "room", -1)).toEqual(table.columns);
-    expect(moveViewColumn(table, "title", 1)).toEqual(table.columns);
+    expect(moveViewColumnTo(table, "room", 2)).toEqual([
+      "title",
+      "due_date",
+      "room",
+    ]);
+    expect(moveViewColumnTo(table, "room", 0)).toEqual(table.columns);
+    expect(moveViewColumnTo(table, "room", 9)).toEqual([
+      "title",
+      "due_date",
+      "room",
+    ]);
+    expect(moveViewColumnTo(table, "title", 2)).toEqual(table.columns);
   });
 });
 

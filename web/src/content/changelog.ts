@@ -25,6 +25,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The schedule answers for you: Overdue, Due today, Next 7 days and No due date are one tap each.",
       "Every filter you set shows as a chip under the toolbar, and a chip removes itself.",
       "Choosing a property starts with typing its name, not scrolling a list.",
+      "Sorting and columns open over the table from their own buttons, on a phone too.",
     ],
     details: [
       "A condition starts with a property; its operator and value appear once the column is chosen.",
@@ -34,6 +35,11 @@ export const CHANGELOG: ChangelogEntry[] = [
       "On a phone the filter opens as a sheet with Clear all and Done above the keyboard.",
       "The type editor's add-a-property control searches names and keys and prints each property's format.",
       "A view's hidden properties can be searched by name or key.",
+      "A sort row changes direction with one segment at the thumb edge; where empty values land is in its row menu.",
+      "The columns panel searches the shown and hidden lists together and says how many properties match.",
+      "A column's position opens a list of slots, so moving it five places is one choice instead of five taps; the selector sits at the thumb edge.",
+      "Each column row carries an edit action straight to its property.",
+      "On a phone Sort and Columns keep their own toolbar buttons; View settings, Save as view and Data sit in one More sheet with a Back control.",
     ],
   },
   {

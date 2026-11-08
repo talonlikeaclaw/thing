@@ -417,9 +417,21 @@ The band is a lid over the card, not a second surface; the selection and hover w
 overlay both band and body. The card clips the table; the table scrolls inside it. The
 page's Filter never pushes the ledger down: it is an overlay, a glass popover under its own
 button on a fine pointer and the shared sheet on a phone, with the header and footer fixed
-and the middle scrolling. Columns and Sort still share one full-width frosted surface under
-the chrome, each separated by space rather than a rule; a column's position is one pill with
-a number and a pair of arrows, so the first and last slots show a disabled end.
+and the middle scrolling. Sort and Columns follow the same rule: each is its own toolbar
+trigger, a glass popover on a wide screen and the same sheet on a phone, never a row inside
+another menu. A sort row is a searchable property picker above one action line: reorder,
+options and remove grouped beside the one-tap `Ascending`/`Descending` segment, so the whole
+cluster sits at the thumb edge with the segment outermost — right in right-handed mode, left
+in left-handed. Empty placement is in the row's options menu. A column row pairs identity with edit and hide, and
+the position pill ends the row at the thumb edge in both modes: it opens a menu of every slot
+the column can take, so moving it three places is one choice rather than three taps at a
+target that moves under the finger. One search field narrows the shown and the hidden list
+together, printing `{shown} of {total}`.
+The phone's toolbar is `Search`, `Filter`, `Columns`, `Sort` and `More`. Sort and Columns
+open their own sheets, because they are daily work and a sheet inside a menu is one door too
+many; `More` holds the occasional actions — View settings, `Save as view…` and Data — and
+each opens in place behind a `Back` control. Every sheet keeps its own header, a scrolling
+body and the safe-area padding; the ledger never moves for any of them.
 The query is visible as a chip row under the chrome: one chip per complete condition, the
 column in ink, the value beside it, a remove target on the trailing edge, and `Clear all`
 at the end; the row scrolls sideways on a phone and never wraps. A condition is a property

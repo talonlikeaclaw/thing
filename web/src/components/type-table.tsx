@@ -73,8 +73,10 @@ import { ColumnPanel } from "@/components/views/column-panel";
 import { DataPanel } from "@/components/views/data-panel";
 import { GalleryView } from "@/components/views/gallery-view";
 import { TableView } from "@/components/views/table-view";
+import { ViewSheet, type ViewSheetPanel } from "@/components/views/view-sheet";
 import { ViewSettings } from "@/components/views/view-settings";
 import { ViewTabs } from "@/components/views/view-tabs";
+import { ViewPanel } from "@/components/ui/view-panel";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import {
@@ -111,10 +113,6 @@ const SQUARE_BUTTON =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink";
 const VIEW_MENU_ITEM =
   "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-[13px] text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11";
-/** A phone sheet row: 44 px because it is the primary target on a phone. */
-const VIEW_SHEET_ROW =
-  "flex min-h-11 w-full items-center gap-3 rounded-field px-3 text-left text-[14px] text-ink transition-colors hover:bg-raised";
-
 interface TypeTableProps {
   spaceId: string;
   type: TypeDef;
@@ -164,6 +162,8 @@ export function TypeTable({
   const compact = useCompactWidth();
   const searchRef = useRef<HTMLInputElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const sortButtonRef = useRef<HTMLButtonElement | null>(null);
+  const columnsButtonRef = useRef<HTMLButtonElement | null>(null);
   const capture = useQuickCapture();
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -182,9 +182,7 @@ export function TypeTable({
     () => (params.get("q") ?? "").trim() !== "",
   );
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
-  const [viewPanel, setViewPanel] = useState<"menu" | "settings" | "save" | "data">(
-    "menu",
-  );
+  const [viewPanel, setViewPanel] = useState<ViewSheetPanel>("menu");
   const handedness = useThumbHandedness();
 
   const tableShortcuts = useMemo(
@@ -880,42 +878,6 @@ export function TypeTable({
     </div>
   );
 
-  const sheetTitle = (
-    <Dialog.Title key="title" className="min-w-0 flex-1 truncate text-[17px] font-medium">
-      {viewPanel === "menu"
-        ? "More"
-        : viewPanel === "settings"
-          ? "View settings"
-          : viewPanel === "save"
-            ? "Save as view"
-            : "Data — CSV"}
-    </Dialog.Title>
-  );
-  const sheetBack = (
-    <button
-      key="back"
-      type="button"
-      className={cn(
-        "label shrink-0 py-2 transition-colors hover:text-accent pointer-coarse:min-h-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-      onClick={() => setViewPanel("menu")}
-    >
-      Back
-    </button>
-  );
-  const sheetClose = (
-    <Dialog.Close
-      key="close"
-      className={cn(
-        "label shrink-0 py-2 transition-colors hover:text-accent pointer-coarse:min-h-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-    >
-      Close
-    </Dialog.Close>
-  );
-
   // The canonical order runs outward from the thumb: search is the most
   // important control, so it sits nearest the handed edge and view settings is
   // farthest. Keys stay stable across the reversal, so React moves nodes
@@ -938,6 +900,7 @@ export function TypeTable({
         key="columns"
         type="button"
         variant="ghost"
+        ref={columnsButtonRef}
         aria-label={`Columns, ${Math.max(0, view.columns.length - 1)} property columns`}
         aria-expanded={columnsOpen}
         aria-controls="type-columns"
@@ -958,6 +921,7 @@ export function TypeTable({
         key="sort"
         type="button"
         variant="ghost"
+        ref={sortButtonRef}
         aria-label={query.sorts.length > 0 ? `Sort, ${query.sorts.length}` : "Sort"}
         aria-expanded={sortOpen}
         aria-controls="type-sorts"
@@ -1247,108 +1211,43 @@ export function TypeTable({
       ) : null}
 
       {compact ? (
-        <Dialog.Root
+        <ViewSheet
           open={viewSheetOpen}
           onOpenChange={(open) => (open ? setViewSheetOpen(true) : closeViewSheet())}
-        >
-          <Dialog.Portal>
-            <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
-            <SheetViewport>
-              <SheetPopup className="sm:w-[34rem]">
-                <div
-                  className={cn(
-                    "flex items-baseline gap-4 border-b rule px-4 py-3",
-                    handedness === "left" ? "justify-start" : "justify-between",
-                  )}
-                >
-                  {handedness === "left" ? (
-                    <>
-                      <span className="flex shrink-0 items-baseline gap-3">
-                        {sheetClose}
-                        {viewPanel === "menu" ? null : sheetBack}
-                      </span>
-                      {sheetTitle}
-                    </>
-                  ) : (
-                    <>
-                      {sheetTitle}
-                      <span className="flex shrink-0 items-baseline gap-3">
-                        {viewPanel === "menu" ? null : sheetBack}
-                        {sheetClose}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                  {viewPanel === "menu" ? (
-                    <div className="flex flex-col gap-1">
-                      {canEdit ? (
-                        <button
-                          type="button"
-                          className={VIEW_SHEET_ROW}
-                          onClick={() => openViewPanel("settings")}
-                        >
-                          <Settings2 aria-hidden size={16} />
-                          View settings
-                        </button>
-                      ) : null}
-                      {canEdit ? (
-                        <button
-                          type="button"
-                          className={VIEW_SHEET_ROW}
-                          onClick={() => openViewPanel("save")}
-                        >
-                          <Plus aria-hidden size={16} />
-                          Save as view…
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className={VIEW_SHEET_ROW}
-                        onClick={openDataPanel}
-                      >
-                        <FileSpreadsheet aria-hidden size={16} />
-                        Data — CSV
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {viewPanel === "settings" ? (
-                    <ViewSettings
-                      spaceId={spaceId}
-                      type={type}
-                      view={view}
-                      properties={properties}
-                      embedded
-                      onClose={closeViewSheet}
-                      onDeleted={(key) => {
-                        selectView(key);
-                        closeViewSheet();
-                      }}
-                    />
-                  ) : null}
-
-                  {viewPanel === "save" ? saveAsForm : null}
-
-                  {viewPanel === "data" ? (
-                    <DataPanel
-                      spaceId={spaceId}
-                      type={type}
-                      canEdit={canEdit}
-                      embedded
-                      onClose={closeViewSheet}
-                      onImported={() => {
-                        setSelection(new Set());
-                        closeViewSheet();
-                      }}
-                    />
-                  ) : null}
-                </div>
-              </SheetPopup>
-            </SheetViewport>
-          </Dialog.Portal>
-        </Dialog.Root>
+          panel={viewPanel}
+          onPanelChange={setViewPanel}
+          canEdit={canEdit}
+          panels={{
+            settings: (
+              <ViewSettings
+                spaceId={spaceId}
+                type={type}
+                view={view}
+                properties={properties}
+                embedded
+                onClose={closeViewSheet}
+                onDeleted={(key) => {
+                  selectView(key);
+                  closeViewSheet();
+                }}
+              />
+            ),
+            save: saveAsForm,
+            data: (
+              <DataPanel
+                spaceId={spaceId}
+                type={type}
+                canEdit={canEdit}
+                embedded
+                onClose={closeViewSheet}
+                onImported={() => {
+                  setSelection(new Set());
+                  closeViewSheet();
+                }}
+              />
+            ),
+          }}
+        />
       ) : null}
 
       {/* View settings and the CSV panel need more room than the toolbar, so
@@ -1451,25 +1350,36 @@ export function TypeTable({
         }
       />
 
-      {columnsOpen || sortOpen ? (
-        <div className="mt-3 grid w-full gap-4 rounded-[18px] glass-strong p-4">
-          {canEdit && view.kind !== "calendar" ? (
-            <div id="type-columns" hidden={!columnsOpen}>
-              <ColumnPanel
-                view={view}
-                properties={properties}
-                disabled={layout.isPending}
-                onPatch={writeLayout}
-                onAddProperty={() => setAddPropertyOpen(true)}
-              />
-            </div>
-          ) : null}
-          {view.kind === "calendar" ? null : (
-            <div id="type-sorts" hidden={!sortOpen}>
-              <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />
-            </div>
-          )}
-        </div>
+      {canEdit && view.kind !== "calendar" ? (
+        <ViewPanel
+          title="Columns"
+          count={Math.max(0, view.columns.length - 1)}
+          open={columnsOpen}
+          onOpenChange={setColumnsOpen}
+          anchor={columnsButtonRef}
+        >
+          <ColumnPanel
+            spaceId={spaceId}
+            id="type-columns"
+            view={view}
+            properties={properties}
+            disabled={layout.isPending}
+            onPatch={writeLayout}
+            onAddProperty={() => setAddPropertyOpen(true)}
+          />
+        </ViewPanel>
+      ) : null}
+
+      {view.kind !== "calendar" ? (
+        <ViewPanel
+          title="Sort"
+          count={query.sorts.length}
+          open={sortOpen}
+          onOpenChange={setSortOpen}
+          anchor={sortButtonRef}
+        >
+          <SortBar id="type-sorts" columns={choices} sorts={query.sorts} onChange={setSorts} />
+        </ViewPanel>
       ) : null}
 
       {/*

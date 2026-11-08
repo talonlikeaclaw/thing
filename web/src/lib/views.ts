@@ -7,7 +7,7 @@ import type {
   ViewDef,
 } from "@/api/types";
 import { filterFromParams, sortsFromParams } from "@/lib/filter";
-import { moveColumn, sameJson, setColumn, TITLE_COLUMN } from "@/lib/schema";
+import { sameJson, setColumn, TITLE_COLUMN } from "@/lib/schema";
 
 export const MIN_COLUMN_WIDTH = 80;
 export const MAX_COLUMN_WIDTH = 800;
@@ -133,9 +133,27 @@ export function withColumn(
   return { columns: setColumn(titleFirst(view.columns), key, true), widths };
 }
 
-/** Moves one column after the fixed title; `title` itself never moves. */
-export function moveViewColumn(view: ViewDef, key: string, delta: number): string[] {
-  return moveColumn(titleFirst(view.columns), key, delta);
+/**
+ * A view with one column in an exact slot. `title` stays at 0, so the target is
+ * clamped to the first movable position; a position menu sends this in one
+ * write instead of stepping the column through every slot between.
+ */
+export function moveViewColumnTo(view: ViewDef, key: string, index: number): string[] {
+  const columns = titleFirst(view.columns);
+  const from = columns.indexOf(key);
+  if (from < 1 || key === TITLE_COLUMN) {
+    return columns;
+  }
+  const to = Math.max(1, Math.min(index, columns.length - 1));
+  if (from === to) {
+    return columns;
+  }
+  const next = columns.slice();
+  const [moved] = next.splice(from, 1);
+  if (moved) {
+    next.splice(to, 0, moved);
+  }
+  return next;
 }
 
 /**
