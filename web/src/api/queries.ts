@@ -47,6 +47,7 @@ export const queryKeys = {
   properties: (id: string) => ["space", id, "properties"] as const,
   objects: (id: string, query: ObjectsQuery) => ["space", id, "objects", query] as const,
   objectsPrefix: (id: string) => ["space", id, "objects"] as const,
+  matches: (id: string, query: ObjectsQuery) => ["space", id, "matches", query] as const,
   agenda: (id: string, query: AgendaQuery) => ["space", id, "agenda", query] as const,
   object: (id: string, objectId: string) => ["space", id, "object", objectId] as const,
   history: (id: string, objectId: string) =>
@@ -645,6 +646,39 @@ export function useObjects(spaceId: string | undefined, query: ObjectsQuery | un
   return useQuery({
     queryKey: queryKeys.objects(spaceId ?? "", query ?? { type: "" }),
     queryFn: () => request<ObjectList>(objectsPath(spaceId ?? "", query ?? { type: "" })),
+    enabled: Boolean(spaceId && query?.type),
+    placeholderData: (previous) => previous,
+  });
+}
+
+/**
+ * The ids of every record one condition matches, read a page at a time.
+ *
+ * A property filter has to see every match, not the first page: the server
+ * caps one read at 500 rows, so this walks `has_more` until the set is whole.
+ * The library narrows by these ids; it never needs the rows themselves.
+ */
+export function useMatchingRecordIds(
+  spaceId: string | undefined,
+  query: ObjectsQuery | undefined,
+) {
+  return useQuery({
+    // Its own key: the value is an id list, not the object page it read.
+    queryKey: queryKeys.matches(spaceId ?? "", query ?? { type: "" }),
+    queryFn: async (): Promise<string[]> => {
+      const ids: string[] = [];
+      const base = query ?? { type: "" };
+      for (let offset = 0; ; ) {
+        const page = await request<ObjectList>(
+          objectsPath(spaceId ?? "", { ...base, limit: 500, offset }),
+        );
+        ids.push(...page.objects.map((object) => object.id));
+        if (!page.has_more) {
+          return ids;
+        }
+        offset += page.limit;
+      }
+    },
     enabled: Boolean(spaceId && query?.type),
     placeholderData: (previous) => previous,
   });

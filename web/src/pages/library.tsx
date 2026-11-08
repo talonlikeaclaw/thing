@@ -2,8 +2,21 @@ import { FileText, Images } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { useLibrary, useSpace, useTypes } from "@/api/queries";
-import type { LibraryItem, LibraryRecord, TypeSummary } from "@/api/types";
+import {
+  useLibrary,
+  useMatchingRecordIds,
+  useProperties,
+  useRelationChoices,
+  useSpace,
+  useType,
+  useTypes,
+} from "@/api/queries";
+import type {
+  LibraryItem,
+  LibraryRecord,
+  PropertyDef,
+  TypeSummary,
+} from "@/api/types";
 import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
 import { TypeFilter } from "@/components/agenda/type-filter";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -12,12 +25,17 @@ import { ThumbRow } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
+import { columnChoices } from "@/lib/filter";
 import { formatBytes } from "@/lib/format";
 import { fileUrl, thumbnailUrl } from "@/lib/files";
 import {
   EMPTY_LIBRARY_FILTER,
+  filterByMatchedRecords,
   filterLibrary,
+  isFilterableFormat,
+  propertyCondition,
   sortLibrary,
+  type FilterableFormat,
   type LibraryKind,
   type LibrarySort,
 } from "@/lib/library";
@@ -105,21 +123,59 @@ function LibraryGrid({
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<LibrarySort>("recent");
+  const [propertyKey, setPropertyKey] = useState("");
+  const [propertyValue, setPropertyValue] = useState<unknown>(undefined);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const opener = useRef<HTMLElement | null>(null);
 
-  const filter = { kind, types: selectedTypes, query };
-  const visible = useMemo(
-    () => sortLibrary(filterLibrary(items, filter), sort),
-    // The filter object is rebuilt each render; its fields are the real inputs.
-    [items, kind, selectedTypes, query, sort],
+  // A property lives on one type, so the property filter needs exactly one.
+  const typeKey = selectedTypes.length === 1 ? selectedTypes[0] : undefined;
+  const typeDef = useType(spaceId, typeKey);
+  const propertyDefs = useProperties(spaceId);
+  const propertyChoices = useMemo(() => {
+    if (!typeDef.data || !propertyDefs.data) {
+      return [];
+    }
+    return columnChoices(typeDef.data, propertyDefs.data).filter(
+      (choice) => choice.key !== "title" && choice.key !== "updated_at" && isFilterableFormat(choice.format),
+    );
+  }, [typeDef.data, propertyDefs.data]);
+  const choice = propertyChoices.find((entry) => entry.key === propertyKey);
+  const property = propertyDefs.data?.find((entry) => entry.key === propertyKey);
+  const condition = choice
+    ? propertyCondition(choice.key, choice.format as FilterableFormat, propertyValue)
+    : null;
+  const matched = useMatchingRecordIds(
+    spaceId,
+    condition && typeKey
+      ? { type: typeKey, filter: { op: "and", conditions: [condition] } }
+      : undefined,
   );
+  const matchedIds = matched.data ? new Set(matched.data) : null;
+
+  const filter = { kind, types: selectedTypes, query };
+  const visible = useMemo(() => {
+    const narrowed =
+      condition && typeKey && matchedIds
+        ? filterByMatchedRecords(items, typeKey, matchedIds)
+        : items;
+    return sortLibrary(filterLibrary(narrowed, filter), sort);
+    // The filter object is rebuilt each render; its fields are the real inputs.
+  }, [items, kind, selectedTypes, query, sort, condition, typeKey, matchedIds]);
   const photos = visible.filter((item) => item.kind === "image");
+
+  function chooseTypes(next: string[]) {
+    setSelectedTypes(next);
+    setPropertyKey("");
+    setPropertyValue(undefined);
+  }
 
   function clear() {
     setKind(EMPTY_LIBRARY_FILTER.kind);
     setSelectedTypes([...EMPTY_LIBRARY_FILTER.types]);
     setQuery(EMPTY_LIBRARY_FILTER.query);
+    setPropertyKey("");
+    setPropertyValue(undefined);
   }
 
   return (
@@ -142,7 +198,36 @@ function LibraryGrid({
             </button>
           ))}
         </div>
-        <TypeFilter types={types} selected={selectedTypes} onChange={setSelectedTypes} />
+        <TypeFilter types={types} selected={selectedTypes} onChange={chooseTypes} />
+        {typeKey ? (
+          <>
+            <select
+              aria-label="Filter by property"
+              className={cn(SEARCH, "shrink-0 pr-2")}
+              value={propertyKey}
+              onChange={(event) => {
+                setPropertyKey(event.target.value);
+                setPropertyValue(undefined);
+              }}
+            >
+              <option value="">Any property</option>
+              {propertyChoices.map((entry) => (
+                <option key={entry.key} value={entry.key}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+            {choice ? (
+              <PropertyValueControl
+                spaceId={spaceId}
+                format={choice.format as FilterableFormat}
+                property={property}
+                value={propertyValue}
+                onChange={setPropertyValue}
+              />
+            ) : null}
+          </>
+        ) : null}
         <select
           aria-label="Sort files"
           className={cn(SEARCH, "shrink-0 pr-2")}
@@ -314,5 +399,104 @@ function RecordChips({
         ),
       )}
     </ThumbRow>
+  );
+}
+
+/**
+ * The value control one property format needs. An empty choice narrows
+ * nothing, so "Any …" is a real option rather than a placeholder.
+ */
+function PropertyValueControl({
+  spaceId,
+  format,
+  property,
+  value,
+  onChange,
+}: {
+  spaceId: string;
+  format: FilterableFormat;
+  property: PropertyDef | undefined;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const relation = useRelationChoices(spaceId, property, format === "relation");
+  const frame = cn(SEARCH, "shrink-0 pr-2");
+
+  if (format === "checkbox") {
+    return (
+      <select
+        aria-label="Property value"
+        className={frame}
+        value={value === true ? "true" : value === false ? "false" : ""}
+        onChange={(event) =>
+          onChange(event.target.value === "" ? undefined : event.target.value === "true")
+        }
+      >
+        <option value="">Any</option>
+        <option value="true">Checked</option>
+        <option value="false">Unchecked</option>
+      </select>
+    );
+  }
+
+  if (format === "relation") {
+    return (
+      <select
+        aria-label="Property value"
+        className={cn(frame, "max-w-[14rem]")}
+        value={typeof value === "string" ? value : ""}
+        disabled={relation.loading && relation.choices.length === 0}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Any record</option>
+        {relation.choices.map((entry) => (
+          <option key={entry.id} value={entry.id}>
+            {entry.title}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (format === "select" || format === "multi_select") {
+    return (
+      <select
+        aria-label="Property value"
+        className={cn(frame, "max-w-[14rem]")}
+        value={typeof value === "string" ? value : ""}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">Any option</option>
+        {(property?.options ?? []).map((option) => (
+          <option key={option.key} value={option.key}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  if (format === "number") {
+    return (
+      <input
+        type="number"
+        aria-label="Property value"
+        className={cn(SEARCH, "w-[8rem] shrink-0")}
+        placeholder="Any number"
+        value={typeof value === "number" || typeof value === "string" ? String(value) : ""}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
+  }
+
+  return (
+    <input
+      type="search"
+      aria-label="Property value"
+      className={cn(SEARCH, "w-full sm:w-[12rem]")}
+      placeholder="Contains…"
+      value={typeof value === "string" ? value : ""}
+      onChange={(event) => onChange(event.target.value)}
+    />
   );
 }

@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { LibraryItem, LibraryRecord } from "@/api/types";
 import {
   EMPTY_LIBRARY_FILTER,
+  filterByMatchedRecords,
   filterLibrary,
   isFiltered,
   liveUpdatedAt,
+  propertyCondition,
   sortLibrary,
 } from "@/lib/library";
 
@@ -143,5 +145,70 @@ describe("sortLibrary", () => {
     const items = [notes, leaf];
     sortLibrary(items, "name");
     expect(items).toEqual([notes, leaf]);
+  });
+});
+
+describe("propertyCondition", () => {
+  it("equals a choice, a checkbox and a number", () => {
+    expect(propertyCondition("room", "select", "study")).toEqual({
+      property: "room",
+      condition: "equal",
+      value: "study",
+    });
+    expect(propertyCondition("watered", "checkbox", false)).toEqual({
+      property: "watered",
+      condition: "equal",
+      value: false,
+    });
+    expect(propertyCondition("height", "number", "120")).toEqual({
+      property: "height",
+      condition: "equal",
+      value: 120,
+    });
+  });
+
+  it("contains a tag or a related record", () => {
+    expect(propertyCondition("tags", "multi_select", "easy")).toEqual({
+      property: "tags",
+      condition: "contains",
+      value: "easy",
+    });
+    expect(propertyCondition("related_plant", "relation", "o1")).toEqual({
+      property: "related_plant",
+      condition: "contains",
+      value: "o1",
+    });
+  });
+
+  it("contains a trimmed fragment of prose", () => {
+    expect(propertyCondition("nickname", "text", "  Mon  ")).toEqual({
+      property: "nickname",
+      condition: "contains",
+      value: "Mon",
+    });
+  });
+
+  it("narrows nothing without a value", () => {
+    expect(propertyCondition("room", "select", "")).toBeNull();
+    expect(propertyCondition("room", "select", undefined)).toBeNull();
+    expect(propertyCondition("nickname", "text", "   ")).toBeNull();
+    expect(propertyCondition("watered", "checkbox", "true")).toBeNull();
+    expect(propertyCondition("height", "number", "tall")).toBeNull();
+  });
+});
+
+describe("filterByMatchedRecords", () => {
+  it("keeps a file one matched record of the type names", () => {
+    const matched = new Set(["00000000-0000-0000-0000-000000000001"]);
+    expect(filterByMatchedRecords([leaf, notes, orphan], "plant", matched)).toEqual([leaf]);
+  });
+
+  it("ignores a matching record of another type", () => {
+    const matched = new Set(["00000000-0000-0000-0000-000000000002"]);
+    expect(filterByMatchedRecords([leaf, notes], "plant", matched)).toEqual([]);
+  });
+
+  it("keeps nothing when the condition matched no record", () => {
+    expect(filterByMatchedRecords([leaf, notes], "plant", new Set())).toEqual([]);
   });
 });

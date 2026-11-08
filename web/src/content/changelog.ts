@@ -40,6 +40,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "A body image opens at full size, and its bytes survive collecting unused files.",
       "The body toolbar's image button and the `/image` command pick a photo from the file browser.",
       "Filter the Library by photos, files, type or name; sort by recent, name or size.",
+      "Narrow a type by its own properties, such as a room, a tag or a related plant.",
       "Space settings show what the attachments weigh and collect the bytes no record names.",
       "On a phone, every action row, sheet close and card menu follows the hand you set; desktop keeps one layout.",
       "A gallery tile's menu offers Duplicate and Move to trash, not a second Open.",

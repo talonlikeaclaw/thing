@@ -117,6 +117,45 @@ const library: Library = {
   unused_bytes: 512,
 };
 
+
+const plantType = {
+  key: "plant",
+  name: "Plant",
+  name_plural: "Plants",
+  icon: "🪴",
+  description: "",
+  schedule: false,
+  properties: [{ key: "room", required: false, featured: true }],
+  views: [],
+  default_view: "table",
+};
+
+const roomProperty = {
+  key: "room",
+  name: "Room",
+  format: "select",
+  options: [{ key: "study", name: "Study", color: "#000000" }],
+};
+
+const plantRows = {
+  view: "table",
+  total: 1,
+  offset: 0,
+  limit: 500,
+  has_more: false,
+  objects: [
+    {
+      id: "o1",
+      type: "plant",
+      title: "Monstera",
+      rev: 2,
+      updated_at: "2026-11-05T12:00:00Z",
+      values: { room: { value: "study", label: "Study" } },
+      missing_relations: [],
+    },
+  ],
+};
+
 function stubLibrary(payload: Library = library) {
   return stubFetch((input) => {
     const url = requestUrl(input);
@@ -125,6 +164,15 @@ function stubLibrary(payload: Library = library) {
     }
     if (url.endsWith("/api/spaces/s1/files")) {
       return jsonResponse(payload);
+    }
+    if (url.endsWith("/api/spaces/s1/types/plant")) {
+      return jsonResponse(plantType);
+    }
+    if (url.endsWith("/api/spaces/s1/properties")) {
+      return jsonResponse([roomProperty]);
+    }
+    if (url.includes("/api/spaces/s1/objects?")) {
+      return jsonResponse(plantRows);
     }
     if (url.endsWith("/api/spaces/s1")) {
       return jsonResponse(space);
@@ -246,6 +294,111 @@ describe("LibraryPage", () => {
     expect(await screen.findByText("1 / 3")).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowRight" });
     await waitFor(() => expect(screen.getByText("2 / 3")).toBeInTheDocument());
+  });
+
+  it("narrows one type by a property value", async () => {
+    const requests: URL[] = [];
+    const handler = stubLibrary();
+    // Record every object read so the condition the page sends is visible.
+    const base = handler.getMockImplementation();
+    handler.mockImplementation((input, init) => {
+      const url = new URL(requestUrl(input), "http://localhost");
+      if (url.pathname.endsWith("/objects")) {
+        requests.push(url);
+      }
+      return base!(input, init);
+    });
+
+    renderLibrary();
+    await screen.findByText("leaf.png");
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Plant" }));
+
+    const propertySelect = await screen.findByLabelText("Filter by property");
+    // The type's own properties arrive with its read, not with the summary.
+    await screen.findByRole("option", { name: "Room" });
+    expect(screen.queryByLabelText("Property value")).toBeNull();
+
+    fireEvent.change(propertySelect, { target: { value: "room" } });
+    fireEvent.change(screen.getByLabelText("Property value"), {
+      target: { value: "study" },
+    });
+
+    await waitFor(() => expect(visibleNames()).toEqual(["leaf.png"]));
+    const objects = requests.at(-1);
+    expect(objects?.searchParams.get("type")).toBe("plant");
+    expect(JSON.parse(objects?.searchParams.get("filter") ?? "null")).toEqual({
+      op: "and",
+      conditions: [{ property: "room", condition: "equal", value: "study" }],
+    });
+
+    // A second type makes the property filter meaningless, so it disappears
+    // and the list widens again. The popover stays open while it is edited.
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Plant" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Chore" }));
+    expect(screen.queryByLabelText("Filter by property")).toBeNull();
+    // Zinnia keeps its trashed plant record, so it is a plant use as well.
+    await waitFor(() =>
+      expect(visibleNames()).toEqual(["leaf.png", "garden-notes.pdf", "zinnia.png"]),
+    );
+  });
+
+  it("reads every page of a matched-record set", async () => {
+    const offsets: (string | null)[] = [];
+    stubFetch((input) => {
+      const url = new URL(requestUrl(input), "http://localhost");
+      if (url.pathname === "/api/spaces/s1/files") return jsonResponse(library);
+      if (url.pathname === "/api/spaces/s1/types") return jsonResponse(types);
+      if (url.pathname === "/api/spaces/s1/types/plant") return jsonResponse(plantType);
+      if (url.pathname === "/api/spaces/s1/properties") return jsonResponse([roomProperty]);
+      if (url.pathname === "/api/spaces/s1") return jsonResponse(space);
+      if (url.pathname === "/api/spaces/s1/objects") {
+        const offset = url.searchParams.get("offset");
+        offsets.push(offset);
+        return jsonResponse(
+          offsets.length === 1
+            ? { ...plantRows, limit: 1, has_more: true }
+            : {
+                view: "table",
+                total: 2,
+                offset: 1,
+                limit: 1,
+                has_more: false,
+                objects: [
+                  {
+                    id: "o3",
+                    type: "plant",
+                    title: "Old zinnia",
+                    rev: 3,
+                    updated_at: "2026-11-07T12:00:00Z",
+                    values: {},
+                    missing_relations: [],
+                  },
+                ],
+              },
+        );
+      }
+      throw new Error(`unstubbed ${url.pathname}`);
+    });
+
+    renderLibrary();
+    await screen.findByText("leaf.png");
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Plant" }));
+    await screen.findByRole("option", { name: "Room" });
+    fireEvent.change(screen.getByLabelText("Filter by property"), {
+      target: { value: "room" },
+    });
+    fireEvent.change(screen.getByLabelText("Property value"), {
+      target: { value: "study" },
+    });
+
+    await waitFor(() =>
+      expect(visibleNames()).toEqual(["leaf.png", "zinnia.png"]),
+    );
+    expect(offsets).toEqual(["0", "1"]);
   });
 
   it("offers the two empty states", async () => {

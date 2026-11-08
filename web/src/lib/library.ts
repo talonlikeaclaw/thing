@@ -1,6 +1,6 @@
 /** Filtering and ordering for the space library; the page renders what this returns. */
 
-import type { LibraryItem } from "@/api/types";
+import type { Condition, LibraryItem, PropertyFormat } from "@/api/types";
 
 /** The kind switch: everything, only images, only other files. */
 export type LibraryKind = "all" | "image" | "file";
@@ -96,4 +96,94 @@ export function sortLibrary(items: readonly LibraryItem[], sort: LibrarySort): L
     return recent !== 0 ? recent : byName(left, right);
   });
   return sorted;
+}
+
+/** The formats one value can narrow; lists of files and recurrence have no scalar. */
+export type FilterableFormat =
+  | "text"
+  | "url"
+  | "email"
+  | "number"
+  | "checkbox"
+  | "select"
+  | "multi_select"
+  | "relation";
+
+const FILTERABLE_FORMATS: readonly PropertyFormat[] = [
+  "text",
+  "url",
+  "email",
+  "number",
+  "checkbox",
+  "select",
+  "multi_select",
+  "relation",
+];
+
+/** Whether the library offers a value control for this property. */
+export function isFilterableFormat(format: PropertyFormat): format is FilterableFormat {
+  return FILTERABLE_FORMATS.includes(format);
+}
+
+/**
+ * The condition one property filter contributes, or `null` while it holds no
+ * value.
+ *
+ * The operator follows the format the property's own editor uses: equality for
+ * a choice, a checkbox or a number; a substring for prose; containment for a
+ * multi-select or a relation list, so any related record or tag matches.
+ */
+export function propertyCondition(
+  key: string,
+  format: FilterableFormat,
+  value: unknown,
+): Condition | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  switch (format) {
+    case "checkbox":
+      return typeof value === "boolean"
+        ? { property: key, condition: "equal", value }
+        : null;
+    case "number": {
+      const number = typeof value === "number" ? value : Number(String(value).trim());
+      return Number.isFinite(number)
+        ? { property: key, condition: "equal", value: number }
+        : null;
+    }
+    case "select":
+      return typeof value === "string"
+        ? { property: key, condition: "equal", value }
+        : null;
+    case "multi_select":
+    case "relation":
+      return typeof value === "string"
+        ? { property: key, condition: "contains", value }
+        : null;
+    case "text":
+    case "url":
+    case "email": {
+      const text = typeof value === "string" ? value.trim() : "";
+      return text === "" ? null : { property: key, condition: "contains", value: text };
+    }
+  }
+}
+
+/**
+ * The items a property filter leaves: the server returns the records of one
+ * type a condition matched, so a file stays when any of its records of that
+ * type is in the set.
+ *
+ * A file whose only record is trashed never matches, because the object read
+ * lists live records only; it returns when the property filter is cleared.
+ */
+export function filterByMatchedRecords(
+  items: readonly LibraryItem[],
+  typeKey: string,
+  matched: ReadonlySet<string>,
+): LibraryItem[] {
+  return items.filter((item) =>
+    item.records.some((record) => record.type_key === typeKey && matched.has(record.id)),
+  );
 }
