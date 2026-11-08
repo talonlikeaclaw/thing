@@ -1,9 +1,11 @@
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
+import { useState } from "react";
 
 import type { PropertyDef, ViewDef } from "@/api/types";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button } from "@/components/ui/controls";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
+import { searchProperties } from "@/lib/property-search";
 import { moveViewColumn, withColumn, withoutColumn } from "@/lib/views";
 
 interface ColumnPanelProps {
@@ -27,8 +29,10 @@ export function ColumnPanel({
   const nameOf = (key: string) => propertyByKey.get(key)?.name ?? key;
   const compact = useCompactWidth();
   const coarse = useCoarsePointer();
+  const [query, setQuery] = useState("");
   const shown = view.columns.filter((key) => key !== "title");
   const hidden = properties.filter((property) => !view.columns.includes(property.key));
+  const hiddenMatches = searchProperties(hidden, query);
 
   function move(key: string, delta: number) {
     const columns = moveViewColumn(view, key, delta);
@@ -125,8 +129,24 @@ export function ColumnPanel({
       {hidden.length > 0 ? (
         <div className="mt-3">
           <span className="label">Hidden</span>
+          <label className="mt-1 flex items-center gap-2 border-b rule pb-1.5">
+            <Search aria-hidden size={13} className="shrink-0 text-faint" />
+            <input
+              type="search"
+              value={query}
+              aria-label="Search hidden properties"
+              placeholder="Search hidden properties."
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base"
+            />
+          </label>
+          {hiddenMatches.length === 0 ? (
+            <p className="mt-2 text-[13px] text-muted">
+              No property matches “{query.trim()}”.
+            </p>
+          ) : null}
           <ul className="mt-1">
-            {hidden.map((property) => (
+            {hiddenMatches.map((property) => (
               <li
                 key={property.key}
                 className="flex items-center justify-between gap-2 border-b rule py-1.5"

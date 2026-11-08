@@ -440,6 +440,14 @@ sheet's other fields; a ledger column header stacks the pill under its label bec
 column is narrow, and on a phone the ledger drops the pill entirely. The capture sheet's
 icon trigger takes the same accent frame, and its `Type` label is accent.
 
+**The Property Picker.** Every surface that chooses a property asks one searchable list:
+a glass-strong popover under its trigger on a fine pointer, the shared sheet on a phone.
+The search field takes focus on open, and the rows are the identity motif — accent name,
+faint mono key, format pill — grouped `On this type` then `In this space`, with the
+chosen key marked. The active row sits on the accent wash, the arrow keys move it,
+Enter chooses it and Escape closes back to the trigger. No native property select
+survives it.
+
 **The Cell Editor Rule.** A cell edits in place for text, number, date, datetime, URL,
 email and checkbox — the field is smaller than the cell. Select, multi-select, relation
 and recurrence need more room and always float: a popover anchored to the cell on a fine

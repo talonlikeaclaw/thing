@@ -17,6 +17,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Finding a property",
+    upcoming: true,
+    highlights: [
+      "Choosing a property starts with typing its name, not scrolling a list.",
+    ],
+    details: [
+      "The type editor's add-a-property control searches names and keys and prints each property's format.",
+      "A view's hidden properties can be searched by name or key.",
+    ],
+  },
+  {
     version: "0.7.0",
     title: "Files and photos",
     highlights: [

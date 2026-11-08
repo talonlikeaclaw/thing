@@ -13,11 +13,11 @@ import type {
 } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
+import { PropertyPicker } from "@/components/property-picker";
 import { SmallButton } from "@/components/schema/small-button";
 import {
   Button,
   FormError,
-  SelectField,
   StickyActionBar,
   TextAreaField,
   TextField,
@@ -144,9 +144,11 @@ export function TypeEditor({
       !isScheduleKey(property.key) &&
       !members.some((member) => member.key === property.key),
   );
+  // A chosen key stays armed only while it is still on offer; a member added or
+  // a library edit elsewhere must not leave Add pointed at nothing.
   const addKey = available.some((property) => property.key === pendingKey)
     ? pendingKey
-    : (available[0]?.key ?? "");
+    : "";
   const payload = {
     name: name.trim(),
     name_plural: plural.trim(),
@@ -485,20 +487,18 @@ export function TypeEditor({
         {canEdit && available.length > 0 ? (
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div className="min-w-[12rem] flex-1">
-              <SelectField
+              <PropertyPicker
                 label="Add a property"
-                value={addKey}
-                options={available.map((property) => ({
-                  value: property.key,
-                  label: `${property.name} (${formatLabel(property.format)})`,
-                }))}
-                onValueChange={setPendingKey}
+                properties={available}
+                value={addKey === "" ? null : addKey}
+                onChange={setPendingKey}
               />
             </div>
             <Button
               type="button"
               variant="ghost"
               className="min-h-9 px-3 text-[13px]"
+              disabled={!addKey}
               onClick={onAdd}
             >
               <Plus aria-hidden size={15} />
