@@ -54,8 +54,8 @@ Out of scope, deliberately:
 - **A public or signed URL.** Files are member-only on the same origin, like every other read.
 - **A per-space quota.** The self-hosted install has no billing model; the upload limit is per
   file.
-- **M7 sync and the desktop shell.** No `since=` file listing, no local directory, no conflict
-  folders. M6 only makes the bytes addressable so M7 has something to sync.
+- **M10 sync and the desktop shell.** No `since=` file listing, no local directory, no conflict
+  folders. M6 only makes the bytes addressable so M10 has something to sync.
 - **Image editing, cropping, EXIF stripping as a policy, and antivirus.** Originals are stored
   byte-for-byte; thumbnails are the only derived bytes.
 - **Cross-space references.** A path is relative to its own space and cannot be copied into
@@ -257,9 +257,9 @@ metadata would be ambiguous to deserialize and would duplicate facts. The path i
 - **Backup**: `files/` is canonical and required; `files/.thumbs/` is derived and may be excluded.
   The README's tarball sentence is updated to say so.
 
-### 4.8 What M7 inherits
+### 4.8 What M10 inherits
 
-Content addressing is the sync contract. M7 can list a space's files by hash, fetch a changed
+Content addressing is the sync contract. M10 can list a space's files by hash, fetch a changed
 object's markdown and its referenced files, and detect a conflict by `rev` without comparing bytes.
 M6 exposes `hash` in the upload response and keeps the path derivable; it does **not** add a
 `since=` file manifest, a local directory, or a conflict folder.
@@ -517,7 +517,7 @@ of this milestone's version.
 7. The release QA sheet is stored beside the critique it belongs to; the tag is cut by the owner
    after review, never by the agent.
 
-## 10. What M7 inherits
+## 10. What M10 inherits
 
 - A content-addressed `files/` tree, a path grammar and a hash in every upload response.
 - File references that survive trash, restore, duplicate and purge, with missing bytes reported

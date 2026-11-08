@@ -101,7 +101,14 @@ are landed at workspace `0.5.2`; `FORMAT_VERSION` stays `4`, no route, permissio
 changes, and no dependency is added beyond the font swap. Its device pass had emulation only, and
 the physical-iPhone gate remains open. The next milestone starts its own `docs/plan/mN-*.md`,
 written the way these were. M6–M10 are recorded here so the format does not
-need reshaping later; each carries its decisions already made.
+need reshaping later; each carries its decisions already made. M6.2's workspace UX patch is
+written and waiting at
+[`docs/plan/m6.2-workspace-ux.md`](plan/m6.2-workspace-ux.md); M7's execution spec is written and
+waiting at [`docs/plan/m7-computed-properties.md`](plan/m7-computed-properties.md).
+
+**Revised 2026-11-08:** the workspace UX patch (M6.2, v0.7.1) lands before M7. It changes the
+surfaces computed properties will use — the property picker, the property sheet and the schema
+tabs — without changing the format. Computed properties remain the next model change.
 
 **Revised 2026-11-07:** the remaining milestones were renumbered ahead of M6.1's release.
 Computed properties lead (M7), then the agent surface (M8) and history depth (M9), with the desktop
@@ -312,11 +319,25 @@ usability move ahead of search.
   never deletes bytes a body renders and the health read reports one whose bytes are missing. The
   lightbox becomes a wrapping carousel with a counter and arrow keys. `FORMAT_VERSION` is `6` and a
   schema-5 space upgrades on its first write; no dependency is added.
-- **M7 — Computed properties.** `formula` (per-object expression over its own properties) and
-  `rollup` (aggregate a relation's target property: count, sum, min, max, list). Read-only values,
-  never stored in frontmatter. Adding a value the format can compute is the next change to the
-  model: it touches the property formats, the table, the filters and sorts and CSV, so it lands
-  before anything that would carry the format elsewhere.
+- **M6.2 — Workspace UX.** **Planned**; spec:
+  [`docs/plan/m6.2-workspace-ux.md`](plan/m6.2-workspace-ux.md). A v0.7.1 patch with no schema
+  change: one searchable property picker serves filter, sort, columns, add, manage and the command
+  palette; Filter/Sort/Columns become anchored popovers on a fine pointer and one View sheet on a
+  phone, with active conditions as chips, schedule quick filters and type-aware value editors;
+  records gain add/manage property and a property search; the schema page becomes Types/Properties
+  tabs with search and a phone master-detail flow; and a text/select/multi-select column can be
+  promoted to a relation to a newly created type, previewed, staged and linked with the original
+  values kept in history and the original key restored. `FORMAT_VERSION` stays `6`. Nine
+  checkpoints.
+- **M7 — Computed properties.** **Planned**; spec:
+  [`docs/plan/m7-computed-properties.md`](plan/m7-computed-properties.md). A property gains an
+  optional `compute` block: a `formula` over its own stored properties, or a `rollup` aggregating a
+  relation's target property (`count`, `sum`, `min`, `max`, `list`). The result type stays the
+  property's `format`, with one new computed-only `list` format for label lists. Read-only values
+  are never stored in frontmatter, history or the search index; they are materialized per request
+  from the same markdown. Schema 7, workspace `0.8.0`. Adding a value the format can compute is the
+  next change to the model: it touches the property formats, the table, the filters and sorts and
+  CSV, so it lands before anything that would carry the format elsewhere.
 - **M8 — Agent surface.** Long-lived API tokens (a bearer alternative to the session cookie), a
   generated OpenAPI document, and an MCP server exposing list/create/update/search over spaces.
   This is what lets the user's omp agents drive their own app the way they drive the self-hosted

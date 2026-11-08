@@ -256,6 +256,8 @@ dependency is added.
 | `docs/plan/m5.3-stability.md` | The v0.5.3 stability spec: the map's label layout, finger-sized targets, one ledger voice, the schedule's empty state, the tab contract and the shortcut door, offline states, and the release pass. Landed as `0.5.3`, schema 4. |
 | `docs/plan/m6-files-and-images.md` | The v0.6.0 spec: canonical attachment bytes under `files/`, schema 5 with `cover` and the `file`/`image` formats, the upload/read/thumbnail routes, record and gallery covers, the lightbox, lifecycle and GC, CSV semantics, and the release pass. Landed as `0.6.0`, schema 5. |
 | `docs/plan/m6.1-attachments-ux.md` | The v0.7.0 spec: schema 6 and the `attachments` list format, labels and CSV paths, the lightbox carousel, the attachments field and its read surfaces, body images with their GC rule, the space library and storage settings, and the release pass. Landed as `0.7.0`, schema 6. |
+| `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Planned; no format change. |
+| `docs/plan/m7-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Planned. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and

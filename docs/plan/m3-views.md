@@ -29,7 +29,7 @@ In scope:
 Out of scope, deliberately: cross-type views, per-user (private) views, view objects, drag-and-drop
 between board lanes, creating a record directly into a lane or on a calendar day, week/day calendar
 modes, recurrence projection into future dates, image covers and file properties (M6), formulas and
-rollups (M9), and public share links. A view is shared with the space because it lives in the type
+rollups (M7), and public share links. A view is shared with the space because it lives in the type
 file; there is no second ownership model.
 
 Success is a Plant type whose file holds four named views, whose default table view keeps its
