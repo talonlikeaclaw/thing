@@ -351,7 +351,7 @@ function LibraryCard({
               href={fileUrl(spaceId, item.path)}
               download={item.name}
               aria-label={`Download ${item.name}`}
-              className="inline-flex min-h-6 items-center gap-1 rounded-full border border-line px-2 text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+              className="inline-flex min-h-6 items-center gap-1 rounded-full border border-line px-2 text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
             >
               <Images aria-hidden size={11} />
               Download
@@ -381,7 +381,7 @@ function RecordChips({
           <span
             key={record.id}
             title={`${record.type_name} · ${record.field_name}`}
-            className="inline-flex min-h-6 items-center gap-1 rounded-full border border-line px-2 text-[11px] text-faint"
+            className="inline-flex min-h-6 items-center gap-1 rounded-full border border-line px-2 text-[11px] text-faint pointer-coarse:min-h-11"
           >
             <span className="max-w-[9rem] truncate">{record.title}</span>
             <span className="label">In trash</span>
@@ -391,7 +391,7 @@ function RecordChips({
             key={record.id}
             to={`/s/${spaceId}/o/${record.id}`}
             title={`${record.type_name} · ${record.field_name}`}
-            className="inline-flex min-h-6 items-center gap-1 rounded-full border border-line bg-raised/40 px-2 text-[11px] text-ink transition-colors hover:border-line-strong"
+            className="inline-flex min-h-6 items-center gap-1 rounded-full border border-line bg-raised/40 px-2 text-[11px] text-ink transition-colors hover:border-line-strong pointer-coarse:min-h-11"
           >
             {record.icon ? <span aria-hidden>{record.icon}</span> : null}
             <span className="max-w-[9rem] truncate">{record.title}</span>

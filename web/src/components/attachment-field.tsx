@@ -282,11 +282,11 @@ export function AttachmentField({
                   href={fileUrl(spaceId, path)}
                   download={fileName(path)}
                   className={cn(
-                    "min-w-0 flex-1 truncate text-[13px] text-ink underline decoration-line-strong hover:decoration-ink",
+                    "min-w-0 flex-1 text-[13px] text-ink underline decoration-line-strong hover:decoration-ink pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center",
                     focusRing,
                   )}
                 >
-                  {fileName(path)}
+                  <span className="truncate">{fileName(path)}</span>
                 </a>
               </span>
               <AttachmentMenu

@@ -46,10 +46,18 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   table's title cell, home recents, the command palette, board cards, gallery tiles and Trash. A
   record without one keeps its previous layout.
 - **Files and images.** Attach a file or an image to a record; the bytes live in the space's own
-  `files/` tree, named by their content, so one copy of the directory is still the whole space. An
-  image property can fill the gallery tiles, a record can carry a 16:9 cover whose focal point is
-  stored with it, and any image opens in a lightbox that closes with Escape. A missing file is
-  reported by the space's health read and never blocks the record.
+  `files/` tree, named by their content, so one copy of the directory is still the whole space. A
+  record can also hold a set of files and photos in one property, read as a grid of thumbnails and
+  edited as one draft: upload, paste or drop, remove, and set any photo as the cover. An image
+  property can fill the gallery tiles, a record can carry a 16:9 cover whose focal point is stored
+  with it, and any image opens in a lightbox that steps through the whole set and closes with
+  Escape. Pasting or dropping an image into a record's body stores it and renders it there. A
+  missing file is reported by the space's health read and never blocks the record, and bytes a body
+  still renders are never collected as unused.
+- **A library of everything stored.** `/s/<space>/library` lists every file and photo in the space
+  with the records that use each one, filtered by kind, type and name and sorted by recent, name or
+  size. Space settings show the space's attachment weight and let an owner collect the bytes no
+  record names.
 - **Made for a phone.** Search, capture and every menu rise from the bottom and stay above the
   on-screen keyboard; the page uses the whole screen on a notched phone. A toast clears the keyboard
   and the bottom bar, and the emoji picker opens in front of the form it belongs to. The type
@@ -60,7 +68,7 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
-  Files are written as schema 5; every schema-1…4 file still loads, and a record's icon, cover and
+  Files are written as schema 6; every schema-1…5 file still loads, and a record's icon, cover and
   cover framing are optional frontmatter keys rather than properties. Attachment bytes live beside
   the markdown in each space's `files/` tree, named by their content, so a copy of the space
   directory is the whole space.

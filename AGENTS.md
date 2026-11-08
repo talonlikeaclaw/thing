@@ -32,17 +32,19 @@ v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-
 (`0.4.3`), v0.4.4 usability sweep (`0.4.4`), v0.4.5 schedule views (`0.4.5`), M5 search,
 links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-landing and rename
 repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4), and
-the v0.5.3 stability pass (`0.5.3`, schema 4) and M6 files and images (`0.6.0`, schema 5), are
-implemented, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is still open.**
+the v0.5.3 stability pass (`0.5.3`, schema 4), M6 files and images (`0.6.0`, schema 5) and M6.1
+attachments UX (`0.7.0`, schema 6), are implemented, not yet tagged or deployed; CI is green. The
+v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
 `SearchIndex` and `snippet`), `links` (`parse`, `LinkStatus`, the link and backlink views),
-`store` (`SpaceStore` trait + `FsSpaceStore`, the `files/` and `.thumbs/` path grammar and the
-attachment reads and writes), `validate` (objects, filters, sorts and
+`store` (`SpaceStore` trait + `FsSpaceStore`, the `files/` and `.thumbs/` path grammar, the
+attachment reads and writes and `paths_in_body`), `validate` (objects, filters, sorts and
 `validate_views`), `filter`, `query` and `index` (`SpaceIndex`, including the derived search
 index, the folded title map that resolves `[[Type/Title]]` links, `outgoing_links`,
-`outgoing_relations`, `backlinks_of` and `view_problems`), with fixture round-trip tests, filesystem tests over
+`outgoing_relations`, `backlinks_of`, the owned `attachment_references` that cover bytes, property
+values and body mentions share, and `view_problems`), with fixture round-trip tests, filesystem tests over
 `tempfile::TempDir`, schedule tests over a fixed clock and explicit zone, and table-view tests over
 a space built on disk.
 `thing-server` has its shell (`config`, `error`, `spaces`, `watcher`, `state`), its auth and
@@ -54,8 +56,8 @@ delete, default), `routes/properties`
 filter/sort/search/view selection, raw, history, trash, restore, purge, the `with=links,backlinks`
 detail extension — where `with=links` now also carries the read-only `links_to` projection — the
 space graph, Complete, snooze and the agenda's window, range and type parameters), `routes/files` (raw upload,
-the `?w=` thumbnail read and the owner's garbage collection) and `routes/values` (the `{value, label}`
-rendering every response uses). `scripts/seed.sh`
+the `?w=` thumbnail read, the library read that names each path's records, and the owner's garbage
+collection) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
 builds the Garden demo space against a running server, with relative due dates in
 `America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is
 a Vite + React 19 SPA with the signed-out surfaces (sign in, register, invite join), the space list,
@@ -65,8 +67,12 @@ selection, filters and sorts, inline cell editing with optimistic writes and `40
 recurrence editor, WebSocket invalidation through `lib/use-space-events.ts`, the object panel with
 per-format inputs, a markdown body, Complete and the `Links` panel and graph
 (`pages/object.tsx`, `components/object-panel.tsx`, `components/links-panel.tsx`,
-`components/graph-section.tsx`), the shared file field and image lightbox
-(`components/file-field.tsx`, `components/image-lightbox.tsx`, `components/property-field.tsx`),
+`components/graph-section.tsx`), the shared file field, attachments field and image lightbox
+(`components/file-field.tsx`, `components/attachment-field.tsx`,
+`components/image-lightbox.tsx`, `components/property-field.tsx`), the rendered body that resolves
+a stored image and opens it in that lightbox (`components/markdown-view.tsx`,
+`components/markdown-editor.tsx`), the space library (`pages/library.tsx`) and the storage section
+of space settings,
 the Schedule page's List and Calendar over one agenda read, its type filter and snooze
 (`pages/agenda.tsx`, `components/agenda/`), the shared month grid
 (`components/views/month-grid.tsx`) and the nav badge (`components/space-nav.tsx`), space settings
@@ -75,7 +81,7 @@ with name, searchable emoji icon, timezone and confirmed deletion (`pages/settin
 (`components/history-panel.tsx`, `pages/trash.tsx`). `Dockerfile`, `docker-compose.yml` and
 `.github/workflows/ci.yml` build the SPA and binary into one hardened image, run both gates plus
 Semgrep, and push a tagged `ghcr.io` image; `docker-compose.dev.yml` and `.devcontainer/` run the
-same app with live reload. M2–M6 are not tagged or deployed yet.
+same app with live reload. M2–M6.1 are not tagged or deployed yet.
 
 M4 added the everyday-use layer: quick capture and a command palette with global hotkeys
 (`components/quick-capture.tsx`, `components/command-palette.tsx`, `lib/hotkeys.ts`), the space
@@ -216,6 +222,20 @@ space health read and never blocks a record (`components/file-field.tsx`,
 `components/image-lightbox.tsx`, `components/views/gallery-view.tsx`, `routes/files.rs`,
 `crates/core/src/index.rs`). No new dependency beyond the pinned `image` decoder.
 
+M6.1 widens that at schema 6: a new `attachments` format holds an ordered list of the same
+`files/<sha256>/<name>` paths (capped at 200, no duplicate, no text filter), rendered as one grid of
+image tiles and file rows and committed once from a table cell (`crates/core/src/model.rs`,
+`crates/core/src/value.rs`, `components/attachment-field.tsx`). `attachment_references` now includes
+every list entry and every `files/` token in a body (`store::paths_in_body`), so
+`referenced_files()`, `missing_files()` and the owner's collection all agree; a body image renders
+through the same lightbox and its bytes survive `Collect unused`. `GET …/files` becomes the library
+read behind `/s/<space>/library`, listing each stored path once with the live or trashed records that
+name it, and space settings show the used and unused totals beside `Collect unused`
+(`routes/files.rs`, `pages/library.tsx`, `pages/settings.tsx`). The lightbox is a wrapping carousel
+with a counter and arrow keys, and a gallery cover may name an `attachments` property, falling back
+to the record cover. `FORMAT_VERSION` is `6` and a schema-5 space upgrades on its first write; no
+dependency is added.
+
 ## Where the plan lives
 
 | File | Role |
@@ -235,6 +255,7 @@ space health read and never blocks a record (`components/file-field.tsx`,
 | `docs/plan/m5.2-visual-refresh.md` | The v0.5.2 spec: the type, colour and state foundation; the space cover sheet; the record specimen sheet; ledger tables and views; the command surface; the phone shell; the quiet surfaces; and the Night Glass material pass. Landed as `0.5.2`, schema 4. |
 | `docs/plan/m5.3-stability.md` | The v0.5.3 stability spec: the map's label layout, finger-sized targets, one ledger voice, the schedule's empty state, the tab contract and the shortcut door, offline states, and the release pass. Landed as `0.5.3`, schema 4. |
 | `docs/plan/m6-files-and-images.md` | The v0.6.0 spec: canonical attachment bytes under `files/`, schema 5 with `cover` and the `file`/`image` formats, the upload/read/thumbnail routes, record and gallery covers, the lightbox, lifecycle and GC, CSV semantics, and the release pass. Landed as `0.6.0`, schema 5. |
+| `docs/plan/m6.1-attachments-ux.md` | The v0.7.0 spec: schema 6 and the `attachments` list format, labels and CSV paths, the lightbox carousel, the attachments field and its read surfaces, body images with their GC rule, the space library and storage settings, and the release pass. Landed as `0.7.0`, schema 6. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -271,7 +292,10 @@ M5.3 (map labels; finger targets; folded rail; one cell editor; ledger voice; em
 contract; fail-loud reads; visual QA and release) are landed at workspace `0.5.3`, and checkpoints
 1–8 of M6 (binary attachments in the store; schema 5; upload and read routes; thumbnails; upload,
 file/image properties and the record cover; gallery covers, framing and the lightbox; lifecycle, GC,
-CSV and problems; version, docs and release QA) are landed at workspace `0.6.0`.** M1 is deployed;
+CSV and problems; version, docs and release QA) are landed at workspace `0.6.0`, and checkpoints
+1–7 of M6.1 (schema 6 and the `attachments` format; the library read and per-format labels; the
+lightbox carousel; the attachments field and its read surfaces; body images; the space library,
+navigation and storage; version, docs and release QA) are landed at workspace `0.7.0`.** M1 is deployed;
 M2–M6 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
@@ -316,7 +340,8 @@ out of scope.
   `index`, `search` and `links` exist. The server shell, auth, the schema, view, search and object
   APIs (including Complete, the agenda and `with=links`), and the event bus exist; the SPA covers
   auth, the space list, the schema editor, the four view renderers, the object panel with its
-  writing surface, links panel and graph, the Schedule page, history and trash.
+  writing surface, links panel and graph, the Schedule page, the attachments field, the space
+  library, history and trash.
 
 ## Key Directories
 
@@ -485,6 +510,13 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   resolves is kept and reported by the space health read, never rewritten or invented; `file` and
   `image` values are plain text paths, and an `image` extension is one of `png`, `jpg`, `webp` or
   `gif` because those are the only bytes the decoder and the reader accept.
+- **A set is a list of the same paths, and a body mention is a reference.** An `attachments` value
+  is an ordered `Value::List` of `files/…` paths, capped at `MAX_ATTACHMENTS` (200), with no path
+  twice and no text filter beyond `is_empty`/`is_not_empty`; upload order is the order, and an empty
+  set is an absent key. Any `files/…` token in a body counts as a reference for garbage collection
+  and for the missing-file report (`field: "body"`), because GC must never delete bytes a body
+  renders. The library lists unique stored paths with the live or trashed records that use them,
+  and a path only the trash names is neither unused nor collected.
 - **A cover is a reserved key, not a property.** `cover` names one attachment path and
   `cover_position` stores the 16:9 crop's centre as two percentages; `null` clears either, an
   absent key keeps it, and clearing a cover clears its framing. A record's hero and a gallery tile
@@ -560,15 +592,15 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/validate.rs` | `Schema` (borrowed from the index), `validate_object`, `validate_filter`, `validate_sorts`, `validate_views`, `dependent_views`, `missing_relations` |
 | `crates/core/src/filter.rs` | `matches` / `row_matches`: one condition against one row, over every `CondOp` |
 | `crates/core/src/query.rs` | `apply(filter, sorts, …)`: the view's filter, then its total sort order |
-| `crates/core/src/index.rs` | `SpaceIndex`: a whole space in memory, `rebuild_from_disk`, `reload_file`, `problems` (including `view_problems`), `detail` |
+| `crates/core/src/index.rs` | `SpaceIndex`: a whole space in memory, `rebuild_from_disk`, `reload_file`, `problems` (including `view_problems`), `detail`, and `attachment_references`/`referenced_files`/`missing_files` over covers, property values and body mentions |
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
-| `crates/core/src/markdown.rs` | The on-disk format (schema 5): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
+| `crates/core/src/markdown.rs` | The on-disk format (schema 6): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
 | `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, `snooze` (with the shared `rephase_base`), `MAX_SNOOZE_DAYS`, recurrence labels |
 | `crates/core/src/search.rs` | The derived inverted index: `tokens` (lowercased alphanumeric runs, 64-char cap), `SearchIndex::upsert`/`remove`/`rebuild`/`query` with the pinned score and total order, and `snippet` for the matching body window |
 | `crates/core/src/links.rs` | The `[[Type/Title]]` grammar: `parse` (fences, inline code and escapes excluded, first slash, 200-char cap), `LinkStatus`/`LinkView`, relation and mention backlink shapes, and `excerpt` |
-| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`, `file_path`, `thumb_path`, `is_file_path`, `split_thumb_path`) and the property rename/removal rewrites |
+| `crates/core/src/store/mod.rs` | The `SpaceStore` trait, `FileFingerprint`, `SpaceFile`, the layout consts plus `classify`, the path helpers (`type_path`, `property_path`, `trash_path`, `history_path`, `file_path`, `thumb_path`, `is_file_path`, `split_thumb_path`, `paths_in_body`) and the property rename/removal rewrites |
 | `crates/core/src/store/fs.rs` | `FsSpaceStore`: the only filesystem code, atomic writes, the write guard, `rename_property_key`/`remove_property_key` and their per-object revisions |
 | `crates/core/tests/fixtures/` | Hand-written files in canonical emitted form; `invalid/` holds refused ones |
 | `crates/server/src/` | `thing-server`: `main` (clap, tracing, boot), `config`, `state`, `error`, `accounts`, `auth`, `spaces`, `events`, `watcher`, `routes/{mod,auth,spaces,search,types,views,properties,objects,files,csv,values}` |
@@ -577,7 +609,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/server/src/routes/types.rs` | Type CRUD and detail, schedule enable/disable, and the property-removal and dependency guards that keep saved views valid |
 | `crates/server/src/routes/views.rs` | Named-view create, patch, delete and default; mints keys once, protects the last view, promotes the default |
 | `crates/server/src/routes/search.rs` | `GET /api/spaces/{space}/search`: validates `q` (1–200), `limit` (1–50) and an optional type key, reads `SpaceIndex::search`, then resolves type/record metadata and the body snippet; `total` is pre-limit |
-| `crates/server/src/routes/files.rs` | The attachment surface: raw upload with a sniffed type and content hash, the member-only read with `Cache-Control`/ETag and an optional `?w=256|512` thumbnail, and the owner's garbage collection of bytes no live or trashed object names |
+| `crates/server/src/routes/files.rs` | The attachment surface: raw upload with a sniffed type and content hash, the member-only read with `Cache-Control`/ETag and an optional `?w=256|512` thumbnail, the library read that lists every stored path with the records that use it, and the owner's garbage collection of bytes no live or trashed object, property value or body names |
 | `crates/server/src/routes/objects.rs` | The single object write path (mutex → validate → guarded write → revision → reload → broadcast), the list endpoint resolving `?view=` and projecting its fields, the detail read's `?with=history,backlinks,links`, Complete, the agenda and the trash, restore and history routes |
 | `crates/server/src/routes/values.rs` | The `{value, label}` rendering: option names, relation titles, missing targets, row and object JSON |
 | `web/src/api/client.ts` | The one request path: same-origin cookies, JSON, error envelope → `ApiError` |
@@ -595,14 +627,17 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `web/src/components/recurrence-input.tsx` | The Apply/Cancel editor for `recurrence` values, shared by table cells, panel fields and filters |
 | `web/src/pages/agenda.tsx` | The Schedule page: List/Calendar switch, horizon, month and type filter in the URL with storage as fallback, one loading/error path for both views, and one completion/snooze handler with their toasts and Undo |
 | `web/src/lib/search.ts` | The in-memory action/type/space scorer and `matchRanges` for palette highlights; record results come from the server and keep its order |
-| `web/src/lib/markdown-edit.ts` | Every writing-surface transform as a pure `{value, selection}` edit: wrapping, line prefixes, list continuation, indent, links, fences, slash and wiki triggers, and slash application |
+| `web/src/lib/markdown-edit.ts` | Every writing-surface transform as a pure `{value, selection}` edit: wrapping, line prefixes, list continuation, indent, links, fences, slash and wiki triggers, slash application and `insertImages` |
+| `web/src/lib/files.ts` | The path grammar helpers and upload guards every attachment surface shares: `MAX_UPLOAD_BYTES`, `ACCEPTED_IMAGES`, `isAcceptedImageType`, `isImagePath` and `imagePaths` |
 | `web/src/lib/graph.ts` | `buildLocalGraph` (deduped nodes, capped at 24, relation/mention edges) and `layoutLocalGraph` / `layoutSpaceGraph`, deterministic ring placement with clipped edges |
 | `web/src/components/markdown-editor.tsx` | The textarea writing surface: toolbar with the H1–H3 menu, shortcuts, paste-link, preview-tap-to-write, Write/Preview split, and the one caret popup for `/` commands, `[[` completion and the create row |
 | `web/src/components/links-panel.tsx` | The record's Links section: the mono count across both directions, `Links to` relation and mention rows, `Linked from` relation rows, `Mentioned in` rows, and the empty sentence |
 | `web/src/components/rename-links-dialog.tsx` | The pre-rename preview: reads each mentioning source before the title changes, lists it with its type and count, and offers Update links, Rename only or Cancel |
 | `web/src/components/graph-section.tsx` | The Graph disclosure, Local/Space scope and the shared SVG canvas with legend, zoom, pan and node offsets |
 | `web/src/components/file-field.tsx` | One file/image control for the record panel: choose or drop, upload with its busy and refusal states, preview, replace, remove and Retry |
-| `web/src/components/image-lightbox.tsx` | The one image overlay, built on the sheet primitives: full-size picture, caption, Escape and focus returned to the opener |
+| `web/src/components/image-lightbox.tsx` | The one image overlay, built on the sheet primitives: full-size picture, caption, a wrapping previous/next carousel with a position counter and arrow keys, Escape and focus returned to the opener |
+| `web/src/components/attachment-field.tsx` | The one file-set editor, shared by the record and the table cell: append-on-upload order, an image grid and file rows, paste and drop, remove with confirmation, `Set as cover`, the set's lightbox, its refusal/Retry state and the deferred commit a cell makes with `Done` |
+| `web/src/pages/library.tsx` | The space library: every stored path with the live or trashed records that use it, kind/type/name filters, three sorts, the unused marker, the images' lightbox and the empty states |
 | `web/src/components/views/gallery-view.tsx` | A gallery tile's image cover (`?w=512`) with the record cover as fallback, the shared `object-position`, and the tile actions |
 | `web/src/test/harness.tsx` | The component-test layer: a fresh QueryClient, MemoryRouter, ToastProvider, fetch stub and JSON response helper |
 | `web/src/pages/schema.tsx` | The schema page: list/editor pairs selected by `?type=` and `?property=` |
@@ -678,7 +713,7 @@ code is; "it works" does not excuse a skipped gate, a secret change, or a commit
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 816 tests (252 `thing-core`, 17 `tests/roundtrip.rs`, 116 `thing-server`, 431
+- **Current coverage:** 885 tests (260 `thing-core`, 18 `tests/roundtrip.rs`, 121 `thing-server`, 486
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

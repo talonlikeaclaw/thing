@@ -17,9 +17,8 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
-    title: "Files, photos and the library",
-    upcoming: true,
+    version: "0.7.0",
+    title: "Files and photos",
     highlights: [
       "A record holds a set of files and photos in one field, not one at a time.",
       "Photos in a set read as a grid of thumbnails, and any of them opens full size.",

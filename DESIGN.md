@@ -465,7 +465,26 @@ its own glass pill with `Writing`, `Done` and a separate primary `Save`; Save ne
 among the formatting tools. The toolbar's hover, focus, disabled and coarse-pointer states
 are the shared button states. The `/` command list and the `[[` link list are one
 `glass-strong` panel with the active row on the accent wash, the same surface as the
-command palette.
+command palette. A pasted, dropped or picked image uploads into the space and inserts as
+an ordinary markdown image, so the body stays plain text: the preview and the saved record
+render it at the body's measure, lazily, and a tap opens the same lightbox over the body's
+images. While the bytes upload, one status line above the well says so, and a refusal
+names its file with `Retry` rather than dropping the insert.
+
+**The Library.** A quiet page: the shared header over one matte panel, its toolbar one row
+of the kind segment, the type filter, a name search and a sort select. Cards sit in a
+narrow-column masonry (`columns-2` up to `xl:columns-4`), so pictures of any proportion
+keep their own height instead of being cropped into a uniform tile. An image card draws the
+512px derived copy inside the card's own corner and prints the name and the records that
+use it as chips beneath; a file card swaps the picture for its type glyph and prints the
+size. An `Unused` chip marks bytes no record names, and a trashed use reads `In trash`
+without navigating. A tinted, untinted and image card share one radius, one hairline and
+one caption rhythm; the page never becomes a second gallery.
+
+**Quiet surfaces.** Schema, members, settings, trash, auth and account settings share one
+page header and one section rhythm. Sections are matte cards at 22px; the danger section
+carries an Ember edge. Space settings carries a third section for the space's attachments:
+the used and unused totals in plain figures and the owner's `Collect unused` action.
 
 **The Calendars.** The Schedule's Calendar and a type's Calendar are the same matte card
 with the same month controls, weekday rule, chip cap and glass day panel. A chip carries
@@ -604,7 +623,8 @@ are non-negotiable. Any state shown by colour is also legible as text or a shape
 Every signed-in surface consumes the foundation: the floating header and rail; the phone
 dock and space sheet; the cover sheet; the record sheet and its save row; the ledger
 table, view tabs, filter/sort bars and bulk bar; the command palette, capture, shortcuts,
-sign-out and icon sheets; the schedule list and calendar; schema, members, settings,
+sign-out and icon sheets; the schedule list and calendar; the record's attachment set, the
+space library and the storage section of space settings; schema, members, settings,
 trash, account settings, auth, join, changelog and not-found. The shell owns the one
 footer rule; a page's line joins it through `usePageFooter`. The accent picker and the
 file-backed colophon are unchanged in meaning.

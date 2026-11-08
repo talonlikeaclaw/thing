@@ -103,6 +103,11 @@ the physical-iPhone gate remains open. The next milestone starts its own `docs/p
 written the way these were. M6–M10 are recorded here so the format does not
 need reshaping later; each carries its decisions already made.
 
+**Revised 2026-11-07:** the remaining milestones were renumbered ahead of M6.1's release.
+Computed properties lead (M7), then the agent surface (M8) and history depth (M9), with the desktop
+shell last (M10): computed values change the format and every rendering surface, so they land before
+the model is copied into another binary, and desktop waits until the format has stopped moving.
+
 **Revised 2026-11-02:** M5 shipped as v0.5.0 with the space graph included; the roadmap's
 "on-disk inverted index" wording is corrected to the derived index over the markdown files. The
 plan's `0.5.1` space-graph split is not used.
@@ -290,24 +295,42 @@ usability move ahead of search.
   bidirectional link rows, search landing, the remaining editor actions, previewed rename repair
   and a component-test layer without changing the format or adding a route.
 
-- **M6 — Files and images.** Attachments stored beside the object under `files/`, referenced from
-  frontmatter; thumbnails; a `file`/`image` property format; cover images. Bytes stay on disk and in
-  the backup chain.
-- **M7 — Desktop.** Tauri shell around the built SPA with a local space directory that works offline.
-  Sync is per object: `GET /api/spaces/{space}/objects?since=<rev>` returns changed markdown files
-  verbatim, `PUT` sends the file back with `If-Match: <rev>`; a conflicting write is not merged but
-  both versions are kept (the loser lands in history and in `conflicts/`), because the format cannot
-  lose data it was given.
+- **M6 — Files and images.** **Landed** (workspace `0.6.0`, not yet deployed; schema 5); spec:
+  [`docs/plan/m6-files-and-images.md`](plan/m6-files-and-images.md). Attachments stored beside the
+  object under `files/`, referenced from frontmatter; thumbnails; a `file`/`image` property format;
+  cover images. Bytes stay on disk and in the backup chain.
+
+- **M6.1 — Attachments UX.** **Implemented** (workspace `0.7.0`, not yet deployed; checkpoints 1–7,
+  schema 6); spec: [`docs/plan/m6.1-attachments-ux.md`](plan/m6.1-attachments-ux.md). One record
+  holds a set of files and photos in a new `attachments` format whose value is an ordered list of
+  the same `files/<sha256>/<name>` paths, capped at 200 and edited as one grid of image tiles and
+  file rows with upload, paste, drop, remove and `Set as cover`; the record's cell stages the whole
+  list and commits it once. A `/s/<space>/library` page lists every stored path with the live or
+  trashed records that use it, filtered by kind, type and name and sorted by recent, name or size,
+  and space settings show the attachments' weight and collect the bytes no record names. Images
+  pasted into a body upload and insert `![](files/…)`; a body image counts as a reference, so GC
+  never deletes bytes a body renders and the health read reports one whose bytes are missing. The
+  lightbox becomes a wrapping carousel with a counter and arrow keys. `FORMAT_VERSION` is `6` and a
+  schema-5 space upgrades on its first write; no dependency is added.
+- **M7 — Computed properties.** `formula` (per-object expression over its own properties) and
+  `rollup` (aggregate a relation's target property: count, sum, min, max, list). Read-only values,
+  never stored in frontmatter. Adding a value the format can compute is the next change to the
+  model: it touches the property formats, the table, the filters and sorts and CSV, so it lands
+  before anything that would carry the format elsewhere.
 - **M8 — Agent surface.** Long-lived API tokens (a bearer alternative to the session cookie), a
   generated OpenAPI document, and an MCP server exposing list/create/update/search over spaces.
   This is what lets the user's omp agents drive their own app the way they drive the self-hosted
   Anytype today.
-- **M9 — Computed properties.** `formula` (per-object expression over its own properties) and
-  `rollup` (aggregate a relation's target property: count, sum, min, max, list). Read-only values,
-  never stored in frontmatter.
-- **M10 — History depth.** Restore a past revision, undo the last write, and a space-wide activity
+- **M9 — History depth.** Restore a past revision, undo the last write, and a space-wide activity
   feed. M1's format already stores full property snapshots per revision, so this is addition, not
   migration.
+- **M10 — Desktop.** Tauri shell around the built SPA with a local space directory that works
+  offline. Sync is per object: `GET /api/spaces/{space}/objects?since=<rev>` returns changed markdown
+  files verbatim, `PUT` sends the file back with `If-Match: <rev>`; a conflicting write is not merged
+  but both versions are kept (the loser lands in history and in `conflicts/`), because the format
+  cannot lose data it was given. Desktop runs last because it is the only milestone that duplicates
+  the storage, sync and conflict story, and it should carry a format and property model that have
+  stopped moving.
 
 
 

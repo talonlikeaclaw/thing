@@ -66,10 +66,12 @@ there is exactly one spelling for every concept, with no aliases or compatibilit
 file whose `schema` version the reader does not understand is refused loudly rather than guessed
 at. Space content never lives in a database — only accounts, sessions and invites do. Attachment
 bytes are content too: they stay under the space's `files/` tree, named by their SHA-256, and their
-frontmatter value is that path. A record's cover is a frontmatter key, not a property, and its
-focal point is stored as two percentages rather than a cropped copy, so the original bytes are
-never edited. The reader writes schema 5 and still opens every schema-1…4 space, upgrading a file
-on its next write.
+frontmatter value is that path; a set of files is one ordered list of such paths, so the same
+spelling serves one attachment and many. A record's cover is a frontmatter key, not a property, and
+its focal point is stored as two percentages rather than a cropped copy, so the original bytes are
+never edited. A body that renders an attachment holds that reference too, so the bytes a body shows
+are never collected as unused. The reader writes schema 6 and still opens every schema-1…5 space,
+upgrading a file on its next write.
 
 ## Brand Commitments
 
