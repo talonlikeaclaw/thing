@@ -21,9 +21,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Finding a property",
     upcoming: true,
     highlights: [
+      "Filtering a view happens in a panel over the table, so the records never move out from under you.",
+      "The schedule answers for you: Overdue, Due today, Next 7 days and No due date are one tap each.",
+      "Every filter you set shows as a chip under the toolbar, and a chip removes itself.",
       "Choosing a property starts with typing its name, not scrolling a list.",
     ],
     details: [
+      "A condition starts with a property; its operator and value appear once the column is chosen.",
+      "A date filter offers Today, Yesterday, Tomorrow, This week, Next 7 days and No date.",
+      "A select or relation filter searches its options or targets instead of listing them all.",
+      "The filter panel says how many records the current query matches.",
+      "On a phone the filter opens as a sheet with Clear all and Done above the keyboard.",
       "The type editor's add-a-property control searches names and keys and prints each property's format.",
       "A view's hidden properties can be searched by name or key.",
     ],

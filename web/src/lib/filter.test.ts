@@ -5,19 +5,28 @@ import {
   addSort,
   columnChoices,
   completeFilter,
+  conditionChipLabel,
   conditionIsComplete,
+  conditionKey,
   cycleSort,
+  datePresets,
+  filterChoices,
+  hasConditions,
   filterFromParams,
   filterParam,
   moveSort,
   newCondition,
   operatorsFor,
   parseConditionText,
+  quickFilters,
+  shiftDay,
   sortsFromParams,
   sortsParam,
   withConditionOp,
   withConditionValue,
+  withConditions,
   withParam,
+  withoutConditions,
 } from "@/lib/filter";
 
 const type: TypeDef = {
@@ -121,6 +130,16 @@ describe("condition values", () => {
     ]);
     expect(operatorsFor("select")).toContain("equal");
     expect(operatorsFor("select")).not.toContain("in");
+    // A relation's value editor is a target list, so several targets are one
+    // condition rather than an impossible one.
+    expect(operatorsFor("relation")).toEqual([
+      "equal",
+      "not_equal",
+      "in",
+      "not_in",
+      "is_empty",
+      "is_not_empty",
+    ]);
     expect(operatorsFor("recurrence")).toEqual([
       "equal",
       "not_equal",
@@ -198,5 +217,116 @@ describe("header sorting", () => {
     const both = cycleSort(base, "status", true);
     expect(cycleSort(both, "status", true)[1]?.direction).toBe("desc");
     expect(cycleSort(cycleSort(both, "status", true), "status", true)).toEqual(base);
+  });
+});
+
+describe("day arithmetic and presets", () => {
+  it("shifts a calendar day across a month and a year", () => {
+    expect(shiftDay("2026-11-08", 1)).toBe("2026-11-09");
+    expect(shiftDay("2026-11-30", 1)).toBe("2026-12-01");
+    expect(shiftDay("2026-01-01", -1)).toBe("2025-12-31");
+    expect(shiftDay("2026-11-08", 0)).toBe("2026-11-08");
+  });
+
+  it("asks the schedule's questions as due_date conditions in the space zone", () => {
+    const shorts = quickFilters("2026-11-08");
+    expect(shorts.map((short) => short.label)).toEqual([
+      "Overdue",
+      "Due today",
+      "Next 7 days",
+      "No due date",
+    ]);
+    expect(shorts[0]?.conditions).toEqual([
+      { property: "due_date", condition: "less", value: "2026-11-08" },
+    ]);
+    expect(shorts[2]?.conditions).toEqual([
+      { property: "due_date", condition: "greater_or_equal", value: "2026-11-08" },
+      { property: "due_date", condition: "less_or_equal", value: "2026-11-14" },
+    ]);
+    expect(shorts[3]?.conditions).toEqual([
+      { property: "due_date", condition: "is_empty" },
+    ]);
+  });
+
+  it("writes date presets as whole days, a range as two conditions", () => {
+    const presets = datePresets("2026-11-08", "date", "due_date");
+    expect(presets.map((preset) => preset.label)).toEqual([
+      "Today",
+      "Yesterday",
+      "Tomorrow",
+      "This week",
+      "Next 7 days",
+      "No date",
+    ]);
+    expect(presets[1]?.conditions).toEqual([
+      { property: "due_date", condition: "equal", value: "2026-11-07" },
+    ]);
+    // 2026-11-08 is a Sunday, so the Monday-first week is the 2nd to the 8th.
+    expect(presets[3]?.conditions).toEqual([
+      { property: "due_date", condition: "greater_or_equal", value: "2026-11-02" },
+      { property: "due_date", condition: "less_or_equal", value: "2026-11-08" },
+    ]);
+    expect(presets[5]?.conditions).toEqual([
+      { property: "due_date", condition: "is_empty" },
+    ]);
+  });
+
+  it("starts a datetime preset at midnight so it still parses", () => {
+    const today = datePresets("2026-11-08", "datetime", "created").find(
+      (preset) => preset.key === "today",
+    );
+    expect(today?.conditions[0]?.value).toBe("2026-11-08T00:00:00Z");
+  });
+});
+
+describe("preset membership", () => {
+  const overdue = quickFilters("2026-11-08")[0]?.conditions ?? [];
+
+  it("adds a shortcut once and removes exactly what it wrote", () => {
+    const empty = { op: "and" as const, conditions: [] };
+    const added = withConditions(empty, overdue);
+    expect(hasConditions(added, overdue)).toBe(true);
+    expect(withConditions(added, overdue)).toEqual(added);
+    expect(withoutConditions(added, overdue).conditions).toEqual([]);
+    expect(hasConditions(empty, overdue)).toBe(false);
+  });
+
+  it("tells two conditions on one column apart by their value", () => {
+    const other = [{ property: "due_date", condition: "less" as const, value: "2026-11-01" }];
+    expect(conditionKey(overdue[0]!)).not.toBe(conditionKey(other[0]!));
+    const filter = withConditions({ op: "and", conditions: [] }, overdue);
+    expect(withoutConditions(filter, other).conditions).toEqual(overdue);
+  });
+
+  it("words a chip as the column, the operator and the value", () => {
+    const columns = columnChoices(type, [
+      { key: "status", name: "Status", format: "select" },
+    ]);
+    expect(
+      conditionChipLabel(columns[1], { property: "status", condition: "equal", value: "done" }, "Done"),
+    ).toBe("Status is Done");
+    expect(
+      conditionChipLabel(columns[1], { property: "status", condition: "is_empty" }, ""),
+    ).toBe("Status is empty");
+  });
+});
+
+describe("filter columns", () => {
+  it("names only what a condition may carry, never the sort-only column", () => {
+    const scheduled: TypeDef = {
+      ...type,
+      schedule: true,
+      implicit_properties: [{ key: "due_date", name: "Due", format: "date" }],
+    };
+    const columns = filterChoices(scheduled, [
+      { key: "status", name: "Status", format: "select" },
+      { key: "due_date", name: "Due", format: "date" },
+    ]);
+    expect(columns.map((column) => column.key)).toEqual(["title", "status", "due_date"]);
+    expect(columnChoices(scheduled, [])).toContainEqual({
+      key: "updated_at",
+      label: "Updated",
+      format: "datetime",
+    });
   });
 });

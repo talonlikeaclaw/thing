@@ -29,6 +29,8 @@ export const CONDITION_LABELS: Record<CondOp, string> = {
 };
 
 const TEXT_OPS: CondOp[] = ["equal", "not_equal", "contains", "not_contains"];
+/** A condition over several values, which the panel edits as a checkable list. */
+const LIST_OPS: CondOp[] = ["in", "not_in"];
 const NUMBER_OPS: CondOp[] = [
   "equal",
   "not_equal",
@@ -38,7 +40,7 @@ const NUMBER_OPS: CondOp[] = [
   "less_or_equal",
 ];
 
-/** The conditions the filter bar offers for one column. */
+/** The conditions the filter panel offers for one column. */
 export function operatorsFor(format: PropertyFormat): CondOp[] {
   const empty: CondOp[] = ["is_empty", "is_not_empty"];
   switch (format) {
@@ -59,6 +61,7 @@ export function operatorsFor(format: PropertyFormat): CondOp[] {
     case "multi_select":
       return ["contains", "not_contains", ...empty];
     case "relation":
+      return ["equal", "not_equal", ...LIST_OPS, ...empty];
     case "recurrence":
       return ["equal", "not_equal", ...empty];
     case "attachments":
@@ -83,6 +86,9 @@ export interface ColumnChoice {
   format: PropertyFormat;
 }
 
+/** The sortable-only column; a filter may not name it. */
+export const UPDATED_AT_KEY = "updated_at";
+
 export function columnChoices(type: TypeDef, properties: PropertyDef[]): ColumnChoice[] {
   const byKey = new Map(properties.map((property) => [property.key, property]));
   const columns: ColumnChoice[] = [{ key: "title", label: "Title", format: "text" }];
@@ -92,8 +98,16 @@ export function columnChoices(type: TypeDef, properties: PropertyDef[]): ColumnC
       columns.push({ key: property.key, label: property.name, format: property.format });
     }
   }
-  columns.push({ key: "updated_at", label: "Updated", format: "datetime" });
+  columns.push({ key: UPDATED_AT_KEY, label: "Updated", format: "datetime" });
   return columns;
+}
+
+/**
+ * The columns a filter may name. `updated_at` is a sort key, not a property, so
+ * the server refuses it in a condition; offering it would hand back an error.
+ */
+export function filterChoices(type: TypeDef, properties: PropertyDef[]): ColumnChoice[] {
+  return columnChoices(type, properties).filter((column) => column.key !== UPDATED_AT_KEY);
 }
 
 export function columnChoice(columns: ColumnChoice[], key: string): ColumnChoice | undefined {
@@ -344,4 +358,156 @@ export function filterParam(filter: Filter): string {
 /** Sorts as the URL carries them; an empty list is an explicit "no sort". */
 export function sortsParam(sorts: Sort[]): string {
   return JSON.stringify(sorts);
+}
+
+/** A `YYYY-MM-DD` day shifted by whole days, built in UTC so no zone moves it. */
+export function shiftDay(day: string, days: number): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  at.setUTCDate(at.getUTCDate() + days);
+  return at.toISOString().slice(0, 10);
+}
+
+/** The day's position in a Monday-first week, 0–6. */
+function weekdayOf(day: string): number {
+  return (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
+}
+
+/**
+ * One shortcut that writes ordinary conditions. A shortcut never stores a
+ * marker: pressing it again removes exactly the conditions it wrote, so the
+ * URL keeps one grammar and a saved view keeps one filter.
+ */
+export interface FilterPreset {
+  key: string;
+  label: string;
+  conditions: Condition[];
+}
+
+/** Identifies a condition, value included, so a preset can add and drop its own. */
+export function conditionKey(condition: Condition): string {
+  return JSON.stringify([
+    condition.property,
+    condition.condition,
+    condition.value ?? null,
+  ]);
+}
+
+/** Whether every one of `conditions` is already in the filter. */
+export function hasConditions(filter: Filter, conditions: readonly Condition[]): boolean {
+  const present = new Set(filter.conditions.map(conditionKey));
+  return conditions.length > 0 && conditions.every((condition) => present.has(conditionKey(condition)));
+}
+
+/** Appends the conditions the filter does not already hold. */
+export function withConditions(filter: Filter, conditions: readonly Condition[]): Filter {
+  const present = new Set(filter.conditions.map(conditionKey));
+  const added = conditions.filter((condition) => !present.has(conditionKey(condition)));
+  return { op: filter.op, conditions: [...filter.conditions, ...added] };
+}
+
+/** Drops every condition that matches one of `conditions`, value included. */
+export function withoutConditions(filter: Filter, conditions: readonly Condition[]): Filter {
+  const dropped = new Set(conditions.map(conditionKey));
+  return {
+    op: filter.op,
+    conditions: filter.conditions.filter((condition) => !dropped.has(conditionKey(condition))),
+  };
+}
+
+/**
+ * The schedule's own questions, asked on the space zone's calendar. Each one is
+ * ordinary `due_date` conditions, so the chips that follow are the query.
+ */
+export function quickFilters(day: string): FilterPreset[] {
+  const due = (rest: Omit<Condition, "property">): Condition => ({
+    property: "due_date",
+    ...rest,
+  });
+  return [
+    {
+      key: "overdue",
+      label: "Overdue",
+      conditions: [due({ condition: "less", value: day })],
+    },
+    {
+      key: "due-today",
+      label: "Due today",
+      conditions: [due({ condition: "equal", value: day })],
+    },
+    {
+      key: "next-seven",
+      label: "Next 7 days",
+      conditions: [
+        due({ condition: "greater_or_equal", value: day }),
+        due({ condition: "less_or_equal", value: shiftDay(day, 6) }),
+      ],
+    },
+    {
+      key: "no-due",
+      label: "No due date",
+      conditions: [due({ condition: "is_empty" })],
+    },
+  ];
+}
+
+/** A whole-day value in the column's own format; a datetime starts that day. */
+function dayValue(format: PropertyFormat, day: string): string {
+  return format === "datetime" ? `${day}T00:00:00Z` : day;
+}
+
+/**
+ * The shortcuts a date field offers before its input. A range preset writes
+ * two conditions, because one comparison cannot say "this week".
+ */
+export function datePresets(
+  day: string,
+  format: PropertyFormat,
+  property: string,
+): FilterPreset[] {
+  const single = (key: string, label: string, condition: CondOp, on: string): FilterPreset => ({
+    key,
+    label,
+    conditions: [{ property, condition, value: dayValue(format, on) }],
+  });
+  const weekStart = shiftDay(day, -weekdayOf(day));
+  return [
+    single("today", "Today", "equal", day),
+    single("yesterday", "Yesterday", "equal", shiftDay(day, -1)),
+    single("tomorrow", "Tomorrow", "equal", shiftDay(day, 1)),
+    {
+      key: "this-week",
+      label: "This week",
+      conditions: [
+        { property, condition: "greater_or_equal", value: dayValue(format, weekStart) },
+        { property, condition: "less_or_equal", value: dayValue(format, shiftDay(weekStart, 6)) },
+      ],
+    },
+    {
+      key: "next-seven",
+      label: "Next 7 days",
+      conditions: [
+        { property, condition: "greater_or_equal", value: dayValue(format, day) },
+        { property, condition: "less_or_equal", value: dayValue(format, shiftDay(day, 6)) },
+      ],
+    },
+    {
+      key: "no-date",
+      label: "No date",
+      conditions: [{ property, condition: "is_empty" }],
+    },
+  ];
+}
+
+/** `Room is Kitchen — ` read as one chip: the column, the operator and its value. */
+export function conditionChipLabel(
+  column: ColumnChoice | undefined,
+  condition: Condition,
+  value: string,
+): string {
+  const label = column?.label ?? condition.property;
+  const verb = CONDITION_LABELS[condition.condition];
+  if (!conditionTakesValue(condition.condition)) {
+    return `${label} ${verb}`;
+  }
+  return `${label} ${verb} ${value}`.trim();
 }

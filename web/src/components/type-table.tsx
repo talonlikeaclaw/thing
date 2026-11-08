@@ -53,7 +53,7 @@ import { ApiError } from "@/api/client";
 import { AddPropertyDialog } from "@/components/add-property";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { BulkBar } from "@/components/bulk-bar";
-import { FilterBar } from "@/components/filter-bar";
+import { FilterChips, FilterPanel } from "@/components/filter-panel";
 import { SortBar } from "@/components/sort-bar";
 import { ThingIcon } from "@/components/thing-icon";
 import { useQuickCapture } from "@/components/quick-capture";
@@ -163,6 +163,7 @@ export function TypeTable({
   const toast = useToast();
   const compact = useCompactWidth();
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const capture = useQuickCapture();
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
   const [columnsOpen, setColumnsOpen] = useState(false);
@@ -985,41 +986,68 @@ export function TypeTable({
             }`
           : "Filter"
       }
+      ref={filterButtonRef}
       aria-expanded={filterOpen}
-      aria-controls="type-filters"
       className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
       onClick={toggleFilter}
     >
       <ListFilter aria-hidden size={14} />
       <span className="max-sm:hidden">Filter</span>
-      {query.filter.conditions.length > 0 ? (
-        <span className="tnum rounded-full bg-accent-wash px-1 text-[length:var(--text-label)] text-accent-on-wash">
+      {/* On a wide toolbar the badge keeps its slot at zero: the panel is
+          anchored to this button, so a width change would move the panel out
+          from under it. A phone's square button has no such slot to keep. */}
+      {compact && query.filter.conditions.length === 0 ? null : (
+        <span
+          aria-hidden={query.filter.conditions.length === 0}
+          className={cn(
+            "tnum rounded-full bg-accent-wash px-1 text-[length:var(--text-label)] text-accent-on-wash",
+            query.filter.conditions.length === 0 && "invisible",
+          )}
+        >
           {query.filter.conditions.length}
         </span>
-      ) : null}
+      )}
     </Button>,
   );
-  if (!compact && canEdit && dirty) {
+  /*
+   * Save and Reset keep their slot whether or not they apply: the first filter
+   * makes the query dirty, and a button appearing mid-session shifts every
+   * tool before it, dragging an open panel off its own anchor. The reserved
+   * slot is the panel's stability, so the tools never move while it is open.
+   */
+  if (!compact && canEdit) {
     toolbarTools.push(
       <Button
         key="save"
         type="button"
         aria-label="Save view"
-        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11"
-        disabled={updateView.isPending}
+        aria-hidden={!dirty}
+        tabIndex={dirty ? undefined : -1}
+        className={cn(
+          "min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11",
+          !dirty && "invisible",
+        )}
+        disabled={!dirty || updateView.isPending}
         onClick={saveQuery}
       >
-        {updateView.isPending ? "Saving…" : compact ? "Save" : "Save view"}
+        {updateView.isPending ? "Saving…" : "Save view"}
       </Button>,
     );
   }
-  if (!compact && hasOverrides) {
+  if (!compact) {
     toolbarTools.push(
       <Button
         key="reset"
         type="button"
         variant="ghost"
-        className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11"
+        aria-label="Reset"
+        aria-hidden={!hasOverrides}
+        tabIndex={hasOverrides ? undefined : -1}
+        className={cn(
+          "min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11",
+          !hasOverrides && "invisible",
+        )}
+        disabled={!hasOverrides}
         onClick={clearQuery}
         title="Clear search, filters and sorts"
       >
@@ -1196,6 +1224,16 @@ export function TypeTable({
           ) : null}
         </div>
       </header>
+
+      {hasFilter ? (
+        <FilterChips
+          spaceId={spaceId}
+          type={type}
+          properties={properties}
+          filter={query.filter}
+          onChange={setFilter}
+        />
+      ) : null}
 
 
       {canEdit && addPropertyOpen ? (
@@ -1390,10 +1428,30 @@ export function TypeTable({
         </Dialog.Root>
       ) : null}
 
-      {/* One full-width tool surface: columns, filter and sort are the same
-          kind of panel, so they share one shell and the table keeps the width
-          of the page rather than a narrow card on the trailing edge. */}
-      {columnsOpen || filterOpen || sortOpen ? (
+      {/*
+        The Filter is an overlay anchored to its own button, so the ledger never
+        moves under an inline band. Sort and Columns keep the inline surface
+        until their own panels land; the three no longer share one shell.
+      */}
+      <FilterPanel
+        spaceId={spaceId}
+        type={type}
+        properties={properties}
+        filter={query.filter}
+        matched={objects.data ? total : undefined}
+        today={today}
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        anchor={filterButtonRef}
+        onChange={setFilter}
+        saveView={
+          compact && canEdit && dirty
+            ? { onSave: saveQuery, pending: updateView.isPending }
+            : undefined
+        }
+      />
+
+      {columnsOpen || sortOpen ? (
         <div className="mt-3 grid w-full gap-4 rounded-[18px] glass-strong p-4">
           {canEdit && view.kind !== "calendar" ? (
             <div id="type-columns" hidden={!columnsOpen}>
@@ -1406,15 +1464,6 @@ export function TypeTable({
               />
             </div>
           ) : null}
-          <div id="type-filters" hidden={!filterOpen}>
-            <FilterBar
-              spaceId={spaceId}
-              type={type}
-              properties={properties}
-              filter={query.filter}
-              onChange={setFilter}
-            />
-          </div>
           {view.kind === "calendar" ? null : (
             <div id="type-sorts" hidden={!sortOpen}>
               <SortBar columns={choices} sorts={query.sorts} onChange={setSorts} />

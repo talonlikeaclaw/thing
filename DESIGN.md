@@ -415,9 +415,16 @@ and the card's surface for every body cell, the checkbox column and both action 
 included. A pinned column keeps its rule and never changes fill to prove it is pinned.
 The band is a lid over the card, not a second surface; the selection and hover washes
 overlay both band and body. The card clips the table; the table scrolls inside it. The
-page's tools — Columns, Sort and Filter — share one full-width frosted surface under the
-chrome, each section separated by space rather than a rule; a column's position is one
-pill with a number and a pair of arrows, so the first and last slots show a disabled end.
+page's Filter never pushes the ledger down: it is an overlay, a glass popover under its own
+button on a fine pointer and the shared sheet on a phone, with the header and footer fixed
+and the middle scrolling. Columns and Sort still share one full-width frosted surface under
+the chrome, each separated by space rather than a rule; a column's position is one pill with
+a number and a pair of arrows, so the first and last slots show a disabled end.
+The query is visible as a chip row under the chrome: one chip per complete condition, the
+column in ink, the value beside it, a remove target on the trailing edge, and `Clear all`
+at the end; the row scrolls sideways on a phone and never wraps. A condition is a property
+first — the searchable picker — and only then an operator and a value, so a half-built row
+is a draft that never reaches the query.
 View settings and the CSV panel are page editors, not ledger content: they open the same
 centred glass dialog as the other overlays instead of an inline band that pushes the
 table down. The view tabs are a recessed segmented track with the active
@@ -426,8 +433,9 @@ container's bottom edge, so a view is chosen where the views meet the records. I
 edge actions are 36 px circles (44 px coarse) on the accent wash: Reorder on the
 non-dominant edge, New view on the dominant one, with the selector centred between them;
 `ThumbRow` swaps the edges for left-handed mode while the selector stays in the middle. A
-tool's trigger carries the accent wash while its panel is open. Filter and sort panels are
-glass.
+tool's trigger carries the accent wash while its panel is open. A filter panel names what it
+matched, offers the schedule's own questions as one-tap conditions and says a chip for each
+of them; nothing about it is stored beyond the URL's ordinary filter.
 
 **The Property Identity Rule.** A property is named by its accent-coloured title and a
 format pill — a mono, pill-shaped marker on the 12% accent wash with the accent edge. The
