@@ -12,6 +12,7 @@ import { useNavigate } from "react-router";
 
 import {
   useMe,
+  useProperties,
   useSearch,
   useSpaces,
   useTrash,
@@ -20,6 +21,7 @@ import {
 import { InlineError } from "@/components/error-state";
 import { useThumbHandedness } from "@/components/handedness";
 import { ThingIcon } from "@/components/thing-icon";
+import { FormatChip } from "@/components/ui/page";
 import {
   SheetCloseButton,
   SheetPopup,
@@ -28,7 +30,9 @@ import {
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
 import { plural, relativeTime, typeLabel } from "@/lib/format";
+import { searchProperties } from "@/lib/property-search";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
+import { formatLabel } from "@/lib/schema";
 import { matchRanges, rank } from "@/lib/search";
 
 interface PaletteItem {
@@ -40,13 +44,15 @@ interface PaletteItem {
   detail?: string;
   /** A record, type or space glyph; actions carry none. */
   icon?: string;
+  /** A short annotation beside the label, e.g. a property's format. */
+  chip?: string;
   /** A navigation target, or a callback for actions that are not routes. */
   to?: string;
   run?: () => void;
   disabled?: boolean;
 }
 
-type SectionId = "actions" | "recent" | "records" | "types" | "spaces";
+type SectionId = "actions" | "recent" | "records" | "types" | "properties" | "spaces";
 
 interface PaletteSection {
   id: SectionId;
@@ -87,6 +93,7 @@ export function CommandPalette({
   const me = useMe();
   const spaces = useSpaces(open);
   const types = useTypes(spaceId);
+  const properties = useProperties(spaceId);
   const trash = useTrash(spaceId);
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -200,6 +207,21 @@ export function CommandPalette({
     ...(entry.icon ? { icon: entry.icon } : {}),
     to: `/s/${entry.id}`,
   }));
+  // A property is a navigation result — its editor lives on the schema page.
+  // Only a query lists them: an unfiltered palette would print the whole
+  // library ahead of the records a person is usually reaching for.
+  const propertyItems: PaletteItem[] =
+    trimmed === ""
+      ? []
+      : searchProperties(properties.data ?? [], trimmed)
+          .slice(0, 8)
+          .map((property) => ({
+            id: `property:${property.key}`,
+            label: property.name,
+            hint: property.key,
+            chip: formatLabel(property.format),
+            to: `/s/${spaceId}/schema?tab=properties&property=${encodeURIComponent(property.key)}`,
+          }));
   const recordItems: PaletteItem[] = records.map((record) => ({
     id: `record:${record.id}`,
     label: record.title,
@@ -241,6 +263,9 @@ export function CommandPalette({
     }
     if (rankedTypes.length > 0) {
       sections.push({ id: "types", label: "Types", items: rankedTypes });
+    }
+    if (propertyItems.length > 0) {
+      sections.push({ id: "properties", label: "Properties", items: propertyItems });
     }
     if (rankedSpaces.length > 0) {
       sections.push({ id: "spaces", label: "Spaces", items: rankedSpaces });
@@ -319,7 +344,8 @@ export function CommandPalette({
           >
             <Dialog.Title className="sr-only">Search and commands</Dialog.Title>
             <Dialog.Description className="sr-only">
-              Search every record's title and text, plus types, spaces and actions.
+              Search every record's title and text, plus types, properties, spaces and
+              actions.
             </Dialog.Description>
 
             <div className="flex items-center gap-3 border-b rule px-[var(--space-4)]">
@@ -336,7 +362,7 @@ export function CommandPalette({
                   activeItem ? `palette-option-${activeIndex}` : undefined
                 }
                 aria-label="Search and commands"
-                placeholder="Search titles, text, types and actions."
+                placeholder="Search titles, text, types, properties and actions."
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
@@ -429,8 +455,13 @@ export function CommandPalette({
                                 )}
                               </span>
                               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                                <span className="min-w-0 truncate text-[length:var(--text-body)]">
-                                  <Highlighted text={item.label} query={trimmed} />
+                                <span className="flex min-w-0 items-baseline gap-2">
+                                  <span className="min-w-0 truncate text-[length:var(--text-body)]">
+                                    <Highlighted text={item.label} query={trimmed} />
+                                  </span>
+                                  {item.chip ? (
+                                    <FormatChip className="shrink-0">{item.chip}</FormatChip>
+                                  ) : null}
                                 </span>
                                 {item.detail ? (
                                   <span

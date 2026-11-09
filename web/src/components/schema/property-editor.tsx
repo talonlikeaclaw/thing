@@ -322,24 +322,26 @@ export function PropertyEditorForm({
               }
             />
             <FormError message={rename.error ? readError(rename.error) : null} />
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-fit min-h-9 px-3 text-[13px]"
-              disabled={!renameReady}
-              onClick={async () => {
-                try {
-                  const next = await rename.mutateAsync(nextKey);
-                  onRenamed?.(next.key);
-                  setRenameKey("");
-                  toast.showToast(`Key renamed to ${next.key}.`);
-                } catch {
-                  // The mutation's error state names the refusal next to the key.
-                }
-              }}
-            >
-              {rename.isPending ? "Renaming…" : "Rename key"}
-            </Button>
+            <ThumbRow>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-fit min-h-9 px-3 text-[13px]"
+                disabled={!renameReady}
+                onClick={async () => {
+                  try {
+                    const next = await rename.mutateAsync(nextKey);
+                    onRenamed?.(next.key);
+                    setRenameKey("");
+                    toast.showToast(`Key renamed to ${next.key}.`);
+                  } catch {
+                    // The mutation's error state names the refusal next to the key.
+                  }
+                }}
+              >
+                {rename.isPending ? "Renaming…" : "Rename key"}
+              </Button>
+            </ThumbRow>
           </div>
         </section>
       ) : null}

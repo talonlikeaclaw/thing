@@ -27,6 +27,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The schedule answers for you: Overdue, Due today, Next 7 days and No due date are one tap each.",
       "Every filter you set shows as a chip under the toolbar, and a chip removes itself.",
       "Choosing a property starts with typing its name, not scrolling a list.",
+      "The schema page is two tabs, Types and Properties, each with its own search and editor.",
       "Sorting and columns open over the table from their own buttons, on a phone too.",
     ],
     details: [
@@ -38,6 +39,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       "The property editor names the conversion from a text, select or multi-select column to a relation.",
       "The type editor's add control opens the same add sheet instead of a native list.",
       "A type member's position opens the same list of slots a column uses, so moving it is one choice.",
+      "Select options move by choosing a slot, and every schema row and field action follows the handedness setting on a phone.",
+      "Type and property lists search names and keys and print how many of the total match.",
+      "A phone opens a type or property from its list and returns with a Back control, without scrolling past the other tab.",
+      "The command palette finds a property by name or key and opens it on the schema page; the tab and the selection live in the URL.",
       "A condition starts with a property; its operator and value appear once the column is chosen.",
       "A date filter offers Today, Yesterday, Tomorrow, This week, Next 7 days and No date.",
       "A select or relation filter searches its options or targets instead of listing them all.",

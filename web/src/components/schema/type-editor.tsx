@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -23,6 +23,7 @@ import {
   TextField,
 } from "@/components/ui/controls";
 import { EmptyState, FieldRow, FormatChip, SectionRule } from "@/components/ui/page";
+import { PositionMenu } from "@/components/ui/position-menu";
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
@@ -416,35 +417,19 @@ export function TypeEditor({
         ) : (
           <ul>
             {members.map((member, index) => (
-              <li
-                key={member.key}
-                className="flex flex-wrap items-center justify-between gap-2 border-b rule py-2"
-              >
-                <div className="grid min-w-0 gap-0.5">
-                  <span className="truncate text-[15px] font-medium text-accent">
-                    {titleProperty(member.key)}
+              <li key={member.key} className="border-b rule">
+                <ThumbRow className="items-center gap-2 py-2">
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="truncate text-[15px] font-medium text-accent">
+                      {titleProperty(member.key)}
+                    </span>
+                    <span className="font-mono text-[11px] leading-4 text-faint">
+                      {member.key}
+                    </span>
                   </span>
-                  <span className="font-mono text-[11px] leading-4 text-faint">{member.key}</span>
-                </div>
-                <div className="flex items-center gap-2">
                   <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
                     {formatOf(member.key)}
                   </FormatChip>
-                  <div className="flex items-center gap-1">
-                  <SmallButton
-                    label={`Move ${member.key} up`}
-                    disabled={!canEdit || index === 0}
-                    onClick={() => setMembers(moveProperty(members, member.key, -1))}
-                  >
-                    <ChevronUp aria-hidden size={15} />
-                  </SmallButton>
-                  <SmallButton
-                    label={`Move ${member.key} down`}
-                    disabled={!canEdit || index === members.length - 1}
-                    onClick={() => setMembers(moveProperty(members, member.key, 1))}
-                  >
-                    <ChevronDown aria-hidden size={15} />
-                  </SmallButton>
                   <SmallButton
                     label={`Remove ${member.key}`}
                     disabled={!canEdit}
@@ -452,8 +437,16 @@ export function TypeEditor({
                   >
                     <X aria-hidden size={15} />
                   </SmallButton>
-                  </div>
-                </div>
+                  <PositionMenu
+                    name={titleProperty(member.key)}
+                    index={index + 1}
+                    count={members.length}
+                    disabled={!canEdit}
+                    onMove={(position) =>
+                      setMembers(moveProperty(members, member.key, position - 1 - index))
+                    }
+                  />
+                </ThumbRow>
               </li>
             ))}
           </ul>
@@ -471,7 +464,10 @@ export function TypeEditor({
         </p>
 
         {canEdit && available.length > 0 ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <ThumbRow className="mt-3 flex-wrap items-center gap-3">
+            {dirty ? (
+              <span className="text-[12px] text-faint">Save the type first.</span>
+            ) : null}
             <Button
               type="button"
               variant="ghost"
@@ -483,10 +479,7 @@ export function TypeEditor({
               <Plus aria-hidden size={15} />
               Add property
             </Button>
-            {dirty ? (
-              <span className="text-[12px] text-faint">Save the type first.</span>
-            ) : null}
-          </div>
+          </ThumbRow>
         ) : null}
         {library.length === 0 ? (
           <p className="mt-2 text-[13px] text-muted">

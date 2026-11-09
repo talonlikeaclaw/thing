@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useCreateProperty } from "@/api/queries";
@@ -8,6 +9,7 @@ import { Button, FormError, SelectField, TextField } from "@/components/ui/contr
 import { EmptyState, FormatChip, SectionRule } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
+import { searchProperties } from "@/lib/property-search";
 import {
   formatLabel,
   hasOptions,
@@ -43,6 +45,8 @@ export function PropertyList({
   const [multi, setMulti] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
   const [createdKey, setCreatedKey] = useState("");
+  const [query, setQuery] = useState("");
+  const matches = searchProperties(properties, query);
 
   function reset() {
     setName("");
@@ -85,11 +89,32 @@ export function PropertyList({
         </p>
       ) : null}
 
+      {properties.length > 0 ? (
+        <div className="flex items-center gap-2 border-b rule px-1 py-2">
+          <Search aria-hidden size={13} className="shrink-0 text-faint" />
+          <input
+            type="search"
+            value={query}
+            aria-label="Search properties"
+            placeholder="Search names and keys."
+            onChange={(event) => setQuery(event.target.value)}
+            className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
+          />
+          <span className="tnum shrink-0 font-mono text-[11px] text-faint">
+            {matches.length} of {properties.length}
+          </span>
+        </div>
+      ) : null}
+
       {properties.length === 0 ? (
         <EmptyState sentence="No properties yet. A property is a column definition the whole space can use." />
+      ) : matches.length === 0 ? (
+        <p className="px-2.5 py-4 text-[13px] text-muted">
+          No property matches “{query.trim()}”.
+        </p>
       ) : (
         <ul>
-          {properties.map((property) => {
+          {matches.map((property) => {
             const current = property.key === selectedKey;
             return (
             <li key={property.key} className="border-b rule">

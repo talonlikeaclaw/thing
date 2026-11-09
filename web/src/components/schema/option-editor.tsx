@@ -1,8 +1,10 @@
-import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { ThumbRow } from "@/components/handedness";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, fieldFrame } from "@/components/ui/controls";
+import { PositionMenu } from "@/components/ui/position-menu";
 import { cn } from "@/lib/cn";
 import {
   colorValue,
@@ -49,10 +51,10 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
     onChange(drafts.map((draft) => (draft.id === id ? { ...draft, color: next } : draft)));
   }
 
-  function move(id: string, delta: number) {
+  function moveTo(id: string, position: number) {
     const from = drafts.findIndex((draft) => draft.id === id);
     if (from !== -1) {
-      onChange(moveItem(drafts, from, from + delta));
+      onChange(moveItem(drafts, from, position - 1));
     }
   }
 
@@ -67,46 +69,29 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
       ) : (
         <ul>
           {drafts.map((draft, index) => (
-            <li
-              key={draft.id}
-              className="flex flex-wrap items-center gap-2 border-b rule py-2"
-            >
-              <input
-                type="color"
-                aria-label={`${draft.name || "Option"} colour`}
-                className="h-8 w-8 shrink-0 cursor-pointer rounded-[10px] border border-line bg-ground p-0.5 pointer-coarse:h-11 pointer-coarse:w-11"
-                value={colorValue(draft.color)}
-                disabled={!canEdit}
-                onChange={(event) => recolor(draft.id, event.target.value)}
-              />
-              <input
-                aria-label={`Option ${index + 1} name`}
-                className={`${optionFieldStyles} flex-1`}
-                value={draft.name}
-                maxLength={200}
-                disabled={!canEdit}
-                onChange={(event) => rename(draft.id, event.target.value)}
-              />
-              {draft.key ? (
-                <span className="font-mono text-[11px] text-faint">{draft.key}</span>
-              ) : (
-                <span className="label text-faint">new</span>
-              )}
-              <div className="flex items-center gap-1">
-                <SmallButton
-                  label={`Move ${draft.name || "option"} up`}
-                  disabled={!canEdit || index === 0}
-                  onClick={() => move(draft.id, -1)}
-                >
-                  <ChevronUp aria-hidden size={15} />
-                </SmallButton>
-                <SmallButton
-                  label={`Move ${draft.name || "option"} down`}
-                  disabled={!canEdit || index === drafts.length - 1}
-                  onClick={() => move(draft.id, 1)}
-                >
-                  <ChevronDown aria-hidden size={15} />
-                </SmallButton>
+            <li key={draft.id} className="border-b rule">
+              <ThumbRow className="flex-wrap items-center gap-2 py-2">
+                <input
+                  type="color"
+                  aria-label={`${draft.name || "Option"} colour`}
+                  className="h-8 w-8 shrink-0 cursor-pointer rounded-[10px] border border-line bg-ground p-0.5 pointer-coarse:h-11 pointer-coarse:w-11"
+                  value={colorValue(draft.color)}
+                  disabled={!canEdit}
+                  onChange={(event) => recolor(draft.id, event.target.value)}
+                />
+                <input
+                  aria-label={`Option ${index + 1} name`}
+                  className={`${optionFieldStyles} flex-1`}
+                  value={draft.name}
+                  maxLength={200}
+                  disabled={!canEdit}
+                  onChange={(event) => rename(draft.id, event.target.value)}
+                />
+                {draft.key ? (
+                  <span className="font-mono text-[11px] text-faint">{draft.key}</span>
+                ) : (
+                  <span className="label text-faint">new</span>
+                )}
                 <SmallButton
                   label={`Remove ${draft.name || "option"}`}
                   disabled={!canEdit}
@@ -114,14 +99,21 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
                 >
                   <X aria-hidden size={15} />
                 </SmallButton>
-              </div>
+                <PositionMenu
+                  name={draft.name || "option"}
+                  index={index + 1}
+                  count={drafts.length}
+                  disabled={!canEdit}
+                  onMove={(position) => moveTo(draft.id, position)}
+                />
+              </ThumbRow>
             </li>
           ))}
         </ul>
       )}
 
       {canEdit ? (
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        <ThumbRow className="mt-1 flex-wrap items-center gap-2">
           <input
             type="color"
             aria-label="New option colour"
@@ -153,7 +145,7 @@ export function OptionEditor({ drafts, onChange, canEdit, idPrefix }: OptionEdit
             <Plus aria-hidden size={15} />
             Add option
           </Button>
-        </div>
+        </ThumbRow>
       ) : null}
     </div>
   );

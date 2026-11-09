@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { RefObject } from "react";
 import { useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
@@ -52,6 +52,13 @@ function stubPalette(search: unknown) {
     }
     if (url.endsWith("/api/spaces/s1/trash")) {
       return jsonResponse([]);
+    }
+    if (url.endsWith("/api/spaces/s1/properties")) {
+      return jsonResponse([
+        { key: "room", name: "Room", format: "select" },
+        { key: "bedroom", name: "Bedroom", format: "text" },
+        { key: "room_type", name: "Category", format: "text" },
+      ]);
     }
     if (url.includes("/api/spaces/s1/search")) {
       return jsonResponse(search);
@@ -161,6 +168,30 @@ describe("CommandPalette", () => {
     fireEvent.keyDown(input, { key: "Escape" });
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("finds a property and opens it on the schema page", async () => {
+    stubPalette(unfurling);
+    const input = openPalette();
+
+    fireEvent.change(input, { target: { value: "roo" } });
+
+    const group = await screen.findByRole("group", { name: "Properties" });
+    const options = within(group).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining("Room"),
+      expect.stringContaining("Bedroom"),
+      expect.stringContaining("Category"),
+    ]);
+    expect(options[0]).toHaveTextContent(/Select/);
+
+    fireEvent.click(options[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/s/s1/schema?tab=properties&property=room",
+      );
+    });
   });
 
   it("prints the result count", async () => {

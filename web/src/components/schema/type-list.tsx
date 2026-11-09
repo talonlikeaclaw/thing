@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useCreateType } from "@/api/queries";
@@ -9,6 +10,7 @@ import { Button, FormError, TextField } from "@/components/ui/controls";
 import { EmptyState, SectionRule } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
+import { foldProperty } from "@/lib/property-search";
 
 interface TypeListProps {
   spaceId: string;
@@ -32,6 +34,16 @@ export function TypeList({
   const [schedule, setSchedule] = useState(false);
   const [icon, setIcon] = useState("");
   const [createdKey, setCreatedKey] = useState("");
+  const [query, setQuery] = useState("");
+  const needle = foldProperty(query);
+  const matches =
+    needle === ""
+      ? types
+      : types.filter(
+          (type) =>
+            foldProperty(type.name).includes(needle) ||
+            foldProperty(type.key).includes(needle),
+        );
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,11 +84,32 @@ export function TypeList({
         </p>
       ) : null}
 
+      {types.length > 0 ? (
+        <div className="flex items-center gap-2 border-b rule px-1 py-2">
+          <Search aria-hidden size={13} className="shrink-0 text-faint" />
+          <input
+            type="search"
+            value={query}
+            aria-label="Search types"
+            placeholder="Search names and keys."
+            onChange={(event) => setQuery(event.target.value)}
+            className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
+          />
+          <span className="tnum shrink-0 font-mono text-[11px] text-faint">
+            {matches.length} of {types.length}
+          </span>
+        </div>
+      ) : null}
+
       {types.length === 0 ? (
         <EmptyState sentence="No types yet. A type is a table; its properties are columns and its records are rows." />
+      ) : matches.length === 0 ? (
+        <p className="px-2.5 py-4 text-[13px] text-muted">
+          No type matches “{query.trim()}”.
+        </p>
       ) : (
         <ul>
-          {types.map((type) => {
+          {matches.map((type) => {
             const current = type.key === selectedKey;
             return (
             <li key={type.key} className="border-b rule">
