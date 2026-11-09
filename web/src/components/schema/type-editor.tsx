@@ -11,9 +11,9 @@ import type {
   TypeDef,
   TypeProperty,
 } from "@/api/types";
+import { AddPropertyDialog } from "@/components/add-property";
 import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
-import { PropertyPicker } from "@/components/property-picker";
 import { SmallButton } from "@/components/schema/small-button";
 import {
   Button,
@@ -34,6 +34,7 @@ import {
 } from "@/lib/schedule";
 import {
   addProperty,
+  availableProperties,
   effectiveProperties,
   formatLabel,
   moveProperty,
@@ -112,7 +113,7 @@ export function TypeEditor({
   const [schedule, setSchedule] = useState(type.schedule);
   const [labels, setLabels] = useState<ScheduleLabels>(type.schedule_labels ?? {});
   const [members, setMembers] = useState<TypeProperty[]>(type.properties);
-  const [pendingKey, setPendingKey] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const [confirmKey, setConfirmKey] = useState("");
   const [moveRecords, setMoveRecords] = useState(false);
 
@@ -139,16 +140,9 @@ export function TypeEditor({
     { ...type, schedule, implicit_properties: implicit },
     properties,
   );
-  const available = library.filter(
-    (property) =>
-      !isScheduleKey(property.key) &&
-      !members.some((member) => member.key === property.key),
+  const available = availableProperties(type, library).filter(
+    (property) => !isScheduleKey(property.key),
   );
-  // A chosen key stays armed only while it is still on offer; a member added or
-  // a library edit elsewhere must not leave Add pointed at nothing.
-  const addKey = available.some((property) => property.key === pendingKey)
-    ? pendingKey
-    : "";
   const payload = {
     name: name.trim(),
     name_plural: plural.trim(),
@@ -170,28 +164,20 @@ export function TypeEditor({
   const dirty = !sameJson(payload, initial);
   const invalid = !payload.name || !payload.name_plural;
 
-  function onAdd() {
-    if (!addKey) {
-      return;
-    }
-    setMembers(addProperty(members, addKey));
-    setPendingKey("");
-  }
-
   function onRemove(key: string) {
     setMembers(removeProperty(members, key));
   }
 
-  function saveDraft(): Promise<boolean> {
+  async function saveDraft(): Promise<boolean> {
     if (!canEdit || invalid) {
-      return Promise.resolve(false);
+      return false;
     }
-    return new Promise((resolve) => {
-      update.mutate(payload, {
-        onSuccess: () => resolve(true),
-        onError: () => resolve(false),
-      });
-    });
+    try {
+      await update.mutateAsync(payload);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   const guard = useDirtyGuard(dirty && !remove.isSuccess, saveDraft);
@@ -485,25 +471,21 @@ export function TypeEditor({
         </p>
 
         {canEdit && available.length > 0 ? (
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <div className="min-w-[12rem] flex-1">
-              <PropertyPicker
-                label="Add a property"
-                properties={available}
-                value={addKey === "" ? null : addKey}
-                onChange={setPendingKey}
-              />
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <Button
               type="button"
               variant="ghost"
               className="min-h-9 px-3 text-[13px]"
-              disabled={!addKey}
-              onClick={onAdd}
+              disabled={dirty}
+              title={dirty ? "Save the type before adding a property." : undefined}
+              onClick={() => setAddOpen(true)}
             >
               <Plus aria-hidden size={15} />
               Add property
             </Button>
+            {dirty ? (
+              <span className="text-[12px] text-faint">Save the type first.</span>
+            ) : null}
           </div>
         ) : null}
         {library.length === 0 ? (
@@ -620,6 +602,18 @@ export function TypeEditor({
             </ThumbRow>
           </div>
         </section>
+      ) : null}
+
+      {addOpen ? (
+        <AddPropertyDialog
+          spaceId={spaceId}
+          type={type}
+          library={library}
+          onAdded={(property) =>
+            setMembers((current) => addProperty(current, property.key))
+          }
+          onClose={() => setAddOpen(false)}
+        />
       ) : null}
 
       {guard}

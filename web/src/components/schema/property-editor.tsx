@@ -1,3 +1,4 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
@@ -6,14 +7,23 @@ import {
   useDeleteProperty,
   usePropertyUsage,
   useRenameProperty,
+  useTypes,
   useUpdateProperty,
 } from "@/api/queries";
 import type { PropertyDef, TypeSummary } from "@/api/types";
-import { ThumbRow } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
 import { FieldRow, SectionRule } from "@/components/ui/page";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import {
@@ -25,21 +35,32 @@ import {
   sameJson,
 } from "@/lib/schema";
 
-interface PropertyEditorProps {
+interface PropertyEditorFormProps {
   spaceId: string;
   property: PropertyDef;
   types: TypeSummary[];
   canEdit: boolean;
-  onRenamed: (key: string) => void;
+  /** The schema page's rule; a sheet already has a title and omits it. */
+  headingId?: string;
+  onRenamed?: (key: string) => void;
+  onDeleted?: () => void;
 }
 
-export function PropertyEditor({
+/**
+ * The property form every surface shares: the schema page renders it inline,
+ * the record and manage sheets render it inside the shared overlay. Name and
+ * options are writable; format, target and cardinality are fixed once values
+ * exist.
+ */
+export function PropertyEditorForm({
   spaceId,
   property,
   types,
   canEdit,
+  headingId,
   onRenamed,
-}: PropertyEditorProps) {
+  onDeleted,
+}: PropertyEditorFormProps) {
   const update = useUpdateProperty(spaceId, property.key);
   const remove = useDeleteProperty(spaceId, property.key);
   const rename = useRenameProperty(spaceId, property.key);
@@ -76,16 +97,16 @@ export function PropertyEditor({
   const invalid =
     !payload.name || (showsOptions && options.some((option) => !option.name.trim()));
 
-  function saveDraft(): Promise<boolean> {
+  async function saveDraft(): Promise<boolean> {
     if (!canEdit || invalid) {
-      return Promise.resolve(false);
+      return false;
     }
-    return new Promise((resolve) => {
-      update.mutate(payload, {
-        onSuccess: () => resolve(true),
-        onError: () => resolve(false),
-      });
-    });
+    try {
+      await update.mutateAsync(payload);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   const guard = useDirtyGuard(dirty, saveDraft);
@@ -111,23 +132,37 @@ export function PropertyEditor({
   const nextKey = renameKey.trim();
   const renameReady =
     nextKey !== "" && nextKey !== property.key && !rename.isPending && !dirty;
+  const convertible =
+    (property.format === "text" ||
+      property.format === "select" ||
+      property.format === "multi_select") &&
+    usageTypes === 1;
 
   return (
-    <section aria-labelledby="property-editor" className="settle">
-      <SectionRule
-        id="property-editor"
-        title={property.name}
-        action={
-          <span className="flex flex-wrap items-baseline gap-3">
-            {!dirty && update.isSuccess ? <span className="label text-accent">saved</span> : null}
-            <span className="font-mono text-[11px] text-faint">
-              properties/{property.key}.yml
+    <>
+      {headingId ? (
+        <SectionRule
+          id={headingId}
+          title={property.name}
+          action={
+            <span className="flex flex-wrap items-baseline gap-3">
+              {!dirty && update.isSuccess ? (
+                <span className="label text-accent">saved</span>
+              ) : null}
+              <span className="font-mono text-[11px] text-faint">
+                properties/{property.key}.yml
+              </span>
             </span>
-          </span>
-        }
-      />
+          }
+        />
+      ) : null}
 
-      <div className="mt-2 grid divide-y divide-line border-b rule">
+      <div
+        className={cn(
+          "grid divide-y divide-line border-b rule",
+          headingId ? "mt-2" : undefined,
+        )}
+      >
         <FieldRow label="Name" htmlFor={`property-${property.key}-name`}>
           <TextField
             id={`property-${property.key}-name`}
@@ -151,7 +186,10 @@ export function PropertyEditor({
                 {property.target_type ?? "any type"}
               </p>
             </FieldRow>
-            <FieldRow label="Holds" hint="Target and target count are fixed when the property is created.">
+            <FieldRow
+              label="Holds"
+              hint="Target and target count are fixed when the property is created."
+            >
               <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
                 {property.multi ? "several targets" : "one target"}
               </p>
@@ -178,6 +216,58 @@ export function PropertyEditor({
           </FieldRow>
         ) : null}
       </div>
+
+      <section aria-labelledby={`property-${property.key}-used-by`} className="mt-8">
+        <SectionRule
+          id={`property-${property.key}-used-by`}
+          level={3}
+          title="Used by"
+          count={usage.isPending ? "…" : String(usageTypes)}
+        />
+        {usage.error ? <FormError message={readError(usage.error)} /> : null}
+        {usage.isPending ? (
+          <p className="mt-2 text-[13px] text-muted">Counting types and records…</p>
+        ) : usage.types.length === 0 ? (
+          <p className="mt-2 text-[13px] text-muted">No type carries this property.</p>
+        ) : (
+          <ul className="mt-2 grid gap-1">
+            {usage.types.map((owner) => (
+              <li key={owner.key} className="flex items-baseline gap-2 text-[13px]">
+                <span className="text-accent">{owner.name}</span>
+                <span className="font-mono text-[11px] text-faint">{owner.key}</span>
+              </li>
+            ))}
+            <li className="text-[13px] text-muted">
+              {usageRecords} live {usageRecords === 1 ? "record" : "records"} hold a value.
+            </li>
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby={`property-${property.key}-convert`} className="mt-8">
+        <SectionRule
+          id={`property-${property.key}-convert`}
+          level={3}
+          title="Convert"
+        />
+        <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
+          A text, select or multi-select column carried by one type can become a relation whose
+          targets are the values it already holds.
+        </p>
+        <Button
+          type="button"
+          variant="ghost"
+          className="mt-2 min-h-9 px-3 text-[13px]"
+          disabled
+          title={
+            convertible
+              ? "The migration wizard arrives with the next checkpoint."
+              : "Only a text, select or multi-select column carried by one type can be converted."
+          }
+        >
+          Turn into a relation…
+        </Button>
+      </section>
 
       {canEdit ? (
         dirty ? (
@@ -210,11 +300,7 @@ export function PropertyEditor({
           aria-labelledby={`property-${property.key}-key`}
           className="mt-10 border-t rule pt-4"
         >
-          <SectionRule
-            id={`property-${property.key}-key`}
-            level={3}
-            title="Key"
-          />
+          <SectionRule id={`property-${property.key}-key`} level={3} title="Key" />
           <p className="mt-3 max-w-[62ch] text-[13px] text-muted">
             The current key is <span className="font-mono">{property.key}</span>. Renaming it
             rewrites every file that names it; keys appear in file paths and CSV headers.
@@ -244,7 +330,7 @@ export function PropertyEditor({
               onClick={async () => {
                 try {
                   const next = await rename.mutateAsync(nextKey);
-                  onRenamed(next.key);
+                  onRenamed?.(next.key);
                   setRenameKey("");
                   toast.showToast(`Key renamed to ${next.key}.`);
                 } catch {
@@ -349,6 +435,7 @@ export function PropertyEditor({
                     try {
                       await remove.mutateAsync(inUse);
                       toast.showToast(`Deleted property “${property.name}”.`);
+                      onDeleted?.();
                     } catch {
                       // The error state renders the server's refusal in this section.
                     }
@@ -363,6 +450,104 @@ export function PropertyEditor({
       ) : null}
 
       {guard}
+    </>
+  );
+}
+
+interface PropertyEditorProps {
+  spaceId: string;
+  property: PropertyDef;
+  types: TypeSummary[];
+  canEdit: boolean;
+  onRenamed: (key: string) => void;
+}
+
+/** The schema page's inline editor: the shared form under its file rule. */
+export function PropertyEditor({
+  spaceId,
+  property,
+  types,
+  canEdit,
+  onRenamed,
+}: PropertyEditorProps) {
+  return (
+    <section aria-labelledby="property-editor" className="settle">
+      <PropertyEditorForm
+        spaceId={spaceId}
+        property={property}
+        types={types}
+        canEdit={canEdit}
+        headingId="property-editor"
+        onRenamed={onRenamed}
+      />
     </section>
+  );
+}
+
+interface PropertyEditorSheetProps {
+  spaceId: string;
+  property: PropertyDef;
+  canEdit: boolean;
+  onClose: () => void;
+}
+
+/** The same form inside the shared sheet, for a record or the manage list. */
+export function PropertyEditorSheet({
+  spaceId,
+  property,
+  canEdit,
+  onClose,
+}: PropertyEditorSheetProps) {
+  const types = useTypes(spaceId);
+  const handedness = useThumbHandedness();
+  return (
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+        <SheetViewport>
+          <SheetPopup className="sm:w-[38rem]">
+            <SheetHeader
+              className={cn(
+                "gap-[var(--space-3)]",
+                handedness === "left" ? "justify-start" : "justify-between",
+              )}
+            >
+              {handedness === "left" ? (
+                <>
+                  <SheetCloseButton label="Close property editor" />
+                  <SheetTitle className="min-w-0 flex-1 truncate">
+                    Edit {property.name}
+                  </SheetTitle>
+                </>
+              ) : (
+                <>
+                  <SheetTitle className="min-w-0 flex-1 truncate">
+                    Edit {property.name}
+                  </SheetTitle>
+                  <SheetCloseButton label="Close property editor" />
+                </>
+              )}
+            </SheetHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)] pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <PropertyEditorForm
+                spaceId={spaceId}
+                property={property}
+                types={types.data ?? []}
+                canEdit={canEdit}
+                onRenamed={onClose}
+                onDeleted={onClose}
+              />
+            </div>
+          </SheetPopup>
+        </SheetViewport>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

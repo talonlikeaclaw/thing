@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // The dirty guard needs a data router; this test covers the rename write path.
@@ -512,6 +512,156 @@ describe("ObjectPanel attachments", () => {
       rev: 3,
       cover: null,
       cover_position: null,
+    });
+  });
+});
+
+describe("ObjectPanel property surface", () => {
+  const keys = ["room", "bedroom", "size", "light", "water", "soil", "pot", "note", "tag"];
+  const manyDefs: PropertyDef[] = keys.map((key) => ({
+    key,
+    name: key.charAt(0).toUpperCase() + key.slice(1),
+    format: key === "size" ? "number" : "text",
+  }));
+  const manyType: TypeDef = {
+    ...plantType,
+    properties: keys.map((key) => ({ key, required: false, featured: true })),
+  };
+
+  it("searches the record's properties when the type carries more than eight", () => {
+    renderWithProviders(
+      <ObjectPanel
+        spaceId="s1"
+        type={manyType}
+        object={targetDetail()}
+        properties={manyDefs}
+        library={manyDefs}
+        canEdit
+        timeZone="UTC"
+        reloadObject={async () => targetDetail()}
+      />,
+    );
+
+    expect(screen.getByText("9 of 9")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Room — key room/ })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search properties" }), {
+      target: { value: "bed" },
+    });
+    expect(screen.getByText("1 of 9")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /Bedroom — key bedroom/ })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /Room — key room/ })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search properties" }), {
+      target: { value: "zzz" },
+    });
+    expect(screen.getByText("0 of 9")).toBeInTheDocument();
+    expect(screen.getByText("No property matches “zzz”.")).toBeInTheDocument();
+  });
+
+  it("offers no schema controls to a viewer", () => {
+    renderWithProviders(
+      <ObjectPanel
+        spaceId="s1"
+        type={manyType}
+        object={targetDetail()}
+        properties={manyDefs}
+        library={manyDefs}
+        canEdit={false}
+        timeZone="UTC"
+        reloadObject={async () => targetDetail()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Add property" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Manage" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Edit Room property" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("adds a property from the record and shows the empty field in place", async () => {
+    const writes: { url: string; body: Record<string, unknown> }[] = [];
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? "GET";
+      if (method === "PATCH") {
+        writes.push({ url, body: JSON.parse(String(init?.body)) as Record<string, unknown> });
+        return jsonResponse({
+          ...plantType,
+          views: [
+            {
+              key: "all",
+              name: "All",
+              kind: "table" as const,
+              sorts: [],
+              filter: { op: "and" as const, conditions: [] },
+              columns: ["title", "artist"],
+              widths: {},
+            },
+          ],
+          default_view: "all",
+          properties: [
+            { key: "room", required: false, featured: true },
+            { key: "artist", required: false, featured: true },
+          ],
+        });
+      }
+      if (method === "GET" && url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      throw new Error(`unstubbed ${method} ${url}`);
+    });
+
+    const roomDef: PropertyDef = { key: "room", name: "Room", format: "text" };
+    const artistDef: PropertyDef = { key: "artist", name: "Artist", format: "text" };
+    const recordType: TypeDef = {
+      ...plantType,
+      properties: [{ key: "room", required: false, featured: true }],
+      views: [
+        {
+          key: "all",
+          name: "All",
+          kind: "table",
+          sorts: [],
+          filter: { op: "and", conditions: [] },
+          columns: ["title"],
+          widths: {},
+        },
+      ],
+      default_view: "all",
+    };
+
+    renderWithProviders(
+      <ObjectPanel
+        spaceId="s1"
+        type={recordType}
+        object={targetDetail()}
+        properties={[roomDef]}
+        library={[roomDef, artistDef]}
+        canEdit
+        timeZone="UTC"
+        reloadObject={async () => targetDetail()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+    const form = await screen.findByRole("form", { name: "Add property" });
+    fireEvent.click(within(form).getByRole("button", { name: "Add property" }));
+
+    expect(
+      await screen.findByRole("group", { name: /Artist — key artist/ }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[0]?.body).toEqual({
+      properties: [
+        { key: "room", required: false, featured: true },
+        { key: "artist", required: false, featured: true },
+      ],
+    });
+    expect(writes[1]).toEqual({
+      url: "/api/spaces/s1/types/plant/views/all",
+      body: { columns: ["title", "artist"], widths: {} },
     });
   });
 });

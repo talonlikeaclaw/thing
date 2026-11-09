@@ -8,10 +8,13 @@ import {
   Move,
   MoreHorizontal,
   Pencil,
+  Plus,
+  Search,
+  Settings2,
   SlidersHorizontal,
   Undo2,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
@@ -21,6 +24,7 @@ import {
   useRestoreObject,
   useTrashObject,
   useUpdateObject,
+  useUpdateView,
   useUploadFile,
 } from "@/api/queries";
 import type {
@@ -29,13 +33,16 @@ import type {
   PropertyDef,
   TypeDef,
 } from "@/api/types";
+import { AddPropertyDialog } from "@/components/add-property";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { MarkdownEditor } from "@/components/markdown-editor";
+import { ManageProperties } from "@/components/manage-properties";
 import { MarkdownView } from "@/components/markdown-view";
 import { PropertyField } from "@/components/property-field";
 import { RenameLinksDialog, type MentionSource } from "@/components/rename-links-dialog";
+import { PropertyEditorSheet } from "@/components/schema/property-editor";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
@@ -46,16 +53,21 @@ import { coverPoint, thumbnailUrl } from "@/lib/files";
 import { useWideLayout } from "@/lib/media";
 import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
+import { foldProperty, scoreProperty } from "@/lib/property-search";
 import { effectiveMembers, formatLabel, sameJson } from "@/lib/schema";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { useRecordRecent } from "@/lib/use-record-recent";
+import { withColumn } from "@/lib/views";
 import { rewriteMentions } from "@/lib/wiki-links";
 
 interface ObjectPanelProps {
   spaceId: string;
   type: TypeDef | undefined;
   object: ObjectDetail;
+  /** The type's properties, generated schedule keys included. */
   properties: PropertyDef[];
+  /** The whole space library; a record can add a property the type lacks. */
+  library?: PropertyDef[];
   canEdit: boolean;
   /** The space's calendar zone, used by the date and datetime shortcuts. */
   timeZone: string;
@@ -323,6 +335,7 @@ export function ObjectPanel({
   type,
   object,
   properties,
+  library = properties,
   canEdit,
   timeZone,
   reloadObject,
@@ -347,6 +360,12 @@ export function ObjectPanel({
   const [renamePending, setRenamePending] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [addingProperty, setAddingProperty] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [propertyQuery, setPropertyQuery] = useState("");
+  /** Properties added from this panel until the type read catches up. */
+  const [addedProperties, setAddedProperties] = useState<PropertyDef[]>([]);
   /** Bumped only when the draft is replaced from the server, never on save. */
   const [resetToken, setResetToken] = useState(0);
   const [revertTokens, setRevertTokens] = useState<Record<string, number>>({});
@@ -365,13 +384,53 @@ export function ObjectPanel({
   const objectId = object.id;
   useRecordRecent(spaceId, object);
 
-  const propertyByKey = new Map(properties.map((property) => [property.key, property]));
+  const knownProperties = useMemo(() => {
+    const known = new Map(addedProperties.map((property) => [property.key, property]));
+    for (const property of properties) {
+      known.set(property.key, property);
+    }
+    return [...known.values()];
+  }, [properties, addedProperties]);
+  const propertyByKey = new Map(
+    knownProperties.map((property) => [property.key, property]),
+  );
   const effective = type ? effectiveMembers(type) : [];
   const members = new Map(effective.map((member) => [member.key, member]));
   const keys = [
     ...effective.map((member) => member.key),
+    ...addedProperties
+      .map((property) => property.key)
+      .filter((key) => !members.has(key)),
     ...Object.keys(draft.values).filter((key) => !members.has(key)),
   ];
+  // Once the type read carries an optimistic key, the definition wins.
+  useEffect(() => {
+    const carried = new Set(
+      (type ? effectiveMembers(type) : []).map((member) => member.key),
+    );
+    setAddedProperties((current) => {
+      const next = current.filter((property) => !carried.has(property.key));
+      return next.length === current.length ? current : next;
+    });
+  }, [type]);
+  const defaultView = type?.views.find((view) => view.key === type.default_view);
+  const addView = defaultView?.kind === "table" ? defaultView : undefined;
+  const addColumn = useUpdateView(spaceId, type?.key ?? "", addView?.key ?? "");
+  const needle = foldProperty(propertyQuery);
+  const searchableProperties = effective.length > 8;
+  const visibleKeys =
+    needle === ""
+      ? keys
+      : keys.filter((key) => {
+          const property = propertyByKey.get(key);
+          return property
+            ? scoreProperty(property, needle) !== null
+            : foldProperty(key).includes(needle);
+        });
+  const editingProperty =
+    editingKey === null
+      ? undefined
+      : knownProperties.find((property) => property.key === editingKey);
   const dueLabel = scheduleLabel(type?.schedule_labels, "due_date", "Due");
   const completedLabel = scheduleLabel(
     type?.schedule_labels,
@@ -915,9 +974,22 @@ export function ObjectPanel({
                 <span className="font-normal tracking-normal text-faint normal-case">required</span>
               ) : null}
             </span>
-            <FormatChip className="shrink-0 border-accent/40 bg-accent-wash text-accent-on-wash">
-              {formatLabel(property.format)}
-            </FormatChip>
+            <span className="flex shrink-0 items-center gap-1">
+              <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+                {formatLabel(property.format)}
+              </FormatChip>
+              {canEdit && knownProperties.some((known) => known.key === key) ? (
+                <button
+                  type="button"
+                  aria-label={`Edit ${property.name} property`}
+                  title={`Edit ${property.name}`}
+                  className="inline-flex size-7 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:size-11"
+                  onClick={() => setEditingKey(key)}
+                >
+                  <MoreHorizontal aria-hidden size={15} />
+                </button>
+              ) : null}
+            </span>
           </div>
           {changed ? (
             <ThumbRow className="mt-0.5 w-full">
@@ -1392,7 +1464,7 @@ export function ObjectPanel({
         className="mt-6 m-0 min-w-0 border-t rule pt-4 xl:col-span-4 xl:col-start-9 xl:mt-0 xl:border-t-0 xl:border-l xl:border-line xl:pt-0 xl:pl-8 xl:[grid-row:1/span_99]"
       >
         <div className="xl:sticky xl:top-[calc(var(--shell-header-h)+1rem)]">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-heading font-medium">
             <SlidersHorizontal aria-hidden size={15} strokeWidth={1.5} className="text-muted" />
             Properties
@@ -1400,14 +1472,54 @@ export function ObjectPanel({
               {keys.length}
             </span>
           </h2>
+          {canEdit && type ? (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-[12px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
+                onClick={() => setAddingProperty(true)}
+              >
+                <Plus aria-hidden size={13} />
+                Add property
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-[12px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
+                onClick={() => setManageOpen(true)}
+              >
+                <Settings2 aria-hidden size={13} />
+                Manage
+              </button>
+            </div>
+          ) : null}
         </div>
+        {searchableProperties ? (
+          <div className="mt-2 flex items-center gap-2 border-b rule px-1 pb-2">
+            <Search aria-hidden size={13} className="shrink-0 text-faint" />
+            <input
+              type="search"
+              value={propertyQuery}
+              aria-label="Search properties"
+              placeholder="Search properties."
+              onChange={(event) => setPropertyQuery(event.target.value)}
+              className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base"
+            />
+            <span className="tnum shrink-0 font-mono text-[11px] text-faint">
+              {visibleKeys.length} of {keys.length}
+            </span>
+          </div>
+        ) : null}
         <div className="mt-1 border-t rule">
           {type && keys.length === 0 ? (
             <p className="py-4 text-[13px] text-muted">
-              This type has no properties yet. Add columns in the schema.
+              This type has no properties yet. Add one here or in the schema.
+            </p>
+          ) : visibleKeys.length === 0 ? (
+            <p className="py-4 text-[13px] text-muted">
+              No property matches “{propertyQuery.trim()}”.
             </p>
           ) : (
-            keys.map(field)
+            visibleKeys.map(field)
           )}
         </div>
         </div>
@@ -1625,6 +1737,53 @@ export function ObjectPanel({
           onIndexChange={() => {}}
           returnFocus={coverOpener}
           onClose={() => setCoverPreview(false)}
+        />
+      ) : null}
+      {canEdit && type && addingProperty ? (
+        <AddPropertyDialog
+          spaceId={spaceId}
+          type={type}
+          library={library}
+          onAdded={(property) => {
+            setAddedProperties((current) =>
+              current.some((known) => known.key === property.key)
+                ? current
+                : [...current, property],
+            );
+            // A record has no view stage, but a type's table still gains the
+            // column so the field is visible when the reader opens it.
+            if (addView) {
+              const next = withColumn(addView, property.key, true);
+              addColumn.mutate(
+                { columns: next.columns, widths: next.widths },
+                {
+                  onError: (failure) =>
+                    toast.showToast(readError(failure), "danger"),
+                },
+              );
+            }
+          }}
+          onClose={() => setAddingProperty(false)}
+        />
+      ) : null}
+
+      {canEdit && type && manageOpen ? (
+        <ManageProperties
+          spaceId={spaceId}
+          type={type}
+          library={library}
+          canEdit={canEdit}
+          view={addView}
+          onClose={() => setManageOpen(false)}
+        />
+      ) : null}
+
+      {canEdit && editingProperty ? (
+        <PropertyEditorSheet
+          spaceId={spaceId}
+          property={editingProperty}
+          canEdit={canEdit}
+          onClose={() => setEditingKey(null)}
         />
       ) : null}
     </div>

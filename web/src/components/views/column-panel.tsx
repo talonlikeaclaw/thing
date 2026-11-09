@@ -1,13 +1,13 @@
-import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown, Pencil, Plus, Search, X } from "lucide-react";
+import { Pencil, Plus, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import type { PropertyDef, PropertyFormat, ViewDef } from "@/api/types";
-import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
+import { PositionMenu } from "@/components/ui/position-menu";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 import { searchProperties } from "@/lib/property-search";
 import { formatLabel } from "@/lib/schema";
@@ -25,14 +25,8 @@ interface ColumnPanelProps {
   id?: string;
 }
 
-const MENU_ITEM =
-  "flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[12px] text-ink hover:bg-[var(--color-accent-wash-hover)] focus:bg-[var(--color-accent-wash-hover)] focus:outline-none pointer-coarse:min-h-11";
-
 const ICON_BUTTON =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:size-11";
-
-const POSITION =
-  "inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-line-strong/70 bg-surface px-1.5 font-mono text-[11px] text-ink transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:px-3";
 
 /** A shown column, resolved to the property that names it. */
 type ShownColumn = Pick<PropertyDef, "key" | "name" | "format">;
@@ -154,7 +148,7 @@ export function ColumnPanel({
                 <PositionMenu
                   name={column.name}
                   index={index}
-                  last={last}
+                  count={last}
                   disabled={disabled}
                   onMove={(position) => moveTo(column.key, position)}
                 />
@@ -224,64 +218,3 @@ export function ColumnPanel({
   );
 }
 
-/**
- * A column's slot, opened as a list of every position it can take. The trigger
- * keeps the current number visible; choosing another slot moves the column in
- * one write and closes, so the target never moves between taps.
- */
-function PositionMenu({
-  name,
-  index,
-  last,
-  disabled,
-  onMove,
-}: {
-  name: string;
-  index: number;
-  last: number;
-  disabled: boolean;
-  onMove: (position: number) => void;
-}) {
-  const handedness = useThumbHandedness();
-  const positions = Array.from({ length: last }, (_, at) => at + 1);
-  return (
-    <Menu.Root>
-      <Menu.Trigger
-        aria-label={`Move ${name}: position ${index} of ${last}`}
-        title={`Move ${name} to another position`}
-        disabled={disabled}
-        className={POSITION}
-      >
-        <span className="tnum">{index}</span>
-        <ChevronDown aria-hidden size={11} className="text-faint" />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          sideOffset={4}
-          align={handedness === "left" ? "start" : "end"}
-          className="z-50"
-        >
-          <Menu.Popup
-            aria-label={`Move ${name}`}
-            className="glass-strong max-h-[min(20rem,60vh)] min-w-[12rem] overflow-y-auto rounded-card p-1.5 text-ink outline-none"
-          >
-            {positions.map((position) => (
-              <Menu.Item
-                key={position}
-                className={MENU_ITEM}
-                onClick={() => onMove(position)}
-              >
-                <span aria-hidden className="w-3.5 shrink-0">
-                  {position === index ? (
-                    <Check aria-hidden size={13} className="text-accent" />
-                  ) : null}
-                </span>
-                Move to position {position}
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  );
-}

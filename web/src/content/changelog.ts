@@ -21,6 +21,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Finding a property",
     upcoming: true,
     highlights: [
+      "A record's Properties header adds a field or manages the whole list without leaving the record.",
+      "A new field can create the type it points at in the same flow, as one guided set of stages.",
       "Filtering a view happens in a panel over the table, so the records never move out from under you.",
       "The schedule answers for you: Overdue, Due today, Next 7 days and No due date are one tap each.",
       "Every filter you set shows as a chip under the toolbar, and a chip removes itself.",
@@ -28,6 +30,14 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Sorting and columns open over the table from their own buttons, on a phone too.",
     ],
     details: [
+      "Adding a field offers the library's unused properties in a searchable list, or a new property with a name and a format card.",
+      "A relation can point at an existing type or create a new one with its name, plural and icon.",
+      "The add sheet lists the type, property, member and view stages, and Retry resumes at the one that failed without creating anything twice.",
+      "A record's property list gains a search field once the type carries more than eight fields.",
+      "Every field's menu opens its property editor in place, with the types and records that use it.",
+      "The property editor names the conversion from a text, select or multi-select column to a relation.",
+      "The type editor's add control opens the same add sheet instead of a native list.",
+      "A type member's position opens the same list of slots a column uses, so moving it is one choice.",
       "A condition starts with a property; its operator and value appear once the column is chosen.",
       "A date filter offers Today, Yesterday, Tomorrow, This week, Next 7 days and No date.",
       "A select or relation filter searches its options or targets instead of listing them all.",

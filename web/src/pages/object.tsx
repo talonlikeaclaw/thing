@@ -69,6 +69,7 @@ export function ObjectPage() {
         type={typeData}
         object={record}
         properties={effectiveProperties(typeData, propertiesData)}
+        library={propertiesData}
         canEdit={detail.role !== "viewer"}
         timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
