@@ -121,6 +121,30 @@ pub struct TypeDef {
     pub default_view: String,
 }
 
+/// The view a newly created type starts with: newest first, no filter, the
+/// title alone. Type creation and promotion both open a new type with it.
+pub fn initial_view() -> ViewDef {
+    ViewDef {
+        key: "all".to_owned(),
+        name: "All".to_owned(),
+        kind: ViewKind::Table,
+        sorts: vec![Sort {
+            property: UPDATED_AT_KEY.to_owned(),
+            direction: Direction::Desc,
+            empty: EmptyPlacement::End,
+        }],
+        filter: Filter {
+            op: FilterOp::And,
+            conditions: Vec::new(),
+        },
+        columns: vec![TITLE_KEY.to_owned()],
+        widths: BTreeMap::new(),
+        group_by: None,
+        cover: None,
+        date_property: None,
+    }
+}
+
 impl TypeDef {
     /// Whether `key` is usable on this type: a declared member, or one of the
     /// generated schedule properties while scheduling is on.

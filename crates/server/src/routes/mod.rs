@@ -9,6 +9,7 @@ mod auth;
 mod csv;
 mod files;
 mod objects;
+mod promote;
 mod properties;
 mod search;
 mod spaces;
@@ -65,6 +66,7 @@ pub fn router(config: &Config, state: SharedState) -> Router {
         .merge(search::routes())
         .merge(files::routes())
         .merge(objects::routes())
+        .merge(promote::routes())
         .merge(crate::events::routes())
         .route("/api", any(no_such_route))
         .route("/api/{*rest}", any(no_such_route));
@@ -6496,6 +6498,167 @@ mod tests {
                     .expect("a message")
                     .contains(&absent)
             );
+        });
+    }
+    #[test]
+    fn a_promotion_plan_is_read_by_an_editor_and_targets_is_idempotent() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let owner_cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &owner_cookie, "Records").await;
+
+            for (method, path, body) in [
+                (
+                    "POST",
+                    format!("/api/spaces/{space}/types"),
+                    json!({ "name": "Album" }),
+                ),
+                (
+                    "POST",
+                    format!("/api/spaces/{space}/properties"),
+                    json!({ "name": "Artist", "format": "text" }),
+                ),
+                (
+                    "PATCH",
+                    format!("/api/spaces/{space}/types/album"),
+                    json!({ "properties": [{ "key": "artist", "featured": true }] }),
+                ),
+            ] {
+                let reply = server
+                    .call(method, &path, Some(body), Some(&owner_cookie))
+                    .await;
+                assert!(reply.status.is_success(), "{:?}", reply.body);
+            }
+
+            for (title, artist) in [
+                ("Kind of Blue", "Miles Davis"),
+                ("A Love Supreme", "John Coltrane"),
+                ("Bitches Brew", "Miles Davis"),
+            ] {
+                let reply = server
+                    .call(
+                        "POST",
+                        &format!("/api/spaces/{space}/objects"),
+                        Some(json!({
+                            "type": "album",
+                            "title": title,
+                            "properties": { "artist": artist },
+                        })),
+                        Some(&owner_cookie),
+                    )
+                    .await;
+                assert_eq!(reply.status, StatusCode::CREATED, "{:?}", reply.body);
+            }
+
+            let promote = format!("/api/spaces/{space}/types/album/promote");
+            let plan = server
+                .call(
+                    "POST",
+                    &promote,
+                    Some(json!({
+                        "stage": "plan",
+                        "property": "artist",
+                        "target": { "name": "Artist", "name_plural": "Artists" },
+                        "relation_name": "Artist",
+                        "multi": false,
+                    })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(plan.status, StatusCode::OK, "{:?}", plan.body);
+            assert_eq!(plan.body["source"]["records"], 3);
+            assert_eq!(plan.body["source"]["distinct"], 2);
+            assert_eq!(plan.body["source"]["empty"], 0);
+            assert_eq!(plan.body["target"]["key"], "artist");
+            assert_eq!(plan.body["target"]["create"], true);
+            assert_eq!(plan.body["target"]["create_records"], 2);
+            assert_eq!(plan.body["relation"]["key"], "artist_ref");
+            assert_eq!(plan.body["links"], 3);
+            assert_eq!(plan.body["blocking"], json!([]));
+
+            // A viewer may read the plan's source column but not ask for one.
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/invites"),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server.register("viewer@example.com", Some(&code)).await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let refused = server
+                .call(
+                    "POST",
+                    &promote,
+                    Some(json!({
+                        "stage": "targets",
+                        "property": "artist",
+                        "target": { "name": "Artist" },
+                        "relation_name": "Artist",
+                        "multi": false,
+                    })),
+                    Some(&viewer_cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::FORBIDDEN);
+
+            let targets = json!({
+                "stage": "targets",
+                "property": "artist",
+                "target": { "name": "Artist", "name_plural": "Artists" },
+                "relation_name": "Artist",
+                "multi": false,
+            });
+            let first = server
+                .call("POST", &promote, Some(targets.clone()), Some(&owner_cookie))
+                .await;
+            assert_eq!(first.status, StatusCode::OK, "{:?}", first.body);
+            assert_eq!(first.body["type"], "artist");
+            assert_eq!(first.body["type_created"], true);
+            assert_eq!(first.body["created"], 2);
+            let ids = first.body["records"].clone();
+            assert_eq!(ids.as_array().expect("records").len(), 2);
+            assert!(ids.as_array().expect("records").iter().all(|row| {
+                row["exists"] == false && row["title"].as_str().is_some_and(|t| !t.is_empty())
+            }));
+
+            // The retry names the derived key, creates nothing and returns the
+            // same ids.
+            let again = server
+                .call("POST", &promote, Some(targets), Some(&owner_cookie))
+                .await;
+            assert_eq!(again.status, StatusCode::OK, "{:?}", again.body);
+            assert_eq!(again.body["type_created"], false);
+            assert_eq!(again.body["created"], 0);
+            let again_ids: Vec<Value> = again.body["records"]
+                .as_array()
+                .expect("records")
+                .iter()
+                .map(|row| row["id"].clone())
+                .collect();
+            let first_ids: Vec<Value> = ids
+                .as_array()
+                .expect("records")
+                .iter()
+                .map(|row| row["id"].clone())
+                .collect();
+            assert_eq!(again_ids, first_ids);
+
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/types/artist"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(detail.status, StatusCode::OK);
+            assert_eq!(detail.body["name"], "Artist");
+            assert_eq!(detail.body["views"][0]["key"], "all");
         });
     }
 }

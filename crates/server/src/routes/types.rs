@@ -16,9 +16,8 @@ use serde_json::{Value, json};
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
-    Direction, EmptyPlacement, Filter, FilterOp, ObjectSummary, PropertyDef, RevisionAction, Role,
-    ScheduleLabels, Sort, TITLE_KEY, TypeDef, TypeProperty, UPDATED_AT_KEY, ViewDef, ViewKind,
-    is_reserved_key,
+    ObjectSummary, PropertyDef, RevisionAction, Role, ScheduleLabels, TypeDef, TypeProperty,
+    ViewDef, ViewKind, is_reserved_key,
 };
 use thing_core::schedule::{DUE_DATE_KEY, SCHEDULE_KEYS, is_schedule_key, schedule_property_defs};
 use thing_core::slug::key_from_name;
@@ -188,25 +187,7 @@ fn clean_schedule_labels(labels: Option<ScheduleLabels>) -> Result<ScheduleLabel
 
 /// The view a type starts with: newest first, no filter, the title alone.
 fn initial_view() -> ViewDef {
-    ViewDef {
-        key: "all".to_owned(),
-        name: "All".to_owned(),
-        kind: ViewKind::Table,
-        sorts: vec![Sort {
-            property: UPDATED_AT_KEY.to_owned(),
-            direction: Direction::Desc,
-            empty: EmptyPlacement::End,
-        }],
-        filter: Filter {
-            op: FilterOp::And,
-            conditions: Vec::new(),
-        },
-        columns: vec![TITLE_KEY.to_owned()],
-        widths: std::collections::BTreeMap::new(),
-        group_by: None,
-        cover: None,
-        date_property: None,
-    }
+    thing_core::model::initial_view()
 }
 
 /// `POST /api/spaces/{space}/types` [editor]
@@ -608,7 +589,10 @@ pub(super) fn check_type(schema: &Schema, def: &TypeDef) -> Vec<CoreError> {
 
 #[cfg(test)]
 mod tests {
-    use thing_core::model::{ObjectDoc, PropertyDef, PropertyFormat, Value};
+    use thing_core::model::{
+        Direction, EmptyPlacement, Filter, FilterOp, ObjectDoc, PropertyDef, PropertyFormat, Sort,
+        TITLE_KEY, UPDATED_AT_KEY, Value,
+    };
     use thing_core::store::fs::FsSpaceStore;
     use uuid::Uuid;
 

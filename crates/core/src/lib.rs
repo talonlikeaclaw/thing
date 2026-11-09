@@ -12,6 +12,7 @@ pub mod index;
 pub mod links;
 pub mod markdown;
 pub mod model;
+pub mod promote;
 pub mod query;
 pub mod schedule;
 pub mod search;
