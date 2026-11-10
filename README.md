@@ -34,6 +34,18 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   table. Select and Multi-select columns sort by their option order. On a phone the row actions
   fold into one menu so property columns stay reachable, and the bottom bar carries the space
   drawer, Capture and Search within thumb reach.
+- **A query you can see.** Filter, Sort and Columns open as glass popovers over the ledger on a wide
+  screen and as one View sheet on a phone, so the records never move under an open panel. Every
+  complete condition is a removable chip under the toolbar, and a scheduled type offers Overdue,
+  Due today, Next 7 days and No due date as one tap each.
+- **Schema where the data is.** A record's Properties header adds or manages fields and searches
+  the list once it grows past eight; a property is chosen by typing its name, not scrolling a
+  native select. The schema page is Types and Properties tabs with search and a phone master-detail
+  flow, and a column can be turned into a type.
+- **A column becomes a type.** Turn a text, select or multi-select column into a relation to a new
+  type: preview every distinct value, link, view move and dropped filter, download a CSV backup,
+  then run the migration as resumable target, link and finish stages. The column keeps its name
+  and key, and every old value stays in the record's history.
 - **CSV in and out.** Export every live record of a type, download a header-only template, and
   import a reviewed file with a dry run that names a broken row before anything is written.
 - **A shared accent.** An owner chooses one of six contrast-tested highlight palettes for the
@@ -61,7 +73,7 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 - **Made for a phone.** Search, capture and every menu rise from the bottom and stay above the
   on-screen keyboard; the page uses the whole screen on a notched phone. A toast clears the keyboard
   and the bottom bar, and the emoji picker opens in front of the form it belongs to. The type
-  toolbar fits five controls in one row with one View menu and a single change band. Column widths
+  toolbar is Search, Filter and View, with Sort and Columns inside the View sheet. Column widths
   are literal, so a drag moves the column under the finger, and phones hide the resize handles
   entirely. A phone table pins the record's name while it swipes sideways, and every control is at
   least 44 × 44 with fields at 16 px so focusing one does not zoom the page.

@@ -167,7 +167,7 @@ export function ManageProperties({
                       aria-label="Search properties"
                       placeholder="Search properties."
                       onChange={(event) => setQuery(event.target.value)}
-                      className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base"
+                      className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
                     />
                     <span className="tnum shrink-0 font-mono text-[11px] text-faint">
                       {matches.length} of {rows.length}

@@ -1,60 +1,132 @@
 /**
- * User-facing release notes. Lead with the handful of changes worth showing;
- * put the long tail in `details`, which the page folds away. Update this list
- * in the same commit that bumps `web/package.json`; the footer reads that
- * version.
+ * User-facing release notes. New releases group their changes under a few
+ * sections, each item a bold claim and the context behind it. Older entries
+ * keep the flat `highlights`/`details` shape. Update this list in the same
+ * commit that bumps `web/package.json`; the footer reads that version.
  */
+export interface ChangelogItem {
+  /** The short, bold claim a reader scans first. */
+  lead: string;
+  /** What changed, and why it matters in use. */
+  body: string;
+}
+
+export interface ChangelogSection {
+  title: string;
+  /** One sentence on the problem this group solves. */
+  intro?: string;
+  items: ChangelogItem[];
+}
+
 export interface ChangelogEntry {
   /** A released version, or `Unreleased` for work on the next one. */
   version: string;
   title: string;
-  /** The headline changes, always visible. */
-  highlights: string[];
-  /** The supporting changes, folded behind a disclosure. */
+  /** The release's opening paragraph, before any group. */
+  summary?: string;
+  /** The publication day, shown in the release masthead. */
+  date?: string;
+  /** Grouped changes for a release that tells a story. */
+  sections?: ChangelogSection[];
+  /** Flat headline changes, for entries written before sections existed. */
+  highlights?: string[];
+  /** Supporting changes folded behind a disclosure, in the older shape. */
   details?: string[];
   upcoming?: boolean;
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
-    title: "Finding a property",
-    upcoming: true,
-    highlights: [
-      "A record's Properties header adds a field or manages the whole list without leaving the record.",
-      "A new field can create the type it points at in the same flow, as one guided set of stages.",
-      "Filtering a view happens in a panel over the table, so the records never move out from under you.",
-      "The schedule answers for you: Overdue, Due today, Next 7 days and No due date are one tap each.",
-      "Every filter you set shows as a chip under the toolbar, and a chip removes itself.",
-      "Choosing a property starts with typing its name, not scrolling a list.",
-      "The schema page is two tabs, Types and Properties, each with its own search and editor.",
-      "Sorting and columns open over the table from their own buttons, on a phone too.",
-    ],
-    details: [
-      "Adding a field offers the library's unused properties in a searchable list, or a new property with a name and a format card.",
-      "A relation can point at an existing type or create a new one with its name, plural and icon.",
-      "The add sheet lists the type, property, member and view stages, and Retry resumes at the one that failed without creating anything twice.",
-      "A record's property list gains a search field once the type carries more than eight fields.",
-      "Every field's menu opens its property editor in place, with the types and records that use it.",
-      "The property editor names the conversion from a text, select or multi-select column to a relation.",
-      "The type editor's add control opens the same add sheet instead of a native list.",
-      "A type member's position opens the same list of slots a column uses, so moving it is one choice.",
-      "Select options move by choosing a slot, and every schema row and field action follows the handedness setting on a phone.",
-      "Type and property lists search names and keys and print how many of the total match.",
-      "A phone opens a type or property from its list and returns with a Back control, without scrolling past the other tab.",
-      "The command palette finds a property by name or key and opens it on the schema page; the tab and the selection live in the URL.",
-      "A condition starts with a property; its operator and value appear once the column is chosen.",
-      "A date filter offers Today, Yesterday, Tomorrow, This week, Next 7 days and No date.",
-      "A select or relation filter searches its options or targets instead of listing them all.",
-      "The filter panel says how many records the current query matches.",
-      "On a phone the filter opens as a sheet with Clear all and Done above the keyboard.",
-      "The type editor's add-a-property control searches names and keys and prints each property's format.",
-      "A view's hidden properties can be searched by name or key.",
-      "A sort row changes direction with one segment at the thumb edge; where empty values land is in its row menu.",
-      "The columns panel searches the shown and hidden lists together and says how many properties match.",
-      "A column's position opens a list of slots, so moving it five places is one choice instead of five taps; the selector sits at the thumb edge.",
-      "Each column row carries an edit action straight to its property.",
-      "On a phone Sort and Columns keep their own toolbar buttons; View settings, Save as view and Data sit in one More sheet with a Back control.",
+    version: "0.7.1",
+    title: "Workspace craft",
+    date: "2026-11-10",
+    summary:
+      "Properties can now be added and edited from the records they belong to, filtering and sorting happen over the table, and a text, select or multi-select column can be converted into a relation to a new type.",
+    sections: [
+      {
+        title: "Add, edit and find properties",
+        intro:
+          "Adding or changing a field used to mean leaving the record for the schema page.",
+        items: [
+          {
+            lead: "Add and manage fields from a record",
+            body: "The Properties header adds or manages fields in place; a new field appears empty and saves with the record.",
+          },
+          {
+            lead: "A new field can create its type",
+            body: "The add sheet runs type → property → member → view, and Retry resumes at the failed stage without duplicating anything.",
+          },
+          {
+            lead: "Searchable property picker",
+            body: "Filter, sort, columns, add, manage and the command palette search by name or key; a record's field list searches too.",
+          },
+          {
+            lead: "The schema page is two tabs",
+            body: "Types and Properties have their own search and editor; a phone opens one with a Back control, and both live in the URL.",
+          },
+        ],
+      },
+      {
+        title: "Filter, sort and choose columns",
+        intro:
+          "The filter pushed the ledger down and kept its state inside the panel.",
+        items: [
+          {
+            lead: "Filter, Sort and Columns open over the table",
+            body: "Glass popovers on a wide screen, one View sheet on a phone, and the ledger never moves.",
+          },
+          {
+            lead: "Filter chips show the active query",
+            body: "Each complete condition is a removable chip under the toolbar; drafts stay in the panel and never reach the query.",
+          },
+          {
+            lead: "Schedule quick filters",
+            body: "Overdue, Due today, Next 7 days and No due date are one tap, stored as ordinary due-date conditions.",
+          },
+          {
+            lead: "Searchable date, select and relation values",
+            body: "Dates offer presets, select and relation values search, and recurrence keeps its editor.",
+          },
+        ],
+      },
+      {
+        title: "Convert a column into a relation",
+        intro:
+          "Turning a column of names into a type meant creating the type, its records and every link by hand.",
+        items: [
+          {
+            lead: "Preview values, records, views and dropped filters",
+            body: "The plan names every value, record, view change and dropped filter; a CSV backup downloads first, and blockers disable Create.",
+          },
+          {
+            lead: "Three resumable stages: targets, links, finish",
+            body: "Retry resumes the failed stage, and reopening the wizard continues the same run instead of starting a second type.",
+          },
+          {
+            lead: "The column keeps its key and history",
+            body: "The relation lands on the original key and every old value stays in history; a shared property is refused with the reason.",
+          },
+        ],
+      },
+      {
+        title: "Phone toolbar and View sheet",
+        intro:
+          "Five toolbar squares competed for one row, and their panels moved the ledger.",
+        items: [
+          {
+            lead: "Three toolbar controls, one View sheet",
+            body: "Search, Filter and View remain; Sort, Columns, settings, save and data open inside the View sheet with their counts.",
+          },
+          {
+            lead: "Sort direction and column positions at the thumb edge",
+            body: "Direction is one segment at the edge; empty placement and column slots are row menus.",
+          },
+          {
+            lead: "44 px targets and 16 px search fields",
+            body: "Footers clear the keyboard and safe area, close returns focus, and empty lists say why.",
+          },
+        ],
+      },
     ],
   },
   {

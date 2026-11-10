@@ -422,16 +422,17 @@ trigger, a glass popover on a wide screen and the same sheet on a phone, never a
 another menu. A sort row is a searchable property picker above one action line: reorder,
 options and remove grouped beside the one-tap `Ascending`/`Descending` segment, so the whole
 cluster sits at the thumb edge with the segment outermost — right in right-handed mode, left
-in left-handed. Empty placement is in the row's options menu. A column row pairs identity with edit and hide, and
-the position pill ends the row at the thumb edge in both modes: it opens a menu of every slot
+in left-handed. Empty placement is in the row's options menu. A column row pairs identity with a row menu, hide and position;
+the menu carries `Edit property` and, for a text, select or multi-select column,
+`Turn into a relation…`, disabled with its reason when the format cannot convert. The
+position pill ends the row at the thumb edge in both modes: it opens a menu of every slot
 the column can take, so moving it three places is one choice rather than three taps at a
 target that moves under the finger. One search field narrows the shown and the hidden list
 together, printing `{shown} of {total}`.
-The phone's toolbar is `Search`, `Filter`, `Columns`, `Sort` and `More`. Sort and Columns
-open their own sheets, because they are daily work and a sheet inside a menu is one door too
-many; `More` holds the occasional actions — View settings, `Save as view…` and Data — and
-each opens in place behind a `Back` control. Every sheet keeps its own header, a scrolling
-body and the safe-area padding; the ledger never moves for any of them.
+The phone's toolbar is `Search`, `Filter` and `View`. The View sheet holds Sort, Columns,
+View settings, `Save as view…` and Data — the daily tools first, each opening in place
+behind a `Back` control. Every sheet keeps its own header, a scrolling body and the
+safe-area padding; the ledger never moves for any of them.
 The query is visible as a chip row under the chrome: one chip per complete condition, the
 column in ink, the value beside it, a remove target on the trailing edge, and `Clear all`
 at the end; the row scrolls sideways on a phone and never wraps. A condition is a property
@@ -448,6 +449,17 @@ non-dominant edge, New view on the dominant one, with the selector centred betwe
 tool's trigger carries the accent wash while its panel is open. A filter panel names what it
 matched, offers the schedule's own questions as one-tap conditions and says a chip for each
 of them; nothing about it is stored beyond the URL's ordinary filter.
+
+**The Promotion Sheet.** Turning a column into a type is a three-step sheet with the same
+header, scrolling body and sticky footer as every overlay: `Target`, `Preview`, `Run`. Target is a
+name, plural, icon, relation name, cardinality and an optional text delimiter. Preview is the
+server's read — recording and distinct counts, the first twenty values, the views whose columns,
+sorts and filters move or drop, and any warning or blocking reason — plus a CSV backup link; it
+never writes. Run is a stage list with a checkmark per completed stage, its counts under it, and a
+`Retry` that resumes where the run stopped. A request in flight disables the close control; a
+failed run can be closed and resumed from the same property. The surface uses the accent wash for
+the selected format, the danger edge for blocking and the warning edge for acknowledgement; it
+introduces no new material or motion.
 
 **The Property Identity Rule.** A property is named by its accent-coloured title and a
 format pill — a mono, pill-shaped marker on the 12% accent wash with the accent edge. The

@@ -58,6 +58,14 @@ update, delete with a markdown body; a live per-type table view with filters and
 history; trash with restore and purge; external file edits noticed and reflected; a seed script;
 CI; and a container.
 
+The current workspace (`0.7.1`) treats schema as part of the data, not a separate admin page: a
+record adds or manages its own fields, a property is selected by searching its name or key rather
+than a native select, the schema page is Types and Properties tabs, and filtering, sorting and
+columns edit one query whose chips stay visible over the ledger. A text, select or multi-select
+column can be promoted to a relation to a newly created type through a previewed, staged migration
+that keeps the original key and leaves every old value in history. None of this changes the file
+format.
+
 Durable constraints: object identity is a UUIDv7 in frontmatter so renaming, retyping or moving a
 file never breaks a link; property and type keys are lowercase slugs unique per space and are what
 frontmatter stores, never a display name; an unset value is an absent key, never `null`, `""` or

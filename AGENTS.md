@@ -33,7 +33,8 @@ v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-
 links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-landing and rename
 repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4), and
 the v0.5.3 stability pass (`0.5.3`, schema 4), M6 files and images (`0.6.0`, schema 5) and M6.1
-attachments UX (`0.7.0`, schema 6), are implemented, not yet tagged or deployed; CI is green. The
+attachments UX (`0.7.0`, schema 6) and the M6.2 workspace UX patch (`0.7.1`, schema 6) are
+implemented, not yet tagged or deployed; CI is green. The
 v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
@@ -237,6 +238,19 @@ with a counter and arrow keys, and a gallery cover may name an `attachments` pro
 to the record cover. `FORMAT_VERSION` is `6` and a schema-5 space upgrades on its first write; no
 dependency is added.
 
+M6.2 is the workspace UX patch at the same schema: one searchable property picker
+(`lib/property-search.ts`, `components/property-picker.tsx`) behind filter, sort, columns, add,
+manage and the palette; Filter, Sort and Columns open in one `ViewPanel` shell as glass popovers
+on a fine pointer and one View sheet on a phone, with complete conditions as removable chips;
+`components/filter-panel.tsx` adds schedule quick filters and format-aware value editors. A record
+adds and manages its own fields (`components/add-property.tsx`, `components/manage-properties.tsx`,
+`components/object-panel.tsx`), the schema page splits into Types and Properties tabs
+(`pages/schema.tsx`), and a text, select or multi-select column can become a relation to a new type
+through `promote::plan`/`targets`/`links` and the `finish` route (`crates/core/src/promote.rs`,
+`routes/promote.rs`), previewed and run by `components/schema/promote-column.tsx`. The migration
+keeps the source key, moves view columns/sorts and empty filters, drops value filters with a
+warning, and leaves every old value in history. `FORMAT_VERSION` stays `6`; no dependency is added.
+
 ## Where the plan lives
 
 | File | Role |
@@ -257,7 +271,7 @@ dependency is added.
 | `docs/plan/m5.3-stability.md` | The v0.5.3 stability spec: the map's label layout, finger-sized targets, one ledger voice, the schedule's empty state, the tab contract and the shortcut door, offline states, and the release pass. Landed as `0.5.3`, schema 4. |
 | `docs/plan/m6-files-and-images.md` | The v0.6.0 spec: canonical attachment bytes under `files/`, schema 5 with `cover` and the `file`/`image` formats, the upload/read/thumbnail routes, record and gallery covers, the lightbox, lifecycle and GC, CSV semantics, and the release pass. Landed as `0.6.0`, schema 5. |
 | `docs/plan/m6.1-attachments-ux.md` | The v0.7.0 spec: schema 6 and the `attachments` list format, labels and CSV paths, the lightbox carousel, the attachments field and its read surfaces, body images with their GC rule, the space library and storage settings, and the release pass. Landed as `0.7.0`, schema 6. |
-| `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Planned; no format change. |
+| `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Landed as `0.7.1`, schema 6. |
 | `docs/plan/m7-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Planned. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
@@ -298,8 +312,11 @@ file/image properties and the record cover; gallery covers, framing and the ligh
 CSV and problems; version, docs and release QA) are landed at workspace `0.6.0`, and checkpoints
 1–7 of M6.1 (schema 6 and the `attachments` format; the library read and per-format labels; the
 lightbox carousel; the attachments field and its read surfaces; body images; the space library,
-navigation and storage; version, docs and release QA) are landed at workspace `0.7.0`.** M1 is deployed;
-M2–M6 are not deployed. The
+navigation and storage; version, docs and release QA) are landed at workspace `0.7.0`, and
+checkpoints 1–9 of M6.2 (the property picker; filter panel and chips; sort and columns over the
+table; add and manage properties from a record; schema tabs and palette lookup; promotion plan and
+targets; links and finish; the wizard; this release pass) are landed at workspace `0.7.1`.** M1 is
+deployed; M2–M6.2 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
 carries the v0.4.2 keyboard gate and the v0.4.4 device pass.

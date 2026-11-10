@@ -434,8 +434,8 @@ export function TypeTable({
   }
 
   /**
-   * The phone View sheet opens on a menu of three rows; picking one swaps the
-   * body in the same sheet instead of putting three squares in the toolbar.
+   * The phone View sheet opens on its menu; picking a row swaps the body in the
+   * same sheet instead of putting Sort, Columns and the rest of the toolbar.
    */
   function openViewMenu() {
     setViewPanel("menu");
@@ -894,7 +894,9 @@ export function TypeTable({
     />
   );
   const toolbarTools: ReactNode[] = [];
-  if (canEdit && view.kind !== "calendar") {
+  // A phone keeps three controls — Search, Filter and the View sheet — because
+  // Sort and Columns are one tap inside it, not two more squares in the row.
+  if (!compact && canEdit && view.kind !== "calendar") {
     toolbarTools.push(
       <Button
         key="columns"
@@ -915,7 +917,7 @@ export function TypeTable({
       </Button>,
     );
   }
-  if (view.kind !== "calendar") {
+  if (!compact && view.kind !== "calendar") {
     toolbarTools.push(
       <Button
         key="sort"
@@ -1024,7 +1026,7 @@ export function TypeTable({
       <button
         key="view"
         type="button"
-        aria-label="More view actions"
+        aria-label="View"
         aria-expanded={viewSheetOpen}
         className={SQUARE_BUTTON}
         onClick={openViewMenu}
@@ -1217,7 +1219,34 @@ export function TypeTable({
           panel={viewPanel}
           onPanelChange={setViewPanel}
           canEdit={canEdit}
+          counts={{
+            sorts: query.sorts.length,
+            columns: Math.max(0, view.columns.length - 1),
+          }}
           panels={{
+            sort: (
+              <SortBar
+                id="view-sheet-sorts"
+                columns={choices}
+                sorts={query.sorts}
+                onChange={setSorts}
+              />
+            ),
+            columns: (
+              <ColumnPanel
+                spaceId={spaceId}
+                typeKey={type.key}
+                id="view-sheet-columns"
+                view={view}
+                properties={properties}
+                disabled={layout.isPending}
+                onPatch={writeLayout}
+                onAddProperty={() => {
+                  closeViewSheet();
+                  setAddPropertyOpen(true);
+                }}
+              />
+            ),
             settings: (
               <ViewSettings
                 spaceId={spaceId}
@@ -1328,9 +1357,9 @@ export function TypeTable({
       ) : null}
 
       {/*
-        The Filter is an overlay anchored to its own button, so the ledger never
-        moves under an inline band. Sort and Columns keep the inline surface
-        until their own panels land; the three no longer share one shell.
+        Filter and the wide layout's Sort and Columns are overlays anchored to
+        their own buttons, so the ledger never moves under an inline band. On a
+        phone Sort and Columns live in the View sheet instead.
       */}
       <FilterPanel
         spaceId={spaceId}

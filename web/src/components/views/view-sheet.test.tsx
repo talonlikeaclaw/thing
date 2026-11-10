@@ -18,7 +18,10 @@ function Host() {
         panel={panel}
         onPanelChange={setPanel}
         canEdit
+        counts={{ sorts: 2, columns: 7 }}
         panels={{
+          sort: <p>Sort body</p>,
+          columns: <p>Columns body</p>,
           settings: <p>Settings body</p>,
           save: <p>Save body</p>,
           data: <p>Data body</p>,
@@ -29,15 +32,27 @@ function Host() {
 }
 
 describe("ViewSheet", () => {
-  it("holds only the occasional view actions", () => {
+  it("holds every view action with its active count", () => {
     renderWithProviders(<Host />);
 
+    expect(screen.getByRole("button", { name: "Sort, 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Columns, 7" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View settings" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save as view…" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Data — CSV" })).toBeInTheDocument();
-    // Sort and Columns are their own toolbar triggers, never rows here.
-    expect(screen.queryByRole("button", { name: "Sort" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
+  });
+
+  it("opens Sort and Columns in the same sheet behind Back", () => {
+    renderWithProviders(<Host />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort, 2" }));
+    expect(screen.getByText("Sort body")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Columns, 7" }));
+    expect(screen.getByText("Columns body")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("button", { name: "Sort, 2" })).toBeInTheDocument();
   });
 
   it("swaps the body in place and returns through Back", () => {
@@ -61,11 +76,14 @@ describe("ViewSheet", () => {
         panel="menu"
         onPanelChange={() => undefined}
         canEdit={false}
+        counts={{ sorts: 0, columns: 0 }}
         panels={{}}
       />,
     );
 
     expect(screen.queryByRole("button", { name: "View settings" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Columns, 0" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save as view…" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Data — CSV" })).toBeInTheDocument();
   });
