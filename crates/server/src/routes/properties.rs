@@ -302,7 +302,7 @@ async fn remove(
     query.finish()?;
 
     let _guard = handle.write.lock().await;
-    let ((types, objects), dependent) = handle.with_index(|index| {
+    let ((types, objects), dependent, computed_holders) = handle.with_index(|index| {
         if declared_property(index, &key).is_none() {
             return Err(ApiError::not_found(format!("property {key}")));
         }
@@ -325,8 +325,24 @@ async fn remove(
                     })
             })
             .collect();
-        Ok((usage(index, &key), dependent))
+        let computed_holders: Vec<String> = index
+            .properties()
+            .filter(|property| compute::references(property, &key))
+            .map(|property| property.key.clone())
+            .collect();
+        Ok((usage(index, &key), dependent, computed_holders))
     })?;
+    if !computed_holders.is_empty() {
+        // `force` strips values, but it cannot rewrite an expression: a
+        // definition that names this key has to be edited first.
+        return Err(ApiError::conflict(
+            "computed properties use property",
+            json!({
+                "reason": "computed properties use property",
+                "properties": computed_holders,
+            }),
+        ));
+    }
     if !dependent.is_empty() {
         return Err(ApiError::conflict(
             "views use property",

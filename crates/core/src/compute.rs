@@ -462,6 +462,44 @@ pub fn referenced_keys<'a>(
     keys
 }
 
+/// Whether one computed definition names `key`: a formula operand, a rollup's
+/// relation or a rollup's target property. `title` is not a property key, so a
+/// rollup reading `title` never holds anything.
+pub fn references(def: &PropertyDef, key: &str) -> bool {
+    if key == TITLE_KEY {
+        return false;
+    }
+    referenced_keys(std::iter::once(def)).contains(key)
+}
+
+/// Rewrites every reference to `old` in one computed definition to `new`,
+/// preserving the expression's other tokens. Returns whether anything changed;
+/// a definition that is not computed, or does not name `old`, is left alone.
+pub fn rename_reference(def: &mut PropertyDef, old: &str, new: &str) -> bool {
+    if old == new {
+        return false;
+    }
+    let Some(compute) = def.compute.as_mut() else {
+        return false;
+    };
+    let mut changed = false;
+    if let Some(expression) = &compute.expression
+        && let Some(rewritten) = formula::rewrite(expression, old, new)
+    {
+        compute.expression = Some(rewritten);
+        changed = true;
+    }
+    if compute.relation.as_deref() == Some(old) {
+        compute.relation = Some(new.to_owned());
+        changed = true;
+    }
+    if compute.property.as_deref() == Some(old) {
+        compute.property = Some(new.to_owned());
+        changed = true;
+    }
+    changed
+}
+
 /// Every rollup whose relation targets `target_type`.
 pub fn rollup_targets<'a>(
     schema: &Schema,

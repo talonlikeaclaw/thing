@@ -57,11 +57,22 @@ pub struct CsvParse {
     pub problems: Vec<CsvProblem>,
 }
 
+/// One record as export writes it: the stored document plus the computed values
+/// the caller materialized for it. Values travel exactly as the API renders
+/// them, so a rollup's `list` is a JSON array of display labels.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExportRow<'a> {
+    pub doc: &'a ObjectDoc,
+    /// Computed values by property key; absent when the computed value is empty.
+    pub computed: BTreeMap<String, Value>,
+}
+
 /// Every live record of `def`, in the grammar of §4.1. The caller supplies
-/// `records` already ordered by title then id. The header comes from `def`;
-/// each cell comes from the value's own variant, so a hand-edited mismatch
-/// cannot make export guess or panic.
-pub fn export(def: &TypeDef, records: &[&ObjectDoc]) -> String {
+/// `rows` already ordered by title then id. The header comes from `def`; each
+/// cell comes from the value's own variant, so a hand-edited mismatch cannot
+/// make export guess or panic. A computed value is read before the stored map,
+/// and a column that is computed never falls back to a stored value.
+pub fn export(def: &TypeDef, rows: &[ExportRow<'_>]) -> String {
     let columns = header(def);
     let mut bytes = String::from('\u{feff}').into_bytes();
     {
@@ -71,13 +82,18 @@ pub fn export(def: &TypeDef, records: &[&ObjectDoc]) -> String {
         writer
             .write_record(&columns)
             .expect("writing to a Vec cannot fail");
-        for record in records {
+        for row in rows {
             let cells: Vec<String> = columns
                 .iter()
                 .map(|column| match column.as_str() {
-                    TITLE_KEY => record.title.clone(),
-                    BODY_KEY => record.body.clone(),
-                    key => record.properties.get(key).map(cell).unwrap_or_default(),
+                    TITLE_KEY => row.doc.title.clone(),
+                    BODY_KEY => row.doc.body.clone(),
+                    key => row
+                        .computed
+                        .get(key)
+                        .or_else(|| row.doc.properties.get(key))
+                        .map(cell)
+                        .unwrap_or_default(),
                 })
                 .collect();
             writer
@@ -172,6 +188,14 @@ pub fn parse(schema: &Schema, def: &TypeDef, text: &str) -> CsvParse {
         for (index, property) in &property_columns {
             let raw = record.get(*index).unwrap_or_default();
             if raw.is_empty() {
+                continue;
+            }
+            if property.is_computed() {
+                row_problems.push(CsvProblem {
+                    row,
+                    field: property.key.clone(),
+                    message: "is calculated and read-only".to_owned(),
+                });
                 continue;
             }
             match parse_cell(property, raw) {
@@ -394,8 +418,8 @@ mod tests {
 
     use super::*;
     use crate::model::{
-        Filter, FilterOp, OptionDef, PropertyDef, Recurrence, RecurrenceKind, Sort, TypeProperty,
-        UPDATED_AT_KEY, ViewDef, ViewKind,
+        ComputeDef, ComputeKind, Filter, FilterOp, OptionDef, PropertyDef, Recurrence,
+        RecurrenceKind, Sort, TypeProperty, UPDATED_AT_KEY, ViewDef, ViewKind,
     };
 
     static SCHEDULE_PROPERTIES: LazyLock<BTreeMap<String, PropertyDef>> =
@@ -666,6 +690,18 @@ mod tests {
             .collect()
     }
 
+    /// Exports documents that carry no computed values.
+    fn export_docs(def: &TypeDef, docs: &[&ObjectDoc]) -> String {
+        let rows: Vec<ExportRow<'_>> = docs
+            .iter()
+            .map(|doc| ExportRow {
+                doc,
+                computed: BTreeMap::new(),
+            })
+            .collect();
+        export(def, &rows)
+    }
+
     #[track_caller]
     fn assert_valid(parsed: &CsvParse) {
         assert!(
@@ -679,7 +715,7 @@ mod tests {
     fn round_trips_every_format_and_schedule_key() {
         let world = world();
         let object = full(&world, "Fern");
-        let text = export(world.def("plant"), &[&object]);
+        let text = export_docs(world.def("plant"), &[&object]);
         assert!(text.starts_with('\u{feff}'));
         assert!(
             text.starts_with(
@@ -749,7 +785,7 @@ mod tests {
         object
             .properties
             .insert("room".to_owned(), Value::Text("Hall".to_owned()));
-        let text = export(world.def("plant"), &[&object]);
+        let text = export_docs(world.def("plant"), &[&object]);
 
         let mut reader = ::csv::ReaderBuilder::new()
             .has_headers(true)
@@ -783,7 +819,7 @@ mod tests {
     fn parses_lf_and_crlf_and_a_bom() {
         let world = world();
         let object = full(&world, "Fern");
-        let crlf = export(world.def("plant"), &[&object]);
+        let crlf = export_docs(world.def("plant"), &[&object]);
         assert!(crlf.contains("\r\n"));
         assert_valid(&parse_for(&world, "plant", &crlf));
 
@@ -801,7 +837,7 @@ mod tests {
             Value::Text("Kitchen, \"south\"\nsecond line".to_owned()),
         );
         object.body = "body, with \"everything\"\nand two lines".to_owned();
-        let text = export(world.def("plant"), &[&object]);
+        let text = export_docs(world.def("plant"), &[&object]);
         assert!(text.contains("\"Kitchen, \"\"south\"\""));
         let parsed = parse_for(&world, "plant", &text);
         assert_valid(&parsed);
@@ -1023,7 +1059,7 @@ mod tests {
             .properties
             .insert("body".to_owned(), Value::Text("cell".to_owned()));
         object.body = "markdown body".to_owned();
-        let text = export(world.def("note"), &[&object]);
+        let text = export_docs(world.def("note"), &[&object]);
         assert!(text.contains("title,body,note,_body\r\n"));
 
         let parsed = parse_for(&world, "note", &text);
@@ -1050,7 +1086,7 @@ mod tests {
             .properties
             .insert("room".to_owned(), Value::Text("Hall".to_owned()));
 
-        let text = export(world.def("plant"), &[&first, &second]);
+        let text = export_docs(world.def("plant"), &[&first, &second]);
         assert!(!text.contains("mystery"));
         assert!(!text.contains("hidden"));
         let rows: Vec<&str> = text
@@ -1079,6 +1115,114 @@ mod tests {
             .map(|problem| (problem.row, problem.field.as_str()))
             .collect();
         assert_eq!(problems, vec![(2, "count"), (3, "done")]);
+    }
+
+    /// Adds one computed property to the world's plant type and library.
+    fn with_computed(world: &mut World, key: &str, format: PropertyFormat, compute: ComputeDef) {
+        let mut def = property(key, format, &[], false);
+        def.compute = Some(compute);
+        world.properties.insert(key.to_owned(), def);
+        world
+            .types
+            .get_mut("plant")
+            .expect("the plant type")
+            .properties
+            .push(member(key, false));
+    }
+
+    fn formula(expression: &str) -> ComputeDef {
+        ComputeDef {
+            kind: ComputeKind::Formula,
+            expression: Some(expression.to_owned()),
+            relation: None,
+            property: None,
+            aggregate: None,
+        }
+    }
+
+    #[test]
+    fn export_writes_the_computed_value_and_never_the_stored_one() {
+        let mut world = world();
+        with_computed(
+            &mut world,
+            "twice",
+            PropertyFormat::Number,
+            formula("count * 2"),
+        );
+        let mut object = doc(Uuid::from_u128(9), "plant", "Fern");
+        object.properties = [("room", Value::Text("Kitchen".to_owned()))]
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect();
+
+        let computed: BTreeMap<String, Value> = [("twice".to_owned(), Value::Number(25.0))]
+            .into_iter()
+            .collect();
+        let text = export(
+            world.def("plant"),
+            &[ExportRow {
+                doc: &object,
+                computed: computed.clone(),
+            }],
+        );
+        let mut lines = text.trim_start_matches('\u{feff}').split("\r\n");
+        let headers: Vec<&str> = lines.next().expect("a header").split(',').collect();
+        let row: Vec<&str> = lines.next().expect("one data row").split(',').collect();
+        let column = |key: &str| {
+            let index = headers
+                .iter()
+                .position(|header| *header == key)
+                .unwrap_or_else(|| panic!("{key} is not a column"));
+            row[index]
+        };
+        assert_eq!(column("twice"), "25");
+        assert_eq!(column("room"), "Kitchen");
+
+        // A computed value wins over a stored value on the same key; the route
+        // strips a hand-edited stored value before it gets here.
+        object
+            .properties
+            .insert("twice".to_owned(), Value::Number(999.0));
+        let text = export(
+            world.def("plant"),
+            &[ExportRow {
+                doc: &object,
+                computed,
+            }],
+        );
+        let mut lines = text.trim_start_matches('\u{feff}').split("\r\n");
+        let headers: Vec<&str> = lines.next().expect("a header").split(',').collect();
+        let row: Vec<&str> = lines.next().expect("one data row").split(',').collect();
+        let index = headers
+            .iter()
+            .position(|header| *header == "twice")
+            .expect("a computed column");
+        assert_eq!(row[index], "25");
+        assert!(!text.contains("999"), "{text}");
+    }
+
+    #[test]
+    fn import_refuses_a_non_empty_computed_cell_and_accepts_an_empty_one() {
+        let mut world = world();
+        with_computed(&mut world, "summary", PropertyFormat::Text, formula("room"));
+        let parsed = parse_for(
+            &world,
+            "plant",
+            "title,room,summary\nStored,Kitchen,x\nEmpty,Hall,\n",
+        );
+        assert_eq!(
+            parsed.problems,
+            vec![CsvProblem {
+                row: 1,
+                field: "summary".to_owned(),
+                message: "is calculated and read-only".to_owned(),
+            }]
+        );
+        assert_eq!(parsed.problems[0].row, 1);
+        assert_eq!(parsed.problems[0].field, "summary");
+        assert_eq!(parsed.records.len(), 1);
+        assert_eq!(parsed.records[0].title, "Empty");
+        assert!(!parsed.records[0].properties.contains_key("summary"));
     }
 
     #[test]

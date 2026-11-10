@@ -23,10 +23,12 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use super::objects::snapshot_of;
+use super::values::space_timezone;
 use super::{ApiQuery, space_for, uuid_param};
 use crate::auth::Caller;
 use crate::error::ApiError;
 use crate::state::SharedState;
+use thing_core::compute::Evaluator;
 
 /// Most bytes an import accepts; a file at 5 MiB exactly is still read.
 const MAX_IMPORT_BYTES: usize = 5 * 1024 * 1024;
@@ -80,7 +82,32 @@ async fn export(
                 .cmp(&right.title.to_lowercase())
                 .then_with(|| left.id.cmp(&right.id))
         });
-        Ok(codec::export(def, &records))
+        let evaluator = Evaluator::new(index, space_timezone(index), OffsetDateTime::now_utc());
+        // A stored value under a computed key is a hand-edit; the computed
+        // value wins, and an empty one leaves the cell empty.
+        let docs: Vec<ObjectDoc> = records
+            .into_iter()
+            .map(|doc| {
+                let mut doc = doc.clone();
+                for member in &def.properties {
+                    if index
+                        .property_def(&member.key)
+                        .is_some_and(|property| property.is_computed())
+                    {
+                        doc.properties.remove(&member.key);
+                    }
+                }
+                doc
+            })
+            .collect();
+        let rows: Vec<codec::ExportRow<'_>> = docs
+            .iter()
+            .map(|doc| codec::ExportRow {
+                doc,
+                computed: evaluator.values(doc),
+            })
+            .collect();
+        Ok(codec::export(def, &rows))
     })?;
 
     let disposition = format!("attachment; filename=\"thing-{type_key}-{}.csv\"", today());

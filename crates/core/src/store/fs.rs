@@ -53,6 +53,7 @@ use super::{
     remove_property_from_type, rename_property_in_object, rename_property_in_type, trash_path,
     type_path,
 };
+use crate::compute;
 use crate::error::CoreError;
 use crate::markdown;
 use crate::model::{
@@ -533,8 +534,22 @@ impl SpaceStore for FsSpaceStore {
                         },
                     )?;
                 }
+                SpaceFileKind::Property => {
+                    let Some(property_key) = key_from_path(&file.path) else {
+                        continue;
+                    };
+                    // The new definition was just written; the old file is
+                    // removed below. A computed property never references
+                    // itself, so only the other definitions can change.
+                    if property_key == old || property_key == new {
+                        continue;
+                    }
+                    let (mut property, expected) = self.load_property(property_key)?;
+                    if compute::rename_reference(&mut property, old, new) {
+                        self.save_property(&property, Some(expected))?;
+                    }
+                }
                 SpaceFileKind::Space
-                | SpaceFileKind::Property
                 | SpaceFileKind::History
                 | SpaceFileKind::Attachment
                 | SpaceFileKind::Thumbnail => {}
@@ -1168,6 +1183,52 @@ mod tests {
             history,
             format!("{}\n{update}\n", markdown::serialize_revision(&revision(1)))
         );
+    }
+
+    #[test]
+    fn renaming_a_property_key_rewrites_computed_references() {
+        let (_dir, store) = store();
+        store
+            .save_property(&room_property("room"), None)
+            .expect("property");
+        let mut days = room_property("days");
+        days.format = PropertyFormat::Number;
+        days.compute = Some(crate::model::ComputeDef {
+            kind: crate::model::ComputeKind::Formula,
+            expression: Some(r#"if(room = "kitchen", 1, 0)"#.to_owned()),
+            relation: None,
+            property: None,
+            aggregate: None,
+        });
+        store.save_property(&days, None).expect("formula");
+        let mut titles = room_property("room_titles");
+        titles.format = PropertyFormat::List;
+        titles.compute = Some(crate::model::ComputeDef {
+            kind: crate::model::ComputeKind::Rollup,
+            expression: None,
+            relation: Some("room".to_owned()),
+            property: Some("room".to_owned()),
+            aggregate: Some(crate::model::Aggregate::List),
+        });
+        store.save_property(&titles, None).expect("rollup");
+        store.save_type(&plant_type(), None).expect("type");
+
+        store
+            .rename_property_key("room", "space", at(1_760_400_000), id(2))
+            .expect("rename");
+
+        let (days, _) = store.load_property("days").expect("formula");
+        assert_eq!(
+            days.compute
+                .as_ref()
+                .and_then(|compute| compute.expression.clone()),
+            Some(r#"if(space = "kitchen", 1, 0)"#.to_owned()),
+            "the expression's other tokens survive the rewrite"
+        );
+        let (titles, _) = store.load_property("room_titles").expect("rollup");
+        let compute = titles.compute.expect("computed");
+        assert_eq!(compute.relation.as_deref(), Some("space"));
+        assert_eq!(compute.property.as_deref(), Some("space"));
     }
 
     #[test]

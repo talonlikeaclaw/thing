@@ -2804,6 +2804,225 @@ mod tests {
     }
 
     #[test]
+    fn a_rename_moves_computed_references_and_a_holder_refuses_removal() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("computed-rename@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let world = computed_garden(&server, &cookie).await;
+            let space = world.space.clone();
+
+            let renamed = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/properties/room/rename"),
+                    Some(json!({ "key": "space" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(renamed.status, StatusCode::OK, "{:?}", renamed.body);
+
+            // The formula names the new key, so the label still concatenates.
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/objects?type=plant&view=all"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.status, StatusCode::OK, "{:?}", list.body);
+            let row = row_for(&list.body, &world.monstera);
+            assert_eq!(
+                row["values"]["label"]["label"],
+                "Monstera in the study / kitchen"
+            );
+            assert_eq!(row["values"]["space"]["value"], "kitchen");
+
+            // A definition that names the key cannot be stripped by `force`.
+            let refused = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{space}/properties/space?force=true"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::CONFLICT, "{:?}", refused.body);
+            assert_eq!(
+                refused.body["error"]["details"]["reason"],
+                "computed properties use property"
+            );
+            assert_eq!(
+                refused.body["error"]["details"]["properties"],
+                json!(["label"])
+            );
+
+            // The relation is held by both rollups and keeps its definition.
+            let related = server
+                .call(
+                    "DELETE",
+                    &format!("/api/spaces/{space}/properties/related?force=true"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(related.status, StatusCode::CONFLICT);
+            assert_eq!(
+                related.body["error"]["details"]["properties"],
+                json!(["related_count", "related_titles"])
+            );
+            let kept = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/properties/space"),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(kept.status, StatusCode::OK, "{:?}", kept.body);
+        });
+    }
+
+    #[test]
+    fn csv_carries_computed_columns_and_refuses_a_hand_written_cell() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("computed-csv@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let world = computed_garden(&server, &cookie).await;
+            let space = world.space.clone();
+
+            let exported = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/types/plant/export"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(exported.status, StatusCode::OK);
+            let text = exported.text();
+            let lines: Vec<&str> = text
+                .trim_start_matches('\u{feff}')
+                .split("\r\n")
+                .filter(|line| !line.is_empty())
+                .collect();
+            assert!(lines[0].contains("label"), "{:?}", lines[0]);
+            assert!(lines[0].contains("related_count"), "{:?}", lines[0]);
+            assert!(lines[0].contains("related_titles"), "{:?}", lines[0]);
+            assert!(
+                text.contains("Monstera in the study / kitchen"),
+                "the formula column is a cell: {text}"
+            );
+            assert!(
+                text.contains(r#""[""Fern by the window"",""Ivy on the shelf""]""#),
+                "the list rollup travels as a JSON array of labels: {text}"
+            );
+            let monstera = lines
+                .iter()
+                .find(|line| line.starts_with("Monstera in the study,"))
+                .expect("the Monstera row");
+            assert!(monstera.contains(",2,"), "the count rollup: {monstera}");
+
+            // A stored value on a computed key is a hand-edit: the export
+            // drops it instead of showing it beside the computed column.
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&space).expect("a space id"))
+                .expect("the space is loaded");
+            use thing_core::store::{SpaceFileKind, SpaceStore};
+            let (path, mut doc, fingerprint) = handle
+                .store
+                .list_files()
+                .expect("the space's files")
+                .into_iter()
+                .filter(|file| file.kind == SpaceFileKind::Object)
+                .find_map(|file| {
+                    let (doc, fingerprint) = handle.store.load_object(&file.path).ok()?;
+                    (doc.id.to_string() == world.monstera).then_some((file.path, doc, fingerprint))
+                })
+                .expect("the Monstera file");
+            doc.properties.insert(
+                "label".to_owned(),
+                thing_core::model::Value::Text("hand".to_owned()),
+            );
+            handle
+                .store
+                .save_object(&path, &doc, Some(fingerprint))
+                .expect("a hand-edited object");
+            handle
+                .with_index_mut(|index| -> Result<(), thing_core::error::CoreError> {
+                    *index = thing_core::index::SpaceIndex::rebuild_from_disk(&handle.store)?;
+                    Ok(())
+                })
+                .expect("a rebuilt index");
+            let again = server
+                .call_raw(
+                    "GET",
+                    &format!("/api/spaces/{space}/types/plant/export"),
+                    None,
+                    &[],
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(again.status, StatusCode::OK);
+            assert!(
+                !again.text().contains("hand"),
+                "a stored computed value was exported: {}",
+                again.text()
+            );
+
+            // A computed header is accepted; a non-empty cell is a row problem.
+            let body = b"title,room,label\nWritten,study,hand typed\nEmpty,study,\n";
+            let url = format!("/api/spaces/{space}/types/plant/import");
+            let dry = server
+                .call_raw(
+                    "POST",
+                    &format!("{url}?dry_run=true"),
+                    Some("text/csv"),
+                    body,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(dry.status, StatusCode::OK, "{:?}", dry.body);
+            assert_eq!(dry.body["rows"], 2);
+            assert_eq!(dry.body["valid"], false);
+            assert_eq!(
+                dry.body["errors"][0],
+                json!({ "row": 1, "field": "label", "message": "is calculated and read-only" })
+            );
+            assert_eq!(dry.body["preview"][0]["title"], "Empty");
+
+            let refused = server
+                .call_raw("POST", &url, Some("text/csv"), body, Some(&cookie))
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+
+            let committed = server
+                .call_raw(
+                    "POST",
+                    &url,
+                    Some("text/csv"),
+                    b"title,room,label\nEmpty,study,\n",
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                committed.status,
+                StatusCode::CREATED,
+                "{:?}",
+                committed.body
+            );
+            assert_eq!(committed.body["count"], 1);
+        });
+    }
+
+    #[test]
     fn a_type_with_objects_is_only_deleted_when_the_caller_says_so() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");
