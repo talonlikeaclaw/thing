@@ -1,206 +1,82 @@
 import { describe, expect, it } from "vitest";
 
-import type { OptionDef, PropertyDef, TypeDef, TypeProperty } from "@/api/types";
+import type { PropertyDef } from "@/api/types";
 import {
-  addProperty,
-  availableProperties,
-  effectiveMembers,
-  effectiveProperties,
-  memberProperties,
-  keyFromName,
-  moveColumn,
-  moveItem,
-  moveProperty,
-  optionDrafts,
-  optionInputs,
-  removeProperty,
-  sameJson,
-  setColumn,
-  TITLE_COLUMN,
+  RESULT_FORMATS,
+  STORED_FORMATS,
+  computeDescription,
+  isComputed,
+  rollupResultFormat,
+  writableProperties,
 } from "@/lib/schema";
 
-const room: TypeProperty = { key: "room", required: false, featured: false };
-const watered: TypeProperty = { key: "watered", required: true, featured: false };
+const related: PropertyDef = {
+  key: "related",
+  name: "Related",
+  format: "relation",
+  target_type: "plant",
+  multi: true,
+};
 
-describe("type membership", () => {
-  it("adds a property once, at the end", () => {
-    const members = addProperty([room], "watered");
-    expect(members.map((member) => member.key)).toEqual(["room", "watered"]);
-    expect(addProperty(members, "room")).toBe(members);
+const label: PropertyDef = {
+  key: "label",
+  name: "Label",
+  format: "text",
+  compute: { kind: "formula", expression: 'title + " / " + room' },
+};
+
+const titles: PropertyDef = {
+  key: "related_titles",
+  name: "Related titles",
+  format: "list",
+  compute: { kind: "rollup", relation: "related", property: "title", aggregate: "list" },
+};
+
+describe("computed property helpers", () => {
+  it("keeps list out of the stored formats and out of a result's text types", () => {
+    expect(STORED_FORMATS.map((entry) => entry.value)).not.toContain("list");
+    expect(STORED_FORMATS.map((entry) => entry.value)).toContain("attachments");
+    expect(RESULT_FORMATS).toEqual(["text", "number", "checkbox", "date", "datetime", "list"]);
   });
 
-  it("removes a property without touching the rest", () => {
-    expect(removeProperty([room, watered], "room")).toEqual([watered]);
-  });
-
-  it("moves a property by one and clamps at the ends", () => {
-    expect(moveProperty([room, watered], "watered", -1)).toEqual([watered, room]);
-    expect(moveProperty([room, watered], "room", -1)).toEqual([room, watered]);
-    expect(moveProperty([room, watered], "watered", 1)).toEqual([room, watered]);
-  });
-});
-
-describe("view columns", () => {
-  it("keeps title first and appends new columns", () => {
-    expect(setColumn([TITLE_COLUMN], "room", true)).toEqual([TITLE_COLUMN, "room"]);
-    expect(setColumn([TITLE_COLUMN, "room"], "watered", true)).toEqual([
-      TITLE_COLUMN,
-      "room",
-      "watered",
+  it("drops a calculated definition from the writable set", () => {
+    expect(isComputed(label)).toBe(true);
+    expect(isComputed(related)).toBe(false);
+    expect(writableProperties([related, label, titles]).map((entry) => entry.key)).toEqual([
+      "related",
     ]);
   });
 
-  it("removes a column but never the title", () => {
-    expect(setColumn([TITLE_COLUMN, "room"], "room", false)).toEqual([TITLE_COLUMN]);
-    expect(setColumn([TITLE_COLUMN], TITLE_COLUMN, false)).toEqual([TITLE_COLUMN]);
+  it("derives a rollup's result type from its aggregate and target", () => {
+    expect(rollupResultFormat("count", undefined)).toBe("number");
+    expect(rollupResultFormat("sum", "number")).toBe("number");
+    expect(rollupResultFormat("min", "date")).toBe("date");
+    expect(rollupResultFormat("max", "datetime")).toBe("datetime");
+    expect(rollupResultFormat("min", "text")).toBeUndefined();
+    expect(rollupResultFormat("list", "text")).toBe("list");
   });
 
-  it("moves a column only after title", () => {
-    const columns = [TITLE_COLUMN, "room", "watered"];
-    expect(moveColumn(columns, "watered", -1)).toEqual([TITLE_COLUMN, "watered", "room"]);
-    expect(moveColumn(columns, "room", -1)).toEqual(columns);
-    expect(moveColumn(columns, TITLE_COLUMN, 1)).toEqual(columns);
-  });
-
-  it("treats moves outside the list as no-ops", () => {
-    const items = [1, 2, 3];
-    expect(moveItem(items, 0, 3)).toBe(items);
-    expect(moveItem(items, -1, 0)).toBe(items);
-  });
-});
-
-describe("effective scheduling members", () => {
-  const implicit: PropertyDef[] = [
-    { key: "due_date", name: "Due", format: "date" },
-    { key: "recurrence", name: "Repeats", format: "recurrence" },
-  ];
-  const scheduled: TypeDef = {
-    key: "chore",
-    name: "Chore",
-    name_plural: "Chores",
-    description: "",
-    schedule: true,
-    implicit_properties: implicit,
-    properties: [room],
-    views: [
-      {
-        key: "all",
-        name: "All",
-        kind: "table",
-        sorts: [],
-        filter: { op: "and", conditions: [] },
-        columns: ["title"],
-      },
-    ],
-    default_view: "all",
-  };
-
-  it("appends generated properties after declared ones", () => {
-    expect(effectiveProperties(scheduled, []).map((property) => property.key)).toEqual([
-      "due_date",
-      "recurrence",
-    ]);
+  it("names the definition behind a calculated value", () => {
+    expect(computeDescription(label, [label, related])).toBe(
+      'Formula: title + " / " + room',
+    );
     expect(
-      effectiveMembers(scheduled).map((member) => [member.key, member.featured]),
-    ).toEqual([
-      ["room", false],
-      ["due_date", true],
-      ["recurrence", true],
-    ]);
-  });
-
-  it("leaves an unscheduled type exactly as declared", () => {
-    const plain = { ...scheduled, schedule: false, implicit_properties: undefined };
-    expect(effectiveMembers(plain)).toBe(plain.properties);
-    expect(effectiveProperties(plain, [])).toEqual([]);
-  });
-
-  it("maps only the type's members, in member order", () => {
-    const library: PropertyDef[] = [
-      { key: "room", name: "Room", format: "text" },
-      { key: "tags", name: "Tags", format: "multi_select" },
-      ...implicit,
-    ];
-    expect(memberProperties(scheduled, library).map((property) => property.key)).toEqual([
-      "room",
-      "due_date",
-      "recurrence",
-    ]);
-    expect(memberProperties({ ...scheduled, properties: [] }, library)).toEqual(implicit);
-  });
-
-  it("offers only library properties the type does not carry", () => {
-    const library: PropertyDef[] = [
-      { key: "room", name: "Room", format: "text" },
-      { key: "tags", name: "Tags", format: "multi_select" },
-      ...implicit,
-    ];
-    expect(availableProperties(scheduled, library).map((property) => property.key)).toEqual([
-      "tags",
-    ]);
-    expect(
-      availableProperties({ ...scheduled, schedule: false, implicit_properties: undefined }, library)
-        .map((property) => property.key),
-    ).toEqual(["tags", "due_date", "recurrence"]);
-  });
-});
-
-describe("change detection", () => {
-  it("ignores object key order between a request and a response", () => {
-    expect(
-      sameJson(
-        { properties: [{ key: "room", required: false, featured: false }] },
-        { properties: [{ featured: false, required: false, key: "room" }] },
+      computeDescription(
+        { key: "count", name: "Count", format: "number",
+          compute: { kind: "rollup", relation: "related", aggregate: "count" } },
+        [related],
       ),
-    ).toBe(true);
-  });
-
-  it("still sees a real difference", () => {
-    expect(sameJson({ columns: ["title"] }, { columns: ["title", "room"] })).toBe(false);
-    expect(sameJson({ name: "Plant" }, { name: "Plants" })).toBe(false);
-  });
-});
-
-describe("option drafts", () => {
-  const saved: OptionDef[] = [{ key: "kitchen", name: "Kitchen", color: "#c8d96b" }];
-
-  it("keeps a saved key so a rename does not re-key its values", () => {
-    const drafts = optionDrafts(saved);
-    drafts[0]!.name = "Kitchen counter";
-    expect(optionInputs(drafts)).toEqual([
-      { key: "kitchen", name: "Kitchen counter", color: "#c8d96b" },
-    ]);
-  });
-
-  it("omits the key for a new option and trims the text", () => {
-    expect(optionInputs([{ id: "draft-1", name: " Balcony ", color: " #f08a72 " }])).toEqual([
-      { name: "Balcony", color: "#f08a72" },
-    ]);
-  });
-});
-
-describe("keyFromName", () => {
-  // The same cases as `key_from_name` in `crates/core/src/slug.rs`, so the
-  // ledger can tell a name-shaped key from one that says something else.
-  it("folds a name into a lowercase underscore key", () => {
-    expect(keyFromName("Watering interval days")).toBe("watering_interval_days");
-    expect(keyFromName("  Room // 2 -- window ")).toBe("room_2_window");
-    expect(keyFromName("Last watered")).toBe("last_watered");
-  });
-
-  it("prefixes a key that would start with a digit", () => {
-    expect(keyFromName("2026 goals")).toBe("key_2026_goals");
-  });
-
-  it("reads a name with nothing to keep as untitled", () => {
-    expect(keyFromName("️✨")).toBe("untitled");
-    expect(keyFromName("")).toBe("untitled");
-  });
-
-  it("caps the key at forty characters without a trailing separator", () => {
-    expect(keyFromName("b " + "a".repeat(60))).toHaveLength(40);
-    // The cut can land on a separator; the server drops it rather than ship a
-    // key ending in `_`, so the same name reads one character shorter.
-    expect(keyFromName("a".repeat(39) + " b")).toBe("a".repeat(39));
+    ).toBe("Calculated: count of Related");
+    expect(computeDescription(titles, [related])).toBe(
+      "Calculated: list of Title in Related",
+    );
+    // A key whose definition is gone still reads as the key it names.
+    expect(
+      computeDescription(
+        { key: "shelf", name: "Shelf", format: "list",
+          compute: { kind: "rollup", relation: "cupboard", property: "shelf", aggregate: "list" } },
+        [],
+      ),
+    ).toBe("Calculated: list of shelf in cupboard");
   });
 });

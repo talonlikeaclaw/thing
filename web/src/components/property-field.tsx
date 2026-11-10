@@ -22,7 +22,7 @@ import {
   typeLabel,
 } from "@/lib/format";
 import { todayIn } from "@/lib/timezone";
-import { optionDrafts, optionInputs } from "@/lib/schema";
+import { isComputed, optionDrafts, optionInputs } from "@/lib/schema";
 
 interface PropertyFieldProps {
   spaceId: string;
@@ -34,6 +34,8 @@ interface PropertyFieldProps {
   canEdit: boolean;
   /** A reason the field is read-only even for an editor; shown under the value. */
   locked?: string;
+  /** How a calculated property derives its value; shown under the read-only value. */
+  computed?: string;
   /** The space's calendar zone, used by the date shortcuts. */
   timeZone?: string;
   onChange: (value: unknown | null) => void;
@@ -59,6 +61,23 @@ function shownDateTime(local: string, timeZone?: string): string {
  * sends every changed field in one write, so one edit is one revision.
  */
 export function PropertyField(props: PropertyFieldProps) {
+  // A calculated value has no input in any role: the server derives it and
+  // refuses a stored one, so the record shows it with the definition beneath.
+  if (isComputed(props.property)) {
+    return (
+      <div className="grid gap-1">
+        <ReadOnlyValue
+          spaceId={props.spaceId}
+          property={props.property}
+          value={props.value}
+          label={props.label}
+          timeZone={props.timeZone}
+        />
+        <span className="text-[12px] text-faint">{props.computed || "Calculated"}</span>
+      </div>
+    );
+  }
+
   if (!props.canEdit) {
     return (
       <ReadOnlyValue

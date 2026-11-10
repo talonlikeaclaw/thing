@@ -146,6 +146,43 @@ describe("condition values", () => {
       "is_empty",
       "is_not_empty",
     ]);
+    // A rollup's list is display text: it filters by substring or emptiness.
+    expect(operatorsFor("list")).toEqual([
+      "contains",
+      "not_contains",
+      "is_empty",
+      "is_not_empty",
+    ]);
+  });
+
+  it("filters and sorts a calculated column by its own key", () => {
+    const garden: TypeDef = {
+      ...type,
+      properties: [
+        { key: "room", required: false, featured: false },
+        { key: "room_titles", required: false, featured: false },
+      ],
+    };
+    const computed = [
+      { key: "room", name: "Room", format: "select" as const },
+      {
+        key: "room_titles",
+        name: "Room titles",
+        format: "list" as const,
+        compute: { kind: "rollup" as const, relation: "room", aggregate: "list" as const },
+      },
+    ];
+    // The column carries its own key, which is what a filter or sort sends.
+    expect(filterChoices(garden, computed)).toContainEqual({
+      key: "room_titles",
+      label: "Room titles",
+      format: "list",
+    });
+    expect(columnChoices(garden, computed)).toContainEqual({
+      key: "room_titles",
+      label: "Room titles",
+      format: "list",
+    });
   });
 
   it("offers generated schedule members as filter columns", () => {

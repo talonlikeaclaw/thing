@@ -21,6 +21,7 @@ import {
 import { Link, useNavigate } from "react-router";
 
 import type {
+  ComputeKind,
   ObjectSummary,
   PropertyDef,
   PropertyFormat,
@@ -36,7 +37,7 @@ import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
 import { useCoarsePointer } from "@/lib/media";
 import { completeLabel } from "@/lib/schedule";
-import { formatLabel } from "@/lib/schema";
+import { computeDescription, formatLabel, isComputed } from "@/lib/schema";
 import {
   dragMoved,
   dragWidth,
@@ -576,6 +577,7 @@ export function TableView({
                     columnKey={key}
                     label={label}
                     format={property?.format}
+                    calculated={property?.compute?.kind}
                     sort={sortOf(key)}
                     onSort={onSort}
                     showKey={!compact}
@@ -782,9 +784,9 @@ export function TableView({
                       key={key}
                       {...cellProps(rowIndex, titleCol + 1 + offset)}
                       aria-label={
-                        canEdit
-                          ? `Edit ${property.name} for “${row.title}”, currently “${label || "empty"}”`
-                          : `${property.name} for “${row.title}”: ${label || "empty"}`
+                        isComputed(property) || !canEdit
+                          ? `${property.name} for “${row.title}”: ${label || "empty"}${isComputed(property) ? ", calculated" : ""}`
+                          : `Edit ${property.name} for “${row.title}”, currently “${label || "empty"}”`
                       }
                       className="py-1 pr-2 outline-none"
                     >
@@ -796,6 +798,7 @@ export function TableView({
                         schedule={row.schedule}
                         canEdit={canEdit}
                         rowTitle={row.title}
+                        description={computeDescription(property, properties)}
                         onCommit={(cell) => onCellCommit(row, property, cell)}
                       />
                     </td>
@@ -1017,6 +1020,7 @@ function HeaderSort({
   columnKey,
   label,
   format,
+  calculated,
   sort,
   onSort,
   showKey,
@@ -1025,6 +1029,8 @@ function HeaderSort({
   label: string;
   /** A property header names its format under the label; the title column has none. */
   format?: PropertyFormat;
+  /** A calculated column marks itself; a stored one has no marker. */
+  calculated?: ComputeKind;
   sort: Sort | undefined;
   onSort: (key: string, additive: boolean) => void;
   /** Phones drop the key surface; the label alone is the header. */
@@ -1055,6 +1061,16 @@ function HeaderSort({
     >
       <span className="flex w-full min-w-0 items-center gap-1">
         <span className={cn("truncate", sort && "text-ink")}>{label}</span>
+        {calculated ? (
+          <span
+            role="img"
+            aria-label="Calculated column"
+            title={calculated === "rollup" ? "Rollup" : "Formula"}
+            className="shrink-0 text-[length:var(--text-label)] leading-none text-faint"
+          >
+            {calculated === "rollup" ? "\u03a3" : "="}
+          </span>
+        ) : null}
         <span className="flex w-[11px] shrink-0 items-center">
           {sort ? (
             sort.direction === "asc" ? (

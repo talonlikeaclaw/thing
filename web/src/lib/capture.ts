@@ -1,5 +1,5 @@
 import type { PropertyDef, TypeDef } from "@/api/types";
-import { effectiveMembers, effectiveProperties } from "@/lib/schema";
+import { effectiveMembers, effectiveProperties, isComputed } from "@/lib/schema";
 
 /** The slice of `Storage` quick capture needs; a fake can stand in for it. */
 export interface CaptureStorage {
@@ -47,7 +47,8 @@ export interface CaptureFields {
  * Every editable field quick capture can send: required declared members
  * first, then the rest in type order. Generated schedule definitions are
  * resolved from the type itself; the completion stamp is omitted because
- * Complete writes it.
+ * Complete writes it, and a calculated property is skipped because the server
+ * refuses a value for one.
  */
 export function captureFields(
   type: TypeDef | undefined,
@@ -64,7 +65,7 @@ export function captureFields(
   const seen = new Set<string>();
   for (const member of effectiveMembers(type)) {
     const property = byKey.get(member.key);
-    if (!property || seen.has(property.key)) {
+    if (!property || seen.has(property.key) || isComputed(property)) {
       continue;
     }
     if (member.required) {

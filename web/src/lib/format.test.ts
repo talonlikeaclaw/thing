@@ -164,6 +164,14 @@ describe("relationChips", () => {
     expect(formatBytes(1024 ** 3)).toBe("1.0 GiB");
   });
 
+  it("joins a list result the way the server labels it", () => {
+    const property = { key: "titles", name: "Titles", format: "list" as const };
+    expect(valueLabel("list", ["Monstera", "Fern"], property)).toBe("Monstera, Fern");
+    expect(valueLabel("list", [], property)).toBe("");
+    // Text entered for a list column stays text; the server joins it.
+    expect(parseCellText("list", "Monstera, Fern")).toBe("Monstera, Fern");
+  });
+
   it("labels an attachments list by its one file or its count", () => {
     const property = {
       key: "photos",

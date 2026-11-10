@@ -19,6 +19,7 @@ import { formatDateTime, formatDay } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
 import { imagePaths } from "@/lib/files";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
+import { isComputed } from "@/lib/schema";
 import { cn } from "@/lib/cn";
 
 interface CellCommit {
@@ -36,6 +37,8 @@ interface PropertyCellProps {
   canEdit: boolean;
   /** The row's title, so the control names its record to a screen reader. */
   rowTitle: string;
+  /** How a calculated cell derives its value; its tooltip and read-only reason. */
+  description?: string;
   onCommit: (commit: CellCommit) => Promise<WriteResult>;
 }
 
@@ -48,6 +51,7 @@ export function PropertyCell({
   schedule,
   canEdit,
   rowTitle,
+  description,
   onCommit,
 }: PropertyCellProps) {
   const [editing, setEditing] = useState(false);
@@ -105,6 +109,31 @@ export function PropertyCell({
     property.format === "file" ||
     property.format === "image" ||
     property.format === "attachments";
+
+  // A calculated value is derived on every read: there is nothing to edit, so
+  // the cell is plain text that announces itself read-only.
+  if (isComputed(property)) {
+    return (
+      <div
+        className={cn(
+          "flex min-h-8 w-full items-center gap-1.5 rounded-[8px] px-1.5 py-1 text-[length:var(--text-small)]",
+          property.format === "number" && "justify-end text-right",
+          "pointer-coarse:min-h-11",
+        )}
+        aria-readonly="true"
+        title={description || "Calculated"}
+      >
+        <PropertyValue
+          property={property}
+          value={value}
+          label={label}
+          schedule={schedule}
+          missing={cell?.missing}
+          timeZone={timeZone}
+        />
+      </div>
+    );
+  }
 
   if (editing && canEdit) {
     const status = (
@@ -452,6 +481,22 @@ export function PropertyValue({
     return (
       <span aria-hidden className="text-faint">
         —
+      </span>
+    );
+  }
+
+  if (property.format === "list") {
+    if (isBlank(value) || label === "") {
+      return (
+        <span aria-hidden className="text-faint">
+          —
+        </span>
+      );
+    }
+    const items = Array.isArray(value) ? value.map((item) => String(item)) : [];
+    return (
+      <span className="truncate" title={label}>
+        {items.length > 0 ? items.join(", ") : label}
       </span>
     );
   }

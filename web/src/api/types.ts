@@ -60,7 +60,28 @@ export type PropertyFormat =
   | "recurrence"
   | "file"
   | "image"
-  | "attachments";
+  | "attachments"
+  | "list";
+
+export type ComputeKind = "formula" | "rollup";
+
+export type Aggregate = "count" | "sum" | "min" | "max" | "list";
+
+/**
+ * A property's derivation. `format` stays the result type, so a computed number
+ * sorts, filters, renders and exports like a stored one.
+ */
+export interface ComputeDef {
+  kind: ComputeKind;
+  /** A formula expression; present only for `formula`. */
+  expression?: string;
+  /** The stored relation a rollup reads; `rollup` only. */
+  relation?: string;
+  /** The property the rollup reads on each target; `rollup` only, not `count`. */
+  property?: string;
+  /** The rollup's aggregate; `rollup` only. */
+  aggregate?: Aggregate;
+}
 
 export interface OptionDef {
   /** Stable identity: renaming the display name never moves a stored value. */
@@ -79,6 +100,8 @@ export interface PropertyDef {
   target_type?: string | null;
   /** `relation` only: the value holds several target ids. */
   multi?: boolean;
+  /** Present when the app derives this property's value; the server never stores it. */
+  compute?: ComputeDef;
 }
 
 /** A property's membership in a type. */

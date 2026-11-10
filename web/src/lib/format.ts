@@ -116,6 +116,11 @@ export function valueLabel(
     case "file":
     case "image":
       return typeof value === "string" ? fileName(value) : plain(value);
+    case "list":
+      // A rollup's list is display text already; join it the way the server does.
+      return Array.isArray(value)
+        ? value.map((item) => String(item)).join(", ")
+        : plain(value);
     case "attachments":
       if (!Array.isArray(value)) {
         return plain(value);
@@ -207,8 +212,10 @@ export function parseCellText(format: PropertyFormat, text: string): unknown {
       const at = new Date(trimmed);
       return Number.isNaN(at.getTime()) ? undefined : at.toISOString();
     }
+    // A list result is display text the server joined; text stays text.
     case "url":
     case "email":
+    case "list":
       return trimmed;
     case "recurrence":
       // A recurrence is a mapping with its own control; text cannot express it.

@@ -14,6 +14,7 @@ import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
+import { writableProperties } from "@/lib/schema";
 
 interface BulkBarProps {
   spaceId: string;
@@ -64,9 +65,16 @@ export function BulkBar({
   const duplicate = useBulkDuplicateObjects(spaceId);
   const trash = useBulkTrashObjects(spaceId);
 
+  // A calculated value is derived on every read and refused on write, so the
+  // band never offers one: only stored properties are bulk-edit targets.
+  const settable = writableProperties(properties);
+
   const [panelOpen, setPanelOpen] = useState(false);
+  // The view's first column may be calculated; step 1 falls back to the first
+  // property the band can actually set.
   const [propertyKey, setPropertyKey] = useState(
-    initialPropertyKey || properties[0]?.key || "",
+    (settable.find((property) => property.key === initialPropertyKey) ??
+      settable[0])?.key ?? "",
   );
   const [draft, setDraft] = useState<{ value: unknown; label: string } | null>(null);
   // A held draft replaces the live editor with a summary, so moving focus to
@@ -82,7 +90,7 @@ export function BulkBar({
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const chosen = properties.find((property) => property.key === propertyKey);
+  const chosen = settable.find((property) => property.key === propertyKey);
   const required = chosen !== undefined && requiredKeys.has(chosen.key);
   const targets = rows.map((row) => ({ id: row.id, rev: row.rev }));
   const busy = update.isPending || duplicate.isPending || trash.isPending;
@@ -254,7 +262,7 @@ export function BulkBar({
           variant="ghost"
           aria-expanded={panelOpen}
           aria-controls="bulk-property-panel"
-          disabled={properties.length === 0 || busy}
+          disabled={settable.length === 0 || busy}
           className="min-h-8 px-2.5 text-[length:var(--text-small)] pointer-coarse:min-h-11"
           onClick={() => {
             if (panelOpen) {
@@ -288,7 +296,7 @@ export function BulkBar({
           <Trash2 aria-hidden size={13} />
           Move to trash
         </Button>
-        {properties.length === 0 ? (
+        {settable.length === 0 ? (
           <span className="text-[length:var(--text-small)] text-faint">
             This type has no properties to set.
           </span>
@@ -374,7 +382,7 @@ export function BulkBar({
                   setError(null);
                 }}
               >
-                {properties.map((property) => (
+                {settable.map((property) => (
                   <option key={property.key} value={property.key}>
                     {property.name}
                   </option>

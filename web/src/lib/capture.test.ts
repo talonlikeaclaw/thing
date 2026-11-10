@@ -125,6 +125,24 @@ describe("captureFields", () => {
     expect(fields.optional).toEqual([]);
   });
 
+  it("never offers a calculated property as a field", () => {
+    const chore = type([
+      { key: "room", required: false, featured: false },
+      { key: "label", required: true, featured: false },
+    ]);
+    const fields = captureFields(chore, [
+      property("room"),
+      {
+        key: "label",
+        name: "label",
+        format: "text",
+        compute: { kind: "formula", expression: "room + \"!\"" },
+      },
+    ]);
+    expect(fields.required).toEqual([]);
+    expect(fields.optional.map((entry) => entry.key)).toEqual(["room"]);
+  });
+
   it("returns two empty groups without a type", () => {
     expect(captureFields(undefined, [property("room")])).toEqual({
       required: [],

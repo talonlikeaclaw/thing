@@ -59,6 +59,7 @@ export function operatorsFor(format: PropertyFormat): CondOp[] {
     case "select":
       return ["equal", "not_equal", ...empty];
     case "multi_select":
+    case "list":
       return ["contains", "not_contains", ...empty];
     case "relation":
       return ["equal", "not_equal", ...LIST_OPS, ...empty];

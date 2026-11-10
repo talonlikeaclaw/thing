@@ -1,4 +1,5 @@
 import type {
+  Aggregate,
   OptionDef,
   PropertyDef,
   PropertyFormat,
@@ -56,7 +57,107 @@ export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "file", label: "File" },
   { value: "image", label: "Image" },
   { value: "attachments", label: "Attachments" },
+  { value: "list", label: "List" },
 ];
+
+/**
+ * Every format a stored property may carry. `list` is computed-only: its items
+ * are display labels a rollup produced, so nothing may store one.
+ */
+export const STORED_FORMATS = PROPERTY_FORMATS.filter(
+  (entry) => entry.value !== "list",
+);
+
+/** Every format a calculated property's result may take. */
+export const RESULT_FORMATS: PropertyFormat[] = [
+  "text",
+  "number",
+  "checkbox",
+  "date",
+  "datetime",
+  "list",
+];
+
+/** Whether the app derives this property's value instead of storing it. */
+export function isComputed(property: PropertyDef): boolean {
+  return property.compute !== undefined;
+}
+
+/** The properties a write may carry a value for: a computed one never. */
+export function writableProperties(properties: readonly PropertyDef[]): PropertyDef[] {
+  return properties.filter((property) => !isComputed(property));
+}
+
+/** The format a rollup's result takes, or nothing when the pair cannot hold one. */
+export function rollupResultFormat(
+  aggregate: Aggregate | undefined,
+  targetFormat: PropertyFormat | undefined,
+): PropertyFormat | undefined {
+  switch (aggregate) {
+    case "count":
+      return "number";
+    case "sum":
+      return "number";
+    case "min":
+    case "max":
+      return targetFormat === "number" ||
+        targetFormat === "date" ||
+        targetFormat === "datetime"
+        ? targetFormat
+        : undefined;
+    case "list":
+      return "list";
+    default:
+      return targetFormat === "number" ? "number" : undefined;
+  }
+}
+
+/** A library lookup for the definition's own words; absent names fall back to key. */
+function nameOf(key: string | undefined, properties: readonly PropertyDef[]): string {
+  if (key === undefined) {
+    return "";
+  }
+  if (key === "title") {
+    return "Title";
+  }
+  return properties.find((property) => property.key === key)?.name ?? key;
+}
+
+/**
+ * One sentence naming how a calculated property gets its value, for a cell's
+ * tooltip and a field's caption. The formula's own text is the description;
+ * a rollup names its aggregate, relation and target property.
+ */
+export function computeDescription(
+  property: PropertyDef,
+  properties: readonly PropertyDef[],
+): string {
+  const compute = property.compute;
+  if (!compute) {
+    return "";
+  }
+  if (compute.kind === "formula") {
+    return compute.expression ? `Formula: ${compute.expression}` : "Formula";
+  }
+  const relation = nameOf(compute.relation, properties);
+  switch (compute.aggregate) {
+    case "count":
+      return `Calculated: count of ${relation || "related records"}`;
+    case "sum":
+    case "min":
+    case "max": {
+      const target = nameOf(compute.property, properties);
+      const verb = compute.aggregate;
+      return `Calculated: ${verb} of ${target || "a value"} in ${relation || "related records"}`;
+    }
+    case "list": {
+      const target = nameOf(compute.property, properties);
+      return `Calculated: list of ${target || "values"} in ${relation || "related records"}`;
+    }
+    default:
+      return `Calculated from ${relation || "related records"}`;
+  }
+}
 
 const FORMAT_LABELS = Object.fromEntries(
   PROPERTY_FORMATS.map(({ value, label }) => [value, label]),

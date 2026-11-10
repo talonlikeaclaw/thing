@@ -54,7 +54,7 @@ import { useWideLayout } from "@/lib/media";
 import { valueLabel } from "@/lib/format";
 import { completeLabel, dueTone, scheduleLabel } from "@/lib/schedule";
 import { foldProperty, scoreProperty } from "@/lib/property-search";
-import { effectiveMembers, formatLabel, sameJson } from "@/lib/schema";
+import { computeDescription, effectiveMembers, formatLabel, sameJson } from "@/lib/schema";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { useRecordRecent } from "@/lib/use-record-recent";
 import { withColumn } from "@/lib/views";
@@ -1019,6 +1019,7 @@ export function ObjectPanel({
             property={property}
             value={draft.values[key] ?? null}
             label={object.properties[key]?.label ?? ""}
+            computed={computeDescription(property, library)}
             canEdit={canEdit}
             timeZone={timeZone}
             locked={key === "last_completed_at" ? "Set by Complete" : undefined}

@@ -18,7 +18,7 @@ import {
   valueLabel,
 } from "@/lib/format";
 import { recurrenceSummary } from "@/lib/schedule";
-import { optionDrafts, optionInputs } from "@/lib/schema";
+import { isComputed, optionDrafts, optionInputs } from "@/lib/schema";
 import { cn } from "@/lib/cn";
 
 interface PropertyInputProps {
@@ -35,6 +35,12 @@ const field =
 
 /** The input one cell opens, chosen by the property's format. */
 export function PropertyInput(props: PropertyInputProps) {
+  // A computed property has no editable value. Callers never open this input
+  // for one; if a new surface does, the note is the safe answer.
+  if (isComputed(props.property)) {
+    return <span className="text-[12px] text-faint">Calculated, not editable.</span>;
+  }
+
   switch (props.property.format) {
     case "checkbox":
       return <CheckboxInput {...props} />;
