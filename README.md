@@ -132,7 +132,9 @@ signs in as `THING_SEED_EMAIL` (default `a@b.c`), registers that account if the 
 user, and names it with `THING_SEED_NAME` (default `Talon`). On an empty install that first account
 becomes the owner. There is no default password: set `THING_SEED_PASSWORD` and use the same value on
 later runs. The demo space is `America/Toronto`, both types are scheduled, and the records place
-work in the past, today and the coming weeks so the due surfaces have content immediately.
+work in the past, today and the coming weeks so the due surfaces have content immediately. Plant's
+`Nursery` text column (two values, three links, one empty) and the `Nurseries` view exercise column
+promotion; `Room` is shared by both types, which the same action reports as blocking.
 
 ```sh
 THING_DATA_DIR=./data THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh

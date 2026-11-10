@@ -18,7 +18,8 @@ use uuid::Uuid;
 use crate::error::CoreError;
 use crate::index::SpaceIndex;
 use crate::model::{
-    CondOp, ObjectDoc, PropertyDef, PropertyFormat, TypeDef, Value, initial_view, is_reserved_key,
+    CondOp, Condition, ObjectDoc, PropertyDef, PropertyFormat, TypeDef, TypeProperty, Value,
+    initial_view, is_reserved_key,
 };
 use crate::schedule::is_schedule_key;
 use crate::slug::{MAX_KEY_LEN, key_from_name};
@@ -50,9 +51,14 @@ pub struct PromoteOptions {
 /// The column being promoted, as the preview reads it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PromoteSource {
+    /// The type that carries the column.
+    pub type_key: String,
     pub key: String,
     pub name: String,
     pub format: PropertyFormat,
+    /// The text delimiter the links stage applies, if any.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub split: Option<String>,
     /// Live and trashed records of the owning type.
     pub records: usize,
     pub distinct: usize,
@@ -582,9 +588,11 @@ pub fn plan(
 
     PromotePlan {
         source: PromoteSource {
+            type_key: type_key.to_owned(),
             key: source_key.to_owned(),
             name: source_property.name.clone(),
             format: source_property.format,
+            split: split.map(str::to_owned),
             records,
             distinct,
             empty,
@@ -673,6 +681,175 @@ pub fn targets(index: &SpaceIndex, plan: &PromotePlan) -> Result<PromoteTargets,
         type_def,
         create_type,
         records,
+    })
+}
+
+/// One source record's new relation value.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PromoteLink {
+    pub record: Uuid,
+    pub targets: Vec<Uuid>,
+}
+
+/// What a `links` run writes, before `finish` renames the key back.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PromoteLinks {
+    pub property: PropertyDef,
+    pub create_property: bool,
+    /// The owning type with the temporary relation added and its views moved.
+    pub type_def: TypeDef,
+    /// The relation value each source record still needs.
+    pub links: Vec<PromoteLink>,
+}
+
+fn promote_error(message: impl Into<String>) -> CoreError {
+    CoreError::ValidationFailed {
+        field: "promotion".to_owned(),
+        message: message.into(),
+    }
+}
+
+/// The temporary relation property, the owning type with its views moved, and
+/// the per-record value the `links` stage writes.
+///
+/// The target type and its records must already exist; every source record that
+/// already holds the temporary key is skipped, so a retry resumes the pass. The
+/// old column is left untouched.
+pub fn links(index: &SpaceIndex, plan: &PromotePlan) -> Result<PromoteLinks, CoreError> {
+    if !plan.blocking.is_empty() {
+        return Err(promote_error(plan.blocking.join("; ")));
+    }
+    let mut type_def = index
+        .type_def(&plan.source.type_key)
+        .cloned()
+        .ok_or_else(|| promote_error(format!("type {} does not exist", plan.source.type_key)))?;
+    if index.type_def(&plan.target.key).is_none() {
+        return Err(promote_error("create the target records before linking"));
+    }
+    let source = index
+        .property_def(&plan.source.key)
+        .cloned()
+        .ok_or_else(|| promote_error(format!("property {} no longer exists", plan.source.key)))?;
+
+    let mut targets: BTreeMap<String, Uuid> = BTreeMap::new();
+    for doc in index
+        .objects()
+        .chain(index.trash())
+        .filter(|doc| doc.type_key == plan.target.key)
+    {
+        targets.entry(fold_title(&doc.title)).or_insert(doc.id);
+    }
+
+    let existing = index.property_def(&plan.relation.key).cloned();
+    if let Some(property) = &existing
+        && (property.format != PropertyFormat::Relation
+            || property.target_type.as_deref() != Some(plan.target.key.as_str())
+            || property.multi != plan.relation.multi)
+    {
+        return Err(promote_error(format!(
+            "{} is already a property; the temporary relation key is taken",
+            plan.relation.key
+        )));
+    }
+    let create_property = existing.is_none();
+    let property = existing.unwrap_or(PropertyDef {
+        key: plan.relation.key.clone(),
+        name: plan.relation.name.clone(),
+        format: PropertyFormat::Relation,
+        options: Vec::new(),
+        target_type: Some(plan.target.key.clone()),
+        multi: plan.relation.multi,
+    });
+
+    if !type_def
+        .properties
+        .iter()
+        .any(|member| member.key == plan.relation.key)
+    {
+        let old = type_def
+            .properties
+            .iter()
+            .find(|member| member.key == plan.source.key)
+            .cloned();
+        type_def.properties.push(TypeProperty {
+            key: plan.relation.key.clone(),
+            required: old.as_ref().is_some_and(|member| member.required) && plan.source.empty == 0,
+            featured: old.as_ref().is_some_and(|member| member.featured),
+        });
+    }
+
+    for view in &mut type_def.views {
+        for column in &mut view.columns {
+            if column == &plan.source.key {
+                *column = plan.relation.key.clone();
+            }
+        }
+        if let Some(width) = view.widths.remove(&plan.source.key) {
+            view.widths.insert(plan.relation.key.clone(), width);
+        }
+        for sort in &mut view.sorts {
+            if sort.property == plan.source.key {
+                sort.property = plan.relation.key.clone();
+            }
+        }
+        view.filter.conditions = std::mem::take(&mut view.filter.conditions)
+            .into_iter()
+            .filter_map(|condition| {
+                if condition.property != plan.source.key {
+                    return Some(condition);
+                }
+                matches!(condition.condition, CondOp::IsEmpty | CondOp::IsNotEmpty).then(|| {
+                    Condition {
+                        property: plan.relation.key.clone(),
+                        ..condition
+                    }
+                })
+            })
+            .collect();
+    }
+
+    let split = plan.source.split.as_deref();
+    let mut warnings = BTreeSet::new();
+    let mut links = Vec::new();
+    for doc in index
+        .objects()
+        .chain(index.trash())
+        .filter(|doc| doc.type_key == plan.source.type_key)
+    {
+        if doc.properties.contains_key(&plan.relation.key) {
+            continue;
+        }
+        let Some(value) = doc.properties.get(&plan.source.key) else {
+            continue;
+        };
+        if value::is_empty(value) {
+            continue;
+        }
+        let mut ids: Vec<Uuid> = Vec::new();
+        for title in record_titles(&source, value, split, &mut warnings) {
+            if let Some(id) = targets.get(&fold_title(&title))
+                && !ids.contains(id)
+            {
+                ids.push(*id);
+            }
+        }
+        if !plan.relation.multi {
+            ids.truncate(1);
+        }
+        if ids.is_empty() {
+            continue;
+        }
+        links.push(PromoteLink {
+            record: doc.id,
+            targets: ids,
+        });
+    }
+
+    Ok(PromoteLinks {
+        property,
+        create_property,
+        type_def,
+        links,
     })
 }
 
@@ -869,11 +1046,21 @@ mod tests {
         }
 
         fn save_type(&self, def: &TypeDef) {
-            self.store.save_type(def, None).expect("a type");
+            let expected = self
+                .store
+                .load_type(&def.key)
+                .ok()
+                .map(|(_, fingerprint)| fingerprint);
+            self.store.save_type(def, expected).expect("a type");
         }
 
         fn save_property(&self, def: &PropertyDef) {
-            self.store.save_property(def, None).expect("a property");
+            let expected = self
+                .store
+                .load_property(&def.key)
+                .ok()
+                .map(|(_, fingerprint)| fingerprint);
+            self.store.save_property(def, expected).expect("a property");
         }
 
         fn save_object(&self, doc: &ObjectDoc) -> std::path::PathBuf {
@@ -881,7 +1068,14 @@ mod tests {
                 .store
                 .new_object_path(&doc.type_key, &doc.title)
                 .expect("a path");
-            self.store.save_object(&path, doc, None).expect("an object");
+            let expected = self
+                .store
+                .load_object(&path)
+                .ok()
+                .map(|(_, fingerprint)| fingerprint);
+            self.store
+                .save_object(&path, doc, expected)
+                .expect("an object");
             path
         }
     }
@@ -1345,5 +1539,211 @@ mod tests {
         assert_eq!(key.len(), MAX_KEY_LEN);
         assert!(key.ends_with("_ref"));
         assert_eq!(temporary_key("artist"), "artist_ref");
+    }
+
+    fn linked_space() -> (Space, Vec<Uuid>) {
+        let space = album_space(&[text_property("artist", "Artist")], &artists());
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), None);
+        let targets = targets(&index, &plan).expect("targets");
+        space.save_type(&targets.type_def);
+        let mut ids = Vec::new();
+        for record in &targets.records {
+            let doc = target_record(&plan, record.id, &record.title, at(1), me());
+            space.save_object(&doc);
+            ids.push(record.id);
+        }
+        (space, ids)
+    }
+
+    #[test]
+    fn links_writes_the_temporary_relation_and_moves_every_view() {
+        let (space, target_ids) = linked_space();
+        let index = space.index();
+        assert_eq!(
+            index
+                .type_def("artist")
+                .expect("target type")
+                .properties
+                .len(),
+            0
+        );
+        let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
+        assert!(plan.blocking.is_empty(), "{:?}", plan.blocking);
+        let linked = links(&index, &plan).expect("links");
+
+        assert!(linked.create_property);
+        assert_eq!(linked.property.key, "artist_ref");
+        assert_eq!(linked.property.format, PropertyFormat::Relation);
+        assert_eq!(linked.property.target_type.as_deref(), Some("artist"));
+        assert!(!linked.property.multi);
+
+        let member = linked
+            .type_def
+            .properties
+            .iter()
+            .find(|member| member.key == "artist_ref")
+            .expect("the temporary member");
+        assert!(member.featured);
+        assert!(!member.required);
+
+        let all = linked.type_def.view("all").expect("the first view");
+        assert!(all.columns.iter().any(|column| column == "artist_ref"));
+        assert!(!all.columns.iter().any(|column| column == "artist"));
+        assert_eq!(all.sorts[0].property, "artist_ref");
+        assert_eq!(all.filter.conditions.len(), 1);
+        assert_eq!(all.filter.conditions[0].property, "artist_ref");
+        assert_eq!(all.filter.conditions[0].condition, CondOp::IsNotEmpty);
+        let empty = linked.type_def.view("empty").expect("the second view");
+        assert_eq!(empty.filter.conditions[0].property, "artist_ref");
+        assert_eq!(empty.filter.conditions[0].condition, CondOp::IsEmpty);
+
+        assert_eq!(linked.links.len(), 6);
+        let miles = index.object(Uuid::from_u128(1)).expect("Kind of Blue");
+        let link = linked
+            .links
+            .iter()
+            .find(|link| link.record == miles.id)
+            .expect("the Miles Davis row");
+        let miles_id = index
+            .objects()
+            .find(|doc| doc.type_key == "artist" && doc.title == "Miles Davis")
+            .expect("the Miles Davis target")
+            .id;
+        assert_eq!(link.targets, vec![miles_id]);
+        assert!(
+            linked
+                .links
+                .iter()
+                .all(|link| link.targets.len() == 1 && target_ids.contains(&link.targets[0]))
+        );
+    }
+
+    #[test]
+    fn links_reuses_the_property_and_skips_records_already_written() {
+        let (space, _) = linked_space();
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
+        let first = links(&index, &plan).expect("links");
+        space.save_property(&first.property);
+        space.save_type(&first.type_def);
+        let mut kind_of_blue = space
+            .index()
+            .object(Uuid::from_u128(1))
+            .cloned()
+            .expect("a row");
+        kind_of_blue.properties.insert(
+            "artist_ref".to_owned(),
+            Value::Text(first.links[0].targets[0].to_string()),
+        );
+        space.save_object(&kind_of_blue);
+
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
+        let again = links(&index, &plan).expect("links again");
+        assert!(!again.create_property);
+        assert_eq!(again.property.key, "artist_ref");
+        assert_eq!(again.links.len(), 5);
+        assert!(
+            !again
+                .links
+                .iter()
+                .any(|link| link.record == kind_of_blue.id)
+        );
+        assert_eq!(
+            again.type_def.view("all").expect("the view").columns.len(),
+            2
+        );
+        assert_eq!(
+            again
+                .type_def
+                .view("all")
+                .expect("the view")
+                .filter
+                .conditions
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn links_copies_required_only_when_every_value_is_present() {
+        let objects = vec![object(
+            1,
+            "album",
+            "Kind of Blue",
+            &[("artist", "Miles Davis")],
+        )];
+        let space = album_space(&[text_property("artist", "Artist")], &objects);
+        let mut def = space.index().type_def("album").cloned().expect("the type");
+        def.properties[0].required = true;
+        space.save_type(&def);
+
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), None);
+        assert_eq!(plan.source.empty, 0);
+        let first = targets(&index, &plan).expect("targets");
+        space.save_type(&first.type_def);
+        for record in &first.records {
+            space.save_object(&target_record(&plan, record.id, &record.title, at(1), me()));
+        }
+
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
+        let linked = links(&index, &plan).expect("links");
+        let member = linked
+            .type_def
+            .properties
+            .iter()
+            .find(|member| member.key == "artist_ref")
+            .expect("the temporary member");
+        assert!(member.required);
+    }
+
+    #[test]
+    fn links_links_trashed_source_records_too() {
+        let space = album_space(
+            &[text_property("artist", "Artist")],
+            &[object(
+                1,
+                "album",
+                "Kind of Blue",
+                &[("artist", "Miles Davis")],
+            )],
+        );
+        let index = space.index();
+        let id = Uuid::from_u128(1);
+        let path = index.object_path(id).expect("a path").to_owned();
+        let expected = index.fingerprint(&path);
+        space
+            .store
+            .move_to_trash(&path, at(2), expected)
+            .expect("trashed");
+
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), None);
+        assert_eq!(plan.source.records, 1);
+        let targets = targets(&index, &plan).expect("targets");
+        space.save_type(&targets.type_def);
+        for record in &targets.records {
+            space.save_object(&target_record(&plan, record.id, &record.title, at(1), me()));
+        }
+
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
+        let linked = links(&index, &plan).expect("links");
+        assert_eq!(linked.links.len(), 1);
+        assert_eq!(linked.links[0].record, id);
+        assert_eq!(linked.links[0].targets.len(), 1);
+    }
+
+    #[test]
+    fn links_refuses_a_plan_whose_target_type_does_not_exist() {
+        let space = album_space(&[text_property("artist", "Artist")], &artists());
+        let index = space.index();
+        let plan = super::plan(&index, "album", "artist", &artist_options(), None);
+        let refused = links(&index, &plan).expect_err("no target type yet");
+        assert!(matches!(refused, CoreError::ValidationFailed { .. }));
+        assert!(refused.to_string().contains("create the target records"));
     }
 }

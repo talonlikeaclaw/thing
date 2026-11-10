@@ -59,7 +59,8 @@ space graph, Complete, snooze and the agenda's window, range and type parameters
 the `?w=` thumbnail read, the library read that names each path's records, and the owner's garbage
 collection) and `routes/values` (the `{value, label}` rendering every response uses). `scripts/seed.sh`
 builds the Garden demo space against a running server, with relative due dates in
-`America/Toronto` and four Plant views (table, board, gallery, calendar). `web/` is
+`America/Toronto`, five Plant views (table, board, gallery, calendar, nurseries) and a `Nursery`
+text column seeded for the column-promotion preview. `web/` is
 a Vite + React 19 SPA with the signed-out surfaces (sign in, register, invite join), the space list,
 the schema editor (`pages/schema.tsx`, `components/schema/`) and the live per-type views
 (`pages/type-table.tsx`, `components/type-table.tsx`, `components/views/`) with URL-backed view

@@ -6661,4 +6661,267 @@ mod tests {
             assert_eq!(detail.body["views"][0]["key"], "all");
         });
     }
+
+    #[test]
+    fn promotion_links_objects_and_finish_restores_the_source_key() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let owner_cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &owner_cookie, "Records").await;
+
+            for (method, path, body) in [
+                (
+                    "POST",
+                    format!("/api/spaces/{space}/types"),
+                    json!({ "name": "Album" }),
+                ),
+                (
+                    "POST",
+                    format!("/api/spaces/{space}/properties"),
+                    json!({ "name": "Artist", "format": "text" }),
+                ),
+                (
+                    "PATCH",
+                    format!("/api/spaces/{space}/types/album"),
+                    json!({ "properties": [{ "key": "artist", "featured": true }] }),
+                ),
+                (
+                    "PATCH",
+                    format!("/api/spaces/{space}/types/album/views/all"),
+                    json!({
+                        "columns": ["title", "artist"],
+                        "sorts": [{ "property": "artist", "direction": "asc", "empty": "end" }],
+                        "filter": {
+                            "op": "and",
+                            "conditions": [
+                                { "property": "artist", "condition": "equal", "value": "Miles Davis" },
+                                { "property": "artist", "condition": "is_not_empty" }
+                            ]
+                        }
+                    }),
+                ),
+            ] {
+                let reply = server
+                    .call(method, &path, Some(body), Some(&owner_cookie))
+                    .await;
+                assert!(reply.status.is_success(), "{:?}", reply.body);
+            }
+
+            let mut blue = Value::Null;
+            for (title, artist) in [
+                ("Kind of Blue", "Miles Davis"),
+                ("A Love Supreme", "John Coltrane"),
+                ("Bitches Brew", "Miles Davis"),
+            ] {
+                let reply = server
+                    .call(
+                        "POST",
+                        &format!("/api/spaces/{space}/objects"),
+                        Some(json!({
+                            "type": "album",
+                            "title": title,
+                            "properties": { "artist": artist },
+                        })),
+                        Some(&owner_cookie),
+                    )
+                    .await;
+                assert_eq!(reply.status, StatusCode::CREATED, "{:?}", reply.body);
+                if title == "Kind of Blue" {
+                    blue = reply.body["id"].clone();
+                }
+            }
+            let blue = blue.as_str().expect("an id").to_owned();
+
+            let promote = format!("/api/spaces/{space}/types/album/promote");
+            let options = json!({
+                "property": "artist",
+                "target": { "name": "Artist", "name_plural": "Artists" },
+                "relation_name": "Artist",
+                "multi": false,
+            });
+            let mut plan_request = options.clone();
+            plan_request["stage"] = json!("plan");
+            let plan = server
+                .call("POST", &promote, Some(plan_request), Some(&owner_cookie))
+                .await;
+            assert_eq!(plan.status, StatusCode::OK, "{:?}", plan.body);
+            assert_eq!(plan.body["views"][0]["sorts"], 1);
+            assert_eq!(plan.body["views"][0]["filters_moved"], 1);
+            assert_eq!(plan.body["views"][0]["filters_dropped"], 1);
+
+            // Linking before the targets exist is refused and leaves nothing.
+            let mut premature = options.clone();
+            premature["stage"] = json!("links");
+            premature["target_type"] = json!("artist");
+            let refused = server
+                .call("POST", &promote, Some(premature), Some(&owner_cookie))
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY, "{:?}", refused.body);
+
+            let mut targets = options.clone();
+            targets["stage"] = json!("targets");
+            let created = server
+                .call("POST", &promote, Some(targets.clone()), Some(&owner_cookie))
+                .await;
+            assert_eq!(created.status, StatusCode::OK, "{:?}", created.body);
+            assert_eq!(created.body["created"], 2);
+
+            let mut links = options.clone();
+            links["stage"] = json!("links");
+            links["target_type"] = json!("artist");
+            let linked = server
+                .call("POST", &promote, Some(links.clone()), Some(&owner_cookie))
+                .await;
+            assert_eq!(linked.status, StatusCode::OK, "{:?}", linked.body);
+            assert_eq!(linked.body["property"], "artist_ref");
+            assert_eq!(linked.body["created"], true);
+            assert_eq!(linked.body["links"], 3);
+            assert_eq!(linked.body["filters_dropped"], 1);
+
+            // A retry links nothing and creates nothing.
+            let again = server
+                .call("POST", &promote, Some(links), Some(&owner_cookie))
+                .await;
+            assert_eq!(again.status, StatusCode::OK, "{:?}", again.body);
+            assert_eq!(again.body["created"], false);
+            assert_eq!(again.body["links"], 0);
+
+            let album = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/types/album"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(album.status, StatusCode::OK, "{:?}", album.body);
+            let members: Vec<&str> = album.body["properties"]
+                .as_array()
+                .expect("members")
+                .iter()
+                .filter_map(|member| member["key"].as_str())
+                .collect();
+            assert!(members.contains(&"artist_ref"));
+            assert_eq!(album.body["views"][0]["columns"], json!(["title", "artist_ref"]));
+            assert_eq!(album.body["views"][0]["sorts"][0]["property"], "artist_ref");
+            assert_eq!(album.body["views"][0]["filter"]["conditions"].as_array().expect("conditions").len(), 1);
+            assert_eq!(
+                album.body["views"][0]["filter"]["conditions"][0]["condition"],
+                "is_not_empty"
+            );
+
+            let record = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/objects/{blue}"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(record.status, StatusCode::OK, "{:?}", record.body);
+            assert!(record.body["properties"]["artist_ref"]["value"].is_string());
+
+            let mut finish = options.clone();
+            finish["stage"] = json!("finish");
+            finish["target_type"] = json!("artist");
+            let finished = server
+                .call("POST", &promote, Some(finish.clone()), Some(&owner_cookie))
+                .await;
+            assert_eq!(finished.status, StatusCode::OK, "{:?}", finished.body);
+            assert_eq!(finished.body["key"], "artist");
+            assert_eq!(finished.body["finished"], true);
+
+            // Rerunning finish changes nothing and stays a success.
+            let noop = server
+                .call("POST", &promote, Some(finish), Some(&owner_cookie))
+                .await;
+            assert_eq!(noop.status, StatusCode::OK, "{:?}", noop.body);
+            assert_eq!(noop.body["finished"], false);
+
+            let album = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/types/album"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            let members: Vec<&str> = album.body["properties"]
+                .as_array()
+                .expect("members")
+                .iter()
+                .filter_map(|member| member["key"].as_str())
+                .collect();
+            assert_eq!(members, vec!["artist"]);
+            assert_eq!(album.body["views"][0]["columns"], json!(["title", "artist"]));
+            assert_eq!(album.body["views"][0]["sorts"][0]["property"], "artist");
+
+            let artist = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/properties/artist"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(artist.status, StatusCode::OK, "{:?}", artist.body);
+            assert_eq!(artist.body["format"], "relation");
+            assert_eq!(artist.body["target_type"], "artist");
+            assert_eq!(artist.body["name"], "Artist");
+
+            let record = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/objects/{blue}"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(record.status, StatusCode::OK, "{:?}", record.body);
+            let target_id = record.body["properties"]["artist"]["value"]
+                .as_str()
+                .expect("a relation id")
+                .to_owned();
+            assert!(
+                record.body["properties"].get("artist_ref").is_none(),
+                "{:?}",
+                record.body["properties"]
+            );
+
+            // The target record the link points at carries the artist title.
+            let target = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/objects/{target_id}"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(target.status, StatusCode::OK, "{:?}", target.body);
+            assert_eq!(target.body["title"], "Miles Davis");
+            assert_eq!(target.body["type"], "artist");
+
+            // The old text value is still readable in the record's history.
+            let history = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{space}/objects/{blue}/history"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(history.status, StatusCode::OK, "{:?}", history.body);
+            assert!(
+                history.body
+                    .as_array()
+                    .expect("revisions")
+                    .iter()
+                    .any(|revision| revision["snapshot"]["properties"]["artist"] == "Miles Davis"),
+                "{:?}",
+                history.body
+            );
+        });
+    }
 }
