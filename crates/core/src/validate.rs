@@ -16,7 +16,7 @@ use crate::error::CoreError;
 use crate::model::{
     CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_VIEW_NAME_LEN, MAX_VIEWS,
     MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
-    TypeProperty, UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
+    UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
 };
 use crate::value;
 
@@ -155,11 +155,13 @@ pub fn validate_object(schema: &Schema, doc: &ObjectDoc) -> Result<(), Vec<CoreE
 /// property, listed once, and never one of the generated schedule properties.
 ///
 /// The schedule keys are members implicitly while `schedule` is on; naming one
-/// in `properties` would give it a second definition.
-pub fn validate_members(schema: &Schema, members: &[TypeProperty]) -> Result<(), Vec<CoreError>> {
+/// in `properties` would give it a second definition. A computed member is also
+/// checked against the whole type, so a formula reference or rollup target that
+/// does not resolve is refused where the type is saved.
+pub fn validate_members(schema: &Schema, def: &TypeDef) -> Result<(), Vec<CoreError>> {
     let mut errors = Vec::new();
-    let mut seen: Vec<&str> = Vec::with_capacity(members.len());
-    for member in members {
+    let mut seen: Vec<&str> = Vec::with_capacity(def.properties.len());
+    for member in &def.properties {
         let key = member.key.as_str();
         if !crate::slug::is_valid_key(key) {
             errors.push(invalid(
@@ -183,6 +185,14 @@ pub fn validate_members(schema: &Schema, members: &[TypeProperty]) -> Result<(),
             errors.push(invalid(key, "is listed twice"));
         }
         seen.push(key);
+    }
+    for member in &def.properties {
+        let Some(property) = schema.property(&member.key) else {
+            continue;
+        };
+        if property.is_computed() {
+            errors.extend(crate::compute::validate_for_type(schema, def, property));
+        }
     }
     if errors.is_empty() {
         Ok(())
@@ -1197,17 +1207,14 @@ mod tests {
     fn a_required_computed_member_is_refused() {
         let fixture = computed_fixture();
         let def = &fixture.types["plant"];
-        let members: Vec<TypeProperty> = def
-            .properties
-            .iter()
-            .map(|member| TypeProperty {
-                key: member.key.clone(),
-                required: member.key == "days",
-                featured: member.featured,
-            })
-            .collect();
+        let mut checked = def.clone();
+        for member in &mut checked.properties {
+            if member.key == "days" {
+                member.required = true;
+            }
+        }
         assert_eq!(
-            problems(validate_members(&fixture.schema(), &members)),
+            problems(validate_members(&fixture.schema(), &checked)),
             vec!["invalid days: a calculated property cannot be required"]
         );
     }
