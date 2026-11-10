@@ -264,7 +264,7 @@ fn missing_relations(index: &SpaceIndex, doc: &ObjectDoc) -> Vec<Uuid> {
 /// One value with its label.
 pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
     let Some(def) = index.property_def(key) else {
-        return json!({ "value": value::to_json(value), "label": plain(value) });
+        return json!({ "value": value::to_json(value), "label": value::plain(value) });
     };
     match def.format {
         PropertyFormat::Select => match value {
@@ -272,7 +272,7 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
                 "value": value::to_json(value),
                 "label": option_label(def, option),
             }),
-            _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+            _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
         },
         PropertyFormat::MultiSelect => match value {
             Value::List(options) => json!({
@@ -283,7 +283,7 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
                     .collect::<Vec<_>>()
                     .join(", "),
             }),
-            _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+            _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
         },
         PropertyFormat::Relation => relation_json(index, value),
         PropertyFormat::File | PropertyFormat::Image => match value {
@@ -291,16 +291,16 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
                 "value": value::to_json(value),
                 "label": attachment_label(path),
             }),
-            _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+            _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
         },
         PropertyFormat::Attachments => match value {
             Value::List(paths) => json!({
                 "value": value::to_json(value),
                 "label": attachments_label(paths),
             }),
-            _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+            _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
         },
-        _ => json!({ "value": value::to_json(value), "label": plain(value) }),
+        _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
     }
 }
 
@@ -369,25 +369,6 @@ fn attachments_label(paths: &[String]) -> String {
 }
 
 /// A value as one line of text, for the formats that have no label of their own.
-fn plain(value: &Value) -> String {
-    match value {
-        Value::Text(text) => text.clone(),
-        Value::Number(number) => number_label(*number),
-        Value::Bool(flag) => flag.to_string(),
-        Value::List(items) => items.join(", "),
-        Value::Recurrence(recurrence) => schedule::recurrence_label(recurrence),
-    }
-}
-
-/// A number as a table shows it: integral values without a trailing `.0`.
-fn number_label(number: f64) -> String {
-    if number.fract() == 0.0 && number.abs() < 1e15 {
-        format!("{}", number as i64)
-    } else {
-        number.to_string()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -407,6 +388,7 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            compute: None,
         }
     }
 
@@ -614,12 +596,12 @@ mod tests {
 
     #[test]
     fn numbers_read_without_a_trailing_zero() {
-        assert_eq!(plain(&Value::Number(7.0)), "7");
-        assert_eq!(plain(&Value::Number(7.5)), "7.5");
+        assert_eq!(value::plain(&Value::Number(7.0)), "7");
+        assert_eq!(value::plain(&Value::Number(7.5)), "7.5");
         assert_eq!(
-            plain(&Value::List(vec!["a".to_owned(), "b".to_owned()])),
+            value::plain(&Value::List(vec!["a".to_owned(), "b".to_owned()])),
             "a, b"
         );
-        assert_eq!(plain(&Value::Bool(true)), "true");
+        assert_eq!(value::plain(&Value::Bool(true)), "true");
     }
 }

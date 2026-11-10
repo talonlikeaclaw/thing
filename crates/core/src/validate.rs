@@ -126,6 +126,10 @@ pub fn validate_object(schema: &Schema, doc: &ObjectDoc) -> Result<(), Vec<CoreE
             ));
             continue;
         }
+        if property.is_computed() {
+            errors.push(invalid(key, "is computed and read-only"));
+            continue;
+        }
         if let Err(err) = validate_value(schema, property, value) {
             errors.push(err);
         }
@@ -171,6 +175,9 @@ pub fn validate_members(schema: &Schema, members: &[TypeProperty]) -> Result<(),
             ));
         } else if schema.property(key).is_none() {
             errors.push(invalid(key, "is not a property of this space"));
+        }
+        if member.required && schema.property(key).is_some_and(PropertyDef::is_computed) {
+            errors.push(invalid(key, "a calculated property cannot be required"));
         }
         if seen.contains(&key) {
             errors.push(invalid(key, "is listed twice"));
@@ -533,6 +540,22 @@ fn validate_condition(
     {
         return Err(invalid(key, "supports only is_empty and is_not_empty"));
     }
+    if column.format == PropertyFormat::List {
+        if !matches!(
+            condition.condition,
+            CondOp::Contains | CondOp::NotContains | CondOp::IsEmpty | CondOp::IsNotEmpty
+        ) {
+            return Err(invalid(
+                key,
+                "supports only contains, not_contains, is_empty and is_not_empty",
+            ));
+        }
+        if matches!(condition.condition, CondOp::Contains | CondOp::NotContains)
+            && !matches!(condition.value, Some(Value::Text(_)))
+        {
+            return Err(invalid(key, "expects a single text value"));
+        }
+    }
     match condition.condition {
         CondOp::IsEmpty | CondOp::IsNotEmpty => match condition.value {
             None => Ok(()),
@@ -627,7 +650,7 @@ fn variant_matches(property: &PropertyDef, value: &Value) -> bool {
         | PropertyFormat::Image => matches!(value, Value::Text(_)),
         PropertyFormat::Number => matches!(value, Value::Number(_)),
         PropertyFormat::Checkbox => matches!(value, Value::Bool(_)),
-        PropertyFormat::MultiSelect | PropertyFormat::Attachments => {
+        PropertyFormat::MultiSelect | PropertyFormat::Attachments | PropertyFormat::List => {
             matches!(value, Value::List(_))
         }
         PropertyFormat::Relation if property.multi => matches!(value, Value::List(_)),
@@ -767,8 +790,8 @@ mod tests {
 
     use super::*;
     use crate::model::{
-        Direction, EmptyPlacement, FilterOp, OptionDef, Recurrence, RecurrenceKind, TypeProperty,
-        Value, ViewDef, ViewKind,
+        Aggregate, ComputeDef, ComputeKind, Direction, EmptyPlacement, FilterOp, OptionDef,
+        Recurrence, RecurrenceKind, TypeProperty, Value, ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -787,6 +810,7 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            compute: None,
         }
     }
 
@@ -1117,6 +1141,114 @@ mod tests {
                 &with(&[("room", text("Kitchen")), ("photos", list(&too_many))])
             )),
             vec!["invalid photos: holds at most 200 files"]
+        );
+    }
+
+    /// The fixture plus one formula property (`days`) and one list rollup
+    /// (`titles`), both carried by the plant type.
+    fn computed_fixture() -> Fixture {
+        let mut fixture = Fixture::new();
+        let mut days = property("days", PropertyFormat::Number);
+        days.compute = Some(ComputeDef {
+            kind: ComputeKind::Formula,
+            expression: Some("1 + 1".to_owned()),
+            relation: None,
+            property: None,
+            aggregate: None,
+        });
+        let mut titles = property("titles", PropertyFormat::List);
+        titles.compute = Some(ComputeDef {
+            kind: ComputeKind::Rollup,
+            expression: None,
+            relation: Some("related".to_owned()),
+            property: Some("title".to_owned()),
+            aggregate: Some(Aggregate::List),
+        });
+        for def in [days, titles] {
+            let key = def.key.clone();
+            fixture.properties.insert(key.clone(), def);
+            fixture
+                .types
+                .get_mut("plant")
+                .unwrap()
+                .properties
+                .push(TypeProperty {
+                    key,
+                    required: false,
+                    featured: false,
+                });
+        }
+        fixture
+    }
+
+    #[test]
+    fn a_stored_value_on_a_computed_key_is_refused() {
+        let fixture = computed_fixture();
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("Kitchen")), ("days", Value::Number(4.0))])
+            )),
+            vec!["invalid days: is computed and read-only"]
+        );
+    }
+
+    #[test]
+    fn a_required_computed_member_is_refused() {
+        let fixture = computed_fixture();
+        let def = &fixture.types["plant"];
+        let members: Vec<TypeProperty> = def
+            .properties
+            .iter()
+            .map(|member| TypeProperty {
+                key: member.key.clone(),
+                required: member.key == "days",
+                featured: member.featured,
+            })
+            .collect();
+        assert_eq!(
+            problems(validate_members(&fixture.schema(), &members)),
+            vec!["invalid days: a calculated property cannot be required"]
+        );
+    }
+
+    #[test]
+    fn a_list_column_filters_only_by_contains_or_emptyness() {
+        let fixture = computed_fixture();
+        let def = &fixture.types["plant"];
+        let filter = |condition| Filter {
+            op: FilterOp::And,
+            conditions: vec![condition],
+        };
+        valid(validate_filter(
+            &fixture.schema(),
+            def,
+            &filter(condition("titles", CondOp::Contains, Some(text("Fern")))),
+        ));
+        valid(validate_filter(
+            &fixture.schema(),
+            def,
+            &filter(condition("titles", CondOp::IsEmpty, None)),
+        ));
+        assert_eq!(
+            problems(validate_filter(
+                &fixture.schema(),
+                def,
+                &filter(condition("titles", CondOp::Equal, Some(text("Fern")))),
+            )),
+            vec!["invalid titles: supports only contains, not_contains, is_empty and is_not_empty"]
+        );
+        assert_eq!(
+            problems(validate_filter(
+                &fixture.schema(),
+                def,
+                &filter(condition(
+                    "titles",
+                    CondOp::Contains,
+                    Some(Value::Number(1.0))
+                )),
+            )),
+            vec!["invalid titles: expects a single text value"]
         );
     }
 

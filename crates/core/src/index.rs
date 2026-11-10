@@ -977,6 +977,7 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            compute: None,
         }
     }
 
@@ -1232,6 +1233,7 @@ mod tests {
                     options: Vec::new(),
                     target_type: None,
                     multi: false,
+                    compute: None,
                 },
                 None,
             )
@@ -1305,6 +1307,7 @@ mod tests {
                     options: Vec::new(),
                     target_type: None,
                     multi: false,
+                    compute: None,
                 },
                 None,
             )
@@ -1382,6 +1385,7 @@ mod tests {
                     options: Vec::new(),
                     target_type: None,
                     multi: false,
+                    compute: None,
                 },
                 None,
             )
@@ -1599,6 +1603,7 @@ mod tests {
                     options: Vec::new(),
                     target_type: None,
                     multi: false,
+                    compute: None,
                 },
                 None,
             )
@@ -1793,6 +1798,7 @@ mod tests {
             options: Vec::new(),
             target_type: Some("plant".to_owned()),
             multi: false,
+            compute: None,
         };
         space
             .store
@@ -1921,6 +1927,7 @@ mod tests {
                 options: Vec::new(),
                 target_type: Some("plant".to_owned()),
                 multi: true,
+                compute: None,
             };
             space
                 .store
@@ -2123,6 +2130,7 @@ mod tests {
                     options: Vec::new(),
                     target_type: None,
                     multi: false,
+                    compute: None,
                 },
                 None,
             )

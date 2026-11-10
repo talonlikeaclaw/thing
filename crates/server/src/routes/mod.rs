@@ -815,7 +815,7 @@ mod tests {
                     .join("space.yml"),
             )
             .expect("space.yml");
-            assert!(written.starts_with("schema: 6\n"), "{written}");
+            assert!(written.starts_with("schema: 7\n"), "{written}");
             assert!(written.contains("accent: cyan\n"), "{written}");
 
             // A second space has its own appearance.
@@ -1359,7 +1359,7 @@ mod tests {
                     Some(&cookie),
                 )
                 .await;
-            assert!(raw.text().starts_with("---\nschema: 6\n"));
+            assert!(raw.text().starts_with("---\nschema: 7\n"));
 
             let again = server
                 .call_raw("POST", &url, Some("text/csv"), &export.bytes, Some(&cookie))
@@ -2340,7 +2340,7 @@ mod tests {
             let raw = server
                 .call_raw("GET", &format!("{fern_path}/raw"), None, &[], Some(&cookie))
                 .await;
-            assert!(raw.text().starts_with("---\nschema: 6\n"), "{}", raw.text());
+            assert!(raw.text().starts_with("---\nschema: 7\n"), "{}", raw.text());
             assert!(raw.text().contains("\nicon: 🌿\n"), "{}", raw.text());
 
             let history = server

@@ -922,6 +922,7 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            compute: None,
         }
     }
 

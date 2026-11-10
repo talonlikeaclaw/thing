@@ -52,6 +52,7 @@ pub fn schedule_property_defs() -> BTreeMap<String, PropertyDef> {
         options: Vec::new(),
         target_type: None,
         multi: false,
+        compute: None,
     };
     BTreeMap::from([
         (

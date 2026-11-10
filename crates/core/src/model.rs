@@ -30,6 +30,8 @@ pub enum PropertyFormat {
     File,
     Image,
     Attachments,
+    /// A computed-only format: `rollup` with `aggregate: list`.
+    List,
 }
 
 /// A property definition (`properties/<key>.yml`).
@@ -48,6 +50,54 @@ pub struct PropertyDef {
     /// `Relation` only: the value is a list of target ids instead of one id.
     #[serde(default, skip_serializing_if = "is_false")]
     pub multi: bool,
+    /// Present only for a computed property; its value is derived on every
+    /// read and never written to an object.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compute: Option<ComputeDef>,
+}
+
+impl PropertyDef {
+    /// Whether the value is derived rather than stored.
+    pub fn is_computed(&self) -> bool {
+        self.compute.is_some()
+    }
+}
+
+/// How a computed property derives its value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComputeKind {
+    Formula,
+    Rollup,
+}
+
+/// The aggregate a `Rollup` computes over its relation's targets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Aggregate {
+    Count,
+    Sum,
+    Min,
+    Max,
+    List,
+}
+
+/// A property's derivation: one formula, or one rollup over a relation.
+///
+/// A flat shape, like `target_type`/`multi`: validation rejects any field that
+/// does not belong to `kind`, so the evaluator never sees a mixed definition.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ComputeDef {
+    pub kind: ComputeKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expression: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub property: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aggregate: Option<Aggregate>,
 }
 
 /// One option of a `Select` / `MultiSelect` property.

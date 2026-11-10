@@ -338,6 +338,9 @@ fn parse_cell(property: &PropertyDef, raw: &str) -> Result<Value, String> {
             serde_json::from_str::<Vec<String>>(raw)
                 .map_err(|error| format!("expected a JSON array of file paths: {error}"))?,
         ),
+        PropertyFormat::List => {
+            return Err("a list result is calculated and cannot be imported".to_owned());
+        }
         PropertyFormat::Relation if property.multi => Value::List(
             serde_json::from_str::<Vec<String>>(raw)
                 .map_err(|error| format!("expected a JSON array of object ids: {error}"))?,
@@ -437,6 +440,7 @@ mod tests {
             options: options.iter().map(|key| option(key)).collect(),
             target_type: None,
             multi,
+            compute: None,
         }
     }
 
@@ -726,6 +730,15 @@ mod tests {
             parse_cell(&attachments, "not json")
                 .expect_err("refused")
                 .contains("expected a JSON array of file paths")
+        );
+    }
+
+    #[test]
+    fn a_list_result_cannot_be_imported() {
+        let list = property("field", PropertyFormat::List, &[], false);
+        assert_eq!(
+            parse_cell(&list, "[\"Monstera\",\"Fern\"]"),
+            Err("a list result is calculated and cannot be imported".to_owned())
         );
     }
 

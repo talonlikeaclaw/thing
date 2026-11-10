@@ -49,6 +49,9 @@ pub fn parse_value(format: PropertyFormat, key: &str, raw: &Yaml) -> Result<Valu
         PropertyFormat::Attachments => string_list(raw)
             .map(Value::List)
             .ok_or_else(|| invalid(raw)),
+        PropertyFormat::List => string_list(raw)
+            .map(Value::List)
+            .ok_or_else(|| invalid(raw)),
         PropertyFormat::Relation if raw.is_sequence() => string_list(raw)
             .map(Value::List)
             .ok_or_else(|| invalid(raw)),
@@ -217,6 +220,30 @@ fn rank(value: &Value) -> u8 {
     }
 }
 
+/// The display spelling of a value: what a table cell, a rollup label and a
+/// formula's text concatenation all share.
+///
+/// A list joins its items with `", "`; a recurrence uses the schedule
+/// vocabulary's label.
+pub fn plain(value: &Value) -> String {
+    match value {
+        Value::Text(text) => text.clone(),
+        Value::Number(number) => number_label(*number),
+        Value::Bool(flag) => flag.to_string(),
+        Value::List(items) => items.join(", "),
+        Value::Recurrence(recurrence) => crate::schedule::recurrence_label(recurrence),
+    }
+}
+
+/// A number as a table shows it: integral values without a trailing `.0`.
+pub fn number_label(number: f64) -> String {
+    if number.fract() == 0.0 && number.abs() < 1e15 {
+        format!("{}", number as i64)
+    } else {
+        number.to_string()
+    }
+}
+
 /// Whether two values are the same value: text case-insensitively, numbers
 /// numerically, dates by the instant they name.
 ///
@@ -309,6 +336,7 @@ pub(crate) fn expected(format: PropertyFormat) -> &'static str {
         PropertyFormat::File => "a file path",
         PropertyFormat::Image => "a file path",
         PropertyFormat::Attachments => "a list of file paths",
+        PropertyFormat::List => "a list of values",
     }
 }
 
@@ -417,6 +445,25 @@ mod tests {
             parsed(PropertyFormat::Relation, "[a, b]"),
             Value::List(vec!["a".into(), "b".into()])
         );
+    }
+
+    #[test]
+    fn parses_list_results_and_renders_them_plainly() {
+        assert_eq!(
+            parsed(PropertyFormat::List, "[Monstera, Fern]"),
+            Value::List(vec!["Monstera".into(), "Fern".into()])
+        );
+        assert_eq!(expected(PropertyFormat::List), "a list of values");
+        let list = parsed(PropertyFormat::List, "[Monstera, Fern]");
+        assert_eq!(plain(&list), "Monstera, Fern");
+        assert_eq!(
+            to_yaml(&list),
+            yaml("[Monstera, Fern]"),
+            "a list is stored as a string sequence"
+        );
+        assert_eq!(plain(&Value::Number(7.0)), "7");
+        assert_eq!(plain(&Value::Number(7.5)), "7.5");
+        assert_eq!(plain(&Value::Bool(true)), "true");
     }
 
     #[test]

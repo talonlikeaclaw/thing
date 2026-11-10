@@ -170,6 +170,7 @@ mod tests {
                         options: Vec::new(),
                         target_type: None,
                         multi: false,
+                        compute: None,
                     },
                 )
             })
@@ -256,6 +257,7 @@ mod tests {
                 .collect(),
             target_type: None,
             multi: false,
+            compute: None,
         }
     }
 

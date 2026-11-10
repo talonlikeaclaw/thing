@@ -970,6 +970,7 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            compute: None,
         }
     }
 
@@ -1460,6 +1461,7 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            compute: None,
         };
         store.save_property(&property, None).expect("save property");
         assert_eq!(

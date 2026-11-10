@@ -1,0 +1,7 @@
+schema: 7
+key: days_since_watered
+name: Days since watered
+format: number
+compute:
+  kind: formula
+  expression: days(last_completed_at, today())

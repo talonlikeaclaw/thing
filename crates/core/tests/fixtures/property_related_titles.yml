@@ -1,0 +1,9 @@
+schema: 7
+key: related_titles
+name: Related titles
+format: list
+compute:
+  kind: rollup
+  relation: related_plant
+  property: title
+  aggregate: list
