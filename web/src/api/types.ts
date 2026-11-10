@@ -607,3 +607,98 @@ export interface TrashItem {
   trashed_at: IsoDate | null;
   trashed_from?: string;
 }
+
+/** The four staged requests of a column promotion. */
+export type PromoteStage = "plan" | "targets" | "links" | "finish";
+
+/** The new type and relation a promotion asks for. */
+export interface PromoteTargetInput {
+  name: string;
+  name_plural?: string;
+  icon?: string;
+}
+
+/** One promotion request; `target_type` resumes a run that already made the type. */
+export interface PromoteRequest {
+  stage: PromoteStage;
+  property: string;
+  target: PromoteTargetInput;
+  target_type?: string;
+  relation_name: string;
+  multi: boolean;
+  /** A text delimiter; text columns only. */
+  split?: string;
+}
+
+export interface PromoteSource {
+  type_key: string;
+  key: string;
+  name: string;
+  format: PropertyFormat;
+  split?: string;
+  records: number;
+  distinct: number;
+  empty: number;
+}
+
+export interface PromoteValue {
+  title: string;
+  records: number;
+  exists: boolean;
+}
+
+export interface PromoteTarget {
+  key: string;
+  name: string;
+  name_plural: string;
+  icon?: string | null;
+  create: boolean;
+  values: PromoteValue[];
+  create_records: number;
+}
+
+export interface PromoteRelation {
+  key: string;
+  name: string;
+  multi: boolean;
+}
+
+export interface PromoteView {
+  key: string;
+  name: string;
+  columns: boolean;
+  sorts: number;
+  filters_moved: number;
+  filters_dropped: number;
+}
+
+/** The read-only preview: every count, warning and blocking reason. */
+export interface PromotePlan {
+  source: PromoteSource;
+  target: PromoteTarget;
+  relation: PromoteRelation;
+  links: number;
+  views: PromoteView[];
+  warnings: string[];
+  blocking: string[];
+}
+
+export interface PromoteTargetsResult {
+  type: string;
+  type_created: boolean;
+  created: number;
+  records: { id: Uuid; title: string; exists: boolean }[];
+}
+
+export interface PromoteLinksResult {
+  property: string;
+  created: boolean;
+  links: number;
+  filters_dropped: number;
+  views: PromoteView[];
+}
+
+export interface PromoteFinishResult {
+  key: string;
+  finished: boolean;
+}

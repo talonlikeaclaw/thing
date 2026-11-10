@@ -16,6 +16,11 @@ import type {
   ObjectDetail,
   ObjectList,
   ObjectsQuery,
+  PromoteFinishResult,
+  PromoteLinksResult,
+  PromotePlan,
+  PromoteRequest,
+  PromoteTargetsResult,
   PropertyDef,
   PropertyFormat,
   Revision,
@@ -1405,6 +1410,49 @@ export function useImportCsv(spaceId: string, typeKey: string) {
       }
     },
   });
+}
+
+/**
+ * The four staged requests of a column promotion. The plan is a read; every
+ * write invalidates the space, so views, records and the type refetch through
+ * the same keys every other write uses.
+ */
+export function usePromoteColumn(spaceId: string, typeKey: string) {
+  const client = useQueryClient();
+  const plan = useMutation({
+    mutationFn: (input: PromoteRequest) =>
+      request<PromotePlan>(`/api/spaces/${spaceId}/types/${typeKey}/promote`, {
+        method: "POST",
+        body: input,
+      }),
+  });
+  const invalidate = () =>
+    client.invalidateQueries({ queryKey: queryKeys.space(spaceId) });
+  const targets = useMutation({
+    mutationFn: (input: PromoteRequest) =>
+      request<PromoteTargetsResult>(`/api/spaces/${spaceId}/types/${typeKey}/promote`, {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: invalidate,
+  });
+  const links = useMutation({
+    mutationFn: (input: PromoteRequest) =>
+      request<PromoteLinksResult>(`/api/spaces/${spaceId}/types/${typeKey}/promote`, {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: invalidate,
+  });
+  const finish = useMutation({
+    mutationFn: (input: PromoteRequest) =>
+      request<PromoteFinishResult>(`/api/spaces/${spaceId}/types/${typeKey}/promote`, {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: invalidate,
+  });
+  return { plan, targets, links, finish };
 }
 
 /** Export is a download, so its button owns pending state, not a query cache. */

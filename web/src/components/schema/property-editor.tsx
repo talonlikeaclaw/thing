@@ -13,6 +13,7 @@ import {
 import type { PropertyDef, TypeSummary } from "@/api/types";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { OptionEditor } from "@/components/schema/option-editor";
+import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
 import { FieldRow, SectionRule } from "@/components/ui/page";
 import {
@@ -26,6 +27,7 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
+import { promotionBlocker } from "@/lib/promotion";
 import {
   formatLabel,
   hasOptions,
@@ -74,6 +76,7 @@ export function PropertyEditorForm({
   const [options, setOptions] = useState<OptionDraft[]>(() => optionDrafts(property.options));
   const [confirmKey, setConfirmKey] = useState("");
   const [renameKey, setRenameKey] = useState("");
+  const [promoteOpen, setPromoteOpen] = useState(false);
 
   // A saved new option comes back with its minted key; adopting the response
   // keeps a later rename from re-deriving the key it already has.
@@ -132,11 +135,9 @@ export function PropertyEditorForm({
   const nextKey = renameKey.trim();
   const renameReady =
     nextKey !== "" && nextKey !== property.key && !rename.isPending && !dirty;
-  const convertible =
-    (property.format === "text" ||
-      property.format === "select" ||
-      property.format === "multi_select") &&
-    usageTypes === 1;
+  const convertBlocker = promotionBlocker(property, usageTypes);
+  const convertible = convertBlocker === null;
+  const convertOwner = usage.types[0];
 
   return (
     <>
@@ -258,16 +259,25 @@ export function PropertyEditorForm({
           type="button"
           variant="ghost"
           className="mt-2 min-h-9 px-3 text-[13px]"
-          disabled
-          title={
-            convertible
-              ? "The migration wizard arrives with the next checkpoint."
-              : "Only a text, select or multi-select column carried by one type can be converted."
-          }
+          disabled={!convertible || !canEdit}
+          title={convertBlocker ?? undefined}
+          onClick={() => setPromoteOpen(true)}
         >
           Turn into a relation…
         </Button>
+        {convertBlocker && canEdit ? (
+          <p className="mt-1 text-[12px] text-faint">{convertBlocker}</p>
+        ) : null}
       </section>
+
+      {promoteOpen && convertOwner ? (
+        <PromoteColumnDialog
+          spaceId={spaceId}
+          typeKey={convertOwner.key}
+          property={property}
+          onClose={() => setPromoteOpen(false)}
+        />
+      ) : null}
 
       {canEdit ? (
         dirty ? (

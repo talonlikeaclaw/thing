@@ -31,6 +31,7 @@ function Host() {
       <output data-testid="layout">{JSON.stringify(current.columns)}</output>
       <ColumnPanel
         spaceId="s1"
+        typeKey="album"
         view={current}
         properties={properties}
         disabled={false}
@@ -125,9 +126,10 @@ describe("ColumnPanel", () => {
     expect(anchored).toHaveAttribute("data-align", "start");
   });
 
-  it("edits a property from its row", () => {
+  it("edits a shown property from its row menu", () => {
     renderWithProviders(<Host />);
-    expect(screen.getByRole("link", { name: "Edit Room property" })).toHaveAttribute(
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Room" }));
+    expect(screen.getByRole("menuitem", { name: "Edit property" })).toHaveAttribute(
       "href",
       "/s/s1/schema?property=room",
     );
@@ -135,6 +137,12 @@ describe("ColumnPanel", () => {
       "href",
       "/s/s1/schema?property=size",
     );
+  });
+
+  it("offers conversion for a column format that can become a relation", () => {
+    renderWithProviders(<Host />);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Room" }));
+    expect(screen.getByRole("menuitem", { name: "Turn into a relation…" })).toBeEnabled();
   });
 
   it("shows each row's format beside its name", () => {

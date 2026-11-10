@@ -1,20 +1,25 @@
-import { Pencil, Plus, Search, X } from "lucide-react";
+import { Menu } from "@base-ui/react/menu";
+import { Link2, MoreHorizontal, Pencil, Plus, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import type { PropertyDef, PropertyFormat, ViewDef } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
+import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
 import { PositionMenu } from "@/components/ui/position-menu";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 import { searchProperties } from "@/lib/property-search";
+import { promotionBlocker } from "@/lib/promotion";
 import { formatLabel } from "@/lib/schema";
 import { moveViewColumnTo, withColumn, withoutColumn } from "@/lib/views";
 
 interface ColumnPanelProps {
   spaceId: string;
+  /** The type whose view this panel edits. */
+  typeKey: string;
   view: ViewDef;
   properties: PropertyDef[];
   disabled: boolean;
@@ -44,6 +49,7 @@ function editHref(spaceId: string, key: string): string {
  */
 export function ColumnPanel({
   spaceId,
+  typeKey,
   view,
   properties,
   disabled,
@@ -54,6 +60,7 @@ export function ColumnPanel({
   const compact = useCompactWidth();
   const coarse = useCoarsePointer();
   const [query, setQuery] = useState("");
+  const [promoteKey, setPromoteKey] = useState<string | null>(null);
   const shownColumns = useMemo<ShownColumn[]>(() => {
     const propertyByKey = new Map(properties.map((property) => [property.key, property]));
     return view.columns
@@ -74,6 +81,9 @@ export function ColumnPanel({
   const total = shownColumns.length + hidden.length;
   const matched = shownMatches.length + hiddenMatches.length;
   const last = Math.max(1, view.columns.length - 1);
+  const promoteProperty = promoteKey
+    ? properties.find((property) => property.key === promoteKey)
+    : undefined;
 
   function moveTo(key: string, index: number) {
     const columns = moveViewColumnTo(view, key, index);
@@ -130,14 +140,12 @@ export function ColumnPanel({
                   <span className="truncate text-[14px] text-accent">{column.name}</span>
                   <FormatChip>{formatLabel(column.format)}</FormatChip>
                 </span>
-                <Link
-                  to={editHref(spaceId, column.key)}
-                  aria-label={`Edit ${column.name} property`}
-                  title={`Edit ${column.name}`}
-                  className={ICON_BUTTON}
-                >
-                  <Pencil aria-hidden size={14} />
-                </Link>
+                <RowActions
+                  spaceId={spaceId}
+                  property={column}
+                  disabled={disabled}
+                  onPromote={() => setPromoteKey(column.key)}
+                />
                 <SmallButton
                   label={`Hide ${column.name}`}
                   disabled={disabled}
@@ -214,7 +222,70 @@ export function ColumnPanel({
       {coarse ? (
         <p className="mt-3 text-[12px] text-faint">Column widths are set on a wide screen.</p>
       ) : null}
+
+      {promoteProperty ? (
+        <PromoteColumnDialog
+          spaceId={spaceId}
+          typeKey={typeKey}
+          property={promoteProperty}
+          onClose={() => setPromoteKey(null)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * The row's overflow menu: edit the property, or turn the column into a
+ * relation. The conversion is disabled with the reason when the format cannot
+ * become a relation; whether one type owns it is the plan's answer, shown in
+ * the wizard before anything is written.
+ */
+function RowActions({
+  spaceId,
+  property,
+  disabled,
+  onPromote,
+}: {
+  spaceId: string;
+  property: ShownColumn;
+  disabled: boolean;
+  onPromote: () => void;
+}) {
+  const blocker = promotionBlocker(property, 1);
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        aria-label={`More actions for ${property.name}`}
+        title={`More actions for ${property.name}`}
+        disabled={disabled}
+        className={ICON_BUTTON}
+      >
+        <MoreHorizontal aria-hidden size={15} />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner sideOffset={4} align="end" className="z-50">
+          <Menu.Popup className="glass-strong min-w-[15rem] rounded-card p-1.5 text-[13px] text-ink outline-none">
+            <Menu.Item
+              className="flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
+              render={<Link to={editHref(spaceId, property.key)} />}
+            >
+              <Pencil aria-hidden size={14} className="text-faint" />
+              Edit property
+            </Menu.Item>
+            <Menu.Item
+              className="flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11"
+              disabled={blocker !== null}
+              title={blocker ?? undefined}
+              onClick={onPromote}
+            >
+              <Link2 aria-hidden size={14} className="text-faint" />
+              Turn into a relation…
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }
 

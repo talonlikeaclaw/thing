@@ -1360,6 +1360,7 @@ export function TypeTable({
         >
           <ColumnPanel
             spaceId={spaceId}
+            typeKey={type.key}
             id="type-columns"
             view={view}
             properties={properties}
