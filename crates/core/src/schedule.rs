@@ -417,7 +417,7 @@ fn format_datetime(now: OffsetDateTime) -> Result<String, CoreError> {
 }
 
 /// `time` to `jiff` at the boundary; both carry the same instant.
-fn timestamp(now: OffsetDateTime) -> Timestamp {
+pub(crate) fn timestamp(now: OffsetDateTime) -> Timestamp {
     Timestamp::from_nanosecond(now.unix_timestamp_nanos()).unwrap_or(Timestamp::UNIX_EPOCH)
 }
 

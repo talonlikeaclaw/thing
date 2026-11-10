@@ -8,6 +8,7 @@ pub mod accent;
 pub mod csv;
 pub mod error;
 pub mod filter;
+pub mod formula;
 pub mod index;
 pub mod links;
 pub mod markdown;
