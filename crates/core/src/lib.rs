@@ -5,6 +5,7 @@
 //! server), link this crate and reuse the same implementation.
 
 pub mod accent;
+pub mod compute;
 pub mod csv;
 pub mod error;
 pub mod filter;

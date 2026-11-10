@@ -352,6 +352,16 @@ pub fn problems_json(problems: &Problems) -> Value {
                 "message": problem.message,
             }))
             .collect::<Vec<_>>(),
+        "computed_problems": problems
+            .computed_problems
+            .iter()
+            .map(|problem| json!({
+                "property": problem.property_key,
+                "type": problem.type_key,
+                "field": problem.field,
+                "message": problem.message,
+            }))
+            .collect::<Vec<_>>(),
     })
 }
 
@@ -5147,6 +5157,152 @@ mod tests {
         0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
     ];
 
+    /// A Garden whose Plant type carries a text formula, a count rollup and a
+    /// list rollup, with Monstera related to Fern and Ivy.
+    struct ComputedGarden {
+        space: String,
+        monstera: String,
+        fern: String,
+    }
+
+    async fn computed_garden(server: &Server, cookie: &str) -> ComputedGarden {
+        let garden = garden(server, cookie).await;
+        let space = garden.space.clone();
+        for body in [
+            json!({
+                "name": "Related",
+                "format": "relation",
+                "target_type": "plant",
+                "multi": true,
+            }),
+            json!({
+                "name": "Label",
+                "format": "text",
+                "compute": {
+                    "kind": "formula",
+                    "expression": "title + \" / \" + room",
+                },
+            }),
+            json!({
+                "name": "Related count",
+                "format": "number",
+                "compute": {
+                    "kind": "rollup",
+                    "relation": "related",
+                    "aggregate": "count",
+                },
+            }),
+            json!({
+                "name": "Related titles",
+                "format": "list",
+                "compute": {
+                    "kind": "rollup",
+                    "relation": "related",
+                    "property": "title",
+                    "aggregate": "list",
+                },
+            }),
+        ] {
+            let created = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/properties"),
+                    Some(body.clone()),
+                    Some(cookie),
+                )
+                .await;
+            assert_eq!(
+                created.status,
+                StatusCode::CREATED,
+                "{body:?}: {:?}",
+                created.body
+            );
+        }
+
+        let typed = server
+            .call(
+                "PATCH",
+                &format!("/api/spaces/{space}/types/plant"),
+                Some(json!({
+                    "properties": [
+                        { "key": "room" },
+                        { "key": "related" },
+                        { "key": "label" },
+                        { "key": "related_count" },
+                        { "key": "related_titles" }
+                    ]
+                })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(typed.status, StatusCode::OK, "{:?}", typed.body);
+
+        let view = server
+            .call(
+                "PATCH",
+                &format!("/api/spaces/{space}/types/plant/views/all"),
+                Some(json!({
+                    "columns": ["title", "room", "label", "related_count", "related_titles"]
+                })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(view.status, StatusCode::OK, "{:?}", view.body);
+
+        let mut created = Vec::new();
+        for (title, room) in [
+            ("Fern by the window", "study"),
+            ("Ivy on the shelf", "study"),
+        ] {
+            let reply = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{space}/objects"),
+                    Some(json!({
+                        "type": "plant",
+                        "title": title,
+                        "properties": { "room": room },
+                    })),
+                    Some(cookie),
+                )
+                .await;
+            assert_eq!(reply.status, StatusCode::CREATED, "{:?}", reply.body);
+            created.push((
+                reply.body["id"].as_str().expect("an id").to_owned(),
+                reply.body["rev"].as_u64().expect("a rev"),
+            ));
+        }
+        let (fern, _) = created[0].clone();
+        let (ivy, _) = created[1].clone();
+        let patched = server
+            .call(
+                "PATCH",
+                &format!("/api/spaces/{space}/objects/{}", garden.plant),
+                Some(json!({
+                    "rev": 1,
+                    "properties": { "related": [fern.clone(), ivy.clone()] }
+                })),
+                Some(cookie),
+            )
+            .await;
+        assert_eq!(patched.status, StatusCode::OK, "{:?}", patched.body);
+
+        ComputedGarden {
+            space,
+            monstera: garden.plant,
+            fern,
+        }
+    }
+
+    fn row_for<'a>(body: &'a Value, id: &str) -> &'a Value {
+        body["objects"]
+            .as_array()
+            .expect("rows")
+            .iter()
+            .find(|row| row["id"] == id)
+            .unwrap_or_else(|| panic!("row {id} missing from {body}"))
+    }
+
     /// The stored attachment count, so a repeat upload can prove it wrote nothing.
     fn attachment_count(server: &Server, space: &str) -> usize {
         use thing_core::store::{SpaceFileKind, SpaceStore};
@@ -6922,6 +7078,421 @@ mod tests {
                 "{:?}",
                 history.body
             );
+        });
+    }
+
+    #[test]
+    fn computed_values_read_filter_and_sort_through_the_list_and_detail() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("computed@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let world = computed_garden(&server, &cookie).await;
+            let objects = format!("/api/spaces/{}/objects", world.space);
+
+            let list = server
+                .call("GET", &format!("{objects}?type=plant&view=all"), None, Some(&cookie))
+                .await;
+            assert_eq!(list.status, StatusCode::OK, "{:?}", list.body);
+            let monstera = row_for(&list.body, &world.monstera);
+            assert_eq!(
+                monstera["values"]["label"],
+                json!({
+                    "value": "Monstera in the study / kitchen",
+                    "label": "Monstera in the study / kitchen"
+                })
+            );
+            assert_eq!(
+                monstera["values"]["related_count"],
+                json!({ "value": 2.0, "label": "2" })
+            );
+            assert_eq!(
+                monstera["values"]["related_titles"],
+                json!({ "value": ["Fern by the window", "Ivy on the shelf"], "label": "Fern by the window, Ivy on the shelf" }),
+                "a list cell joins its display labels"
+            );
+            let fern = row_for(&list.body, &world.fern);
+            assert_eq!(fern["values"]["related_count"], json!({ "value": 0.0, "label": "0" }));
+
+            let filtered = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{objects}?type=plant&view=all&filter={}",
+                        url_encoded(
+                            &json!({
+                                "op": "and",
+                                "conditions": [{
+                                    "property": "related_count",
+                                    "condition": "equal",
+                                    "value": 2
+                                }]
+                            })
+                            .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(filtered.status, StatusCode::OK, "{:?}", filtered.body);
+            assert_eq!(filtered.body["total"], 1);
+            assert_eq!(filtered.body["objects"][0]["id"], world.monstera.as_str());
+
+            let sorted = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{objects}?type=plant&view=all&sorts={}",
+                        url_encoded(
+                            &json!([{ "property": "label", "direction": "asc" }]).to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(sorted.status, StatusCode::OK, "{:?}", sorted.body);
+            assert_eq!(sorted.body["objects"][0]["id"], world.fern.as_str());
+            let filtered_label = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{objects}?type=plant&view=all&filter={}",
+                        url_encoded(
+                            &json!({
+                                "op": "and",
+                                "conditions": [{
+                                    "property": "label",
+                                    "condition": "contains",
+                                    "value": "Fern"
+                                }]
+                            })
+                            .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(filtered_label.status, StatusCode::OK, "{:?}", filtered_label.body);
+            assert_eq!(filtered_label.body["total"], 1);
+            assert_eq!(filtered_label.body["objects"][0]["id"], world.fern.as_str());
+
+            let sorted_count = server
+                .call(
+                    "GET",
+                    &format!(
+                        "{objects}?type=plant&view=all&sorts={}",
+                        url_encoded(
+                            &json!([{ "property": "related_count", "direction": "desc" }])
+                                .to_string()
+                        )
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(sorted_count.status, StatusCode::OK, "{:?}", sorted_count.body);
+            assert_eq!(sorted_count.body["objects"][0]["id"], world.monstera.as_str());
+
+            let detail = server
+                .call(
+                    "GET",
+                    &format!("{objects}/{}", world.monstera),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(detail.status, StatusCode::OK, "{:?}", detail.body);
+            assert_eq!(
+                detail.body["properties"]["label"],
+                json!({
+                    "value": "Monstera in the study / kitchen",
+                    "label": "Monstera in the study / kitchen"
+                })
+            );
+            assert_eq!(
+                detail.body["properties"]["related_titles"],
+                json!({ "value": ["Fern by the window", "Ivy on the shelf"], "label": "Fern by the window, Ivy on the shelf" })
+            );
+
+            // A viewer reads the same derived values.
+            let invite = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{}/invites", world.space),
+                    Some(json!({ "role": "viewer" })),
+                    Some(&cookie),
+                )
+                .await;
+            let code = invite.body["code"].as_str().expect("a code").to_owned();
+            let viewer = server.register("computed-viewer@example.com", Some(&code)).await;
+            let viewer_cookie = cookie_of(&viewer).to_owned();
+            let seen = server
+                .call("GET", &format!("{objects}?type=plant&view=all"), None, Some(&viewer_cookie))
+                .await;
+            assert_eq!(seen.status, StatusCode::OK, "{:?}", seen.body);
+            assert_eq!(
+                row_for(&seen.body, &world.monstera)["values"]["related_count"]["label"],
+                "2"
+            );
+        });
+    }
+
+    #[test]
+    fn a_stored_value_on_a_computed_key_is_refused_on_create_and_update() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("computed-writes@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let world = computed_garden(&server, &cookie).await;
+            let objects = format!("/api/spaces/{}/objects", world.space);
+
+            let created = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "plant",
+                        "title": "Written count",
+                        "properties": { "related_count": 5 }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                created.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                created.body
+            );
+            assert_eq!(created.field(), "related_count");
+            assert!(
+                created.body["error"]["message"]
+                    .as_str()
+                    .is_some_and(|message| message.contains("computed and read-only"))
+            );
+
+            let patched = server
+                .call(
+                    "PATCH",
+                    &format!("{objects}/{}", world.monstera),
+                    Some(json!({
+                        "rev": 2,
+                        "properties": { "related_count": 5 }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                patched.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                patched.body
+            );
+            assert_eq!(patched.field(), "related_count");
+        });
+    }
+
+    #[test]
+    fn computed_definitions_are_checked_where_they_gain_context() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("computed-defs@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let properties = format!("/api/spaces/{}/properties", garden.space);
+
+            let stored_list = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({ "name": "Titles", "format": "list" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                stored_list.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                stored_list.body
+            );
+            assert_eq!(stored_list.field(), "format");
+
+            let broken = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Broken",
+                        "format": "number",
+                        "compute": { "kind": "formula", "expression": "missing + 1" }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(broken.status, StatusCode::CREATED, "{:?}", broken.body);
+
+            let added = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/types/plant", garden.space),
+                    Some(json!({
+                        "properties": [{ "key": "room" }, { "key": "broken" }]
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                added.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                added.body
+            );
+            assert_eq!(added.field(), "compute.expression");
+            assert!(
+                added.body["error"]["message"]
+                    .as_str()
+                    .is_some_and(|message| message.contains("unknown property `missing`"))
+            );
+
+            let kind = |kind: &str, aggregate: Option<&str>| {
+                let mut compute = json!({ "kind": kind });
+                if let Some(aggregate) = aggregate {
+                    compute["relation"] = json!("room");
+                    compute["aggregate"] = json!(aggregate);
+                }
+                compute
+            };
+            let formula = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Computed",
+                        "format": "number",
+                        "compute": kind("formula", None)
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            // A formula without an expression is refused up front.
+            assert_eq!(
+                formula.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                formula.body
+            );
+            assert_eq!(formula.field(), "compute.expression");
+
+            let valid = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Age",
+                        "format": "number",
+                        "compute": { "kind": "formula", "expression": "1 + 1" }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(valid.status, StatusCode::CREATED, "{:?}", valid.body);
+
+            let changed_kind = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/age"),
+                    Some(json!({
+                        "compute": kind("rollup", Some("count"))
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                changed_kind.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                changed_kind.body
+            );
+            assert_eq!(changed_kind.field(), "compute.kind");
+            assert!(changed_kind.body["error"]["message"].as_str().is_some_and(
+                |message| message == "the calculation kind is fixed once the property exists"
+            ));
+
+            let stored = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/room"),
+                    Some(json!({
+                        "compute": { "kind": "formula", "expression": "1 + 1" }
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                stored.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                stored.body
+            );
+            assert_eq!(stored.field(), "compute");
+            assert!(
+                stored.body["error"]["message"].as_str().is_some_and(
+                    |message| message.contains("stored property cannot become calculated")
+                )
+            );
+        });
+    }
+
+    #[test]
+    fn a_type_a_rollup_targets_cannot_be_deleted() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("computed-delete@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let world = computed_garden(&server, &cookie).await;
+
+            let refused = server
+                .call(
+                    "DELETE",
+                    &format!(
+                        "/api/spaces/{}/types/plant?delete_objects=true",
+                        world.space
+                    ),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::CONFLICT, "{:?}", refused.body);
+            assert_eq!(
+                refused.body["error"]["details"]["reason"],
+                "computed properties use type"
+            );
+            let holders = refused.body["error"]["details"]["properties"]
+                .as_array()
+                .expect("properties");
+            assert!(
+                holders.iter().any(|key| key == "related_count"),
+                "{holders:?}"
+            );
+
+            // Nothing was trashed before the refusal.
+            let list = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/objects?type=plant&view=all", world.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(list.status, StatusCode::OK, "{:?}", list.body);
+            assert_eq!(list.body["total"], 3);
         });
     }
 }

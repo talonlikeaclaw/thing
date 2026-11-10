@@ -16,6 +16,7 @@ use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use thing_core::compute::Evaluator;
 use thing_core::index::SpaceIndex;
 use thing_core::links::LinkStatus;
 use thing_core::markdown;
@@ -31,7 +32,7 @@ use thing_core::value as core_value;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use super::values::{Projection, object_json, space_timezone};
+use super::values::{Projection, object_json, space_timezone, value_columns};
 use super::{
     ApiJson, ApiQuery, clean_cover, clean_cover_position, clean_icon, clean_text, double_option,
     space_for, uuid_param,
@@ -148,14 +149,21 @@ async fn list(
         };
         let filter = filter.unwrap_or_else(|| view.filter.clone());
         let sorts = sorts.unwrap_or_else(|| view.sorts.clone());
-        let rows: Vec<ObjectSummary> = index
-            .summaries(&type_key)
-            .iter()
+        let mut needed: BTreeSet<&str> = value_columns(view).into_iter().collect();
+        for condition in &filter.conditions {
+            needed.insert(condition.property.as_str());
+        }
+        for sort in &sorts {
+            needed.insert(sort.property.as_str());
+        }
+        let evaluator = Evaluator::new(index, space_timezone(index), OffsetDateTime::now_utc());
+        let rows: Vec<ObjectSummary> = evaluator
+            .summaries(&type_key, &needed)
+            .into_iter()
             .filter(|summary| match &text {
                 Some(text) => matches_text(index, summary, text),
                 None => true,
             })
-            .cloned()
             .collect();
         let matched = query::apply(&filter, &sorts, &rows, &schema);
         let total = matched.len();

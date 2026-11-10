@@ -13,9 +13,12 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{Value, json};
+use thing_core::compute;
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
-use thing_core::model::{ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role, is_reserved_key};
+use thing_core::model::{
+    ComputeDef, ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role, is_reserved_key,
+};
 use thing_core::schedule::is_schedule_key;
 use thing_core::slug::{is_valid_key, key_from_name};
 use thing_core::store::{SpaceStore, property_path};
@@ -87,6 +90,9 @@ struct CreatePropertyRequest {
     target_type: Option<String>,
     #[serde(default)]
     multi: Option<bool>,
+    /// Present only for a calculated property.
+    #[serde(default)]
+    compute: Option<ComputeDef>,
 }
 
 /// `POST /api/spaces/{space}/properties` [editor]
@@ -117,7 +123,7 @@ async fn create(
         options,
         target_type: body.target_type.clone(),
         multi,
-        compute: None,
+        compute: body.compute.clone(),
     };
 
     let _guard = handle.write.lock().await;
@@ -146,6 +152,9 @@ struct PatchPropertyRequest {
     /// The whole option list, in display order.
     #[serde(default)]
     options: Option<Vec<OptionInput>>,
+    /// Present only for an already-calculated property; the kind may not change.
+    #[serde(default)]
+    compute: Option<ComputeDef>,
 }
 
 /// `PATCH /api/spaces/{space}/properties/{key}` [editor]
@@ -160,7 +169,7 @@ async fn update(
 ) -> Result<Json<Value>, ApiError> {
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Editor)?;
-    if body.name.is_none() && body.options.is_none() {
+    if body.name.is_none() && body.options.is_none() && body.compute.is_none() {
         return Err(ApiError::validation("body", "nothing to change"));
     }
     let name = body
@@ -174,6 +183,21 @@ async fn update(
         let def = declared_property(index, &key)
             .ok_or_else(|| ApiError::not_found(format!("property {key}")))?;
         let mut next = def.clone();
+        if let Some(compute) = &body.compute {
+            let Some(existing) = &def.compute else {
+                return Err(ApiError::validation(
+                    "compute",
+                    "a stored property cannot become calculated",
+                ));
+            };
+            if existing.kind != compute.kind {
+                return Err(ApiError::validation(
+                    "compute.kind",
+                    "the calculation kind is fixed once the property exists",
+                ));
+            }
+            next.compute = Some(compute.clone());
+        }
         if let Some(name) = name {
             next.name = name;
         }
@@ -181,6 +205,18 @@ async fn update(
             let read = read_options(options, Some(&next.options))?;
             check_options_kept(index, &next.key, &read, &def.options)?;
             next.options = read;
+        }
+        check_shape(index, &next)?;
+        let schema = index.schema();
+        let mut errors = Vec::new();
+        for type_def in index
+            .types()
+            .filter(|type_def| type_def.has_property(&next.key))
+        {
+            errors.extend(compute::validate_for_type(&schema, type_def, &next));
+        }
+        if !errors.is_empty() {
+            return Err(ApiError::validation_all(errors));
         }
         Ok(next)
     })?;
@@ -466,6 +502,10 @@ fn holds_option(doc: &ObjectDoc, key: &str, option: &str) -> bool {
 /// Checks a new definition: options belong to `select` and `multi_select` and
 /// name real keys, a relation may name a type, and nothing else takes either.
 fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
+    let definition_errors = compute::validate_definition(def);
+    if !definition_errors.is_empty() {
+        return Err(ApiError::validation_all(definition_errors));
+    }
     let selects = matches!(
         def.format,
         PropertyFormat::Select | PropertyFormat::MultiSelect

@@ -7,6 +7,7 @@
 
 use serde::Serialize;
 use serde_json::{Map, Value as Json, json};
+use thing_core::compute::Evaluator;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
     ObjectDoc, ObjectSummary, PropertyDef, PropertyFormat, TITLE_KEY, TypeDef, Value, ViewDef,
@@ -134,14 +135,19 @@ pub struct Projection<'a> {
     index: &'a SpaceIndex,
     timezone: TimeZone,
     now: OffsetDateTime,
+    evaluator: Evaluator<'a>,
 }
 
 impl<'a> Projection<'a> {
     pub fn new(index: &'a SpaceIndex) -> Self {
+        let timezone = space_timezone(index);
+        let now = OffsetDateTime::now_utc();
+        let evaluator = Evaluator::new(index, timezone.clone(), now);
         Self {
             index,
-            timezone: space_timezone(index),
-            now: OffsetDateTime::now_utc(),
+            timezone,
+            now,
+            evaluator,
         }
     }
 
@@ -186,10 +192,29 @@ impl<'a> Projection<'a> {
     /// no longer lists: a value on disk is never dropped from a response.
     pub fn object_json(&self, doc: &ObjectDoc) -> ObjectJson {
         let def = self.index.type_def(&doc.type_key);
-        let ordered = ordered_keys(def, doc);
+        let ordered = ordered_keys(self.index, def, doc);
+        let computed = self.evaluator.values(doc);
+        let computed_keys: std::collections::BTreeSet<&str> = def
+            .map(|def| {
+                def.properties
+                    .iter()
+                    .filter(|member| {
+                        self.index
+                            .property_def(&member.key)
+                            .is_some_and(PropertyDef::is_computed)
+                    })
+                    .map(|member| member.key.as_str())
+                    .collect()
+            })
+            .unwrap_or_default();
         let properties = ordered
             .iter()
             .filter_map(|key| {
+                if computed_keys.contains(key.as_str()) {
+                    return computed
+                        .get(key)
+                        .map(|value| (key.clone(), value_json(self.index, key, value)));
+                }
                 doc.properties
                     .get(key)
                     .map(|value| (key.clone(), value_json(self.index, key, value)))
@@ -232,11 +257,14 @@ pub fn object_json(index: &SpaceIndex, doc: &ObjectDoc) -> ObjectJson {
 
 /// The object's keys: its type's properties in display order first, then any
 /// key the type does not list, so a leftover value is still shown.
-fn ordered_keys(def: Option<&TypeDef>, doc: &ObjectDoc) -> Vec<String> {
+fn ordered_keys(index: &SpaceIndex, def: Option<&TypeDef>, doc: &ObjectDoc) -> Vec<String> {
     let mut keys: Vec<String> = Vec::with_capacity(doc.properties.len());
     if let Some(def) = def {
         for member in &def.properties {
-            if doc.properties.contains_key(&member.key) {
+            let computed = index
+                .property_def(&member.key)
+                .is_some_and(PropertyDef::is_computed);
+            if computed || doc.properties.contains_key(&member.key) {
                 keys.push(member.key.clone());
             }
         }
@@ -297,6 +325,13 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
             Value::List(paths) => json!({
                 "value": value::to_json(value),
                 "label": attachments_label(paths),
+            }),
+            _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
+        },
+        PropertyFormat::List => match value {
+            Value::List(items) => json!({
+                "value": value::to_json(value),
+                "label": items.join(", "),
             }),
             _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
         },
