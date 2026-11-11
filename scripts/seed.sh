@@ -191,7 +191,7 @@ request PATCH "/api/spaces/$space/types/plant" '{
     ]}' >/dev/null
 request PATCH "/api/spaces/$space/types/plant/views/all" '{
     "columns": ["title","room","days_since_watered","related_plants","related_titles","nursery","due_date","recurrence","last_completed_at","tags","related_plant"],
-    "widths": {"title":280,"due_date":160,"days_since_watered":150},
+    "widths": {"title":280,"due_date":160,"days_since_watered":180,"related_titles":160},
     "sorts": [{"property":"updated_at","direction":"desc"}],
     "filter": {"op":"and","conditions":[]}
 }' >/dev/null

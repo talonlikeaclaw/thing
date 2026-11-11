@@ -23,7 +23,7 @@ In scope:
 
 Out of scope, deliberately: email digests, push notifications, background jobs, webhooks,
 per-record reminders, reminders at a time of day, timezones per member, recurrence exceptions,
-"skip this occurrence", undo/restore of a completion (M9 owns history replay), and calendar views
+"skip this occurrence", undo/restore of a completion (M8.2 owns history replay), and calendar views
 (M3).
 
 Success is a Chore type whose record is due yesterday, appears under Overdue, survives a server

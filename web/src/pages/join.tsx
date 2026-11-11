@@ -62,7 +62,7 @@ export function JoinPage() {
   return (
     <AuthScaffold
       title="Join this space"
-      subtitle="You were invited. Create an account and you'll join the space this link belongs to; registration returns you to your spaces."
+      subtitle="This invite link creates your account and adds you to its space; registration returns you to your spaces. We confirm the code when you create the account."
       footer={
         <>
           Wrong link?{" "}

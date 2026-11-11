@@ -37,47 +37,82 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.8.0",
     title: "Calculated columns",
-    upcoming: true,
+    date: "2026-11-11",
     summary:
-      "A property can now hold a value the app derives: a formula over the row's own fields, or a rollup over the records it links to.",
+      "A property can hold a value the app derives: a formula over the record's own fields, or a rollup over the records it links to. Calculated values are read-only and never written to the space's files.",
     sections: [
       {
-        title: "Author a calculation where properties live",
+        title: "Write a formula or a rollup",
         intro:
-          "Calculated fields used to be a definition you could only read, never write.",
+          "Calculated properties are created and edited in the forms that already handle properties.",
         items: [
           {
-            lead: "Create formulas and rollups from the property forms",
-            body: "The schema page and the table's Add property sheet offer Stored, Formula and Rollup, with the result type the column will sort, filter and export as.",
+            lead: "Stored, Formula or Rollup in the property forms",
+            body: "The schema page and the table's Add property sheet offer all three, and the result type is chosen beside the kind.",
           },
           {
-            lead: "Edit an expression and save it in place",
-            body: "A calculated property's definition opens in the schema editor; the kind and result type stay fixed, and the expression or rollup stays editable.",
+            lead: "A formula's fields and functions are listed",
+            body: "Formula help lists every field the type can read with its format and every function with its signature; both insert at the caret, and Tab takes the first suggestion.",
           },
           {
-            lead: "Formula suggestions while you type",
-            body: "The expression field offers the type's own property keys and the formula functions under the caret; Tab inserts the first match.",
+            lead: "A rollup offers only the targets its aggregate can read",
+            body: "The target list is the linked type's own fields, narrowed to the formats the aggregate accepts, so Sum never lists a text column.",
           },
           {
-            lead: "Rollups say what they do",
-            body: "The rollup form explains that it summarises linked records and describes the chosen aggregate, so Count, Sum, Minimum, Maximum and List are not guesses.",
+            lead: "A definition can be edited but not re-kinded",
+            body: "The expression or the rollup fields stay editable from the schema editor; Formula and Rollup cannot be swapped once the property exists.",
+          },
+          {
+            lead: "A refused definition keeps its fields",
+            body: "The server's sentence appears beside the field it names, the definition stays editable, and a property that could not join the type can be removed from the dialog.",
           },
         ],
       },
       {
-        title: "Manage the schema from the records",
+        title: "One read-only value on every surface",
         intro:
-          "Properties were only reachable from a record page or the schema page.",
+          "A derived value reads the same in the table, the record and the schema.",
         items: [
           {
-            lead: "Manage properties from any view",
-            body: "A Properties action beside Edit type opens the property manager over the table, board, gallery or calendar.",
+            lead: "A calculated field never offers an input",
+            body: "Cells, record fields and bulk edits exclude it, and a stored value on a calculated key is refused on write and dropped on read.",
           },
           {
-            lead: "A calculated reference blocks deletion",
-            body: "Deleting a property a formula or rollup still names lists those calculated properties and disables the delete.",
+            lead: "The kind and result travel with the name",
+            body: "Chips read Formula · Number or Rollup · List, the ledger's format line carries the same words, and a phone keeps a small glyph.",
+          },
+          {
+            lead: "The definition travels with the value",
+            body: "A record field and a cell tooltip caption the value with the expression or the rollup it came from.",
+          },
+          {
+            lead: "A list result is joined display text",
+            body: "A rollup list holds the labels a cell already shows (Monstera, Fern) and filters by contains, not_contains, is_empty and is_not_empty.",
+          },
+          {
+            lead: "Filter, sort and CSV read calculated columns",
+            body: "A calculated column filters and sorts like a stored one, CSV export carries its values, and an import cell on a calculated column is refused unless it is empty.",
+          },
+        ],
+      },
+      {
+        title: "References and compatibility",
+        intro:
+          "A calculation names other properties, so those names are guarded.",
+        items: [
+          {
+            lead: "Renaming a property rewrites what references it",
+            body: "A key rename rewrites every formula that reads it and every rollup that names it as a relation or a target property, in one write.",
+          },
+          {
+            lead: "A referenced property cannot be deleted",
+            body: "The refusal names each holding calculation, and force does not override it.",
+          },
+          {
+            lead: "The space upgrades to schema 7 on its first save",
+            body: "Calculated values are not files: they are absent from the markdown, the history snapshots, the search index and a CSV import, and a backup of the space carries only what is stored.",
           },
         ],
       },

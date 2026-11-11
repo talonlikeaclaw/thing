@@ -18,11 +18,12 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useCreateProperty,
   useCreateType,
+  useDeleteProperty,
   useTypes,
   useUpdateType,
   useUpdateView,
@@ -47,7 +48,8 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { readError } from "@/lib/display";
+import { readApiProblems, readError } from "@/lib/display";
+import { radioTargetIndex } from "@/lib/radio-keys";
 import { availableProperties, formatLabel, STORED_FORMATS } from "@/lib/schema";
 import { withColumn } from "@/lib/views";
 
@@ -137,16 +139,21 @@ export function AddPropertyDialog({
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [memberAdded, setMemberAdded] = useState(false);
   const [columnAdded, setColumnAdded] = useState(false);
-  const [error, setError] = useState<{ stage: Stage; message: string } | null>(null);
+  const [error, setError] = useState<{
+    stage: Stage;
+    message: string;
+    problems: ReturnType<typeof readApiProblems>;
+  } | null>(null);
   const [running, setRunning] = useState<Stage | null>(null);
-  const [locked, setLocked] = useState(false);
   const [pending, setPending] = useState(false);
+  const errorRef = useRef<HTMLDivElement | null>(null);
 
   const types = useTypes(spaceId);
   const createType = useCreateType(spaceId);
   const createProperty = useCreateProperty(spaceId);
   const updateType = useUpdateType(spaceId, type.key);
   const updateView = useUpdateView(spaceId, type.key, view?.key ?? "");
+  const removeCreated = useDeleteProperty(spaceId, createdKey ?? "");
   const toast = useToast();
 
   const existing = available.find((property) => property.key === existingKey);
@@ -169,7 +176,20 @@ export function AddPropertyDialog({
       : label !== "" &&
         computedDraftProblem(draft) === null &&
         (!relation || chosenTarget !== null || targetName.trim() !== "");
-  const frozen = locked || pending;
+  const frozen = pending;
+  /** Any stage that already wrote makes the inputs it used settled. */
+  const settled =
+    createdType !== null || createdKey !== null || memberAdded || columnAdded;
+  /** A created property cannot be edited from this dialog; Retry only resumes. */
+  const propertyFrozen = frozen || createdKey !== null || memberAdded;
+
+  // A failure at the bottom of a long sheet must not be invisible under the
+  // footer: bring the story and the server's sentence into view.
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [error]);
   const actionLabel = pending
     ? "Adding…"
     : error
@@ -219,7 +239,6 @@ export function AddPropertyDialog({
     if (pending || !ready) {
       return;
     }
-    setLocked(true);
     setPending(true);
     setError(null);
     try {
@@ -236,7 +255,11 @@ export function AddPropertyDialog({
           setCreatedType(created);
           targetKey = created.key;
         } catch (failure) {
-          setError({ stage: "type", message: readError(failure) });
+          setError({
+            stage: "type",
+            message: readError(failure),
+            problems: readApiProblems(failure),
+          });
           return;
         }
       }
@@ -256,7 +279,11 @@ export function AddPropertyDialog({
           added = property;
           setCreatedKey(key);
         } catch (failure) {
-          setError({ stage: "property", message: readError(failure) });
+          setError({
+            stage: "property",
+            message: readError(failure),
+            problems: readApiProblems(failure),
+          });
           return;
         }
       }
@@ -273,7 +300,11 @@ export function AddPropertyDialog({
           await updateType.mutateAsync({ properties: members });
           setMemberAdded(true);
         } catch (failure) {
-          setError({ stage: "member", message: readError(failure) });
+          setError({
+            stage: "member",
+            message: readError(failure),
+            problems: readApiProblems(failure),
+          });
           return;
         }
       }
@@ -288,7 +319,11 @@ export function AddPropertyDialog({
           });
           setColumnAdded(true);
         } catch (failure) {
-          setError({ stage: "view", message: readError(failure) });
+          setError({
+            stage: "view",
+            message: readError(failure),
+            problems: readApiProblems(failure),
+          });
           return;
         }
       }
@@ -374,14 +409,14 @@ export function AddPropertyDialog({
               <div role="tablist" aria-label="Property source" className="flex gap-1 border-b rule pb-2">
                 <TabButton
                   selected={mode === "existing"}
-                  disabled={frozen || available.length === 0}
+                  disabled={frozen || settled || available.length === 0}
                   onClick={() => setMode("existing")}
                 >
                   Existing
                 </TabButton>
                 <TabButton
                   selected={mode === "new"}
-                  disabled={frozen}
+                  disabled={frozen || settled}
                   onClick={() => setMode("new")}
                 >
                   New
@@ -401,7 +436,7 @@ export function AddPropertyDialog({
                       properties={available}
                       value={existingKey === "" ? null : existingKey}
                       onChange={setExistingKey}
-                      className={frozen ? "pointer-events-none opacity-60" : undefined}
+                      className={frozen || memberAdded || columnAdded ? "pointer-events-none opacity-60" : undefined}
                     />
                   </div>
                 ) : (
@@ -417,7 +452,7 @@ export function AddPropertyDialog({
                     required
                     maxLength={80}
                     autoFocus
-                    disabled={frozen}
+                    disabled={propertyFrozen}
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     placeholder="Artist"
@@ -428,8 +463,12 @@ export function AddPropertyDialog({
                     onChange={setDraft}
                     library={library}
                     type={type}
-                    disabled={frozen}
+                    spaceId={spaceId}
+                    disabled={propertyFrozen}
                     idPrefix="add-property"
+                    problem={
+                      error?.stage === "property" ? (error.problems[0] ?? null) : null
+                    }
                     renderStoredFormat={(disabled) => (
                       <fieldset>
                         <legend className="label mb-2">Format</legend>
@@ -438,7 +477,7 @@ export function AddPropertyDialog({
                           aria-label="Format"
                           className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
                         >
-                          {STORED_FORMAT_CARDS.map(({ format: value, description, Icon }) => {
+                          {STORED_FORMAT_CARDS.map(({ format: value, description, Icon }, index) => {
                             const selected = format === value;
                             return (
                               <button
@@ -447,8 +486,28 @@ export function AddPropertyDialog({
                                 role="radio"
                                 aria-checked={selected}
                                 aria-label={formatLabel(value)}
+                                tabIndex={selected ? 0 : -1}
                                 disabled={disabled}
                                 onClick={() => setDraft({ ...draft, format: value })}
+                                onKeyDown={(event) => {
+                                  const next = radioTargetIndex(
+                                    event.key,
+                                    index,
+                                    STORED_FORMAT_CARDS.length,
+                                  );
+                                  if (next === null) {
+                                    return;
+                                  }
+                                  event.preventDefault();
+                                  const buttons = Array.from(
+                                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                                      '[role="radio"]',
+                                    ) ?? [],
+                                  );
+                                  buttons[next]?.focus();
+                                  const target = STORED_FORMAT_CARDS[next]!;
+                                  setDraft({ ...draft, format: target.format });
+                                }}
                                 className={cn(
                                   "grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 rounded-[12px] border px-2.5 py-2 text-left transition-colors pointer-coarse:min-h-20",
                                   selected
@@ -532,7 +591,7 @@ export function AddPropertyDialog({
                         <input
                           type="checkbox"
                           checked={multi}
-                          disabled={frozen}
+                          disabled={propertyFrozen}
                           onChange={(event) => setMulti(event.target.checked)}
                         />
                         Several targets
@@ -587,10 +646,41 @@ export function AddPropertyDialog({
               ) : null}
 
               {error ? (
-                <div className="mt-4 grid gap-2">
+                <div ref={errorRef} className="mt-4 grid gap-2">
                   <p className="label text-danger">{STAGE_STORY[error.stage]}</p>
                   <FormError message={error.message} />
-                  {leftover ? (
+                  {error.stage === "member" && createdKey !== null ? (
+                    <div className="grid gap-1.5">
+                      <p className="text-[13px] text-muted">
+                        The property exists but is not on this type, so its result type is
+                        fixed. Remove it, correct the definition, then add it again.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-fit min-h-9 px-3 text-[13px]"
+                        disabled={removeCreated.isPending}
+                        onClick={async () => {
+                          try {
+                            await removeCreated.mutateAsync(false);
+                            setCreatedKey(null);
+                            setMemberAdded(false);
+                            setError(null);
+                          } catch {
+                            // The refusal stays beside the button.
+                          }
+                        }}
+                      >
+                        {removeCreated.isPending
+                          ? "Removing…"
+                          : "Remove the unfinished property"}
+                      </Button>
+                      <FormError
+                        message={removeCreated.error ? readError(removeCreated.error) : null}
+                      />
+                    </div>
+                  ) : null}
+                  {leftover && !(error.stage === "member" && createdKey !== null) ? (
                     <p className="text-[13px] text-muted">
                       What already succeeded is kept; Retry finishes without creating a second
                       type, property or member.
@@ -613,7 +703,7 @@ export function AddPropertyDialog({
                 >
                   Cancel
                 </Button>
-                {existing ? (
+                {mode === "existing" && existing ? (
                   <span className="ml-auto flex items-center gap-2">
                     <FormatChip>{formatLabel(existing.format)}</FormatChip>
                   </span>

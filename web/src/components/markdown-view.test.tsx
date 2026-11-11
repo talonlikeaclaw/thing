@@ -17,7 +17,7 @@ describe("MarkdownView images", () => {
     const image = container.querySelector("img");
     expect(image).toHaveAttribute("src", "/api/spaces/s1/files/ab/leaf.png");
     expect(image).toHaveAttribute("loading", "lazy");
-    expect(screen.getByRole("button", { name: "Open image leaf.png" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open image leaf" })).toBeInTheDocument();
   });
 
   it("leaves an external image alone and offers no lightbox", () => {

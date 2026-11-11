@@ -121,7 +121,7 @@ export function PropertyCell({
           "pointer-coarse:min-h-11",
         )}
         aria-readonly="true"
-        title={description || "Calculated"}
+        title={description || "Calculated value, read only"}
       >
         <PropertyValue
           property={property}

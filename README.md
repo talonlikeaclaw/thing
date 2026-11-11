@@ -41,7 +41,18 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 - **Schema where the data is.** A record's Properties header adds or manages fields and searches
   the list once it grows past eight; a property is chosen by typing its name, not scrolling a
   native select. The schema page is Types and Properties tabs with search and a phone master-detail
-  flow, and a column can be turned into a type.
+  flow, and a column can be turned into a type. Property formats are text, number, checkbox, date,
+  date-time, select, multi-select, relation, recurrence, URL, email, file, image and attachments.
+- **Calculated columns.** A property can hold a value the app derives instead of one you type:
+  a **formula** over the record's own fields and schedule keys
+  (`days(last_completed_at, today())`, `price * quantity`,
+  `if(stock > 0, "In stock", "Out")`), or a **rollup** that aggregates one of the record's relation
+  targets with `count`, `sum`, `min`, `max` or `list`. Both are created and edited in the same
+  property forms as stored ones, with the result type chosen beside the kind and a formula reference
+  that lists the fields and functions the type can use. A calculated value is read-only, filters,
+  sorts and exports like a stored one, and never reaches a file; `list` is a result type that joins
+  display labels (`Monstera, Fern`). Renaming a property rewrites every reference to it, and a
+  referenced property or rollup target type cannot be deleted while it is named.
 - **A column becomes a type.** Turn a text, select or multi-select column into a relation to a new
   type: preview every distinct value, link, view move and dropped filter, download a CSV backup,
   then run the migration as resumable target, link and finish stages. The column keeps its name
@@ -80,10 +91,12 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
-  Files are written as schema 6; every schema-1…5 file still loads, and a record's icon, cover and
-  cover framing are optional frontmatter keys rather than properties. Attachment bytes live beside
-  the markdown in each space's `files/` tree, named by their content, so a copy of the space
-  directory is the whole space.
+  Files are written as schema 7; every schema-1…6 file still loads, and a record's icon, cover and
+  cover framing are optional frontmatter keys rather than properties. A record's computed blocks —
+  a formula's expression, a rollup's relation and aggregate — are stored, but the values they
+  produce are not: a backup of the space carries what is stored, and calculated columns are
+  recomputed on read. Attachment bytes live beside the markdown in each space's `files/` tree,
+  named by their content, so a copy of the space directory is the whole space.
 - **One Rust core, reused.** `thing-core` holds the domain model, validation, query engine and
   file format. `thing-server` is the I/O shell, and later binaries (CLI, Tauri desktop, MCP
   server) link the same core.

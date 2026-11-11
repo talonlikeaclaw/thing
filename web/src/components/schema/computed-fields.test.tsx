@@ -132,7 +132,12 @@ describe("computed property authoring", () => {
     const draft = JSON.parse(screen.getByTestId("draft").textContent ?? "{}") as ComputedDraft;
     expect(draft.format).toBe("list");
     expect(draft.property).toBe("title");
-    expect(screen.getByRole("combobox", { name: "Result type" })).toBeDisabled();
+    expect(
+      screen.queryByRole("combobox", { name: "Result type" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Follows the aggregate and its target."),
+    ).toBeInTheDocument();
   });
 
   it("suggests the type's stored properties while typing an expression", () => {
@@ -174,7 +179,7 @@ describe("computed property authoring", () => {
     );
 
     expect(
-      screen.getByText(/summarises the records this row links to/),
+      screen.getByText(/Summarises the records a relation points at/),
     ).toBeInTheDocument();
     expect(screen.getByText("Counts the linked records this row has.")).toBeInTheDocument();
   });

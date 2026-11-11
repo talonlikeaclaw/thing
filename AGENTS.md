@@ -33,14 +33,16 @@ v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-
 links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-landing and rename
 repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4), and
 the v0.5.3 stability pass (`0.5.3`, schema 4), M6 files and images (`0.6.0`, schema 5) and M6.1
-attachments UX (`0.7.0`, schema 6) and the M6.2 workspace UX patch (`0.7.1`, schema 6) are
-implemented, not yet tagged or deployed; CI is green. The
+attachments UX (`0.7.0`, schema 6), the M6.2 workspace UX patch (`0.7.1`, schema 6) and M8
+calculated properties (`0.8.0`, schema 7) are implemented, not yet tagged or deployed; CI is green.
+The
 v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
 `SearchIndex` and `snippet`), `links` (`parse`, `LinkStatus`, the link and backlink views),
-`store` (`SpaceStore` trait + `FsSpaceStore`, the `files/` and `.thumbs/` path grammar, the
+`formula` (the expression lexer, parser, static type checker, evaluator and reference rewrite) and
+`compute` (property-definition validation and the request-scoped `Evaluator`), `store` (`SpaceStore` trait + `FsSpaceStore`, the `files/` and `.thumbs/` path grammar, the
 attachment reads and writes and `paths_in_body`), `validate` (objects, filters, sorts and
 `validate_views`), `filter`, `query` and `index` (`SpaceIndex`, including the derived search
 index, the folded title map that resolves `[[Type/Title]]` links, `outgoing_links`,
@@ -251,11 +253,29 @@ through `promote::plan`/`targets`/`links` and the `finish` route (`crates/core/s
 keeps the source key, moves view columns/sorts and empty filters, drops value filters with a
 warning, and leaves every old value in history. `FORMAT_VERSION` stays `6`; no dependency is added.
 
+M8 adds calculated properties at schema 7. `PropertyDef` gains an optional `compute` block —
+`kind: formula` with an `expression`, or `kind: rollup` with a `relation`, an optional `property` and
+an `aggregate` (`count`, `sum`, `min`, `max`, `list`) — while `format` stays the result type, plus
+one computed-only `list` format (`crates/core/src/model.rs`). `crates/core/src/formula.rs` holds a
+hand-written lexer, a Pratt parser, a static type checker, a non-panicking evaluator, the reference
+scan and the span-preserving rename rewrite (500 characters, 512 tokens, 32 nesting levels);
+`crates/core/src/compute.rs` validates a definition alone and against a type, and its `Evaluator`
+materializes values per request from one `today` in the space's zone, evaluating only the keys a
+list read needs. No calculated value is stored: `validate` refuses a computed key in frontmatter and
+a required calculated member, `properties`/`types` refuse a bad definition, `store/fs`'s key rename
+rewrites every reference, deletion of a referenced property or target type is a `409`, CSV export
+carries the values and import refuses a non-empty cell. The index reports hand-edited definitions in
+`computed_problems` without taking the space offline. On the web, `lib/schema.ts` exports the stored
+and result formats, `components/schema/computed-fields.tsx` is the one authoring form behind the
+schema page and Add property (with an insertable field/function reference), the cell and record
+field render read-only with the kind, result and definition, and `list` joins its labels. Schema 7,
+workspace `0.8.0`; no dependency is added.
+
 ## Where the plan lives
 
 | File | Role |
 |---|---|
-| `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M10, the delivery protocol, the deployment plan. |
+| `docs/ROADMAP.md` | **Read first.** Locked architecture decisions, the roadmap M1–M14, the delivery protocol, the deployment plan. |
 | `docs/plan/m1-engine-core.md` | The M1 execution spec: repo layout, exact dependencies, on-disk format, core and server design, web design, build order, verification, assumptions. |
 | `docs/plan/m2-scheduling-recurrence.md` | The M2 execution spec: schema 2, the schedule engine, implicit properties, Complete, agenda, web scheduling surfaces, verification. |
 | `docs/plan/m3-views.md` | The M3 execution spec: schema 3 named views, the four kinds, view CRUD and default, list projection, web view state and renderers, verification. |
@@ -272,7 +292,7 @@ warning, and leaves every old value in history. `FORMAT_VERSION` stays `6`; no d
 | `docs/plan/m6-files-and-images.md` | The v0.6.0 spec: canonical attachment bytes under `files/`, schema 5 with `cover` and the `file`/`image` formats, the upload/read/thumbnail routes, record and gallery covers, the lightbox, lifecycle and GC, CSV semantics, and the release pass. Landed as `0.6.0`, schema 5. |
 | `docs/plan/m6.1-attachments-ux.md` | The v0.7.0 spec: schema 6 and the `attachments` list format, labels and CSV paths, the lightbox carousel, the attachments field and its read surfaces, body images with their GC rule, the space library and storage settings, and the release pass. Landed as `0.7.0`, schema 6. |
 | `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Landed as `0.7.1`, schema 6. |
-| `docs/plan/m7-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Planned. |
+| `docs/plan/m8-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Landed as `0.8.0`, schema 7. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -315,7 +335,11 @@ lightbox carousel; the attachments field and its read surfaces; body images; the
 navigation and storage; version, docs and release QA) are landed at workspace `0.7.0`, and
 checkpoints 1–9 of M6.2 (the property picker; filter panel and chips; sort and columns over the
 table; add and manage properties from a record; schema tabs and palette lookup; promotion plan and
-targets; links and finish; the wizard; this release pass) are landed at workspace `0.7.1`.** M1 is
+targets; links and finish; the wizard; this release pass) are landed at workspace `0.7.1`, and
+checkpoints 1–8 of M8 (schema 7, `compute` and the `list` format; the formula language; the compute
+engine; server definitions, reads and write refusal; rename, delete and CSV; computed values on
+every read surface; formula and rollup authoring; this release pass) are landed at workspace
+`0.8.0`.** M1 is
 deployed; M2–M6.2 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
@@ -550,6 +574,10 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   search hit or a `[[Type/Title]]` link. A wiki link is body text, not a relation value. Exactly one
   live record of that type and title resolves; zero or many report `unknown`/`ambiguous`, and a
   trashed target never resolves.
+- **Calculated values are derived, never stored.** A property's `compute` block defines a value the
+  app materializes per request: it appears in no object frontmatter, history snapshot, search index
+  or file name, and `validate` refuses a stored value on a computed key. `format` stays the result
+  type, so a calculated column sorts, filters, renders and exports exactly like a stored one.
 - **One spelling per concept.** No aliases, shims or parallel grammars.
 - **Unknown keys are refused.** `deny_unknown_fields` on every document struct: a key this crate
   does not know is an error naming it, never a silent drop. `schema` is stripped and checked before
@@ -616,7 +644,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
-| `crates/core/src/markdown.rs` | The on-disk format (schema 6): object frontmatter, space/type/property YAML, legacy type-view normalization, history lines |
+| `crates/core/src/markdown.rs` | The on-disk format (schema 7): object frontmatter, space/type/property YAML including `compute`, legacy type-view normalization, history lines |
 | `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, `snooze` (with the shared `rephase_base`), `MAX_SNOOZE_DAYS`, recurrence labels |
 | `crates/core/src/search.rs` | The derived inverted index: `tokens` (lowercased alphanumeric runs, 64-char cap), `SearchIndex::upsert`/`remove`/`rebuild`/`query` with the pinned score and total order, and `snippet` for the matching body window |
 | `crates/core/src/links.rs` | The `[[Type/Title]]` grammar: `parse` (fences, inline code and escapes excluded, first slash, 200-char cap), `LinkStatus`/`LinkView`, relation and mention backlink shapes, and `excerpt` |

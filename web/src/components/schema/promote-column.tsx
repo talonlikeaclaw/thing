@@ -209,8 +209,8 @@ export function PromoteColumnDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
-        <SheetViewport>
+        <Dialog.Backdrop className="fixed inset-0 z-[55] scrim" />
+        <SheetViewport className="z-[60]">
           <SheetPopup className="sm:w-[42rem]">
             <SheetHeader>
               <SheetTitle className="min-w-0 flex-1 truncate">{title}</SheetTitle>
@@ -344,6 +344,13 @@ export function PromoteColumnDialog({
                     <Count label="Views" value={plan.views.length} />
                   </dl>
 
+                  {plan.source.trashed > 0 ? (
+                    <p className="text-[12px] text-muted">
+                      Records include {plan.source.trashed} in Trash; their values migrate too, so
+                      a restore keeps them.
+                    </p>
+                  ) : null}
+
                   {blocked ? (
                     <div className="border-l border-danger pl-3">
                       <p className="label text-danger">This column cannot be promoted</p>
@@ -432,15 +439,17 @@ export function PromoteColumnDialog({
                                       view.filters_moved === 1 ? "filter" : "filters"
                                     } move`
                                   : "",
-                                view.filters_dropped > 0
-                                  ? `${view.filters_dropped} ${
-                                      view.filters_dropped === 1 ? "filter" : "filters"
-                                    } drop`
-                                  : "",
                               ]
                                 .filter(Boolean)
                                 .join(" · ")}
                             </span>
+                            {view.filters_dropped > 0 ? (
+                              <span className="inline-flex items-center gap-1 text-warning">
+                                <TriangleAlert aria-hidden size={12} />
+                                {view.filters_dropped}{" "}
+                                {view.filters_dropped === 1 ? "filter" : "filters"} drop
+                              </span>
+                            ) : null}
                           </li>
                         ))}
                       </ul>

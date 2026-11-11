@@ -115,7 +115,7 @@ export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewPr
   }, [query]);
   const rootRef = useRef<HTMLDivElement | null>(null);
   /** The body's own images, at reading size, when the space can serve them. */
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ path: string; title: string } | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   /** The query this view already centred, so the same search does not fight a scroll. */
   const scrolledFor = useRef<string | null>(null);
@@ -229,14 +229,15 @@ export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewPr
           return picture;
         }
         const name = fileName(src);
+        const label = alt?.trim() || name;
         return (
           <button
             type="button"
-            aria-label={`Open image ${name}`}
+            aria-label={`Open image ${label}`}
             className="block max-w-full rounded-field transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             onClick={(event) => {
               opener.current = event.currentTarget;
-              setPreview(src);
+              setPreview({ path: src, title: label });
             }}
           >
             <img
@@ -273,7 +274,7 @@ export function MarkdownView({ text, links, spaceId, highlight }: MarkdownViewPr
       {preview && spaceId ? (
         <ImageLightbox
           spaceId={spaceId}
-          images={[{ path: preview, title: fileName(preview) }]}
+          images={[{ path: preview.path, title: preview.title }]}
           index={0}
           onIndexChange={() => {}}
           returnFocus={opener}

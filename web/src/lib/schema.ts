@@ -83,6 +83,21 @@ export function isComputed(property: PropertyDef): boolean {
   return property.compute !== undefined;
 }
 
+/**
+ * The one word a calculated property is called by, or `null` for a stored one.
+ * Every chip, caption and menu uses this so the two kinds never drift.
+ */
+export function computeKindLabel(property: PropertyDef): "Formula" | "Rollup" | null {
+  switch (property.compute?.kind) {
+    case "formula":
+      return "Formula";
+    case "rollup":
+      return "Rollup";
+    default:
+      return null;
+  }
+}
+
 /** The properties a write may carry a value for: a computed one never. */
 export function writableProperties(properties: readonly PropertyDef[]): PropertyDef[] {
   return properties.filter((property) => !isComputed(property));
@@ -142,20 +157,20 @@ export function computeDescription(
   const relation = nameOf(compute.relation, properties);
   switch (compute.aggregate) {
     case "count":
-      return `Calculated: count of ${relation || "related records"}`;
+      return `Rollup: count of ${relation || "related records"}`;
     case "sum":
     case "min":
     case "max": {
       const target = nameOf(compute.property, properties);
       const verb = compute.aggregate;
-      return `Calculated: ${verb} of ${target || "a value"} in ${relation || "related records"}`;
+      return `Rollup: ${verb} of ${target || "a value"} in ${relation || "related records"}`;
     }
     case "list": {
       const target = nameOf(compute.property, properties);
-      return `Calculated: list of ${target || "values"} in ${relation || "related records"}`;
+      return `Rollup: list of ${target || "values"} in ${relation || "related records"}`;
     }
     default:
-      return `Calculated from ${relation || "related records"}`;
+      return `Rollup from ${relation || "related records"}`;
   }
 }
 

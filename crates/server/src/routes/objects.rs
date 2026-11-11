@@ -252,10 +252,11 @@ async fn create(
         .filter_map(|(key, value)| value.map(|value| (key, value)))
         .collect();
     let now = OffsetDateTime::now_utc();
-    // A new record opens with its own name as a heading, so the body starts as
-    // recognizable markdown instead of an empty box with no context.
+    // The title lives in frontmatter; the body starts as the prose the reader
+    // writes, not a second copy of the title. A generated heading would also go
+    // stale the moment the title was renamed.
     let body_text = if body.body.trim().is_empty() {
-        format!("# {title}\n")
+        String::new()
     } else {
         body.body.clone()
     };

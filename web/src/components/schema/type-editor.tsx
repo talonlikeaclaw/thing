@@ -36,9 +36,9 @@ import {
 import {
   addProperty,
   availableProperties,
+  computeKindLabel,
   effectiveProperties,
   formatLabel,
-  isComputed,
   moveProperty,
   removeProperty,
   sameJson,
@@ -205,9 +205,9 @@ export function TypeEditor({
     const format = library.find((property) => property.key === key)?.format;
     return format ? formatLabel(format) : "unknown";
   };
-  const calculated = (key: string) => {
+  const kindOf = (key: string) => {
     const property = library.find((entry) => entry.key === key);
-    return property ? isComputed(property) : false;
+    return property ? computeKindLabel(property) : null;
   };
 
   return (
@@ -433,8 +433,9 @@ export function TypeEditor({
                     </span>
                   </span>
                   <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
-                    {formatOf(member.key)}
-                    {calculated(member.key) ? " · Calculated" : ""}
+                    {kindOf(member.key)
+                      ? `${kindOf(member.key)} · ${formatOf(member.key)}`
+                      : formatOf(member.key)}
                   </FormatChip>
                   <SmallButton
                     label={`Remove ${member.key}`}

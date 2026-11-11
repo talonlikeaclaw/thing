@@ -32,7 +32,7 @@ export function ErrorState({ error, subject = "This page", onRetry }: ErrorState
 
   return (
     <div className="settle grid max-w-[52ch] gap-3">
-      <h1 className="text-[26px] font-medium tracking-[-0.02em]">{classified.title}</h1>
+      <h1 className="display text-title">{classified.title}</h1>
       <p className="text-muted">{classified.message}</p>
       <div className="flex flex-wrap items-center gap-3">
         {classified.kind === "missing" || classified.kind === "forbidden" ? (

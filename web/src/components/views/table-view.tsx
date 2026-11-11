@@ -1,6 +1,7 @@
 import { Popover } from "@base-ui/react/popover";
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   ArrowUpDown,
   ArrowUpRight,
@@ -8,6 +9,8 @@ import {
   Copy,
   MoreHorizontal,
   Plus,
+  Sigma,
+  SquareFunction,
   Trash2,
 } from "lucide-react";
 import {
@@ -242,6 +245,29 @@ export function TableView({
   const [active, setActive] = useState<Cell | null>(null);
   /** A pinned title shows a stronger edge only once columns have slid under it. */
   const [scrolled, setScrolled] = useState(false);
+  /** More columns sit past the right edge, so the ledger offers a visible cue. */
+  const [moreRight, setMoreRight] = useState(false);
+
+  useLayoutEffect(() => {
+    const port = portRef.current;
+    const table = gridRef.current;
+    if (!port) {
+      return;
+    }
+    const update = () =>
+      setMoreRight(port.scrollLeft + port.clientWidth < port.scrollWidth - 2);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(port);
+    if (table) {
+      observer.observe(table);
+    }
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   useEffect(() => {
     if (rows.length === 0) {
@@ -474,7 +500,11 @@ export function TableView({
         bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-2",
       )}
       onKeyDown={onGridKeyDown}
-      onScroll={(event) => setScrolled(event.currentTarget.scrollLeft > 0)}
+      onScroll={(event) => {
+        setScrolled(event.currentTarget.scrollLeft > 0);
+        const el = event.currentTarget;
+        setMoreRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+      }}
     >
       <table
         ref={gridRef}
@@ -813,6 +843,12 @@ export function TableView({
         </tbody>
       </table>
     </div>
+    {!compact && moreRight ? (
+      <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted">
+        <ArrowRight aria-hidden size={12} />
+        Scroll sideways for every column
+      </p>
+    ) : null}
     </>
   );
 }
@@ -1036,10 +1072,16 @@ function HeaderSort({
   /** Phones drop the key surface; the label alone is the header. */
   showKey: boolean;
 }) {
-  // The key is the file format, not the label: it stays in the name and the
-  // tooltip, and appears over the first row only while the header is pointed
-  // at, so a permanent second line never truncates an identifier.
-  const named = `${label} (${columnKey})`;
+  // The header names the property and its format. The key stays a file-level
+  // detail: repeating it in a hover card and in the native title made three
+  // surfaces say the same thing, so the header has one visible state and an
+  // accessible sort name only.
+  const named = label;
+  const calculatedNote = calculated
+    ? calculated === "rollup"
+      ? ", rollup"
+      : ", formula"
+    : "";
   const state = sort
     ? sort.direction === "asc"
       ? "currently ascending"
@@ -1054,21 +1096,24 @@ function HeaderSort({
   return (
     <button
       type="button"
-      className="group/head relative flex w-full min-w-0 flex-col items-start justify-center gap-0 text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
-      title={`${named} — ${state}; activate to ${next}`}
-      aria-label={`Sort by ${named}, ${state}, activate to ${next}`}
+      className="flex w-full min-w-0 flex-col items-start justify-center gap-0 text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
+      aria-label={`Sort by ${named}${calculatedNote}, ${state}, activate to ${next}`}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
       <span className="flex w-full min-w-0 items-center gap-1">
         <span className={cn("truncate", sort && "text-ink")}>{label}</span>
-        {calculated ? (
+        {!showKey && calculated ? (
           <span
             role="img"
-            aria-label="Calculated column"
+            aria-label={calculated === "rollup" ? "Rollup column" : "Formula column"}
             title={calculated === "rollup" ? "Rollup" : "Formula"}
-            className="shrink-0 text-[length:var(--text-label)] leading-none text-faint"
+            className="flex shrink-0 items-center text-faint"
           >
-            {calculated === "rollup" ? "\u03a3" : "="}
+            {calculated === "rollup" ? (
+              <Sigma aria-hidden size={11} strokeWidth={1.75} />
+            ) : (
+              <SquareFunction aria-hidden size={11} strokeWidth={1.75} />
+            )}
           </span>
         ) : null}
         <span className="flex w-[11px] shrink-0 items-center">
@@ -1085,15 +1130,9 @@ function HeaderSort({
       </span>
       {format && showKey ? (
         <span className="mt-0.5 max-w-full min-w-0 truncate font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-faint uppercase">
-          {formatLabel(format)}
-        </span>
-      ) : null}
-      {showKey ? (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-full left-0 z-40 mt-1 hidden max-w-[18rem] rounded-[6px] border border-line bg-raised px-1.5 py-0.5 font-mono text-[length:var(--text-label)] leading-4 tracking-[0.06em] break-all text-muted normal-case group-focus/head:block group-hover/head:block"
-        >
-          {columnKey}
+          {calculated
+            ? `${calculated === "rollup" ? "Rollup" : "Formula"} · ${formatLabel(format)}`
+            : formatLabel(format)}
         </span>
       ) : null}
     </button>

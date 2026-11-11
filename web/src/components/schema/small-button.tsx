@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/controls";
 
-/** A 32px icon control that grows to 44px for a coarse pointer. */
+/** A 36px icon control that grows to 44px for a coarse pointer. */
 export function SmallButton({
   label,
   disabled,
@@ -21,7 +21,7 @@ export function SmallButton({
       aria-label={label}
       title={label}
       disabled={disabled}
-      className="min-h-8 min-w-8 px-1.5 text-[12px] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+      className="min-h-9 min-w-9 px-1.5 text-[12px] pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       onClick={onClick}
     >
       {children}

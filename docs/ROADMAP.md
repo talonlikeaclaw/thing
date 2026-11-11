@@ -100,11 +100,18 @@ material pass — frosted chrome over matte data, circular actions and pill cont
 are landed at workspace `0.5.2`; `FORMAT_VERSION` stays `4`, no route, permission or editor command
 changes, and no dependency is added beyond the font swap. Its device pass had emulation only, and
 the physical-iPhone gate remains open. The next milestone starts its own `docs/plan/mN-*.md`,
-written the way these were. M6–M10 are recorded here so the format does not
+written the way these were. M6–M14 are recorded here so the format does not
 need reshaping later; each carries its decisions already made. M6.2's workspace UX patch landed as
 `0.7.1`; its spec is at
-[`docs/plan/m6.2-workspace-ux.md`](plan/m6.2-workspace-ux.md). M7's execution spec is written and
-waiting at [`docs/plan/m7-computed-properties.md`](plan/m7-computed-properties.md).
+[`docs/plan/m6.2-workspace-ux.md`](plan/m6.2-workspace-ux.md). M8 landed as `0.8.0` with schema 7;
+its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properties.md).
+
+**Revised 2026-11-11:** milestone numbers now equal the workspace minor: computed properties is
+**M8** (`0.8.0`), the inserted patches are M8.1–M8.5, property model depth is M9 (`0.9.0`), view
+model depth is M10 (`0.10.0`) with M10.1–M10.2, the agent surface is M11, collaboration is M12,
+forms and public sharing are M13, and the desktop shell is M14. History depth is absorbed into
+M8.2; there is no separate history milestone. Revision notes dated before this one keep the labels
+they were written with.
 
 **Revised 2026-11-10:** M6.2 landed as workspace `0.7.1` with `FORMAT_VERSION` still `6`. It
 changed the surfaces computed properties will use — the property picker, the property sheet, the
@@ -334,29 +341,74 @@ usability move ahead of search.
   promoted to a relation to a newly created type, previewed, staged and linked with the original
   values kept in history and the original key restored. `FORMAT_VERSION` stays `6`. Nine
   checkpoints, landed.
-- **M7 — Computed properties.** **Planned**; spec:
-  [`docs/plan/m7-computed-properties.md`](plan/m7-computed-properties.md). A property gains an
+- **M8 — Computed properties.** **Implemented** (workspace `0.8.0`, not yet deployed; eight
+  checkpoints, schema 7); spec:
+  [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properties.md). A property gains an
   optional `compute` block: a `formula` over its own stored properties, or a `rollup` aggregating a
   relation's target property (`count`, `sum`, `min`, `max`, `list`). The result type stays the
-  property's `format`, with one new computed-only `list` format for label lists. Read-only values
-  are never stored in frontmatter, history or the search index; they are materialized per request
-  from the same markdown. Schema 7, workspace `0.8.0`. Adding a value the format can compute is the
-  next change to the model: it touches the property formats, the table, the filters and sorts and
-  CSV, so it lands before anything that would carry the format elsewhere.
-- **M8 — Agent surface.** Long-lived API tokens (a bearer alternative to the session cookie), a
-  generated OpenAPI document, and an MCP server exposing list/create/update/search over spaces.
-  This is what lets the user's omp agents drive their own app the way they drive the self-hosted
-  Anytype today.
-- **M9 — History depth.** Restore a past revision, undo the last write, and a space-wide activity
-  feed. M1's format already stores full property snapshots per revision, so this is addition, not
-  migration.
-- **M10 — Desktop.** Tauri shell around the built SPA with a local space directory that works
-  offline. Sync is per object: `GET /api/spaces/{space}/objects?since=<rev>` returns changed markdown
-  files verbatim, `PUT` sends the file back with `If-Match: <rev>`; a conflicting write is not merged
-  but both versions are kept (the loser lands in history and in `conflicts/`), because the format
-  cannot lose data it was given. Desktop runs last because it is the only milestone that duplicates
-  the storage, sync and conflict story, and it should carry a format and property model that have
-  stopped moving.
+  property's `format`, with one new computed-only `list` format for label lists. The formula language
+  is a hand-written lexer, Pratt parser, static type checker and non-panicking evaluator, with
+  definition errors as `422`s and per-request evaluation against one `today` in the space's zone;
+  the evaluator materializes only the keys a list read needs. Read-only values are never stored in
+  frontmatter, history or the search index; a stored value on a computed key is refused. Both kinds
+  are authored from the schema page and the table's add-property sheet with an insertable field and
+  function reference; cells and record fields render read-only with the kind, result and definition;
+  filter, sort and CSV read calculated columns, and CSV import refuses a non-empty calculated cell.
+  Renaming a key rewrites every reference, and deleting a referenced property or a rollup's target
+  type is a `409` that names the holder. The seed space's Plant type carries `days_since_watered`
+  (formula), `related_plants` (count) and `related_titles` (list).
+  - **M8.1 — Grid interaction.** `0.8.1`, no format change. Tab and Shift+Tab movement, rectangular
+    cell selection, copy a range as TSV or a markdown table, and an ephemeral aggregation footer
+    over the displayed rows. Read-only; every later grid write builds on this selection.
+  - **M8.2 — Trust and bulk writing.** `0.8.2`, no format change. Restore a revision, undo the last
+    write, compare any two revisions, a space activity feed, a trash purge preview, a conflict
+    inbox for an external edit that races a write, and the space doctor (unparsed files, dangling
+    relations, duplicate keys, invalid formula references, orphan bytes, index drift). TSV paste
+    reuses the CSV cell rules, and clear-range and bulk transforms ship only with undo. This
+    absorbs the former history-depth milestone.
+  - **M8.3 — Retrieval and capture.** `0.8.3`, no format change. Unlinked mentions with one-click
+    linking, a shared-context panel, relation previews, search filter chips and history,
+    cross-space results, a bookmarklet clipper and a PWA share target into Quick capture.
+  - **M8.4 — Portability and scripting.** `0.8.4`, no format change. A space export archive and
+    validated import, scheduled snapshots with restore, a `thing` CLI over the core, an `inbox/`
+    drop import with quarantined failures, static read-only publish, and JSON export for tooling.
+  - **M8.5 — Time and habit.** `0.8.5`, no format change. An ICS feed per scheduled type, completion
+    stats and streaks derived from revisions, a since-last-visit summary, and a daily-note route
+    with a browser-local daily type.
+- **M9 — Property model depth.** **Planned**; spec written when the milestone starts. Schema 8,
+  workspace `0.9.0`: validation (required, min/max, pattern, unique), create-time defaults,
+  rollup filters, a member/assignee format, relation target filters and a one-to-one constraint,
+  the `coalesce`/`contains`/`length`/`replace`/`date_add`/`format_date` formula additions, and the
+  shared daily type. It fixes property semantics before views and agents are built on them.
+- **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
+  workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
+  and list; conditional formatting as saved view rules; persisted aggregations, row height and
+  pinned columns; record layout; relation preview configuration; and saved cross-type queries.
+  - **M10.1 — Charts and overview.** `0.10.1`, schema 9. Chart view kinds (bar, line, pie), metric
+    blocks, and a space overview composed of pinned views — not a freeform block canvas.
+  - **M10.2 — Templates.** `0.10.2`, no format change. Record templates under `templates/<type>/`,
+    and type and space templates built from the export archive. They land after schema, defaults,
+    layouts and archive import, so a template carries a settled model.
+- **M11 — Agent surface.** **Planned.** Long-lived API tokens (a bearer alternative to the session
+  cookie), a generated OpenAPI document, an MCP server exposing list/create/update/search over
+  spaces, and signed outbound webhooks. This is what lets the user's omp agents drive their own app
+  the way they drive the self-hosted Anytype today, and the webhook surface gives external
+  automation without an in-server workflow engine.
+- **M12 — Collaboration depth.** **Planned.** Presence over the existing WebSocket, a per-user
+  watch/inbox, comments and mentions, an assignment UI over the member format, and a per-record
+  activity timeline. Comments prefer ordinary objects of a reserved type so the space gains no
+  second content store.
+- **M13 — Forms and public sharing.** **Planned.** A schema-driven form per type with chosen
+  fields, required flags, help text and uploads; public or authenticated submission behind a scoped
+  token with rate and size limits; and read-only share links for a record or saved view. This is
+  the first unauthenticated write surface, so it gets its own security pass.
+- **M14 — Desktop.** **Planned.** Tauri shell around the built SPA with a local space directory
+  that works offline. Sync is per object: `GET /api/spaces/{space}/objects?since=<rev>` returns
+  changed markdown files verbatim, `PUT` sends the file back with `If-Match: <rev>`; a conflicting
+  write is not merged but both versions are kept (the loser lands in history and in `conflicts/`),
+  because the format cannot lose data it was given. Desktop runs last because it is the only
+  milestone that duplicates the storage, sync and conflict story, and it should carry a format and
+  property model that have stopped moving.
 
 
 

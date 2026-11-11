@@ -20,9 +20,15 @@
   --color-faint: #8b948b;
   /* Glass is chrome only: nav, headers, toolbars, sheets, toasts, floating
      actions. It never sits under a table cell, a record body or a form grid. */
-  --color-glass: rgba(30, 38, 32, 0.55);
-  --color-glass-strong: rgba(36, 44, 38, 0.62);
+  --color-glass: rgba(30, 38, 32, 0.78);
+  --color-glass-strong: rgba(36, 44, 38, 0.84);
   --color-glass-edge: rgba(255, 255, 255, 0.12);
+  /* Chrome text is its own step: light enough (dark scheme) or dark enough
+     (light scheme) to hold 4.5:1 even when a bright photo fills the glass. */
+  --color-chrome-muted: #d7ded3;
+  --color-chrome-faint: #ccd4c9;
+  --color-chrome-danger: #ffb4a3;
+  --color-chrome-warning: #f2cd7c;
   --color-glass-hover: rgba(255, 255, 255, 0.07);
   /* The pane's menus sit over pictures, so their fill is the neutral ground
      rather than the green glass: text needs a tone the cover cannot take away. */
@@ -94,7 +100,7 @@
   --glass-saturate: 150%;
   /* The scrim dims and blurs the page; it never washes it with a colour. */
   --scrim-blur: 5px;
-  --scrim-dim: 0.9;
+  --scrim-dim: 0.55;
   /* One elevation family: a wide, low ambient shadow. No border-plus-halo ghost
      cards: a glass panel owns its edge and its shadow together, a matte card
      owns only its edge. */
@@ -225,9 +231,13 @@
     /* 4.64:1 on the inset, so the faintest label clears 4.5 on every scheme
        surface; the old #636960 measured 4.44 on the darker inset. */
     --color-faint: #60665d;
-    --color-glass: rgba(255, 255, 255, 0.6);
-    --color-glass-strong: rgba(252, 251, 246, 0.6);
+    --color-glass: rgba(255, 255, 255, 0.82);
+    --color-glass-strong: rgba(252, 251, 246, 0.86);
     --color-glass-edge: rgba(255, 255, 255, 0.85);
+    --color-chrome-muted: #464b43;
+    --color-chrome-faint: #4a4f47;
+    --color-chrome-danger: #8f2f1f;
+    --color-chrome-warning: #6b460a;
     --color-glass-hover: rgba(255, 255, 255, 0.55);
     --color-pane-wash: rgba(255, 255, 255, 0.7);
     --color-action-fallback: #ecece7;
@@ -239,7 +249,7 @@
     --color-warning: #7d5410;
     --shadow-float: 0 20px 44px -24px rgba(40, 44, 34, 0.28);
     --shadow-dock: 0 18px 36px -20px rgba(40, 44, 34, 0.24);
-    --scrim-dim: 0.96;
+    --scrim-dim: 0.8;
   }
 }
 
@@ -413,6 +423,21 @@
     -webkit-backdrop-filter: blur(18px) saturate(160%);
     backdrop-filter: blur(18px) saturate(160%);
     animation: pop-in var(--duration-base) var(--ease-out);
+  }
+
+  /*
+   * Chrome text is a separate step from data text. A bright cover can lift the
+   * glass to a mid tone; these values still clear 4.5:1 against that worst
+   * case. The photo viewer is exempt: it has its own neutral dark pane and
+   * white controls in both schemes.
+   */
+  .glass,
+  .glass-strong,
+  .sheet-popup:not([data-photo]) {
+    --color-muted: var(--color-chrome-muted);
+    --color-faint: var(--color-chrome-faint);
+    --color-danger: var(--color-chrome-danger);
+    --color-warning: var(--color-chrome-warning);
   }
 
   /*
@@ -994,4 +1019,15 @@
   tr[data-active="true"] .row-actions {
     opacity: 1;
   }
+}
+
+/*
+ * The outline-width utilities also set the outline colour to `currentColor`.
+ * This unlayered rule puts every focus ring back on the accent and on the 3px
+ * offset; the photo viewer is the one exception, because its neutral dark pane
+ * keeps the white ring it was designed with.
+ */
+:where(:not(.sheet-popup[data-photo] *)):focus-visible {
+  outline-color: var(--color-accent);
+  outline-offset: 3px;
 }

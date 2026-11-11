@@ -60,7 +60,7 @@ import { SortBar } from "@/components/sort-bar";
 import { ThingIcon } from "@/components/thing-icon";
 import { useQuickCapture } from "@/components/quick-capture";
 import { useTableShortcuts } from "@/components/table-shortcuts";
-import { Button, FormError, TextField } from "@/components/ui/controls";
+import { Button, FormError, TextField, focusRing } from "@/components/ui/controls";
 import {
   SheetCloseButton,
   SheetHeader,
@@ -860,7 +860,10 @@ export function TypeTable({
     <Link
       to={`/s/${spaceId}/schema?type=${encodeURIComponent(type.key)}#type-editor`}
       title={`Edit ${type.name} type`}
-      className="inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0"
+      className={cn(
+        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0",
+        focusRing,
+      )}
     >
       <Pencil aria-hidden size={14} />
       <span className="max-sm:sr-only">Edit type</span>
@@ -873,7 +876,10 @@ export function TypeTable({
       type="button"
       aria-label={`Manage ${type.name} properties`}
       title={`Manage ${type.name} properties`}
-      className="inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0"
+      className={cn(
+        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0",
+        focusRing,
+      )}
       onClick={() => setManageOpen(true)}
     >
       <ListTree aria-hidden size={14} />
@@ -1010,7 +1016,7 @@ export function TypeTable({
         tabIndex={dirty ? undefined : -1}
         className={cn(
           "min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11",
-          !dirty && "invisible",
+          !dirty && "invisible max-lg:hidden",
         )}
         disabled={!dirty || updateView.isPending}
         onClick={saveQuery}
@@ -1030,7 +1036,7 @@ export function TypeTable({
         tabIndex={hasOverrides ? undefined : -1}
         className={cn(
           "min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11",
-          !hasOverrides && "invisible",
+          !hasOverrides && "invisible max-lg:hidden",
         )}
         disabled={!hasOverrides}
         onClick={clearQuery}
@@ -1416,6 +1422,7 @@ export function TypeTable({
           open={columnsOpen}
           onOpenChange={setColumnsOpen}
           anchor={columnsButtonRef}
+          popoverClassName="w-[28rem]"
         >
           <ColumnPanel
             spaceId={spaceId}
@@ -1755,7 +1762,7 @@ function SearchBox({
         type="button"
         aria-label="Search titles and bodies"
         aria-expanded={false}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:text-ink"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent"
         onClick={() => onExpandedChange(true)}
       >
         <Search aria-hidden size={15} />

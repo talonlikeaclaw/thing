@@ -61,6 +61,10 @@ pub struct PromoteSource {
     pub split: Option<String>,
     /// Live and trashed records of the owning type.
     pub records: usize,
+    /// How many of `records` are live.
+    pub live: usize,
+    /// How many of `records` are in the trash.
+    pub trashed: usize,
     pub distinct: usize,
     pub empty: usize,
 }
@@ -442,6 +446,11 @@ pub fn plan(
     }
 
     let split = options.split.as_deref().map(str::trim);
+    let live = index
+        .objects()
+        .filter(|doc| doc.type_key == type_key)
+        .count();
+    let trashed = index.trash().filter(|doc| doc.type_key == type_key).count();
     let mut records = 0usize;
     let mut empty = 0usize;
     let mut links = 0usize;
@@ -595,6 +604,8 @@ pub fn plan(
             format: source_property.format,
             split: split.map(str::to_owned),
             records,
+            live,
+            trashed,
             distinct,
             empty,
         },
@@ -879,7 +890,7 @@ pub fn target_record(
         trashed_at: None,
         trashed_from: None,
         properties: BTreeMap::new(),
-        body: format!("# {title}\n"),
+        body: String::new(),
     }
 }
 
@@ -1150,6 +1161,8 @@ mod tests {
         assert!(plan.blocking.is_empty(), "{:?}", plan.blocking);
         assert_eq!(plan.source.key, "artist");
         assert_eq!(plan.source.records, 8);
+        assert_eq!(plan.source.live, 8);
+        assert_eq!(plan.source.trashed, 0);
         assert_eq!(plan.source.distinct, 6);
         assert_eq!(plan.source.empty, 2);
         assert_eq!(plan.target.key, "artist");

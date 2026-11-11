@@ -13,8 +13,8 @@ colors:
   ink: "#edf1e8"
   muted: "#a2ab9f"
   faint: "#8b948b"
-  glass: "rgba(30,38,32,0.55)"
-  glass-strong: "rgba(36,44,38,0.62)"
+  glass: "rgba(30,38,32,0.78)"
+  glass-strong: "rgba(36,44,38,0.84)"
   glass-edge: "rgba(255,255,255,0.12)"
   pane-wash: "rgba(10,14,11,0.62)"
   pane-glass: "color-mix(in srgb, {colors.accent} 10%, {colors.glass})"
@@ -160,8 +160,9 @@ no mascots, no playful colour, no card grid of trip tiles.
 **Key Characteristics:**
 - A top-lit green-black ground: `#141c16` at the top edge falling to `#0a0e0b` and
   `#070a08` at the bottom.
-- Frosted glass for chrome only: 55% fill at rest and 62% for sheets in dark, 60% white in
-  light, 18–24px blur, 150–160% saturation, one lit 1px edge, one wide ambient shadow.
+- Frosted glass for chrome only: 78% fill at rest and 84% for sheets in dark, 82% white
+  in light, 18–24px blur, 150–160% saturation, one lit 1px edge, one wide ambient shadow.
+  Chrome text has its own muted/faint step that stays at 4.5:1 even over a bright photo.
 - Matte, opaque surfaces for data: cards at `#151a16` (bone `#fbfaf5` in light) with a
   single hairline border and no blur.
 - Pills for actions and segments, circles for icon actions, 12/18/28px corners for
@@ -197,20 +198,27 @@ the accent carries state. No colour appears without a job.
 
 ### Glass
 - **Glass** (`{colors.glass}`): the resting chrome — app header, desktop rail, phone
-  dock, toolbars, menus, the record save row. Dark: `rgba(30,38,32,0.55)`; light:
-  `rgba(255,255,255,0.60)`.
+  dock, toolbars, menus, the record save row. Dark: `rgba(30,38,32,0.78)`; light:
+  `rgba(255,255,255,0.82)`.
 - **Glass Strong** (`{colors.glass-strong}`): surfaces that must stay readable while the page
   shows through — sheets, the command palette, menus, toasts, the bulk bar. Dark:
-  `rgba(36,44,38,0.62)`; light: `rgba(252,251,246,0.60)`.
+  `rgba(36,44,38,0.84)`; light: `rgba(252,251,246,0.86)`.
 - **Glass Edge** (`{colors.glass-edge}`): the 1px lit rim that gives the panel its edge.
 - Blur 24px at 150% saturation for chrome; 18–20px at 160% for menus and sheets,
   so what passes under stays legible as colour and shape. One wide shadow
   (`--shadow-float`; `--shadow-dock` on the dock). The edge and the shadow are one
   declaration; a glass panel never adds a second border or a ghost card.
 
+**The Chrome Text Rule.** Glass can sit over a user's brightest photo, and a bright
+backdrop lifts the composite. Chrome therefore carries its own text step —
+`--color-chrome-muted` and `--color-chrome-faint` in dark, a darker pair in light —
+which clears 4.5:1 against the lightest composite the fill can produce. Data surfaces
+keep `muted`/`faint`; the photo viewer is exempt.
+
 **The Scrim Is Not a Colour Rule.** An overlay scrim is the page itself, blurred and
-slightly dimmed. It never adds a coloured wash; a tint over the green ground reads as a
-flat plate and cheapens the glass.
+dimmed. It never adds a coloured wash; a tint over the green ground reads as a flat
+plate and cheapens the glass. Dim to 55% in dark and 80% in light so a bright photo
+under a sheet cannot turn the panel pale.
 
 **The Glass Is Chrome Rule.** Glass is allowed on navigation, headers, toolbars,
 overlays, menus, toasts and floating actions. It is never the ground of a table cell, a
@@ -406,6 +414,22 @@ a mono `n / count` counter, and the arrow keys step the same set. Escape closes 
 opened it, and the page behind does not scroll. A file value is not an image: it downloads,
 and never opens this overlay.
 
+**The Calculated Column.** A property the app derives is named for its
+kind, never called a generic "calculated" thing. Its chip reads `Formula · Number`
+or `Rollup · List` in the library, the type editor, the manage sheet and the columns
+panel; the ledger's format line carries the same words, and a phone keeps a small
+`SquareFunction` or `Sigma` glyph beside the label because the second line is dropped.
+The value itself is plain read-only data — no input, no hover editor — and the
+definition travels with it as a caption under the record field and a tooltip on the
+cell. A `list` result prints its labels as one truncated line joined by `, `, with the whole
+label in the cell's title, so a cell's height never depends on how many targets a rollup found.
+In the forms, Stored, Formula and Rollup each carry one sentence saying what the
+value is; a formula's help lists every field the type can read with its format and every
+function with its signature and one-line job, and a rollup offers only the target
+formats its aggregate can read. The result type is static once an aggregate and target
+decide it, never a disabled select that looks enabled. On a wide screen the property
+create form takes the editor column, so a formula is never written in the list strip.
+
 **The Ledger Table.** A type page is one glass panel above one matte ledger. The type
 masthead, the saved views and the search/Columns/Sort/Filter tools float together as the
 page's chrome; it scrolls with the page and never parks over the ledger's own column
@@ -599,7 +623,7 @@ sheets 28px. A single control never mixes corners.
   pane opens is the exception: it washes the neutral ground at 62% so a cover behind it
   cannot take the text away.
 - **Sheet and dialog.** One glass-strong panel at 28px, a 20px blur, and a scrim that only
-  blurs 5px and dims to 90% (96% in light) — no colour fill, so the page stays
+  blurs 5px and dims to 55% (80% in light) — no colour fill, so the page stays
   recognisable around and under the material, a 240ms rise from 18px, one close control (a 36px circle, 44px
   coarse) on the handed edge. The phone sheet floats 8px from the side and bottom edges.
 - **Toast.** Glass-strong at 18px with a mono action; the stack sits above the dock.
@@ -638,7 +662,8 @@ the destructive one a slot inward.
 ## Accessibility and inclusion
 
 The contrast floor is 4.5:1 for body and metadata text on the ground, the four matte
-steps, the accent wash and the glass composite at the lightest point of the gradient.
+steps, the accent wash and the glass composite at the lightest point of the gradient —
+including glass lifted by a bright cover, which is why chrome text has its own step.
 `lib/accent.test.ts` enforces the accent, on-wash, ink-on-wash and glass pairings. Focus
 is always visible with a 2px accent ring at 3px offset. Every icon-only control has an
 accessible name. The 11px label floor, the 44px coarse target and the 16px coarse input

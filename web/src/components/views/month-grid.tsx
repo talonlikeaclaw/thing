@@ -346,7 +346,7 @@ export function MonthGrid<T>({
                 <button
                   type="button"
                   aria-label="Close day"
-                  className="inline-flex h-7 w-7 items-center justify-center text-faint hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+                  className="inline-flex h-9 w-9 items-center justify-center text-faint hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
                   onClick={() => setDayOpen(null)}
                 >
                   <X aria-hidden size={13} />

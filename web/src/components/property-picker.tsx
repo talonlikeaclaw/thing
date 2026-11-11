@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useCoarsePointer, useCompactWidth } from "@/lib/media";
 import { groupProperties, searchProperties } from "@/lib/property-search";
-import { formatLabel } from "@/lib/schema";
+import { computeKindLabel, formatLabel } from "@/lib/schema";
 
 /** No context carries nothing; one shared set keeps the split allocation-free. */
 const NO_CARRIED: ReadonlySet<string> = new Set<string>();
@@ -123,7 +123,11 @@ export function PropertyPicker({
         {chosen ? (
           <>
             <span className="truncate font-medium text-accent">{chosen.name}</span>
-            <FormatChip>{formatLabel(chosen.format)}</FormatChip>
+            <FormatChip>
+              {computeKindLabel(chosen)
+                ? `${computeKindLabel(chosen)} · ${formatLabel(chosen.format)}`
+                : formatLabel(chosen.format)}
+            </FormatChip>
           </>
         ) : (
           <span className="truncate text-muted">{placeholder}</span>
@@ -334,7 +338,11 @@ function PropertyList({
             <span className="w-full text-[12px] text-muted">{description}</span>
           ) : null}
         </span>
-        <FormatChip>{formatLabel(property.format)}</FormatChip>
+        <FormatChip>
+          {computeKindLabel(property)
+            ? `${computeKindLabel(property)} · ${formatLabel(property.format)}`
+            : formatLabel(property.format)}
+        </FormatChip>
         {isChosen ? (
           <Check aria-hidden size={14} className="mt-0.5 shrink-0 text-accent" />
         ) : null}

@@ -10,10 +10,10 @@ import { SmallButton } from "@/components/schema/small-button";
 import { Button } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
 import { PositionMenu } from "@/components/ui/position-menu";
-import { useCoarsePointer, useCompactWidth } from "@/lib/media";
+import { useCoarsePointer } from "@/lib/media";
 import { searchProperties } from "@/lib/property-search";
 import { promotionBlocker } from "@/lib/promotion";
-import { formatLabel } from "@/lib/schema";
+import { computeKindLabel, formatLabel } from "@/lib/schema";
 import { moveViewColumnTo, withColumn, withoutColumn } from "@/lib/views";
 
 interface ColumnPanelProps {
@@ -31,10 +31,10 @@ interface ColumnPanelProps {
 }
 
 const ICON_BUTTON =
-  "inline-flex size-7 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:size-11";
+  "inline-flex size-9 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:size-11";
 
 /** A shown column, resolved to the property that names it. */
-type ShownColumn = Pick<PropertyDef, "key" | "name" | "format">;
+type ShownColumn = Pick<PropertyDef, "key" | "name" | "format" | "compute">;
 
 /** The key the row's edit action opens: the schema page's property editor. */
 function editHref(spaceId: string, key: string): string {
@@ -57,7 +57,6 @@ export function ColumnPanel({
   onAddProperty,
   id,
 }: ColumnPanelProps) {
-  const compact = useCompactWidth();
   const coarse = useCoarsePointer();
   const [query, setQuery] = useState("");
   const [promoteKey, setPromoteKey] = useState<string | null>(null);
@@ -68,7 +67,12 @@ export function ColumnPanel({
       .map((key) => {
         const property = propertyByKey.get(key);
         return property
-          ? { key: property.key, name: property.name, format: property.format }
+          ? {
+              key: property.key,
+              name: property.name,
+              format: property.format,
+              compute: property.compute,
+            }
           : { key, name: key, format: "text" as PropertyFormat };
       });
   }, [view.columns, properties]);
@@ -108,7 +112,7 @@ export function ColumnPanel({
           aria-label="Search properties"
           placeholder="Search properties."
           onChange={(event) => setQuery(event.target.value)}
-          className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
+          className="h-9 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
         />
         {total > 0 ? (
           <span className="tnum shrink-0 font-mono text-[11px] text-faint">
@@ -117,14 +121,26 @@ export function ColumnPanel({
         ) : null}
       </div>
 
-      <ul className="mt-2">
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-2 min-h-9 w-full justify-start px-2 text-[12px] pointer-coarse:min-h-11"
+        disabled={disabled}
+        onClick={onAddProperty}
+      >
+        <Plus aria-hidden size={14} />
+        Add property
+      </Button>
+
+      <ul className="mt-1">
         <li className="flex items-center gap-2 border-b rule py-1.5">
-          <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
-            {compact ? null : <span className="font-mono text-[11px] text-faint">title</span>}
-            <span className="text-[14px]">Title</span>
-            <FormatChip>{formatLabel("text")}</FormatChip>
+          <span className="min-w-0 flex-1 truncate text-[14px]">Title</span>
+          <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+            {formatLabel("text")}
+          </FormatChip>
+          <span className="flex w-[7.75rem] shrink-0 justify-end">
+            <span className="label">fixed first</span>
           </span>
-          <span className="label shrink-0">fixed first</span>
         </li>
         {shownMatches.map((column) => {
           const index = view.columns.indexOf(column.key);
@@ -133,13 +149,14 @@ export function ColumnPanel({
               {/* Canonical right-handed order ends at the thumb edge, so the
                   position selector is last; left mode reverses the row. */}
               <ThumbRow className="items-center gap-2 py-1.5">
-                <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
-                  {compact ? null : (
-                    <span className="font-mono text-[11px] text-faint">{column.key}</span>
-                  )}
-                  <span className="truncate text-[14px] text-accent">{column.name}</span>
-                  <FormatChip>{formatLabel(column.format)}</FormatChip>
+                <span className="min-w-0 flex-1 truncate text-[14px] text-accent">
+                  {column.name}
                 </span>
+                <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+                  {computeKindLabel(column)
+                    ? `${computeKindLabel(column)} · ${formatLabel(column.format)}`
+                    : formatLabel(column.format)}
+                </FormatChip>
                 <RowActions
                   spaceId={spaceId}
                   property={column}
@@ -179,13 +196,12 @@ export function ColumnPanel({
             {hiddenMatches.map((property) => (
               <li key={property.key} className="border-b rule">
                 <ThumbRow className="items-center gap-2 py-1.5">
-                  <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
-                    {compact ? null : (
-                      <span className="font-mono text-[11px] text-faint">{property.key}</span>
-                    )}
-                    <span className="truncate text-[14px]">{property.name}</span>
-                    <FormatChip>{formatLabel(property.format)}</FormatChip>
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[14px]">{property.name}</span>
+                  <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+                    {computeKindLabel(property)
+                      ? `${computeKindLabel(property)} · ${formatLabel(property.format)}`
+                      : formatLabel(property.format)}
+                  </FormatChip>
                   <Link
                     to={editHref(spaceId, property.key)}
                     aria-label={`Edit ${property.name} property`}
@@ -207,17 +223,6 @@ export function ColumnPanel({
           </ul>
         )}
       </div>
-
-      <Button
-        type="button"
-        variant="ghost"
-        className="mt-3 min-h-9 w-full justify-start px-3 text-[13px] pointer-coarse:min-h-11"
-        disabled={disabled}
-        onClick={onAddProperty}
-      >
-        <Plus aria-hidden size={15} />
-        Add property
-      </Button>
 
       {coarse ? (
         <p className="mt-3 text-[12px] text-faint">Column widths are set on a wide screen.</p>

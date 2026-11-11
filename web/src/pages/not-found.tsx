@@ -11,7 +11,7 @@ export function NotFoundPage() {
         <Wordmark />
       </header>
       <main className="settle py-20">
-        <h1 className="text-[28px] font-medium tracking-[-0.02em]">There is nothing at this path</h1>
+        <h1 className="display text-[28px]">There is nothing at this path</h1>
         <p className="mt-2 max-w-[48ch] text-muted">
           The address may be mistyped, or the space may have been deleted. The index knows only what
           is on disk.

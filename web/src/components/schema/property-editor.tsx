@@ -33,10 +33,11 @@ import {
 } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { readError } from "@/lib/display";
+import { readApiProblems, readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { promotionBlocker } from "@/lib/promotion";
 import {
+  computeKindLabel,
   formatLabel,
   hasOptions,
   isComputed,
@@ -220,14 +221,16 @@ export function PropertyEditorForm({
           </p>
         </FieldRow>
         {calculated ? (
-          <FieldRow label="Calculation">
+          <FieldRow label={computeKindLabel(property) ?? "Calculation"}>
             <ComputedFields
               draft={draft}
               onChange={setDraft}
               library={library}
+              spaceId={spaceId}
               existing
               disabled={!canEdit}
               idPrefix={`property-${property.key}`}
+              problem={readApiProblems(update.error)[0] ?? null}
             />
           </FieldRow>
         ) : null}
@@ -290,36 +293,39 @@ export function PropertyEditorForm({
               </li>
             ))}
             <li className="text-[13px] text-muted">
-              {usageRecords} live {usageRecords === 1 ? "record" : "records"} hold a value.
+              {usageRecords} live{" "}
+              {usageRecords === 1 ? "record holds" : "records hold"} a value.
             </li>
           </ul>
         )}
       </section>
 
-      <section aria-labelledby={`property-${property.key}-convert`} className="mt-8">
-        <SectionRule
-          id={`property-${property.key}-convert`}
-          level={3}
-          title="Convert"
-        />
-        <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
-          A text, select or multi-select column carried by one type can become a relation whose
-          targets are the values it already holds.
-        </p>
-        <Button
-          type="button"
-          variant="ghost"
-          className="mt-2 min-h-9 px-3 text-[13px]"
-          disabled={!convertible || !canEdit}
-          title={convertBlocker ?? undefined}
-          onClick={() => setPromoteOpen(true)}
-        >
-          Turn into a relation…
-        </Button>
-        {convertBlocker && canEdit ? (
-          <p className="mt-1 text-[12px] text-faint">{convertBlocker}</p>
-        ) : null}
-      </section>
+      {!calculated ? (
+        <section aria-labelledby={`property-${property.key}-convert`} className="mt-8">
+          <SectionRule
+            id={`property-${property.key}-convert`}
+            level={3}
+            title="Convert"
+          />
+          <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
+            A text, select or multi-select column carried by one type can become a relation whose
+            targets are the values it already holds.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2 min-h-9 px-3 text-[13px]"
+            disabled={!convertible || !canEdit}
+            title={convertBlocker ?? undefined}
+            onClick={() => setPromoteOpen(true)}
+          >
+            Turn into a relation…
+          </Button>
+          {convertBlocker && canEdit ? (
+            <p className="mt-1 text-[12px] text-faint">{convertBlocker}</p>
+          ) : null}
+        </section>
+      ) : null}
 
       {promoteOpen && convertOwner ? (
         <PromoteColumnDialog

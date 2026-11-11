@@ -22,6 +22,7 @@ import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { foldProperty, scoreProperty } from "@/lib/property-search";
 import {
+  computeKindLabel,
   effectiveMembers,
   effectiveProperties,
   formatLabel,
@@ -167,7 +168,7 @@ export function ManageProperties({
                       aria-label="Search properties"
                       placeholder="Search properties."
                       onChange={(event) => setQuery(event.target.value)}
-                      className="h-8 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
+                      className="h-9 min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-faint pointer-coarse:h-11 pointer-coarse:text-base max-sm:h-11 max-sm:text-base"
                     />
                     <span className="tnum shrink-0 font-mono text-[11px] text-faint">
                       {matches.length} of {rows.length}
@@ -177,7 +178,7 @@ export function ManageProperties({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="min-h-8 shrink-0 px-2 text-[12px] pointer-coarse:min-h-11"
+                      className="min-h-9 shrink-0 px-2 text-[12px] pointer-coarse:min-h-11"
                       disabled={pendingKey !== null}
                       onClick={() => setAdding(true)}
                     >
@@ -215,18 +216,21 @@ export function ManageProperties({
                       return (
                         <li key={member.key} className="border-b rule">
                           <ThumbRow className="items-center gap-2 py-1.5">
-                            <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+                            <span className="flex min-w-0 flex-1 items-baseline gap-2">
                               <span className="truncate text-[14px] text-accent">{name}</span>
-                              <span className="font-mono text-[11px] text-faint">
-                                {member.key}
-                              </span>
-                              <FormatChip>
-                                {property ? formatLabel(property.format) : "unknown"}
-                              </FormatChip>
-                              {generated ? <span className="label">generated</span> : null}
+                              {generated ? <span className="label shrink-0">generated</span> : null}
                             </span>
-                            {generated ? null : canEdit ? (
-                              <span className="flex items-center gap-1">
+                            <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
+                              {property
+                                ? computeKindLabel(property)
+                                  ? `${computeKindLabel(property)} · ${formatLabel(property.format)}`
+                                  : formatLabel(property.format)
+                                : "unknown"}
+                            </FormatChip>
+                            {generated || !canEdit ? (
+                              <span className="w-[7.75rem] shrink-0" />
+                            ) : (
+                              <>
                                 <SmallButton
                                   label={`Edit ${name}`}
                                   disabled={pendingKey !== null || property === undefined}
@@ -248,8 +252,8 @@ export function ManageProperties({
                                   disabled={pendingKey !== null}
                                   onMove={(position) => moveTo(member.key, position)}
                                 />
-                              </span>
-                            ) : null}
+                              </>
+                            )}
                           </ThumbRow>
                         </li>
                       );

@@ -7,7 +7,7 @@ const MENU_ITEM =
   "flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-[12px] text-ink hover:bg-[var(--color-accent-wash-hover)] focus:bg-[var(--color-accent-wash-hover)] focus:outline-none pointer-coarse:min-h-11";
 
 const TRIGGER =
-  "inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-line-strong/70 bg-surface px-1.5 font-mono text-[11px] text-ink transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:px-3";
+  "inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-line-strong/70 bg-surface px-1.5 font-mono text-[11px] text-ink transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:px-3";
 
 interface PositionMenuProps {
   /** The row this control moves, named in its accessible label. */

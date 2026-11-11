@@ -1,16 +1,19 @@
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router";
 
 import { useProperties, useSpace, useType, useTypes } from "@/api/queries";
 import { PropertyEditor } from "@/components/schema/property-editor";
-import { PropertyList } from "@/components/schema/property-list";
+import {
+  PropertyCreateForm,
+  PropertyList,
+} from "@/components/schema/property-list";
 import { TypeEditor } from "@/components/schema/type-editor";
 import { TypeList } from "@/components/schema/type-list";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
 import { useThumbHandedness } from "@/components/handedness";
-import { PageHeader } from "@/components/ui/page";
+import { EmptyState, PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
@@ -34,6 +37,7 @@ export function SchemaPage() {
   const compact = useCompactWidth();
   const handedness = useThumbHandedness();
 
+  const [creatingProperty, setCreatingProperty] = useState(false);
   const selectedTypeParam = params.get("type") ?? undefined;
   const selectedPropertyKey = params.get("property") ?? undefined;
   const tab: SchemaTab = selectedPropertyKey
@@ -85,11 +89,26 @@ export function SchemaPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [type.data]);
 
+  // A New property form may open in the editor column below the fold, or
+  // inline under a long list on a phone: bring it to the reader either way.
+  useEffect(() => {
+    if (!creatingProperty) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById("property-create")
+        ?.scrollIntoView({ block: "start", inline: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [creatingProperty]);
+
   /** Where the list was when a phone tapped into its editor. */
   const listScroll = useRef(0);
 
   const selectTab = useCallback(
     (nextTab: SchemaTab) => {
+      setCreatingProperty(false);
       const next = new URLSearchParams(params);
       next.set("tab", nextTab);
       if (nextTab === "types") {
@@ -115,6 +134,7 @@ export function SchemaPage() {
   }
 
   function selectProperty(key: string) {
+    setCreatingProperty(false);
     listScroll.current = window.scrollY;
     const next = new URLSearchParams(params);
     next.set("tab", "properties");
@@ -124,6 +144,16 @@ export function SchemaPage() {
     if (compact) {
       window.requestAnimationFrame(() => window.scrollTo({ top: 0 }));
     }
+  }
+
+  /** New property on a wide screen opens in the editor column, not the list. */
+  function startCreateProperty() {
+    setCreatingProperty(true);
+    const next = new URLSearchParams(params);
+    next.set("tab", "properties");
+    next.delete("property");
+    next.delete("type");
+    setParams(next, { replace: true, preventScrollReset: true });
   }
 
   function back(nextTab: SchemaTab) {
@@ -206,7 +236,7 @@ export function SchemaPage() {
       </div>
 
       {tab === "types" ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-6">
           {showTypeList ? (
             <div className="self-start rounded-[22px] border border-line bg-surface p-4">
               <TypeList
@@ -260,7 +290,7 @@ export function SchemaPage() {
           ) : null}
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-6">
           {showPropertyList ? (
             <div className="self-start rounded-[22px] border border-line bg-surface p-4">
               <PropertyList
@@ -271,18 +301,23 @@ export function SchemaPage() {
                 canEdit={canEdit}
                 onSelect={selectProperty}
                 onCreated={selectProperty}
+                creating={creatingProperty}
+                onCreatingChange={(next) =>
+                  next ? startCreateProperty() : setCreatingProperty(false)
+                }
+                inlineCreate={compact}
               />
             </div>
           ) : null}
           {showPropertyEditor ? (
-            <div className="min-w-0">
+            <div className="flex min-w-0 flex-col">
               {compact && selectedPropertyKey ? (
                 <BackButton
                   label="Back to properties"
                   onClick={() => back("properties")}
                 />
               ) : null}
-              <div className="rounded-[22px] border border-line bg-surface p-5">
+              <div className="flex min-h-[18rem] flex-1 flex-col rounded-[22px] border border-line bg-surface p-5">
                 {selectedProperty ? (
                   <PropertyEditor
                     key={selectedProperty.key}
@@ -293,12 +328,17 @@ export function SchemaPage() {
                     canEdit={canEdit}
                     onRenamed={selectProperty}
                   />
+                ) : creatingProperty && canEdit ? (
+                  <PropertyCreateForm
+                    spaceId={detail.id}
+                    properties={properties.data}
+                    types={types.data}
+                    canEdit={canEdit}
+                    onCreated={selectProperty}
+                    onCancel={() => setCreatingProperty(false)}
+                  />
                 ) : (
-                  <p className="max-w-[48ch] text-[13px] text-muted">
-                    Select a property to edit it, or create one to describe a new column. A
-                    property's format is fixed once it exists; its name, options and colours stay
-                    editable.
-                  </p>
+                  <EmptyState sentence="Select a property to edit it, or create one to describe a new column. A property's format is fixed once it exists; its name, options and colours stay editable." />
                 )}
               </div>
             </div>

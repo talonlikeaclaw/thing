@@ -414,9 +414,12 @@ describe("AddPropertyDialog", () => {
     fireEvent.pointerDown(list, { pointerType: "mouse" });
     fireEvent.click(list);
 
-    const result = screen.getByRole("combobox", { name: "Result type" });
-    expect(result).toBeDisabled();
-    expect(result).toHaveTextContent("List");
+    expect(
+      screen.queryByRole("combobox", { name: "Result type" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Follows the aggregate and its target."),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add property" }));
 
@@ -486,5 +489,152 @@ describe("AddPropertyDialog", () => {
     expect(
       screen.getByText("days(last_completed_at) is not a stored property of this type"),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AddPropertyDialog recovery", () => {
+  it("keeps a failed property stage editable so the format or expression can be fixed", async () => {
+    let propertyAttempts = 0;
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      if (method === "POST" && url.endsWith("/api/spaces/s1/properties")) {
+        propertyAttempts += 1;
+        if (propertyAttempts === 1) {
+          return jsonResponse(
+            {
+              error: {
+                code: "validation",
+                message: "compute.expression: expected a value at character 18",
+              },
+            },
+            422,
+          );
+        }
+        return jsonResponse(
+          {
+            key: "days_since_watered",
+            name: "Days since watered",
+            format: "number",
+            compute: {
+              kind: "formula",
+              expression: "days(last_completed_at, today())",
+            },
+          },
+          201,
+        );
+      }
+      if (method === "PATCH" && url.endsWith("/api/spaces/s1/types/album")) {
+        return jsonResponse(
+          album([{ key: "days_since_watered", required: false, featured: true }]),
+        );
+      }
+      throw new Error(`unstubbed ${method} ${url}`);
+    });
+
+    const onClose = vi.fn();
+    renderWithProviders(
+      <AddPropertyDialog spaceId="s1" type={album()} library={[]} onClose={onClose} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Days since watered" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Formula" }));
+    fireEvent.change(screen.getByLabelText("Expression"), {
+      target: { value: "days(last_completed_at" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+
+    expect(await screen.findByText("Could not create the property.")).toBeInTheDocument();
+    const expression = screen.getByLabelText("Expression");
+    expect(expression).toBeEnabled();
+
+    fireEvent.change(expression, {
+      target: { value: "days(last_completed_at, today())" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(propertyAttempts).toBe(2);
+  });
+
+  it("removes a property that could not join the type, returning to an editable form", async () => {
+    let deleted = "";
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? "GET";
+      if (method === "GET" && url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      if (method === "POST" && url.endsWith("/api/spaces/s1/properties")) {
+        return jsonResponse(
+          {
+            key: "watering_gap",
+            name: "Watering gap",
+            format: "number",
+            compute: { kind: "formula", expression: "days(last_completed_at, today())" },
+          },
+          201,
+        );
+      }
+      if (method === "PATCH" && url.endsWith("/api/spaces/s1/types/album")) {
+        return jsonResponse(
+          {
+            error: {
+              code: "validation_failed",
+              details: {
+                field: "format",
+                errors: [
+                  {
+                    field: "format",
+                    message: "the expression evaluates to a number, but the property is text",
+                  },
+                ],
+              },
+              message: "the expression evaluates to a number, but the property is text",
+            },
+          },
+          422,
+        );
+      }
+      if (method === "DELETE" && url.includes("/properties/watering_gap")) {
+        deleted = url;
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`unstubbed ${method} ${url}`);
+    });
+
+    renderWithProviders(
+      <AddPropertyDialog spaceId="s1" type={album()} library={[]} onClose={vi.fn()} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Watering gap" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Formula" }));
+    fireEvent.change(screen.getByLabelText("Expression"), {
+      target: { value: "days(last_completed_at, today())" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+
+    expect(
+      await screen.findByText("Could not add the property to this type."),
+    ).toBeInTheDocument();
+    const remove = screen.getByRole("button", {
+      name: "Remove the unfinished property",
+    });
+    expect(screen.getByLabelText("Expression")).toBeDisabled();
+
+    fireEvent.click(remove);
+
+    await waitFor(() => expect(deleted).toContain("/properties/watering_gap"));
+    expect(screen.getByLabelText("Expression")).toBeEnabled();
+    expect(
+      screen.queryByText("Could not add the property to this type."),
+    ).not.toBeInTheDocument();
   });
 });

@@ -53,18 +53,28 @@ the app through tokens and an MCP server the way it drives a self-hosted Anytype
 
 Milestone 1 (the engine core) delivers: user accounts, sessions and invites; spaces with owner,
 editor and viewer roles; user-defined types and properties with a defined set of formats (text,
-number, checkbox, date, datetime, select, multi-select, url, email, relation); object create, read,
+number, checkbox, date, datetime, select, multi-select, url, email, relation, file, image,
+attachments, plus the computed-only list); object create, read,
 update, delete with a markdown body; a live per-type table view with filters and sorts; read-only
 history; trash with restore and purge; external file edits noticed and reflected; a seed script;
 CI; and a container.
 
-The current workspace (`0.7.1`) treats schema as part of the data, not a separate admin page: a
+The current workspace (`0.8.0`) treats schema as part of the data, not a separate admin page: a
 record adds or manages its own fields, a property is selected by searching its name or key rather
 than a native select, the schema page is Types and Properties tabs, and filtering, sorting and
 columns edit one query whose chips stay visible over the ledger. A text, select or multi-select
 column can be promoted to a relation to a newly created type through a previewed, staged migration
-that keeps the original key and leaves every old value in history. None of this changes the file
-format.
+that keeps the original key and leaves every old value in history.
+
+A calculated column is a property whose value the app derives, never one it stores. Two kinds exist:
+a formula over the record's own stored properties and schedule keys, and a rollup aggregating one of
+the record's relation targets (`count`, `sum`, `min`, `max`, `list`). The property's `format` stays
+the result type, so a calculated number sorts, filters, renders and exports exactly like a stored
+number, and one computed-only `list` format holds joined display labels. Both kinds are authored in
+the same property forms as stored ones; the value is read-only on every surface, a stored value on a
+calculated key is refused, and no calculated value is written to the markdown, the history, the
+search index or a CSV import. Renaming a referenced property rewrites the reference, and deleting a
+referenced property or a rollup's target type is refused while it is named.
 
 Durable constraints: object identity is a UUIDv7 in frontmatter so renaming, retyping or moving a
 file never breaks a link; property and type keys are lowercase slugs unique per space and are what
@@ -78,7 +88,7 @@ frontmatter value is that path; a set of files is one ordered list of such paths
 spelling serves one attachment and many. A record's cover is a frontmatter key, not a property, and
 its focal point is stored as two percentages rather than a cropped copy, so the original bytes are
 never edited. A body that renders an attachment holds that reference too, so the bytes a body shows
-are never collected as unused. The reader writes schema 6 and still opens every schema-1…5 space,
+are never collected as unused. The reader writes schema 7 and still opens every schema-1…6 space,
 upgrading a file on its next write.
 
 ## Brand Commitments

@@ -1,11 +1,12 @@
-# M7 — Computed properties, schema 7, v0.8.0
+# M8 — Computed properties, schema 7, v0.8.0
 
 Target: workspace `0.8.0`, on-disk `schema: 7`. Eight checkpoints; one per turn under the AGENTS
 delivery protocol.
 
-**Status: planned 2026-11-07.** No M7 code has landed. The roadmap was renumbered on 2026-11-07 so
-this milestone comes before the agent surface and the desktop shell: computed values change the
-property model and every rendering surface, so they land while the format still moves.
+**Status: checkpoints 1–8 landed at workspace `0.8.0`.** The milestone was labelled M7 until
+2026-11-11, when the roadmap adopted the rule that a milestone's number equals its workspace
+minor (`M8` = `0.8.0`). Computed values change the property model and every rendering surface, so
+they land while the format still moves.
 
 ## Context
 
@@ -16,7 +17,7 @@ reads that stored value. The format has no notion of a value the app derives.
 M6.2 will land first with the property picker, property sheet and schema tabs this milestone
 extends; computed fields live in those surfaces rather than inventing a second editor.
 
-M7 adds two derived kinds:
+M8 adds two derived kinds:
 
 - **Formula** — an expression over the object's own stored properties, evaluated per record.
 - **Rollup** — an aggregate over the targets of one of the object's relation properties
@@ -502,7 +503,7 @@ definition from the schema page, and see the new column on the type page without
 - `Cargo.toml`, `web/package.json`, `web/package-lock.json` → `0.8.0`;
   `web/src/content/changelog.ts` gains a `0.8.0` entry "Calculated columns" with formulas,
   rollups, read-only cells, filter/sort/CSV behavior and the two seed examples.
-- `docs/ROADMAP.md`: the M7 entry points at this plan, states schema 7 and `v0.8.0`, and records
+- `docs/ROADMAP.md`: the M8 entry points at this plan, states schema 7 and `v0.8.0`, and records
   what landed.
 - `README.md`: the property-format list, a short calculated-property section with the formula
   grammar and the rollup rules, the backup note (computed values are not files), `schema: 7`.
@@ -510,7 +511,7 @@ definition from the schema page, and see the new column on the type page without
   value the app derives, never one it stores.
 - `DESIGN.md`: the computed cell marker, read-only field treatment and list chips; one visual
   language for formula and rollup descriptions.
-- `AGENTS.md`: current state through M7, the plan-table row for this file, `FORMAT_VERSION = 7`.
+- `AGENTS.md`: current state through M8, the plan-table row for this file, `FORMAT_VERSION = 7`.
 - `scripts/seed.sh`: add `days_since_watered` (formula number) and `related_plants` (rollup count)
   to the Plant type and its default view, after the type's relation property exists. Seed against a
   disposable space only; the fixed dev account and `./data` are untouched.
@@ -582,7 +583,7 @@ viewport (390 × 844) for the read-only cell and the authoring form. Tests alone
 
 - **No new dependency.** The lexer/parser is hand-written; the static checker is a small recursive
   pass. If a dependency looks tempting, stop and ask rather than changing a locked decision.
-- **Per-request evaluation is the M7 design.** `Evaluator::summaries` evaluates only the computed
+- **Per-request evaluation is the M8 design.** `Evaluator::summaries` evaluates only the computed
   keys the view, filter and sorts name. If a real space shows a hot spot, an index-side cache is a
   later optimisation, not a scope change; correctness first.
 - **A formula's static type is checked at type membership, not at property creation.** A property
@@ -597,10 +598,11 @@ viewport (390 × 844) for the read-only cell and the authoring form. Tests alone
 - **No physical device is attached to this machine.** Phone QA is emulation plus measured DOM; the
   v0.4.3 physical-iPhone gate remains open and still precedes any keyboard claim.
 
-## What M8 inherits
+## What M9 inherits
 
-The agent surface can expose `compute` on the property DTO and mark computed values read-only in
-the generated OpenAPI document. The evaluator is in the core, so an MCP server or a future Tauri
-shell links the same implementation rather than re-deriving values. Desktop sync does not need to
-carry computed values: they are not in the markdown, and a local core can evaluate them from the
-same files.
+M9's property-model depth extends this milestone rather than replacing it: validation and defaults
+validate the stored side of a property, and a rollup filter is a `ComputeDef` field evaluated by
+the same engine. The formula module stays the single expression implementation, so M11's agent
+surface exposes `compute` on the property DTO and marks computed values read-only in the generated
+OpenAPI document without re-deriving anything. M14's desktop shell links the same evaluator:
+computed values are not in the markdown, so sync never carries them.

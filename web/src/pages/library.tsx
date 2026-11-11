@@ -103,7 +103,7 @@ export function LibraryPage() {
       <PageHeader
         title="Library"
         sentence="Every file and photo in this space."
-        meta={`${data.items.length} files · ${formatBytes(data.total_bytes)}`}
+        meta={`${data.items.length} ${data.items.length === 1 ? "file" : "files"} · ${formatBytes(data.total_bytes)}`}
       />
       <LibraryGrid spaceId={detail.id} items={data.items} types={typeList} />
     </div>
@@ -339,7 +339,7 @@ function LibraryCard({
             {item.name}
           </span>
           {item.unused ? (
-            <span className="label shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[10px] text-muted">
+            <span className="label shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[11px] text-muted">
               Unused
             </span>
           ) : null}

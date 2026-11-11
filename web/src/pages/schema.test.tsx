@@ -175,7 +175,8 @@ describe("SchemaPage", () => {
     const names = rows.map((row) => row.textContent ?? "");
     expect(names[0]).toContain("Room");
     expect(names[1]).toContain("Bedroom");
-    expect(names[2]).toContain("room_type");
+    expect(names[2]).toContain("Category");
+    expect(screen.queryByText("room_type")).not.toBeInTheDocument();
     expect(screen.getByText("3 of 4")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search properties" }), {

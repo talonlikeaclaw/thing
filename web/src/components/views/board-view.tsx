@@ -80,7 +80,7 @@ export function BoardView({
           <section
             key={lane.key || "no-value"}
             aria-label={lane.label}
-            className="w-[17rem] shrink-0 border-t rule pt-2"
+            className="min-w-[15rem] flex-1 basis-[17rem] border-t rule pt-2 max-w-[24rem]"
           >
             <div className="flex items-baseline justify-between gap-2 border-b rule px-1 pb-1.5">
               <span className="label truncate">{lane.label}</span>

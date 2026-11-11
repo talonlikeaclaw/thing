@@ -35,8 +35,7 @@ function renderList() {
 describe("PropertyList", () => {
   it("marks a calculated definition with its result format", () => {
     renderList();
-    expect(screen.getByText("Calculated")).toBeInTheDocument();
-    expect(screen.getByText("Number")).toBeInTheDocument();
+    expect(screen.getByText("Formula · Number")).toBeInTheDocument();
   });
 
   it("never offers the calculated list format to a stored property", async () => {

@@ -9,7 +9,7 @@ import {
 import type { ReactNode } from "react";
 
 import { useThumbHandedness } from "@/components/handedness";
-import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
+import { SheetCloseButton, SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 
 /** Every surface the phone's one View sheet can show. */
@@ -68,14 +68,7 @@ export function ViewSheet({
     </button>
   );
   const close = (
-    <Dialog.Close
-      className={cn(
-        "label shrink-0 py-2 transition-colors hover:text-accent pointer-coarse:min-h-11",
-        handedness === "left" ? "-ml-1" : "-mr-1",
-      )}
-    >
-      Close
-    </Dialog.Close>
+    <SheetCloseButton label={`Close ${TITLES[panel].toLowerCase()}`} />
   );
   const title = (
     <Dialog.Title key="title" className="min-w-0 flex-1 truncate text-[17px] font-medium">
@@ -91,7 +84,7 @@ export function ViewSheet({
           <SheetPopup className="sm:w-[34rem]">
             <div
               className={cn(
-                "flex items-baseline gap-4 border-b rule px-4 py-3",
+                "flex items-center gap-4 border-b rule px-4 py-3",
                 handedness === "left" ? "justify-start" : "justify-between",
               )}
             >

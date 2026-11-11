@@ -14,7 +14,7 @@ thing/
 ├── DESIGN.md                   # authored by `impeccable document` once the UI exists (step 9)
 ├── AGENTS.md                   # ops/handoff doc (step 14); points at docs/ROADMAP.md
 ├── docs/
-│   ├── ROADMAP.md              # durable home of this plan: Context, Locked decisions, M1–M10,
+│   ├── ROADMAP.md              # durable home of this plan: Context, Locked decisions, M1–M14,
 │   │                           #   delivery protocol, deployment
 │   └── plan/m1-engine-core.md  # the M1 execution spec (§1–§10 of this plan)
 ├── Dockerfile                  # 3 stages: web build, rust build, runtime
@@ -328,7 +328,7 @@ Auth rules:
   `thing_session`, `HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000`, plus `Secure` when
   `THING_COOKIE_SECURE=true`. Expired sessions are rejected and deleted on use.
 - The WebSocket route accepts the cookie **or** `?session=<token>`, which is also the bearer path for
-  non-browser clients in M8.
+  non-browser clients in M11.
 
 ### Authorization
 

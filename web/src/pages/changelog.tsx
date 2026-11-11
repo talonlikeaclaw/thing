@@ -104,7 +104,7 @@ export function ChangelogPage() {
         </p>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,72ch)_15rem] xl:items-start xl:gap-12">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem] xl:items-start xl:gap-12">
         <nav
           aria-label="Versions"
           className="glass hidden rounded-[22px] p-4 xl:sticky xl:top-[calc(var(--shell-header-h)+0.5rem)] xl:col-start-2 xl:row-start-1 xl:block"

@@ -37,7 +37,7 @@ export function AgendaHorizons({
           className={cn(AGENDA_SEGMENT, stretch && "flex-1")}
           onClick={() => onChange(days)}
         >
-          {days}d
+          {days} days
         </button>
       ))}
     </div>

@@ -660,6 +660,8 @@ export interface PromoteSource {
   format: PropertyFormat;
   split?: string;
   records: number;
+  live: number;
+  trashed: number;
   distinct: number;
   empty: number;
 }

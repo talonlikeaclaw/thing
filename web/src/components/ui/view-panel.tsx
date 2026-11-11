@@ -29,6 +29,8 @@ interface ViewPanelProps {
   /** Sticky actions; the sheet adds the safe-area padding, the popover a rule. */
   footer?: ReactNode;
   className?: string;
+  /** The fine-pointer popover's own width; the phone sheet keeps its width. */
+  popoverClassName?: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export function ViewPanel({
   children,
   footer,
   className,
+  popoverClassName,
 }: ViewPanelProps) {
   const compact = useCompactWidth();
   const coarse = useCoarsePointer();
@@ -123,7 +126,8 @@ export function ViewPanel({
             aria-label={title}
             finalFocus={() => anchor.current ?? false}
             className={cn(
-              "glass-strong flex max-h-[min(34rem,calc(100dvh-6rem))] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-card",
+              "glass-strong flex max-h-[min(34rem,calc(100dvh-6rem))] w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-card",
+              popoverClassName,
               className,
             )}
           >
@@ -134,7 +138,7 @@ export function ViewPanel({
               <button
                 type="button"
                 aria-label={`Close ${title.toLowerCase()}`}
-                className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:size-11"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink pointer-coarse:size-11"
                 onClick={() => onOpenChange(false)}
               >
                 <X aria-hidden size={14} />

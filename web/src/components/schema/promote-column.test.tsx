@@ -41,6 +41,8 @@ function plan(overrides: Partial<PromotePlan> = {}): PromotePlan {
       name: "Nursery",
       format: "text",
       records: 4,
+      live: 4,
+      trashed: 0,
       distinct: 2,
       empty: 1,
     },

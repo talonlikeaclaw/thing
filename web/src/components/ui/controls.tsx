@@ -22,7 +22,7 @@ const buttonStyles: Record<ButtonVariant, string> = {
 
 /** The one focus treatment every control in the app inherits. */
 export const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  "focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent";
 
 interface ButtonProps extends ComponentProps<typeof BaseButton> {
   variant?: ButtonVariant;
@@ -279,6 +279,8 @@ interface SelectFieldProps {
   id?: string;
   disabled?: boolean;
   hint?: ReactNode;
+  /** The server's field-level refusal, named under the control it blocks. */
+  error?: string | null;
 }
 
 /** A Base UI select with the same field frame as a text input. */
@@ -290,6 +292,7 @@ export function SelectField({
   id,
   disabled,
   hint,
+  error,
 }: SelectFieldProps) {
   const fieldId = id ?? label.toLowerCase().replaceAll(" ", "-");
   const hintId = hint ? `${fieldId}-hint` : undefined;
@@ -310,9 +313,11 @@ export function SelectField({
       >
         <Select.Trigger
           id={fieldId}
+          aria-invalid={error ? true : undefined}
           className={cn(
             fieldFrame,
             "flex h-[var(--field-fine)] items-center justify-between gap-[var(--space-2)] text-left pointer-coarse:h-[var(--field-coarse)]",
+            error && "border-danger",
           )}
         >
           <Select.Value className="min-w-0 truncate" />
@@ -336,7 +341,7 @@ export function SelectField({
           </Select.Positioner>
         </Select.Portal>
       </Select.Root>
-      <FieldMessages hint={hint} hintId={hintId} />
+      <FieldMessages hint={hint} hintId={hintId} error={error ?? undefined} />
     </Field.Root>
   );
 }

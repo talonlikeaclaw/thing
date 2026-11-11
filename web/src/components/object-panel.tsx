@@ -1277,17 +1277,25 @@ export function ObjectPanel({
         </div>
 
         {canEdit ? (
-          <input
-            aria-label="Title"
-            className="display mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-title placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:min-h-11"
-            maxLength={200}
-            placeholder={`Untitled ${(type?.name ?? object.type).toLowerCase()}`}
-            disabled={update.isPending}
-            value={draft.title}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, title: event.target.value }))
-            }
-          />
+          <>
+            {/*
+              The title is an input for editors, so the page would otherwise
+              have no heading. Mirror the current title for heading navigation;
+              the input keeps its own "Title" name.
+            */}
+            <h1 className="sr-only">{draft.title.trim() || `Untitled ${(type?.name ?? object.type).toLowerCase()}`}</h1>
+            <input
+              aria-label="Title"
+              className="display mt-1 block min-h-10 w-full min-w-0 border-0 bg-transparent p-0 text-title placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent pointer-coarse:min-h-11"
+              maxLength={200}
+              placeholder={`Untitled ${(type?.name ?? object.type).toLowerCase()}`}
+              disabled={update.isPending}
+              value={draft.title}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, title: event.target.value }))
+              }
+            />
+          </>
         ) : (
           <h1 className="display mt-1 text-title">{draft.title}</h1>
         )}

@@ -91,7 +91,7 @@ describe("ViewSheet", () => {
   it("closes back to its opener", () => {
     renderWithProviders(<Host />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close view" }));
     expect(screen.queryByRole("button", { name: "Data — CSV" })).not.toBeInTheDocument();
   });
 });

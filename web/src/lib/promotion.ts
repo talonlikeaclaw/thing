@@ -16,6 +16,9 @@ export function temporaryKey(source: string): string {
 
 /** Why a property cannot be turned into a relation, or `null` when it can. */
 export function promotionBlocker(property: PropertyDef, owners: number): string | null {
+  if (property.compute) {
+    return "A calculated property cannot become a relation.";
+  }
   if (
     property.format !== "text" &&
     property.format !== "select" &&

@@ -3213,7 +3213,7 @@ mod tests {
                 )
                 .await;
             assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
-            assert_eq!(created.body["body"], "# Fern\n");
+            assert_eq!(created.body["body"], "");
 
             let id = created.body["id"].as_str().expect("an id");
             let detail = server
@@ -3224,7 +3224,7 @@ mod tests {
                     Some(&cookie),
                 )
                 .await;
-            assert_eq!(detail.body["body"], "# Fern\n");
+            assert_eq!(detail.body["body"], "");
 
             let written = server
                 .call(
@@ -3255,7 +3255,7 @@ mod tests {
                 "{:?}",
                 whitespace.body
             );
-            assert_eq!(whitespace.body["body"], "# Moss\n");
+            assert_eq!(whitespace.body["body"], "");
         });
     }
 

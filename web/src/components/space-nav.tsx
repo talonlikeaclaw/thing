@@ -200,7 +200,7 @@ export function SpaceNav({
     <Dialog.Trigger
       key="space-header"
       aria-label={`Switch space, currently ${space.data?.name ?? "this space"}`}
-      className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-field px-1.5 text-left transition-colors hover:bg-raised data-[popup-open]:text-ink"
+      className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-field px-1.5 text-left transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent data-[popup-open]:text-ink"
     >
       <ThingIcon icon={space.data?.icon} name={space.data?.name} size="sm" />
       <span className="min-w-0 flex-1 truncate text-[14px] text-ink">

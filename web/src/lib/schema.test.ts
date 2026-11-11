@@ -5,6 +5,7 @@ import {
   RESULT_FORMATS,
   STORED_FORMATS,
   computeDescription,
+  computeKindLabel,
   isComputed,
   rollupResultFormat,
   writableProperties,
@@ -42,6 +43,9 @@ describe("computed property helpers", () => {
   it("drops a calculated definition from the writable set", () => {
     expect(isComputed(label)).toBe(true);
     expect(isComputed(related)).toBe(false);
+    expect(computeKindLabel(label)).toBe("Formula");
+    expect(computeKindLabel(titles)).toBe("Rollup");
+    expect(computeKindLabel(related)).toBeNull();
     expect(writableProperties([related, label, titles]).map((entry) => entry.key)).toEqual([
       "related",
     ]);
@@ -66,9 +70,9 @@ describe("computed property helpers", () => {
           compute: { kind: "rollup", relation: "related", aggregate: "count" } },
         [related],
       ),
-    ).toBe("Calculated: count of Related");
+    ).toBe("Rollup: count of Related");
     expect(computeDescription(titles, [related])).toBe(
-      "Calculated: list of Title in Related",
+      "Rollup: list of Title in Related",
     );
     // A key whose definition is gone still reads as the key it names.
     expect(
@@ -77,6 +81,6 @@ describe("computed property helpers", () => {
           compute: { kind: "rollup", relation: "cupboard", property: "shelf", aggregate: "list" } },
         [],
       ),
-    ).toBe("Calculated: list of shelf in cupboard");
+    ).toBe("Rollup: list of shelf in cupboard");
   });
 });

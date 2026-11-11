@@ -44,7 +44,7 @@ import {
 import { valueLabel } from "@/lib/format";
 
 /** A property row's identity, which the picker needs for anything it lists. */
-type PickerProperty = Pick<PropertyDef, "key" | "name" | "format">;
+type PickerProperty = Pick<PropertyDef, "key" | "name" | "format" | "compute">;
 
 const VALUE_FRAME =
   "h-8 min-w-0 flex-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[12px] text-ink focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]";
@@ -91,8 +91,16 @@ export function FilterPanel({
 }: FilterPanelProps) {
   const choices = useMemo(() => filterChoices(type, properties), [type, properties]);
   const pickerProperties = useMemo<PickerProperty[]>(
-    () => choices.map((choice) => ({ key: choice.key, name: choice.label, format: choice.format })),
-    [choices],
+    () =>
+      choices.map((choice) => ({
+        key: choice.key,
+        name: choice.label,
+        format: choice.format,
+        // A calculated column is named on the picker chip, so a filter that
+        // names one never reads as a stored field.
+        compute: properties.find((property) => property.key === choice.key)?.compute,
+      })),
+    [choices, properties],
   );
   const [draft, setDraft] = useState<Condition[]>(filter.conditions);
   const published = useRef(filterParam(filter));
