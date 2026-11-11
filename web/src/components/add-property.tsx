@@ -1,23 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import {
-  Calendar,
-  CalendarClock,
-  Check,
-  CheckSquare,
-  CircleDot,
-  File,
-  Hash,
-  Image,
-  Link,
-  Link2,
-  ListChecks,
-  Mail,
-  Paperclip,
-  Repeat,
-  Type,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, X, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -30,6 +12,7 @@ import {
 } from "@/api/queries";
 import type { PropertyDef, PropertyFormat, TypeDef, ViewDef } from "@/api/types";
 import { useThumbHandedness } from "@/components/handedness";
+import { FORMAT_ICONS } from "@/components/format-icon";
 import { IconPicker } from "@/components/icon-picker";
 import {
   ComputedFields,
@@ -73,22 +56,24 @@ interface FormatCard {
 }
 
 /** One card per format: the glyph, the label and what the column is for. */
-const FORMAT_CARDS: FormatCard[] = [
-  { format: "text", description: "Names, notes and short written values.", Icon: Type },
-  { format: "number", description: "Amounts and measurements, sorted as numbers.", Icon: Hash },
-  { format: "checkbox", description: "A single yes or no.", Icon: CheckSquare },
-  { format: "date", description: "One calendar day.", Icon: Calendar },
-  { format: "datetime", description: "A day and a time.", Icon: CalendarClock },
-  { format: "select", description: "One option from a coloured list.", Icon: CircleDot },
-  { format: "multi_select", description: "Several options from one list.", Icon: ListChecks },
-  { format: "url", description: "A web address that opens.", Icon: Link2 },
-  { format: "email", description: "An address that opens mail.", Icon: Mail },
-  { format: "relation", description: "Records of another type.", Icon: Link },
-  { format: "recurrence", description: "A repeat cadence.", Icon: Repeat },
-  { format: "file", description: "One attachment of any kind.", Icon: File },
-  { format: "image", description: "One picture with a preview.", Icon: Image },
-  { format: "attachments", description: "An ordered set of files and pictures.", Icon: Paperclip },
-];
+const FORMAT_CARDS: FormatCard[] = (
+  [
+    { format: "text", description: "Names, notes and short written values." },
+    { format: "number", description: "Amounts and measurements, sorted as numbers." },
+    { format: "checkbox", description: "A single yes or no." },
+    { format: "date", description: "One calendar day." },
+    { format: "datetime", description: "A day and a time." },
+    { format: "select", description: "One option from a coloured list." },
+    { format: "multi_select", description: "Several options from one list." },
+    { format: "url", description: "A web address that opens." },
+    { format: "email", description: "An address that opens mail." },
+    { format: "relation", description: "Records of another type." },
+    { format: "recurrence", description: "A repeat cadence." },
+    { format: "file", description: "One attachment of any kind." },
+    { format: "image", description: "One picture with a preview." },
+    { format: "attachments", description: "An ordered set of files and pictures." },
+  ] as const
+).map((card) => ({ ...card, Icon: FORMAT_ICONS[card.format] }));
 
 /** The cards a stored property may pick; `list` is a calculated result. */
 const STORED_FORMAT_CARDS = FORMAT_CARDS.filter((card) =>

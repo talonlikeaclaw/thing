@@ -42,6 +42,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     upcoming: true,
     highlights: [
       "A column's menu offers Turn into a relation only for text, select and multi-select columns, instead of listing an action that cannot run.",
+      "A narrow column's header wraps its name instead of cutting it off, and the full name stays available on hover.",
+      "Every column's header starts at the same top edge, so a wrapped name never pulls its label or its sort arrow out of line.",
+      "A property's format sits on the header band's bottom edge, so every type reads at one height.",
+      "The Title column names its Text format with every other column.",
+      "A header shows its format as an icon when the words no longer fit, on the same line as the spelled formats, with the spelling on its tooltip.",
+      "On a phone every column header keeps its property type's icon beside the name, so a stored format reads as clearly as a calculated one.",
     ],
   },
   {

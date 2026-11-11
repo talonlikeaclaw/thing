@@ -20,6 +20,15 @@ if (typeof window !== "undefined") {
   if (typeof HTMLElement.prototype.scrollIntoView !== "function") {
     HTMLElement.prototype.scrollIntoView = () => undefined;
   }
+  // The table's width plan observes its scrollport; jsdom has no observer.
+  if (typeof globalThis.ResizeObserver !== "function") {
+    class ResizeObserverStub {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+  }
   // jsdom defines the method but logs "not implemented" when it is called.
   window.scrollTo = () => undefined;
 }

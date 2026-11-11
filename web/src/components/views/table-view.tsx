@@ -35,6 +35,7 @@ import type {
   WriteResult,
 } from "@/api/types";
 import { useThumbHandedness } from "@/components/handedness";
+import { FORMAT_ICONS } from "@/components/format-icon";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import { isEditableTarget } from "@/lib/hotkeys";
@@ -59,6 +60,10 @@ const COMPACT_VIEWER_WIDTH_COARSE = 52;
 const SELECT_WIDTH = 44;
 /** The trailing add-property header is a control, not a data column. */
 const ADD_PROPERTY_WIDTH = 132;
+/** One character's advance in the header's mono label size and tracking. */
+const FORMAT_TEXT_ADVANCE = 7.6;
+/** The header cell's right padding; the format words must clear it. */
+const HEADER_RIGHT_PADDING = 8;
 
 interface Cell {
   row: number;
@@ -230,7 +235,7 @@ export function TableView({
   const railSeamToneSelected = railBefore
     ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]"
     : null;
-  const railHeaderClass = cn("sticky z-30 h-11 rule p-0", railEdge);
+  const railHeaderClass = cn("sticky z-30 rule p-0", railEdge);
   const railBodyClass = cn("sticky z-20 rule py-1", railEdge);
 
   // Column 0 is the checkbox for editors, then the title, then properties.
@@ -538,12 +543,12 @@ export function TableView({
             "sticky top-0 z-30 bg-raised",
           )}
         >
-          <tr className="h-11 border-b rule">
+          <tr className="border-b rule [&>th]:align-top">
             {railBefore ? railHeaderCell : null}
             {showSelect ? (
               <th
                 scope="col"
-                className="sticky z-30 h-11 bg-raised p-0 text-center"
+                className="sticky z-30 bg-raised p-0 text-center"
                 style={{ left: railBefore ? openWidth : 0 }}
               >
                 <label className="inline-flex min-h-8 min-w-8 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11">
@@ -566,7 +571,7 @@ export function TableView({
             <th
               scope="col"
               className={cn(
-                "label relative sticky z-30 h-11 border-r rule p-0 pl-3 pr-3 font-medium",
+                "label relative sticky z-30 border-r rule p-0 pl-3 pr-2 font-medium",
                 "bg-raised",
                 scrolled && "border-line-strong",
               )}
@@ -576,6 +581,9 @@ export function TableView({
               <HeaderSort
                 columnKey="title"
                 label="Title"
+                /* The title is the table's one built-in text column; it names
+                   its format like every property so the band reads as one row. */
+                format="text"
                 sort={sortOf("title")}
                 onSort={onSort}
                 showKey={!compact}
@@ -592,6 +600,12 @@ export function TableView({
                   onCommit={(width) => resize("title", width)}
                 />
               ) : null}
+              <HeaderFormat
+                format="text"
+                showKey={!compact}
+                width={columnWidth("title")}
+                inset="left-3"
+              />
             </th>
             {columns.map((key) => {
               const property = propertyByKey.get(key);
@@ -600,7 +614,7 @@ export function TableView({
                 <th
                   key={key}
                   scope="col"
-                  className="label relative h-11 p-0 pr-3 font-medium"
+                  className="label relative p-0 pr-2 font-medium"
                   {...sortHeader(key)}
                 >
                   <HeaderSort
@@ -624,11 +638,17 @@ export function TableView({
                       onCommit={(width) => resize(key, width)}
                     />
                   ) : null}
+                  <HeaderFormat
+                    format={property?.format}
+                    calculated={property?.compute?.kind}
+                    showKey={!compact}
+                    width={columnWidth(key)}
+                  />
                 </th>
               );
             })}
             {showAddColumn ? (
-              <th scope="col" className="h-11 p-0 pr-2 text-left">
+              <th scope="col" className="p-0 pr-2 text-left">
                 <button
                   type="button"
                   aria-label="Add property"
@@ -640,7 +660,7 @@ export function TableView({
                 </button>
               </th>
             ) : null}
-            <th scope="col" aria-hidden className="h-11 p-0" />
+            <th scope="col" aria-hidden className="p-0" />
             {railBefore ? null : railHeaderCell}
           </tr>
         </thead>
@@ -1052,6 +1072,13 @@ function ColumnResizer({
   );
 }
 
+/** The words a header's format reads: the calculated kind first, then the format. */
+function headerFormatText(format: PropertyFormat, calculated?: ComputeKind): string {
+  return calculated
+    ? `${calculated === "rollup" ? "Rollup" : "Formula"} · ${formatLabel(format)}`
+    : formatLabel(format);
+}
+
 function HeaderSort({
   columnKey,
   label,
@@ -1063,25 +1090,38 @@ function HeaderSort({
 }: {
   columnKey: string;
   label: string;
-  /** A property header names its format under the label; the title column has none. */
+  /** A property header names its format on the bottom edge; the title has none. */
   format?: PropertyFormat;
   /** A calculated column marks itself; a stored one has no marker. */
   calculated?: ComputeKind;
   sort: Sort | undefined;
   onSort: (key: string, additive: boolean) => void;
-  /** Phones drop the key surface; the label alone is the header. */
+  /** Phones drop the format line; the glyph pair sits beside the label. */
   showKey: boolean;
 }) {
-  // The header names the property and its format. The key stays a file-level
-  // detail: repeating it in a hover card and in the native title made three
-  // surfaces say the same thing, so the header has one visible state and an
-  // accessible sort name only.
+  // The header names the property; the format sits on the band's bottom edge,
+  // so every column's type reads at one height however many lines the name
+  // takes. A phone drops that line, so the same glyph pair rides on the
+  // name's first line instead. A narrow column may clamp the name to three
+  // lines, so the full name stays the native tooltip and the sort control's
+  // accessible label.
   const named = label;
   const calculatedNote = calculated
     ? calculated === "rollup"
       ? ", rollup"
       : ", formula"
     : "";
+  const formatText = format ? headerFormatText(format, calculated) : null;
+  const FormatGlyph = format ? FORMAT_ICONS[format] : null;
+  const CalculatedGlyph = calculated === "rollup" ? Sigma : SquareFunction;
+  // A phone has no format line, so the glyph pair's spelling joins the sort
+  // control's accessible name; on a wide screen the visible words already do.
+  const formatNote =
+    format && showKey
+      ? calculatedNote
+      : formatText
+        ? `, ${formatText.replace(" · ", ", ").toLowerCase()}`
+        : calculatedNote;
   const state = sort
     ? sort.direction === "asc"
       ? "currently ascending"
@@ -1096,27 +1136,35 @@ function HeaderSort({
   return (
     <button
       type="button"
-      className="flex w-full min-w-0 flex-col items-start justify-center gap-0 text-left transition-colors hover:text-ink pointer-coarse:min-h-11"
-      aria-label={`Sort by ${named}${calculatedNote}, ${state}, activate to ${next}`}
+      className={cn(
+        "flex w-full min-w-0 flex-col items-start gap-0 px-0 py-1.5 text-left transition-colors hover:text-ink pointer-coarse:min-h-11",
+        format && showKey && "pb-6",
+      )}
+      aria-label={`Sort by ${named}${formatNote}, ${state}, activate to ${next}`}
+      title={named}
       onClick={(event) => onSort(columnKey, event.shiftKey)}
     >
-      <span className="flex w-full min-w-0 items-center gap-1">
-        <span className={cn("truncate", sort && "text-ink")}>{label}</span>
-        {!showKey && calculated ? (
+      {/* The glyphs stay on the first line's top edge, so a wrapped name never
+          shifts the sort indicator down with it: every column's arrow reads at
+          one height, the same as the name's first line. */}
+      <span className="flex w-full min-w-0 items-start gap-1">
+        <span className={cn("line-clamp-3 min-w-0 flex-1 break-words", sort && "text-ink")}>
+          {label}
+        </span>
+        {!showKey && formatText ? (
           <span
             role="img"
-            aria-label={calculated === "rollup" ? "Rollup column" : "Formula column"}
-            title={calculated === "rollup" ? "Rollup" : "Formula"}
-            className="flex shrink-0 items-center text-faint"
+            aria-label={`${formatText} column`}
+            title={formatText}
+            className="mt-[3px] flex shrink-0 items-center gap-1 text-faint"
           >
-            {calculated === "rollup" ? (
-              <Sigma aria-hidden size={11} strokeWidth={1.75} />
-            ) : (
-              <SquareFunction aria-hidden size={11} strokeWidth={1.75} />
-            )}
+            {calculated ? (
+              <CalculatedGlyph aria-hidden size={11} strokeWidth={1.75} />
+            ) : null}
+            {FormatGlyph ? <FormatGlyph aria-hidden size={11} strokeWidth={1.75} /> : null}
           </span>
         ) : null}
-        <span className="flex w-[11px] shrink-0 items-center">
+        <span className="mt-[3px] flex w-[11px] shrink-0 items-center">
           {sort ? (
             sort.direction === "asc" ? (
               <ArrowUp aria-hidden size={11} className="text-accent" />
@@ -1128,13 +1176,59 @@ function HeaderSort({
           )}
         </span>
       </span>
-      {format && showKey ? (
-        <span className="mt-0.5 max-w-full min-w-0 truncate font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-faint uppercase">
-          {calculated
-            ? `${calculated === "rollup" ? "Rollup" : "Formula"} · ${formatLabel(format)}`
-            : formatLabel(format)}
-        </span>
-      ) : null}
     </button>
+  );
+}
+
+/**
+ * The format line under a property's name. It is positioned against the header
+ * cell's bottom edge rather than the button, because the button only grows to
+ * its own text: the cell is as tall as the tallest name in the row, and every
+ * format must read at the same height. A narrow column shows the glyph pair
+ * and keeps the spelling as the tooltip.
+ */
+function HeaderFormat({
+  format,
+  calculated,
+  showKey,
+  width,
+  inset = "left-0",
+}: {
+  format?: PropertyFormat;
+  calculated?: ComputeKind;
+  showKey: boolean;
+  width: number;
+  /** The name's left inset; the cell's padding is outside the absolute box. */
+  inset?: string;
+}) {
+  if (!format || !showKey) {
+    return null;
+  }
+  const formatText = headerFormatText(format, calculated);
+  // Maple Mono at 11px with the label tracking advances about 7.6px per
+  // character; when the words cannot fit inside the cell's padding the header
+  // falls back to the format's glyph instead of clipping the spelling.
+  const formatFits =
+    width - HEADER_RIGHT_PADDING >= Math.ceil(formatText.length * FORMAT_TEXT_ADVANCE);
+  const FormatGlyph = FORMAT_ICONS[format];
+  const CalculatedGlyph = calculated === "rollup" ? Sigma : SquareFunction;
+  return (
+    <span
+      className={cn("pointer-events-none absolute right-0 bottom-1.5 flex h-[1.5em] items-center pr-2", inset)}
+      title={formatText}
+    >
+      {formatFits ? (
+        <span className="min-w-0 max-w-full truncate font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-faint uppercase">
+          {formatText}
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-faint">
+          {calculated ? (
+            <CalculatedGlyph aria-hidden size={11} strokeWidth={1.75} />
+          ) : null}
+          <FormatGlyph aria-hidden size={11} strokeWidth={1.75} />
+        </span>
+      )}
+    </span>
   );
 }

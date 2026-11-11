@@ -417,8 +417,9 @@ and never opens this overlay.
 **The Calculated Column.** A property the app derives is named for its
 kind, never called a generic "calculated" thing. Its chip reads `Formula · Number`
 or `Rollup · List` in the library, the type editor, the manage sheet and the columns
-panel; the ledger's format line carries the same words, and a phone keeps a small
-`SquareFunction` or `Sigma` glyph beside the label because the second line is dropped.
+panel; the ledger's format line carries the same words, and a phone drops that second
+line and keeps its glyph pair beside the label instead — the calculated kind's glyph
+first, then the format's — with the full spelling as the tooltip.
 The value itself is plain read-only data — no input, no hover editor — and the
 definition travels with it as a caption under the record field and a tooltip on the
 cell. A `list` result prints its labels as one truncated line joined by `, `, with the whole
@@ -438,7 +439,15 @@ no third: a raised band for the whole header row — Title and the checkbox cell
 and the card's surface for every body cell, the checkbox column and both action rails
 included. A pinned column keeps its rule and never changes fill to prove it is pinned.
 The band is a lid over the card, not a second surface; the selection and hover washes
-overlay both band and body. The card clips the table; the table scrolls inside it. The
+overlay both band and body. A header names its property in the ledger's mono label voice,
+starts at the band's top edge on every column, and may wrap onto up to three lines when the
+column is narrow, so shrinking a numeric column never costs the name; the full name stays
+the native tooltip and the sort control's accessible name. The format line sits on the band's
+bottom edge on every column, so every type reads at one height however tall the names are.
+It becomes its glyph when the words no longer fit — the calculated kind's glyph first, then
+the format's — and keeps the full spelling as its tooltip. The Title column is the table's
+built-in text column and names `Text` on the same edge. The card clips the table; the table
+scrolls inside it. The
 page's Filter never pushes the ledger down: it is an overlay, a glass popover under its own
 button on a fine pointer and the shared sheet on a phone, with the header and footer fixed
 and the middle scrolling. Sort and Columns follow the same rule: each is its own toolbar
