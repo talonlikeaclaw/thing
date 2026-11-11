@@ -357,9 +357,11 @@ usability move ahead of search.
   Renaming a key rewrites every reference, and deleting a referenced property or a rollup's target
   type is a `409` that names the holder. The seed space's Plant type carries `days_since_watered`
   (formula), `related_plants` (count) and `related_titles` (list).
-  - **M8.1 — Grid interaction.** `0.8.1`, no format change. Tab and Shift+Tab movement, rectangular
-    cell selection, copy a range as TSV or a markdown table, and an ephemeral aggregation footer
-    over the displayed rows. Read-only; every later grid write builds on this selection.
+  - **M8.1 — Grid interaction.** `0.8.1`, no format change; spec:
+    [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md) (written, not started).
+    Tab and Shift+Tab movement, rectangular cell selection, copy a range as TSV or a markdown
+    table, and an ephemeral aggregation footer over the displayed rows. Read-only; every later
+    grid write builds on this selection.
   - **M8.2 — Trust and bulk writing.** `0.8.2`, no format change. Restore a revision, undo the last
     write, compare any two revisions, a space activity feed, a trash purge preview, a conflict
     inbox for an external edit that races a write, and the space doctor (unparsed files, dangling
