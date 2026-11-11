@@ -37,6 +37,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Grid interaction",
+    upcoming: true,
+    highlights: [
+      "A column's menu offers Turn into a relation only for text, select and multi-select columns, instead of listing an action that cannot run.",
+    ],
+  },
+  {
     version: "0.8.0",
     title: "Calculated columns",
     date: "2026-11-11",

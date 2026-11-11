@@ -145,6 +145,15 @@ describe("ColumnPanel", () => {
     expect(screen.getByRole("menuitem", { name: "Turn into a relation…" })).toBeEnabled();
   });
 
+  it("does not offer conversion for a column format that cannot become a relation", () => {
+    renderWithProviders(<Host />);
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Bedroom" }));
+    expect(screen.getByRole("menuitem", { name: "Edit property" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "Turn into a relation…" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows each row's format beside its name", () => {
     renderWithProviders(<Host />);
     const shown = screen.getByRole("button", { name: "Hide Room" }).closest("li");

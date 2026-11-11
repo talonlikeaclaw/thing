@@ -241,10 +241,10 @@ export function ColumnPanel({
 }
 
 /**
- * The row's overflow menu: edit the property, or turn the column into a
- * relation. The conversion is disabled with the reason when the format cannot
- * become a relation; whether one type owns it is the plan's answer, shown in
- * the wizard before anything is written.
+ * The row's overflow menu: edit the property, and — only for a format that can
+ * become a relation — turn the column into one. Whether a promotable property
+ * is owned by this type alone is the plan's answer, shown in the wizard before
+ * anything is written.
  */
 function RowActions({
   spaceId,
@@ -257,7 +257,7 @@ function RowActions({
   disabled: boolean;
   onPromote: () => void;
 }) {
-  const blocker = promotionBlocker(property, 1);
+  const promotable = promotionBlocker(property, 1) === null;
   return (
     <Menu.Root>
       <Menu.Trigger
@@ -278,15 +278,15 @@ function RowActions({
               <Pencil aria-hidden size={14} className="text-faint" />
               Edit property
             </Menu.Item>
-            <Menu.Item
-              className="flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:min-h-11"
-              disabled={blocker !== null}
-              title={blocker ?? undefined}
-              onClick={onPromote}
-            >
-              <Link2 aria-hidden size={14} className="text-faint" />
-              Turn into a relation…
-            </Menu.Item>
+            {promotable ? (
+              <Menu.Item
+                className="flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
+                onClick={onPromote}
+              >
+                <Link2 aria-hidden size={14} className="text-faint" />
+                Turn into a relation…
+              </Menu.Item>
+            ) : null}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
