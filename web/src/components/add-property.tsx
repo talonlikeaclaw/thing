@@ -30,6 +30,13 @@ import {
 import type { PropertyDef, PropertyFormat, TypeDef, ViewDef } from "@/api/types";
 import { useThumbHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
+import {
+  ComputedFields,
+  computedDraftProblem,
+  computedPayload,
+  emptyComputedDraft,
+  type ComputedDraft,
+} from "@/components/schema/computed-fields";
 import { PropertyPicker } from "@/components/property-picker";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
@@ -41,7 +48,7 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
-import { availableProperties, formatLabel } from "@/lib/schema";
+import { availableProperties, formatLabel, STORED_FORMATS } from "@/lib/schema";
 import { withColumn } from "@/lib/views";
 
 type Stage = "type" | "property" | "member" | "view";
@@ -81,6 +88,11 @@ const FORMAT_CARDS: FormatCard[] = [
   { format: "attachments", description: "An ordered set of files and pictures.", Icon: Paperclip },
 ];
 
+/** The cards a stored property may pick; `list` is a calculated result. */
+const STORED_FORMAT_CARDS = FORMAT_CARDS.filter((card) =>
+  STORED_FORMATS.some((entry) => entry.value === card.format),
+);
+
 interface AddPropertyProps {
   spaceId: string;
   type: TypeDef;
@@ -115,7 +127,7 @@ export function AddPropertyDialog({
   const [mode, setMode] = useState<Mode>(available.length > 0 ? "existing" : "new");
   const [existingKey, setExistingKey] = useState(available[0]?.key ?? "");
   const [name, setName] = useState("");
-  const [format, setFormat] = useState<PropertyFormat>("text");
+  const [draft, setDraft] = useState<ComputedDraft>(emptyComputedDraft);
   const [targetType, setTargetType] = useState(NEW_TARGET);
   const [targetName, setTargetName] = useState("");
   const [targetPlural, setTargetPlural] = useState("");
@@ -139,7 +151,8 @@ export function AddPropertyDialog({
 
   const existing = available.find((property) => property.key === existingKey);
   const label = mode === "existing" ? (existing?.name ?? "") : name.trim();
-  const relation = mode === "new" && format === "relation";
+  const format = draft.format;
+  const relation = mode === "new" && draft.kind === "stored" && format === "relation";
   const createsType = relation && targetType === NEW_TARGET;
   const targetTypes = useMemo(
     () => types.data ?? [],
@@ -153,7 +166,9 @@ export function AddPropertyDialog({
   const ready =
     mode === "existing"
       ? existing !== undefined
-      : label !== "" && (!relation || chosenTarget !== null || targetName.trim() !== "");
+      : label !== "" &&
+        computedDraftProblem(draft) === null &&
+        (!relation || chosenTarget !== null || targetName.trim() !== "");
   const frozen = locked || pending;
   const actionLabel = pending
     ? "Adding…"
@@ -232,8 +247,8 @@ export function AddPropertyDialog({
         try {
           const property = await createProperty.mutateAsync({
             name: label,
-            format,
-            ...(format === "relation" && targetKey !== null
+            ...computedPayload(draft),
+            ...(relation && targetKey !== null
               ? { target_type: targetKey, multi }
               : {}),
           });
@@ -408,45 +423,55 @@ export function AddPropertyDialog({
                     placeholder="Artist"
                   />
 
-                  <fieldset>
-                    <legend className="label mb-2">Format</legend>
-                    <div
-                      role="radiogroup"
-                      aria-label="Format"
-                      className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
-                    >
-                      {FORMAT_CARDS.map(({ format: value, description, Icon }) => {
-                        const selected = format === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            role="radio"
-                            aria-checked={selected}
-                            aria-label={formatLabel(value)}
-                            disabled={frozen}
-                            onClick={() => setFormat(value)}
-                            className={cn(
-                              "grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 rounded-[12px] border px-2.5 py-2 text-left transition-colors pointer-coarse:min-h-20",
-                              selected
-                                ? "border-accent/60 bg-accent-wash text-accent-on-wash"
-                                : "border-line-interactive/70 bg-raised/30 text-ink hover:border-line-strong",
-                            )}
-                          >
-                            <Icon aria-hidden size={15} className="mt-0.5 text-muted" />
-                            <span className="min-w-0">
-                              <span className="block text-[13px] font-medium">
-                                {formatLabel(value)}
-                              </span>
-                              <span className="block text-[11px] leading-4 text-muted">
-                                {description}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </fieldset>
+                  <ComputedFields
+                    draft={draft}
+                    onChange={setDraft}
+                    library={library}
+                    type={type}
+                    disabled={frozen}
+                    idPrefix="add-property"
+                    renderStoredFormat={(disabled) => (
+                      <fieldset>
+                        <legend className="label mb-2">Format</legend>
+                        <div
+                          role="radiogroup"
+                          aria-label="Format"
+                          className="grid grid-cols-2 gap-1.5 sm:grid-cols-3"
+                        >
+                          {STORED_FORMAT_CARDS.map(({ format: value, description, Icon }) => {
+                            const selected = format === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                aria-label={formatLabel(value)}
+                                disabled={disabled}
+                                onClick={() => setDraft({ ...draft, format: value })}
+                                className={cn(
+                                  "grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 rounded-[12px] border px-2.5 py-2 text-left transition-colors pointer-coarse:min-h-20",
+                                  selected
+                                    ? "border-accent/60 bg-accent-wash text-accent-on-wash"
+                                    : "border-line-interactive/70 bg-raised/30 text-ink hover:border-line-strong",
+                                )}
+                              >
+                                <Icon aria-hidden size={15} className="mt-0.5 text-muted" />
+                                <span className="min-w-0">
+                                  <span className="block text-[13px] font-medium">
+                                    {formatLabel(value)}
+                                  </span>
+                                  <span className="block text-[11px] leading-4 text-muted">
+                                    {description}
+                                  </span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    )}
+                  />
 
                   {relation ? (
                     <div className="grid gap-3">

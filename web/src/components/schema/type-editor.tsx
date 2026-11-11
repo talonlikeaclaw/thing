@@ -38,6 +38,7 @@ import {
   availableProperties,
   effectiveProperties,
   formatLabel,
+  isComputed,
   moveProperty,
   removeProperty,
   sameJson,
@@ -203,6 +204,10 @@ export function TypeEditor({
   const formatOf = (key: string) => {
     const format = library.find((property) => property.key === key)?.format;
     return format ? formatLabel(format) : "unknown";
+  };
+  const calculated = (key: string) => {
+    const property = library.find((entry) => entry.key === key);
+    return property ? isComputed(property) : false;
   };
 
   return (
@@ -429,6 +434,7 @@ export function TypeEditor({
                   </span>
                   <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
                     {formatOf(member.key)}
+                    {calculated(member.key) ? " · Calculated" : ""}
                   </FormatChip>
                   <SmallButton
                     label={`Remove ${member.key}`}

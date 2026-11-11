@@ -37,6 +37,53 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Calculated columns",
+    upcoming: true,
+    summary:
+      "A property can now hold a value the app derives: a formula over the row's own fields, or a rollup over the records it links to.",
+    sections: [
+      {
+        title: "Author a calculation where properties live",
+        intro:
+          "Calculated fields used to be a definition you could only read, never write.",
+        items: [
+          {
+            lead: "Create formulas and rollups from the property forms",
+            body: "The schema page and the table's Add property sheet offer Stored, Formula and Rollup, with the result type the column will sort, filter and export as.",
+          },
+          {
+            lead: "Edit an expression and save it in place",
+            body: "A calculated property's definition opens in the schema editor; the kind and result type stay fixed, and the expression or rollup stays editable.",
+          },
+          {
+            lead: "Formula suggestions while you type",
+            body: "The expression field offers the type's own property keys and the formula functions under the caret; Tab inserts the first match.",
+          },
+          {
+            lead: "Rollups say what they do",
+            body: "The rollup form explains that it summarises linked records and describes the chosen aggregate, so Count, Sum, Minimum, Maximum and List are not guesses.",
+          },
+        ],
+      },
+      {
+        title: "Manage the schema from the records",
+        intro:
+          "Properties were only reachable from a record page or the schema page.",
+        items: [
+          {
+            lead: "Manage properties from any view",
+            body: "A Properties action beside Edit type opens the property manager over the table, board, gallery or calendar.",
+          },
+          {
+            lead: "A calculated reference blocks deletion",
+            body: "Deleting a property a formula or rollup still names lists those calculated properties and disables the delete.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.7.1",
     title: "Workspace craft",
     date: "2026-11-10",

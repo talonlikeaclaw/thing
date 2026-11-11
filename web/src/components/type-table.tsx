@@ -5,6 +5,7 @@ import {
   Columns3,
   FileSpreadsheet,
   ListFilter,
+  ListTree,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -54,6 +55,7 @@ import { AddPropertyDialog } from "@/components/add-property";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterChips, FilterPanel } from "@/components/filter-panel";
+import { ManageProperties } from "@/components/manage-properties";
 import { SortBar } from "@/components/sort-bar";
 import { ThingIcon } from "@/components/thing-icon";
 import { useQuickCapture } from "@/components/quick-capture";
@@ -168,6 +170,7 @@ export function TypeTable({
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(() => params.get("settings") === "1");
@@ -863,17 +866,33 @@ export function TypeTable({
       <span className="max-sm:sr-only">Edit type</span>
     </Link>
   ) : null;
+  // Properties sit beside the type they belong to: both edit the schema, so
+  // they share the header's action cluster instead of hiding in a menu.
+  const manageButton = canEdit ? (
+    <button
+      type="button"
+      aria-label={`Manage ${type.name} properties`}
+      title={`Manage ${type.name} properties`}
+      className="inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0"
+      onClick={() => setManageOpen(true)}
+    >
+      <ListTree aria-hidden size={14} />
+      <span className="max-sm:sr-only">Properties</span>
+    </button>
+  ) : null;
   // The title leads. On a phone the action pair takes its own full-width line,
   // so the primary New action reaches the thumb edge; on desktop it stays the
   // header's trailing cluster.
   const recordActions = compact ? (
     <ThumbRow className="w-full items-center gap-3">
       {editTypeLink}
+      {manageButton}
       {newRecordButton}
     </ThumbRow>
   ) : (
     <div className="flex shrink-0 items-center gap-3">
       {editTypeLink}
+      {manageButton}
       {newRecordButton}
     </div>
   );
@@ -1209,6 +1228,17 @@ export function TypeTable({
           library={library}
           view={view}
           onClose={() => setAddPropertyOpen(false)}
+        />
+      ) : null}
+
+      {canEdit && manageOpen ? (
+        <ManageProperties
+          spaceId={spaceId}
+          type={type}
+          library={library}
+          canEdit={canEdit}
+          view={view}
+          onClose={() => setManageOpen(false)}
         />
       ) : null}
 

@@ -6,6 +6,7 @@ import { ApiError, downloadFile, isUnauthenticated, request, sendCsv, sendFile }
 import type {
   Agenda,
   AgendaQuery,
+  ComputeDef,
   CreateInviteResult,
   CreateView,
   CsvImportResult,
@@ -458,11 +459,15 @@ export interface NewProperty {
   options?: OptionInput[];
   target_type?: string;
   multi?: boolean;
+  /** Present only for a calculated property; the format is its result. */
+  compute?: ComputeDef;
 }
 
 export interface UpdateProperty {
   name?: string;
   options?: OptionInput[];
+  /** Present only for an already-calculated property; the kind is fixed. */
+  compute?: ComputeDef;
 }
 
 export function useCreateProperty(spaceId: string) {

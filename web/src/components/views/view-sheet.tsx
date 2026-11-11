@@ -1,5 +1,11 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { ArrowUpDown, Columns3, FileSpreadsheet, Plus, Settings2 } from "lucide-react";
+import {
+  ArrowUpDown,
+  Columns3,
+  FileSpreadsheet,
+  Plus,
+  Settings2,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useThumbHandedness } from "@/components/handedness";

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Builds the "Garden" demo space through the API: two scheduled types, four
-# shared properties, eight records and five Plant views (the default table, a
-# room board, a gallery, a watering calendar and a nurseries table). Dates are
-# relative to Montreal's calendar day so the Schedule page starts with real
-# overdue and upcoming work.
+# Builds the "Garden" demo space through the API: two scheduled types, seven
+# shared properties (three of them calculated), eight records and five Plant
+# views (the default table, a room board, a gallery, a watering calendar and a
+# nurseries table). Dates are relative to Montreal's calendar day so the
+# Schedule page starts with real overdue and upcoming work.
 #
 # The Nursery text column is the promotion fixture: two distinct values, three
 # links, one empty value, a column move, a sort, a moved is_not_empty filter and
@@ -164,7 +164,18 @@ request POST "/api/spaces/$space/properties" \
     '{"name":"Related plant","format":"relation","target_type":"plant"}' >/dev/null
 request POST "/api/spaces/$space/properties" \
     '{"name":"Nursery","format":"text"}' >/dev/null
-echo "seed: properties room, tags, related_plant, nursery"
+# Two ways to derive a value from what the row already has: a formula over its
+# own schedule keys, and a rollup over the records its relation links to.
+request POST "/api/spaces/$space/properties" \
+    '{"name":"Days since watered","format":"number",
+      "compute":{"kind":"formula","expression":"days(last_completed_at, today())"}}' >/dev/null
+request POST "/api/spaces/$space/properties" \
+    '{"name":"Related plants","format":"number",
+      "compute":{"kind":"rollup","relation":"related_plant","aggregate":"count"}}' >/dev/null
+request POST "/api/spaces/$space/properties" \
+    '{"name":"Related titles","format":"list",
+      "compute":{"kind":"rollup","relation":"related_plant","property":"title","aggregate":"list"}}' >/dev/null
+echo "seed: properties room, tags, related_plant, nursery, days_since_watered, related_plants, related_titles"
 
 # --- what each type shows --------------------------------------------------
 
@@ -173,22 +184,25 @@ request PATCH "/api/spaces/$space/types/plant" '{
         {"key":"room","featured":true},
         {"key":"tags"},
         {"key":"related_plant"},
-        {"key":"nursery"}
+        {"key":"nursery"},
+        {"key":"days_since_watered","featured":true},
+        {"key":"related_plants","featured":true},
+        {"key":"related_titles"}
     ]}' >/dev/null
 request PATCH "/api/spaces/$space/types/plant/views/all" '{
-    "columns": ["title","room","nursery","due_date","recurrence","last_completed_at","tags","related_plant"],
-    "widths": {"title":280,"due_date":160},
+    "columns": ["title","room","days_since_watered","related_plants","related_titles","nursery","due_date","recurrence","last_completed_at","tags","related_plant"],
+    "widths": {"title":280,"due_date":160,"days_since_watered":150},
     "sorts": [{"property":"updated_at","direction":"desc"}],
     "filter": {"op":"and","conditions":[]}
 }' >/dev/null
 request POST "/api/spaces/$space/types/plant/views" '{
     "name":"By room","kind":"board","group_by":"room",
-    "columns": ["title","due_date","recurrence"],
+    "columns": ["title","due_date","days_since_watered","recurrence"],
     "sorts": [{"property":"due_date","direction":"asc"}]
 }' >/dev/null
 request POST "/api/spaces/$space/types/plant/views" '{
     "name":"Gallery","kind":"gallery","cover":"room",
-    "columns": ["title","due_date","tags"]
+    "columns": ["title","days_since_watered","due_date","tags"]
 }' >/dev/null
 request POST "/api/spaces/$space/types/plant/views" '{
     "name":"Watering","kind":"calendar","date_property":"due_date",
@@ -197,7 +211,7 @@ request POST "/api/spaces/$space/types/plant/views" '{
 # The promotion preview reads this view: one sort and two filters move or drop.
 request POST "/api/spaces/$space/types/plant/views" '{
     "name":"Nurseries","kind":"table",
-    "columns": ["title","nursery","room"],
+    "columns": ["title","nursery","days_since_watered","room"],
     "widths": {"title":260},
     "sorts": [{"property":"nursery","direction":"asc"}],
     "filter": {"op":"and","conditions":[

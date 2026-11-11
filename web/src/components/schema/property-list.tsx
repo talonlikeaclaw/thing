@@ -2,8 +2,15 @@ import { Search } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { useCreateProperty } from "@/api/queries";
-import type { PropertyDef, PropertyFormat, TypeSummary } from "@/api/types";
+import type { PropertyDef, TypeSummary } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
+import {
+  ComputedFields,
+  computedDraftProblem,
+  computedPayload,
+  emptyComputedDraft,
+  type ComputedDraft,
+} from "@/components/schema/computed-fields";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { EmptyState, FormatChip, SectionRule } from "@/components/ui/page";
@@ -13,9 +20,9 @@ import { searchProperties } from "@/lib/property-search";
 import {
   formatLabel,
   hasOptions,
+  isComputed,
   optionInputs,
   type OptionDraft,
-  PROPERTY_FORMATS,
 } from "@/lib/schema";
 
 interface PropertyListProps {
@@ -40,7 +47,7 @@ export function PropertyList({
   const create = useCreateProperty(spaceId);
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
-  const [format, setFormat] = useState<PropertyFormat>("text");
+  const [draft, setDraft] = useState<ComputedDraft>(emptyComputedDraft);
   const [targetType, setTargetType] = useState("");
   const [multi, setMulti] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
@@ -50,7 +57,7 @@ export function PropertyList({
 
   function reset() {
     setName("");
-    setFormat("text");
+    setDraft(emptyComputedDraft());
     setTargetType("");
     setMulti(false);
     setOptions([]);
@@ -58,12 +65,13 @@ export function PropertyList({
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const computed = computedPayload(draft);
     create.mutate(
       {
         name: name.trim(),
-        format,
-        ...(hasOptions(format) ? { options: optionInputs(options) } : {}),
-        ...(format === "relation"
+        ...computed,
+        ...(hasOptions(computed.format) ? { options: optionInputs(options) } : {}),
+        ...(computed.format === "relation" && draft.kind === "stored"
           ? { multi, ...(targetType ? { target_type: targetType } : {}) }
           : {}),
       },
@@ -142,14 +150,19 @@ export function PropertyList({
                     {property.key}
                   </span>
                 </span>
-                <FormatChip
-                  className={cn(
-                    "border-accent/40 text-accent-on-wash",
-                    current ? undefined : "bg-accent-wash",
-                  )}
-                >
-                  {formatLabel(property.format)}
-                </FormatChip>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  {isComputed(property) ? (
+                    <span className="label text-faint">Calculated</span>
+                  ) : null}
+                  <FormatChip
+                    className={cn(
+                      "border-accent/40 text-accent-on-wash",
+                      current ? undefined : "bg-accent-wash",
+                    )}
+                  >
+                    {formatLabel(property.format)}
+                  </FormatChip>
+                </span>
               </button>
             </li>
             );
@@ -174,13 +187,13 @@ export function PropertyList({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
-              <SelectField
-                label="Format"
-                value={format}
-                options={PROPERTY_FORMATS.map(({ value, label }) => ({ value, label }))}
-                onValueChange={(value) => setFormat(value as PropertyFormat)}
+              <ComputedFields
+                draft={draft}
+                onChange={setDraft}
+                library={properties}
+                idPrefix="new-property"
               />
-              {format === "relation" ? (
+              {draft.kind === "stored" && draft.format === "relation" ? (
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                   <SelectField
                     label="Target type"
@@ -201,7 +214,7 @@ export function PropertyList({
                   </label>
                 </div>
               ) : null}
-              {hasOptions(format) ? (
+              {draft.kind === "stored" && hasOptions(draft.format) ? (
                 <div>
                   <p className="label mb-1">Options</p>
                   <OptionEditor
@@ -212,7 +225,9 @@ export function PropertyList({
                   />
                 </div>
               ) : null}
-              <FormError message={create.error ? readError(create.error) : null} />
+              <FormError
+                message={create.error ? readError(create.error) : computedDraftProblem(draft)}
+              />
               <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
                   type="button"
@@ -228,7 +243,11 @@ export function PropertyList({
                 <Button
                   type="submit"
                   className="min-h-9 px-3 text-[13px]"
-                  disabled={create.isPending || !name.trim()}
+                  disabled={
+                    create.isPending ||
+                    !name.trim() ||
+                    computedDraftProblem(draft) !== null
+                  }
                 >
                   {create.isPending ? "Creating…" : "Create property"}
                 </Button>

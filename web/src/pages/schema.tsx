@@ -289,6 +289,7 @@ export function SchemaPage() {
                     spaceId={detail.id}
                     property={selectedProperty}
                     types={types.data}
+                    library={properties.data}
                     canEdit={canEdit}
                     onRenamed={selectProperty}
                   />

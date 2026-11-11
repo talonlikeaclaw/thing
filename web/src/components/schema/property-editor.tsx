@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { ApiError } from "@/api/client";
 import {
   useDeleteProperty,
+  useProperties,
   usePropertyUsage,
   useRenameProperty,
   useTypes,
@@ -12,6 +13,13 @@ import {
 } from "@/api/queries";
 import type { PropertyDef, TypeSummary } from "@/api/types";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import {
+  ComputedFields,
+  computedDraft,
+  computedDraftProblem,
+  computedPatch,
+  type ComputedDraft,
+} from "@/components/schema/computed-fields";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
@@ -31,6 +39,7 @@ import { promotionBlocker } from "@/lib/promotion";
 import {
   formatLabel,
   hasOptions,
+  isComputed,
   optionDrafts,
   optionInputs,
   type OptionDraft,
@@ -41,6 +50,8 @@ interface PropertyEditorFormProps {
   spaceId: string;
   property: PropertyDef;
   types: TypeSummary[];
+  /** The whole library, so a rollup names a relation and its target. */
+  library: PropertyDef[];
   canEdit: boolean;
   /** The schema page's rule; a sheet already has a title and omits it. */
   headingId?: string;
@@ -58,6 +69,7 @@ export function PropertyEditorForm({
   spaceId,
   property,
   types,
+  library,
   canEdit,
   headingId,
   onRenamed,
@@ -73,6 +85,7 @@ export function PropertyEditorForm({
   );
   const toast = useToast();
   const [name, setName] = useState(property.name);
+  const [draft, setDraft] = useState<ComputedDraft>(() => computedDraft(property));
   const [options, setOptions] = useState<OptionDraft[]>(() => optionDrafts(property.options));
   const [confirmKey, setConfirmKey] = useState("");
   const [renameKey, setRenameKey] = useState("");
@@ -83,22 +96,29 @@ export function PropertyEditorForm({
   useEffect(() => {
     if (update.data) {
       setName(update.data.name);
+      setDraft(computedDraft(update.data));
       setOptions(optionDrafts(update.data.options));
     }
   }, [update.data]);
 
-  const showsOptions = hasOptions(property.format);
+  const calculated = isComputed(property);
+  const showsOptions = !calculated && hasOptions(property.format);
   const payload = {
     name: name.trim(),
+    ...(calculated ? computedPatch(draft) : {}),
     ...(showsOptions ? { options: optionInputs(options) } : {}),
   };
   const initial = {
     name: property.name,
+    ...(calculated ? computedPatch(computedDraft(property)) : {}),
     ...(showsOptions ? { options: optionInputs(optionDrafts(property.options)) } : {}),
   };
   const dirty = !sameJson(payload, initial);
+  const draftProblem = calculated ? computedDraftProblem(draft) : null;
   const invalid =
-    !payload.name || (showsOptions && options.some((option) => !option.name.trim()));
+    !payload.name ||
+    draftProblem !== null ||
+    (showsOptions && options.some((option) => !option.name.trim()));
 
   async function saveDraft(): Promise<boolean> {
     if (!canEdit || invalid) {
@@ -123,6 +143,17 @@ export function PropertyEditorForm({
           records: Number(remove.error.details.objects ?? 0) || 0,
         }
       : null;
+  // A calculated definition names this key; the server refuses even `force`,
+  // because it cannot rewrite an expression or a rollup for you.
+  const computedHolders =
+    remove.error instanceof ApiError &&
+    remove.error.status === 409 &&
+    remove.error.details.reason === "computed properties use property" &&
+    Array.isArray(remove.error.details.properties)
+      ? remove.error.details.properties.filter(
+          (key): key is string => typeof key === "string",
+        )
+      : [];
   const usageTypes = conflictUsage ? conflictUsage.types : usage.types.length;
   const usageRecords = conflictUsage ? conflictUsage.records : usage.records;
   const inUse = usageTypes > 0 || usageRecords > 0;
@@ -130,6 +161,7 @@ export function PropertyEditorForm({
   const deleteReady =
     !usage.isPending &&
     !blocked &&
+    computedHolders.length === 0 &&
     (!inUse || confirmKey.trim().toLowerCase() === property.key.toLowerCase()) &&
     !remove.isPending;
   const nextKey = renameKey.trim();
@@ -175,11 +207,30 @@ export function PropertyEditorForm({
             onChange={(event) => setName(event.target.value)}
           />
         </FieldRow>
-        <FieldRow label="Format" hint="Fixed once values exist.">
+        <FieldRow
+          label="Format"
+          hint={
+            calculated
+              ? "The result type; fixed once the property exists."
+              : "Fixed once values exist."
+          }
+        >
           <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
             {formatLabel(property.format)}
           </p>
         </FieldRow>
+        {calculated ? (
+          <FieldRow label="Calculation">
+            <ComputedFields
+              draft={draft}
+              onChange={setDraft}
+              library={library}
+              existing
+              disabled={!canEdit}
+              idPrefix={`property-${property.key}`}
+            />
+          </FieldRow>
+        ) : null}
         {property.format === "relation" ? (
           <>
             <FieldRow label="Target">
@@ -386,6 +437,29 @@ export function PropertyEditorForm({
           ) : null}
           {usage.error ? <FormError message={readError(usage.error)} /> : null}
 
+          {computedHolders.length > 0 ? (
+            <div className="mt-3 border-l border-warning pl-3">
+              <p className="text-[13px] text-warning">
+                {computedHolders.length === 1
+                  ? "A calculated property uses this property."
+                  : "Calculated properties use this property."}{" "}
+                Edit each definition first; deleting this key cannot rewrite them.
+              </p>
+              <ul className="mt-1 grid gap-0.5 text-[13px]">
+                {computedHolders.map((holder) => (
+                  <li key={holder}>
+                    <Link
+                      to={`/s/${spaceId}/schema?property=${holder}`}
+                      className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
+                    >
+                      {library.find((entry) => entry.key === holder)?.name ?? holder}
+                    </Link>{" "}
+                    <span className="font-mono text-[11px] text-faint">{holder}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {blocked ? (
             <div className="mt-3 border-l border-warning pl-3">
               <p className="text-[13px] text-warning">
@@ -437,7 +511,13 @@ export function PropertyEditorForm({
                   No live type or record uses this property. Trashed records may still hold it.
                 </p>
               ) : null}
-              <FormError message={remove.error ? readError(remove.error) : null} />
+              <FormError
+                message={
+                  remove.error && computedHolders.length === 0
+                    ? readError(remove.error)
+                    : null
+                }
+              />
               <ThumbRow className="flex-wrap items-center gap-3">
                 <Button
                   variant="destructive"
@@ -470,6 +550,7 @@ interface PropertyEditorProps {
   spaceId: string;
   property: PropertyDef;
   types: TypeSummary[];
+  library: PropertyDef[];
   canEdit: boolean;
   onRenamed: (key: string) => void;
 }
@@ -479,6 +560,7 @@ export function PropertyEditor({
   spaceId,
   property,
   types,
+  library,
   canEdit,
   onRenamed,
 }: PropertyEditorProps) {
@@ -488,6 +570,7 @@ export function PropertyEditor({
         spaceId={spaceId}
         property={property}
         types={types}
+        library={library}
         canEdit={canEdit}
         headingId="property-editor"
         onRenamed={onRenamed}
@@ -511,6 +594,7 @@ export function PropertyEditorSheet({
   onClose,
 }: PropertyEditorSheetProps) {
   const types = useTypes(spaceId);
+  const properties = useProperties(spaceId);
   const handedness = useThumbHandedness();
   return (
     <Dialog.Root
@@ -552,6 +636,7 @@ export function PropertyEditorSheet({
                 spaceId={spaceId}
                 property={property}
                 types={types.data ?? []}
+                library={properties.data ?? []}
                 canEdit={canEdit}
                 onRenamed={onClose}
                 onDeleted={onClose}
