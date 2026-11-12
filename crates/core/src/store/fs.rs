@@ -986,6 +986,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         }
     }
 
@@ -1061,6 +1062,8 @@ mod tests {
                     group_by: None,
                     cover: None,
                     date_property: None,
+                    footer: None,
+                    footer_hidden: Vec::new(),
                 },
                 ViewDef {
                     key: "by_room".to_owned(),
@@ -1076,6 +1079,8 @@ mod tests {
                     group_by: Some("room".to_owned()),
                     cover: None,
                     date_property: None,
+                    footer: None,
+                    footer_hidden: Vec::new(),
                 },
             ],
             default_view: "all".to_owned(),
@@ -1505,6 +1510,8 @@ mod tests {
                 group_by: None,
                 cover: None,
                 date_property: None,
+                footer: None,
+                footer_hidden: Vec::new(),
             }],
             default_view: "all".to_owned(),
         };
@@ -1523,6 +1530,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         };
         store.save_property(&property, None).expect("save property");
         assert_eq!(

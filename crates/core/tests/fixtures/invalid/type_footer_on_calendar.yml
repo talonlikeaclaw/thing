@@ -1,0 +1,19 @@
+schema: 8
+key: chore
+name: Chore
+name_plural: Chores
+description: ''
+schedule: true
+properties: []
+views:
+- key: watering
+  name: Watering
+  kind: calendar
+  filter:
+    op: and
+    conditions: []
+  sorts: []
+  columns: []
+  date_property: due_date
+  footer: false
+default_view: watering

@@ -1,4 +1,4 @@
-schema: 7
+schema: 8
 key: chore
 name: Chore
 name_plural: Chores
@@ -26,6 +26,9 @@ views:
   widths:
     due_date: 160
     title: 280
+  footer: false
+  footer_hidden:
+  - room
 - key: by_room
   name: By room
   kind: board

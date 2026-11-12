@@ -171,6 +171,7 @@ mod tests {
                         target_type: None,
                         multi: false,
                         compute: None,
+                        display: None,
                     },
                 )
             })
@@ -258,6 +259,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         }
     }
 
@@ -289,6 +291,8 @@ mod tests {
             group_by: None,
             cover: None,
             date_property: None,
+            footer: None,
+            footer_hidden: Vec::new(),
         }
     }
 

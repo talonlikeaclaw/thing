@@ -1,4 +1,4 @@
-schema: 7
+schema: 8
 key: days_since_watered
 name: Days since watered
 format: number

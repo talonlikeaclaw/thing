@@ -939,6 +939,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         }
     }
 

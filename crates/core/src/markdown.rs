@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn object_uses_the_frontmatter_keys_the_format_documents() {
         let text = serialize_object(&doc());
-        assert!(text.starts_with("---\nschema: 7\n"), "{text}");
+        assert!(text.starts_with("---\nschema: 8\n"), "{text}");
         assert!(text.contains("\ntype: plant\n"), "{text}");
         assert!(
             text.contains("\ncreated_at: 2025-10-09T08:53:20Z\n"),
@@ -428,8 +428,8 @@ mod tests {
         let missing = parse_object("---\ntitle: x\n---\n").expect_err("no schema");
         assert_eq!(missing.to_string(), "invalid schema: missing");
 
-        let future = parse_object("---\nschema: 8\ntitle: x\n---\n").expect_err("future");
-        assert_eq!(future.to_string(), "unsupported format version 8");
+        let future = parse_object("---\nschema: 9\ntitle: x\n---\n").expect_err("future");
+        assert_eq!(future.to_string(), "unsupported format version 9");
 
         let not_a_number = parse_object("---\nschema: \"1\"\ntitle: x\n---\n").expect_err("string");
         assert_eq!(
@@ -438,7 +438,7 @@ mod tests {
         );
 
         // The previous version stays readable; only a future one is refused.
-        let previous = serialize_object(&doc()).replace("schema: 7", "schema: 1");
+        let previous = serialize_object(&doc()).replace("schema: 8", "schema: 1");
         assert_eq!(parse_object(&previous).expect("schema 1 parses"), doc());
     }
 
@@ -495,7 +495,7 @@ Watered today.
             ],
         };
         let text = serialize_space(&meta);
-        assert!(text.starts_with("schema: 7\nid: "), "{text}");
+        assert!(text.starts_with("schema: 8\nid: "), "{text}");
         assert!(text.contains("\ntimezone: Europe/Berlin\n"), "{text}");
         assert!(text.contains("\n  role: owner\n"), "{text}");
         assert_eq!(parse_space(&text).expect("parses back"), meta);
@@ -564,12 +564,14 @@ Watered today.
                 group_by: None,
                 cover: None,
                 date_property: None,
+                footer: None,
+                footer_hidden: Vec::new(),
             }],
             default_view: "all".to_owned(),
         };
         let text = serialize_type(&def);
         assert!(
-            text.starts_with("schema: 7\nkey: plant\nname: Plant\nname_plural: Plants\n"),
+            text.starts_with("schema: 8\nkey: plant\nname: Plant\nname_plural: Plants\n"),
             "{text}"
         );
         assert!(text.contains("\n    direction: desc\n"), "{text}");
@@ -587,7 +589,7 @@ Watered today.
 
     fn type_yaml(views: &str, default: &str) -> String {
         format!(
-            "schema: 7\nkey: plant\nname: Plant\nname_plural: Plants\ndescription: ''\nproperties: []\n{views}default_view: {default}\n"
+            "schema: 8\nkey: plant\nname: Plant\nname_plural: Plants\ndescription: ''\nproperties: []\n{views}default_view: {default}\n"
         )
     }
 
@@ -723,6 +725,7 @@ Watered today.
                 },
                 multi: format == PropertyFormat::Relation,
                 compute: None,
+                display: None,
             };
             let text = serialize_property(&def);
             assert_eq!(parse_property(&text).expect("parses back"), def, "{text}");
@@ -755,6 +758,7 @@ Watered today.
                 target_type: None,
                 multi: false,
                 compute: Some(compute),
+                display: None,
             };
             let text = serialize_property(&def);
             assert!(text.contains("\ncompute:\n"), "{text}");
@@ -772,8 +776,9 @@ Watered today.
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         });
-        assert_eq!(text, "schema: 7\nkey: room\nname: Room\nformat: text\n");
+        assert_eq!(text, "schema: 8\nkey: room\nname: Room\nformat: text\n");
     }
 
     #[test]

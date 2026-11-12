@@ -124,6 +124,7 @@ async fn create(
         target_type: body.target_type.clone(),
         multi,
         compute: body.compute.clone(),
+        display: None,
     };
 
     let _guard = handle.write.lock().await;
@@ -654,6 +655,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         };
         store.save_property(&status, None).expect("property");
         let doc = ObjectDoc {

@@ -14,8 +14,8 @@ use uuid::Uuid;
 
 use crate::error::CoreError;
 use crate::model::{
-    CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_VIEW_NAME_LEN, MAX_VIEWS,
-    MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
+    CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_DECIMALS, MAX_VIEW_NAME_LEN,
+    MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
     UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
 };
 use crate::value;
@@ -243,6 +243,55 @@ pub fn validate_sorts(
     }
 }
 
+/// Checks a property's `display` block on its own: which fields a format may
+/// carry, the range of `decimals`, and the shape of `currency`.
+///
+/// A display is presentation, never storage, so every rule here is about a
+/// field that would be silently ignored or misread — a currency on a text
+/// property, a fifth fraction digit, a symbol where a code belongs.
+pub fn validate_display(property: &PropertyDef) -> Vec<CoreError> {
+    let Some(display) = &property.display else {
+        return Vec::new();
+    };
+    let mut errors = Vec::new();
+    let number = property.format == PropertyFormat::Number;
+    for (field, set) in [
+        ("currency", display.currency.is_some()),
+        ("decimals", display.decimals.is_some()),
+        ("grouping", display.grouping.is_some()),
+    ] {
+        if set && !number {
+            errors.push(invalid(
+                &format!("display.{field}"),
+                "belongs to number properties only",
+            ));
+        }
+    }
+    if let Some(currency) = &display.currency
+        && !is_currency_code(currency)
+    {
+        errors.push(invalid(
+            "display.currency",
+            "must be an ISO 4217 code: three uppercase letters",
+        ));
+    }
+    if let Some(decimals) = display.decimals
+        && decimals > MAX_DECIMALS
+    {
+        errors.push(invalid(
+            "display.decimals",
+            format!("must be 0 to {MAX_DECIMALS}"),
+        ));
+    }
+    errors
+}
+
+/// Whether `code` has the shape of an ISO 4217 code: exactly three uppercase
+/// ASCII letters. Whether the code exists is the formatter's question.
+fn is_currency_code(code: &str) -> bool {
+    code.len() == 3 && code.bytes().all(|byte| byte.is_ascii_uppercase())
+}
+
 /// Every problem with every view of a type: keys, names, the default, the
 /// per-kind fields, and the filter/sorts/columns those views name.
 ///
@@ -361,6 +410,41 @@ fn validate_view(schema: &Schema, def: &TypeDef, view: &ViewDef, errors: &mut Ve
             errors.push(invalid(
                 &view_field(view, &format!("widths.{key}")),
                 format!("must be {MIN_COLUMN_WIDTH} to {MAX_COLUMN_WIDTH} pixels"),
+            ));
+        }
+    }
+
+    // The summary band is a table's, and its denylist names columns of that
+    // table. `footer: false` is kept alongside a denylist rather than clearing
+    // it: the two switches are edited apart, so turning the band back on
+    // restores what the reader hid.
+    if view.kind == ViewKind::Table {
+        let mut hidden: BTreeSet<&str> = BTreeSet::new();
+        for key in &view.footer_hidden {
+            if !hidden.insert(key) {
+                errors.push(invalid(
+                    &view_field(view, &format!("footer_hidden.{key}")),
+                    "is listed twice",
+                ));
+            }
+            if !view.columns.iter().any(|column| column == key) {
+                errors.push(invalid(
+                    &view_field(view, &format!("footer_hidden.{key}")),
+                    "is not a column of this view",
+                ));
+            }
+        }
+    } else {
+        if view.footer.is_some() {
+            errors.push(invalid(
+                &view_field(view, "footer"),
+                "belongs to table views only",
+            ));
+        }
+        if !view.footer_hidden.is_empty() {
+            errors.push(invalid(
+                &view_field(view, "footer_hidden"),
+                "belongs to table views only",
             ));
         }
     }
@@ -800,8 +884,8 @@ mod tests {
 
     use super::*;
     use crate::model::{
-        Aggregate, ComputeDef, ComputeKind, Direction, EmptyPlacement, FilterOp, OptionDef,
-        Recurrence, RecurrenceKind, TypeProperty, Value, ViewDef, ViewKind,
+        Aggregate, Align, ComputeDef, ComputeKind, Direction, DisplayDef, EmptyPlacement, FilterOp,
+        OptionDef, Recurrence, RecurrenceKind, TypeProperty, Value, ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -821,6 +905,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         }
     }
 
@@ -907,6 +992,8 @@ mod tests {
                     group_by: None,
                     cover: None,
                     date_property: None,
+                    footer: None,
+                    footer_hidden: Vec::new(),
                 }],
                 default_view: "all".to_owned(),
             };
@@ -1325,6 +1412,8 @@ mod tests {
                 group_by: None,
                 cover: None,
                 date_property: None,
+                footer: None,
+                footer_hidden: Vec::new(),
             }],
             default_view: "all".to_owned(),
         };
@@ -1603,6 +1692,8 @@ mod tests {
             group_by: None,
             cover: None,
             date_property: None,
+            footer: None,
+            footer_hidden: Vec::new(),
         }
     }
 
@@ -1754,6 +1845,137 @@ mod tests {
             view_errors(&fixture, &type_with(&fixture, vec![board]))
                 .contains(&"invalid views.board.widths: belongs to table views only".to_owned())
         );
+    }
+
+    #[test]
+    fn the_footer_switches_belong_to_tables_and_name_visible_columns() {
+        let fixture = Fixture::new();
+        let mut table = view("all", "All", ViewKind::Table);
+        table.columns = vec![TITLE_KEY.to_owned(), "room".to_owned()];
+        table.footer = Some(false);
+        table.footer_hidden = vec![TITLE_KEY.to_owned(), "room".to_owned()];
+        views_valid(&fixture, &type_with(&fixture, vec![table]));
+
+        let mut ghost = view("all", "All", ViewKind::Table);
+        ghost.footer_hidden = vec!["ghost".to_owned()];
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![ghost])).contains(
+                &"invalid views.all.footer_hidden.ghost: is not a column of this view".to_owned()
+            )
+        );
+
+        let mut twice = view("all", "All", ViewKind::Table);
+        twice.columns = vec![TITLE_KEY.to_owned(), "room".to_owned()];
+        twice.footer_hidden = vec!["room".to_owned(), "room".to_owned()];
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![twice]))
+                .contains(&"invalid views.all.footer_hidden.room: is listed twice".to_owned())
+        );
+
+        let mut board = view("board", "Board", ViewKind::Board);
+        board.group_by = Some("status".to_owned());
+        board.footer = Some(false);
+        board.footer_hidden = vec![TITLE_KEY.to_owned()];
+        let errors = view_errors(&fixture, &type_with(&fixture, vec![board]));
+        assert!(
+            errors.contains(&"invalid views.board.footer: belongs to table views only".to_owned())
+        );
+        assert!(
+            errors.contains(
+                &"invalid views.board.footer_hidden: belongs to table views only".to_owned()
+            ),
+            "{errors:?}"
+        );
+
+        let mut calendar = view("calendar", "Calendar", ViewKind::Calendar);
+        calendar.columns.clear();
+        calendar.date_property = Some("watered".to_owned());
+        calendar.footer = Some(true);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![calendar]))
+                .contains(&"invalid views.calendar.footer: belongs to table views only".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_display_is_the_property_formats_it_belongs_to_and_its_range() {
+        let mut number = property("count", PropertyFormat::Number);
+        number.display = Some(DisplayDef {
+            align: Some(Align::Right),
+            currency: Some("USD".to_owned()),
+            decimals: Some(MAX_DECIMALS),
+            grouping: Some(false),
+        });
+        assert!(validate_display(&number).is_empty());
+
+        for field in ["currency", "decimals", "grouping"] {
+            let mut text = property("room", PropertyFormat::Text);
+            text.display = Some(match field {
+                "currency" => DisplayDef {
+                    currency: Some("USD".to_owned()),
+                    ..DisplayDef::default()
+                },
+                "decimals" => DisplayDef {
+                    decimals: Some(2),
+                    ..DisplayDef::default()
+                },
+                _ => DisplayDef {
+                    grouping: Some(true),
+                    ..DisplayDef::default()
+                },
+            });
+            assert_eq!(
+                validate_display(&text)
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>(),
+                vec![format!(
+                    "invalid display.{field}: belongs to number properties only"
+                )],
+                "{field}"
+            );
+        }
+
+        let mut too_many = property("count", PropertyFormat::Number);
+        too_many.display = Some(DisplayDef {
+            decimals: Some(MAX_DECIMALS + 1),
+            ..DisplayDef::default()
+        });
+        assert_eq!(
+            validate_display(&too_many)
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            vec![format!(
+                "invalid display.decimals: must be 0 to {MAX_DECIMALS}"
+            )]
+        );
+
+        for code in ["usd", "USDX", "US", "U$D"] {
+            let mut bad_code = property("count", PropertyFormat::Number);
+            bad_code.display = Some(DisplayDef {
+                currency: Some(code.to_owned()),
+                ..DisplayDef::default()
+            });
+            assert_eq!(
+                validate_display(&bad_code)
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>(),
+                vec![
+                    "invalid display.currency: must be an ISO 4217 code: three uppercase letters"
+                        .to_owned()
+                ],
+                "{code}"
+            );
+        }
+
+        let mut align_only = property("room", PropertyFormat::Text);
+        align_only.display = Some(DisplayDef {
+            align: Some(Align::Left),
+            ..DisplayDef::default()
+        });
+        assert!(validate_display(&align_only).is_empty());
     }
 
     #[test]

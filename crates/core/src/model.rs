@@ -41,6 +41,9 @@ pub struct PropertyDef {
     pub key: String,
     pub name: String,
     pub format: PropertyFormat,
+    /// How the values read, never what they store; absent means plain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<DisplayDef>,
     /// Present only for `Select` and `MultiSelect`; empty otherwise.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<OptionDef>,
@@ -61,6 +64,38 @@ impl PropertyDef {
     pub fn is_computed(&self) -> bool {
         self.compute.is_some()
     }
+}
+
+/// How a value sits in its column, or `Auto` to let the format decide.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Align {
+    Auto,
+    Left,
+    Right,
+}
+
+/// How a property's values read, as opposed to what they store.
+///
+/// A display never reaches a stored value, a sort, a filter or an export: it is
+/// applied when a value is turned into text. Every field is optional and a
+/// block with nothing set is written as no block, so a plain property carries
+/// no bytes for it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DisplayDef {
+    /// Every format; absent means `auto`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub align: Option<Align>,
+    /// `number` only: an ISO 4217 code, three uppercase letters.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// `number` only: the fraction digits; absent means the value's own digits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decimals: Option<u8>,
+    /// `number` only: `false` drops the thousands separators.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grouping: Option<bool>,
 }
 
 /// How a computed property derives its value.
@@ -192,6 +227,8 @@ pub fn initial_view() -> ViewDef {
         group_by: None,
         cover: None,
         date_property: None,
+        footer: None,
+        footer_hidden: Vec::new(),
     }
 }
 
@@ -231,6 +268,9 @@ pub const MAX_VIEWS: usize = 50;
 
 /// The most paths one `attachments` property may hold.
 pub const MAX_ATTACHMENTS: usize = 200;
+
+/// The most fraction digits a `display.decimals` may ask for.
+pub const MAX_DECIMALS: u8 = 4;
 
 /// The longest view name, in characters.
 pub const MAX_VIEW_NAME_LEN: usize = 80;
@@ -278,6 +318,12 @@ pub struct ViewDef {
     /// A `date` property; calendar views only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date_property: Option<String>,
+    /// The aggregation footer; absent or `true` means shown. Table views only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub footer: Option<bool>,
+    /// Columns whose footer cell stays blank. Table views only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub footer_hidden: Vec<String>,
 }
 
 /// A boolean combination of conditions.

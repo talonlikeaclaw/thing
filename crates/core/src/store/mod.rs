@@ -703,6 +703,8 @@ mod tests {
                     group_by: None,
                     cover: None,
                     date_property: None,
+                    footer: None,
+                    footer_hidden: Vec::new(),
                 },
                 ViewDef {
                     key: "by_room".to_owned(),
@@ -718,6 +720,8 @@ mod tests {
                     group_by: Some("room".to_owned()),
                     cover: None,
                     date_property: None,
+                    footer: None,
+                    footer_hidden: Vec::new(),
                 },
             ],
             default_view: "all".to_owned(),

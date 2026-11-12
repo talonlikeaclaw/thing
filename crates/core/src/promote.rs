@@ -316,6 +316,7 @@ pub fn plan(
         target_type: None,
         multi: false,
         compute: None,
+        display: None,
     });
     if declared.is_none() {
         blocking.push(format!(
@@ -772,6 +773,7 @@ pub fn links(index: &SpaceIndex, plan: &PromotePlan) -> Result<PromoteLinks, Cor
         target_type: Some(plan.target.key.clone()),
         multi: plan.relation.multi,
         compute: None,
+        display: None,
     });
 
     if !type_def
@@ -961,6 +963,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         }
     }
 
@@ -979,6 +982,8 @@ mod tests {
             group_by: None,
             cover: None,
             date_property: None,
+            footer: None,
+            footer_hidden: Vec::new(),
         }
     }
 
@@ -1236,6 +1241,7 @@ mod tests {
                     target_type: None,
                     multi: false,
                     compute: None,
+                    display: None,
                 },
             ],
             &[],
@@ -1274,6 +1280,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         };
         let objects = vec![
             object(1, "album", "One", &[("room", "study")]),
@@ -1329,6 +1336,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         };
         let mut doc = object(1, "album", "One", &[]);
         doc.properties.insert(
@@ -1435,6 +1443,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         });
         let index = space.index();
         let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
@@ -1509,6 +1518,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         });
         space.save_type(&type_def("album", "Album", &["artist"], vec![by_room]));
         let index = space.index();

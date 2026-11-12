@@ -1,0 +1,6 @@
+schema: 8
+key: room
+name: Room
+format: text
+display:
+  currency: USD

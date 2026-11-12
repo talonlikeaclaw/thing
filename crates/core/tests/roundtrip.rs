@@ -3,8 +3,9 @@
 //! `serialize ∘ parse` must reproduce each fixture exactly; that is what makes
 //! the files on disk stable under a read-modify-write cycle.
 
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use thing_core::markdown::{
     parse_object, parse_property, parse_revision, parse_space, parse_type, serialize_object,
@@ -12,6 +13,7 @@ use thing_core::markdown::{
 };
 use thing_core::model::ObjectDoc;
 use thing_core::slug::slugify;
+use thing_core::validate::{Schema, validate_display, validate_views};
 
 /// Reads `tests/fixtures/<name>` as UTF-8.
 fn fixture(name: &str) -> String {
@@ -45,7 +47,7 @@ fn with_prefix(prefix: &str) -> Vec<String> {
 fn current(names: Vec<String>) -> Vec<String> {
     names
         .into_iter()
-        .filter(|name| fixture(name).contains("schema: 7"))
+        .filter(|name| fixture(name).contains("schema: 8"))
         .collect()
 }
 
@@ -99,14 +101,14 @@ fn an_object_icon_round_trips_and_an_old_record_gains_none() {
     let old = parse_object(&fixture("object_plant.md")).expect("a schema 1 object parses");
     assert_eq!(old.icon, None);
     let written = serialize_object(&old);
-    assert!(written.starts_with("---\nschema: 7\n"), "{written}");
+    assert!(written.starts_with("---\nschema: 8\n"), "{written}");
     assert!(!written.contains("\nicon:"), "{written}");
 
     // A schema-3 record still loads, keeps its meaning, and upgrades on write.
-    let three = serialize_object(&iconed).replace("schema: 7", "schema: 3");
+    let three = serialize_object(&iconed).replace("schema: 8", "schema: 3");
     let from_three = parse_object(&three).expect("a schema 3 object parses");
     assert_eq!(from_three, iconed);
-    assert!(serialize_object(&from_three).starts_with("---\nschema: 7\n"));
+    assert!(serialize_object(&from_three).starts_with("---\nschema: 8\n"));
 }
 
 #[test]
@@ -118,7 +120,7 @@ fn schema_one_object_fixtures_parse_and_upgrade_on_write() {
         let doc: ObjectDoc = parse_object(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
         let written = serialize_object(&doc);
         assert!(
-            written.starts_with("---\nschema: 7\n"),
+            written.starts_with("---\nschema: 8\n"),
             "{name} did not upgrade: {written}"
         );
         assert_eq!(
@@ -138,7 +140,7 @@ fn schema_two_object_fixtures_parse_and_upgrade_on_write() {
         let doc: ObjectDoc = parse_object(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
         let written = serialize_object(&doc);
         assert!(
-            written.starts_with("---\nschema: 7\n"),
+            written.starts_with("---\nschema: 8\n"),
             "{name} did not upgrade: {written}"
         );
         assert_eq!(
@@ -167,6 +169,7 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
     assert_eq!(
         properties,
         vec![
+            "property_amount.yml".to_owned(),
             "property_days_since_watered.yml".to_owned(),
             "property_photos.yml".to_owned(),
             "property_recurrence.yml".to_owned(),
@@ -191,7 +194,7 @@ fn schema_one_type_and_property_fixtures_parse_and_upgrade() {
     for name in types {
         let text = fixture(&name);
         let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
-        assert!(serialize_type(&def).starts_with("schema: 7\n"));
+        assert!(serialize_type(&def).starts_with("schema: 8\n"));
     }
 
     let properties = legacy(with_prefix("property_"));
@@ -199,7 +202,7 @@ fn schema_one_type_and_property_fixtures_parse_and_upgrade() {
     for name in properties {
         let text = fixture(&name);
         let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
-        assert!(serialize_property(&def).starts_with("schema: 7\n"));
+        assert!(serialize_property(&def).starts_with("schema: 8\n"));
     }
 }
 
@@ -218,7 +221,7 @@ fn schema_two_type_and_property_fixtures_parse_and_upgrade() {
             def.views[0].columns,
             vec!["title".to_owned(), "due_date".to_owned(), "room".to_owned()]
         );
-        assert!(serialize_type(&def).starts_with("schema: 7\n"));
+        assert!(serialize_type(&def).starts_with("schema: 8\n"));
     }
 
     let properties = previous(with_prefix("property_"));
@@ -226,7 +229,7 @@ fn schema_two_type_and_property_fixtures_parse_and_upgrade() {
     for name in properties {
         let text = fixture(&name);
         let def = parse_property(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
-        assert!(serialize_property(&def).starts_with("schema: 7\n"));
+        assert!(serialize_property(&def).starts_with("schema: 8\n"));
     }
 }
 
@@ -251,7 +254,7 @@ fn schema_one_space_fixture_parses_and_upgrades() {
     assert_eq!(names, vec!["space_garden.yml".to_owned()]);
     let text = fixture(&names[0]);
     let meta = parse_space(&text).expect("legacy space parses");
-    assert!(serialize_space(&meta).starts_with("schema: 7\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 8\n"));
 }
 
 #[test]
@@ -260,7 +263,7 @@ fn schema_two_space_fixture_parses_and_upgrades() {
     assert_eq!(names, vec!["space_balcony_v2.yml".to_owned()]);
     let text = fixture(&names[0]);
     let meta = parse_space(&text).expect("schema 2 space parses");
-    assert!(serialize_space(&meta).starts_with("schema: 7\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 8\n"));
 }
 
 #[test]
@@ -273,7 +276,7 @@ fn schema_three_space_fixture_parses_and_upgrades() {
     let text = fixture(&names[0]);
     let meta = parse_space(&text).expect("schema 3 space parses");
     assert_eq!(meta.name, "Balcony");
-    assert!(serialize_space(&meta).starts_with("schema: 7\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 8\n"));
 }
 
 #[test]
@@ -295,31 +298,75 @@ fn history_fixtures_round_trip_line_by_line() {
     }
 }
 
+/// Every fixture under `invalid/` is refused by the reader or validator that
+/// owns its rule, with the offending field named. Object fixtures refuse at
+/// parse; a property's `display` and a view's footer are refused by
+/// `validate_display` and `validate_views`, because a file can always be
+/// hand-edited to carry a field its format does not own.
 #[test]
 fn invalid_fixtures_are_refused() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/invalid");
-    let mut names: Vec<PathBuf> = fs::read_dir(&dir)
+    let mut names: Vec<String> = fs::read_dir(&dir)
         .unwrap_or_else(|err| panic!("reading {}: {err}", dir.display()))
-        .map(|entry| entry.expect("readable dir entry").path())
+        .map(|entry| entry.expect("readable dir entry").file_name())
+        .map(|name| name.to_str().expect("utf-8 fixture name").to_owned())
         .collect();
     names.sort();
-    assert_eq!(names.len(), 3, "expected 3 invalid fixtures, got {names:?}");
-
-    let mut messages = Vec::new();
-    for path in names {
-        let text = fs::read_to_string(&path).expect("readable fixture");
-        let err = parse_object(&text).expect_err("fixture must be refused");
-        messages.push(err.to_string());
-    }
     assert_eq!(
-        messages[0],
+        names,
+        vec![
+            "missing_frontmatter.md".to_owned(),
+            "property_display_currency_on_text.yml".to_owned(),
+            "schema_9.md".to_owned(),
+            "type_footer_on_calendar.yml".to_owned(),
+            "unknown_frontmatter_key.md".to_owned(),
+        ]
+    );
+
+    let read = |name: &str| fs::read_to_string(dir.join(name)).expect("readable fixture");
+    let object_error = |name: &str| {
+        parse_object(&read(name))
+            .expect_err("fixture must be refused")
+            .to_string()
+    };
+    assert_eq!(
+        object_error("missing_frontmatter.md"),
         "invalid frontmatter: file must begin with a --- line"
     );
-    assert_eq!(messages[1], "unsupported format version 8");
-    assert!(
-        messages[2].contains("unknown field `watered`"),
-        "{messages:?}"
+    assert_eq!(object_error("schema_9.md"), "unsupported format version 9");
+    let unknown = object_error("unknown_frontmatter_key.md");
+    assert!(unknown.contains("unknown field `watered`"), "{unknown}");
+
+    let property = parse_property(&read("property_display_currency_on_text.yml"))
+        .expect("the property parses; its display is what is wrong");
+    assert_eq!(
+        messages(validate_display(&property)),
+        vec!["invalid display.currency: belongs to number properties only".to_owned()]
     );
+
+    let def = parse_type(&read("type_footer_on_calendar.yml"))
+        .expect("the type parses; its calendar's footer is what is wrong");
+    let types = BTreeMap::new();
+    let properties = BTreeMap::new();
+    let objects = BTreeMap::new();
+    let trash = BTreeMap::new();
+    let schedule_properties = thing_core::schedule::schedule_property_defs();
+    let schema = Schema {
+        types: &types,
+        properties: &properties,
+        schedule_properties: &schedule_properties,
+        objects: &objects,
+        trash: &trash,
+    };
+    assert_eq!(
+        messages(validate_views(&schema, &def)),
+        vec!["invalid views.watering.footer: belongs to table views only".to_owned()]
+    );
+}
+
+/// Validation errors as their display text, in the order they were found.
+fn messages(errors: Vec<thing_core::error::CoreError>) -> Vec<String> {
+    errors.iter().map(ToString::to_string).collect()
 }
 
 #[test]
@@ -379,59 +426,82 @@ fn values_keep_their_formats() {
 }
 
 #[test]
-fn a_schema_four_record_and_space_load_and_rewrite_as_seven() {
-    let record = fixture("object_icon.md").replace("schema: 7", "schema: 4");
+fn a_schema_four_record_and_space_load_and_rewrite_as_eight() {
+    let record = fixture("object_icon.md").replace("schema: 8", "schema: 4");
     let doc = parse_object(&record).expect("a schema 4 record parses");
     assert_eq!(doc.cover, None, "a schema 4 record has no cover");
     let written = serialize_object(&doc);
-    assert!(written.starts_with("---\nschema: 7\n"), "{written}");
+    assert!(written.starts_with("---\nschema: 8\n"), "{written}");
     assert_eq!(parse_object(&written).expect("upgraded"), doc);
 
-    let space = fixture("space_rooftop.yml").replace("schema: 7", "schema: 4");
+    let space = fixture("space_rooftop.yml").replace("schema: 8", "schema: 4");
     let meta = parse_space(&space).expect("a schema 4 space parses");
-    assert!(serialize_space(&meta).starts_with("schema: 7\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 8\n"));
 
-    let type_text = fixture("type_views.yml").replace("schema: 7", "schema: 4");
+    let type_text = fixture("type_views.yml").replace("schema: 8", "schema: 4");
     let def = parse_type(&type_text).expect("a schema 4 type parses");
-    assert!(serialize_type(&def).starts_with("schema: 7\n"));
+    assert!(serialize_type(&def).starts_with("schema: 8\n"));
 
-    let property = fixture("property_recurrence.yml").replace("schema: 7", "schema: 4");
+    let property = fixture("property_recurrence.yml").replace("schema: 8", "schema: 4");
     let def = parse_property(&property).expect("a schema 4 property parses");
-    assert!(serialize_property(&def).starts_with("schema: 7\n"));
+    assert!(serialize_property(&def).starts_with("schema: 8\n"));
 }
 
 #[test]
-fn a_schema_five_space_loads_and_rewrites_as_seven() {
-    let five = fixture("object_files.md").replace("schema: 7", "schema: 5");
+fn a_schema_five_space_loads_and_rewrites_as_eight() {
+    let five = fixture("object_files.md").replace("schema: 8", "schema: 5");
     let doc = parse_object(&five).expect("a schema 5 record parses");
     let written = serialize_object(&doc);
-    assert!(written.starts_with("---\nschema: 7\n"), "{written}");
+    assert!(written.starts_with("---\nschema: 8\n"), "{written}");
     assert_eq!(parse_object(&written).expect("upgraded"), doc);
 
-    let five = fixture("space_rooftop.yml").replace("schema: 7", "schema: 5");
+    let five = fixture("space_rooftop.yml").replace("schema: 8", "schema: 5");
     let meta = parse_space(&five).expect("a schema 5 space parses");
-    assert!(serialize_space(&meta).starts_with("schema: 7\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 8\n"));
 }
 
 #[test]
-fn a_schema_six_space_loads_and_rewrites_as_seven() {
-    let six = fixture("object_files.md").replace("schema: 7", "schema: 6");
+fn a_schema_six_space_loads_and_rewrites_as_eight() {
+    let six = fixture("object_files.md").replace("schema: 8", "schema: 6");
     let doc = parse_object(&six).expect("a schema 6 record parses");
     let written = serialize_object(&doc);
-    assert!(written.starts_with("---\nschema: 7\n"), "{written}");
+    assert!(written.starts_with("---\nschema: 8\n"), "{written}");
     assert_eq!(parse_object(&written).expect("upgraded"), doc);
 
-    let six = fixture("space_rooftop.yml").replace("schema: 7", "schema: 6");
+    let six = fixture("space_rooftop.yml").replace("schema: 8", "schema: 6");
     let meta = parse_space(&six).expect("a schema 6 space parses");
-    assert!(serialize_space(&meta).starts_with("schema: 7\n"));
+    assert!(serialize_space(&meta).starts_with("schema: 8\n"));
 
-    let six = fixture("type_views.yml").replace("schema: 7", "schema: 6");
+    let six = fixture("type_views.yml").replace("schema: 8", "schema: 6");
     let def = parse_type(&six).expect("a schema 6 type parses");
-    assert!(serialize_type(&def).starts_with("schema: 7\n"));
+    assert!(serialize_type(&def).starts_with("schema: 8\n"));
 
-    let six = fixture("property_photos.yml").replace("schema: 7", "schema: 6");
+    let six = fixture("property_photos.yml").replace("schema: 8", "schema: 6");
     let def = parse_property(&six).expect("a schema 6 property parses");
-    assert!(serialize_property(&def).starts_with("schema: 7\n"));
+    assert!(serialize_property(&def).starts_with("schema: 8\n"));
+}
+
+/// A `0.8.1` space reads exactly as it did: both new blocks are optional, so a
+/// schema-7 file carries no display and no footer, and its next write moves it
+/// to schema 8 without inventing either.
+#[test]
+fn a_schema_seven_type_and_property_load_without_display_or_footer() {
+    let property = fixture("property_photos.yml").replace("schema: 8", "schema: 7");
+    let def = parse_property(&property).expect("a schema 7 property parses");
+    assert_eq!(def.display, None);
+    assert!(serialize_property(&def).starts_with("schema: 8\n"));
+
+    let type_text = fixture("type_views.yml")
+        .replace("schema: 8", "schema: 7")
+        .replace("  footer: false\n", "")
+        .replace("  footer_hidden:\n  - room\n", "");
+    assert!(!type_text.contains("footer"), "{type_text}");
+    let def = parse_type(&type_text).expect("a schema 7 type parses");
+    for view in &def.views {
+        assert_eq!(view.footer, None, "{}", view.key);
+        assert!(view.footer_hidden.is_empty(), "{}", view.key);
+    }
+    assert!(serialize_type(&def).starts_with("schema: 8\n"));
 }
 
 #[test]

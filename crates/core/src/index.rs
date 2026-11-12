@@ -156,7 +156,9 @@ pub struct Problems {
     pub missing_files: Vec<MissingFile>,
     /// Views naming missing members or carrying fields their kind does not own.
     pub view_problems: Vec<ViewProblem>,
-    /// Computed definitions and memberships that will not evaluate.
+    /// Property definitions a space cannot honour — a compute block that will
+    /// not evaluate, a display block that would be misread — and memberships
+    /// that will not evaluate.
     pub computed_problems: Vec<ComputedProblem>,
 }
 
@@ -267,15 +269,19 @@ impl SpaceIndex {
         }
     }
 
-    /// Definition problems for every declared property, then membership
-    /// problems for every computed member of every type. A bad definition is
-    /// reported here and evaluates to an empty cell; it never stops the space
-    /// from opening.
+    /// Definition problems for every declared property — a compute block that
+    /// will not evaluate, a display block that cannot be honoured — then
+    /// membership problems for every computed member of every type. A bad
+    /// definition is reported here and evaluates to an empty cell; it never
+    /// stops the space from opening.
     fn computed_problems(&self) -> Vec<ComputedProblem> {
         let schema = self.schema();
         let mut found = Vec::new();
         for property in self.properties.values() {
-            for error in compute::validate_definition(property) {
+            for error in compute::validate_definition(property)
+                .into_iter()
+                .chain(validate::validate_display(property))
+            {
                 found.push(compute_problem(&property.key, "", error));
             }
         }
@@ -1028,6 +1034,7 @@ mod tests {
             target_type: None,
             multi: false,
             compute: None,
+            display: None,
         }
     }
 
@@ -1046,6 +1053,8 @@ mod tests {
             group_by: None,
             cover: None,
             date_property: None,
+            footer: None,
+            footer_hidden: Vec::new(),
         }
     }
 
@@ -1284,6 +1293,7 @@ mod tests {
                     target_type: None,
                     multi: false,
                     compute: None,
+                    display: None,
                 },
                 None,
             )
@@ -1358,6 +1368,7 @@ mod tests {
                     target_type: None,
                     multi: false,
                     compute: None,
+                    display: None,
                 },
                 None,
             )
@@ -1436,6 +1447,7 @@ mod tests {
                     target_type: None,
                     multi: false,
                     compute: None,
+                    display: None,
                 },
                 None,
             )
@@ -1654,6 +1666,7 @@ mod tests {
                     target_type: None,
                     multi: false,
                     compute: None,
+                    display: None,
                 },
                 None,
             )
@@ -1849,6 +1862,7 @@ mod tests {
             target_type: Some("plant".to_owned()),
             multi: false,
             compute: None,
+            display: None,
         };
         space
             .store
@@ -1978,6 +1992,7 @@ mod tests {
                 target_type: Some("plant".to_owned()),
                 multi: true,
                 compute: None,
+                display: None,
             };
             space
                 .store
@@ -2182,6 +2197,7 @@ mod tests {
                     target_type: None,
                     multi: false,
                     compute: None,
+                    display: None,
                 },
                 None,
             )
@@ -2218,6 +2234,37 @@ mod tests {
                 view_key: "all".to_owned(),
                 field: "views.all.columns".to_owned(),
                 message: "names no member: ghost".to_owned(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_display_a_format_cannot_carry_is_reported_while_the_space_loads() {
+        let space = Space::new().seed();
+        space.write(
+            "properties/room.yml",
+            "schema: 8\nkey: room\nname: Room\nformat: text\ndisplay:\n  currency: USD\n",
+        );
+
+        let index = space.index();
+        let property = index
+            .property_def("room")
+            .expect("the property still loads");
+        assert_eq!(
+            property
+                .display
+                .as_ref()
+                .map(|display| display.currency.clone()),
+            Some(Some("USD".to_owned())),
+            "the hand-edited block is kept as written"
+        );
+        assert_eq!(
+            index.problems().computed_problems,
+            vec![ComputedProblem {
+                property_key: "room".to_owned(),
+                type_key: String::new(),
+                field: "display.currency".to_owned(),
+                message: "belongs to number properties only".to_owned(),
             }]
         );
     }

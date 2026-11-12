@@ -1,0 +1,9 @@
+schema: 8
+key: amount
+name: Amount
+format: number
+display:
+  align: right
+  currency: USD
+  decimals: 2
+  grouping: false

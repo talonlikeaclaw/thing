@@ -53,6 +53,7 @@ pub fn schedule_property_defs() -> BTreeMap<String, PropertyDef> {
         target_type: None,
         multi: false,
         compute: None,
+        display: None,
     };
     BTreeMap::from([
         (
@@ -472,6 +473,8 @@ mod tests {
                 group_by: None,
                 cover: None,
                 date_property: None,
+                footer: None,
+                footer_hidden: Vec::new(),
             }],
             default_view: "all".to_owned(),
         }

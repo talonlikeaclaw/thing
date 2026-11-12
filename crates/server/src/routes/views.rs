@@ -125,6 +125,8 @@ async fn create(
             group_by: clean_optional_key(body.group_by),
             cover: clean_optional_key(body.cover),
             date_property: clean_optional_key(body.date_property),
+            footer: None,
+            footer_hidden: Vec::new(),
         };
         let mut next = def.clone();
         next.views.push(view);
