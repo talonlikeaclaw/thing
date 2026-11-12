@@ -19,6 +19,8 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { Link, useNavigate } from "react-router";
@@ -40,7 +42,12 @@ import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
 import {
   TITLE_COLUMN_KEY,
+  clampCell,
+  normalizeRange,
+  rangeContains,
+  rangeSize,
   revealDelta,
+  sameCell,
   stepCell,
   tabCell,
   type Cell,
@@ -85,6 +92,8 @@ interface TableViewProps {
   completing: boolean;
   /** A query for different rows is in flight; the visible rows are stale. */
   busy: boolean;
+  /** Changes whenever the page, filter, sort, search or view changes. */
+  scopeKey: string;
   sorts: Sort[];
   selected: ReadonlySet<string>;
   /** Rows whose action is in flight, so only their controls freeze. */
@@ -131,6 +140,7 @@ export function TableView({
   canEdit,
   completing,
   busy,
+  scopeKey,
   sorts,
   selected,
   pendingRows,
@@ -252,6 +262,8 @@ export function TableView({
   // can never cut it, in both schemes and on the accent wash. It marks where
   // the next keystroke lands, so a finger-only device keeps the plain table.
   const activeRing = coarse ? null : "shadow-[inset_0_0_0_2px_var(--color-accent)]";
+  /** The moving corner of a range is thinner than the anchor it grew from. */
+  const rangeRing = coarse ? null : "shadow-[inset_0_0_0_1px_var(--color-accent)]";
   const railSeamToneSelected = railBefore
     ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]"
     : null;
@@ -265,9 +277,20 @@ export function TableView({
   const titleCol = selectOffset;
   const actionCol = selectOffset + propertyKeys.length + 1;
   const colCount = actionCol + 1;
+  const lastDataCol = titleCol + gridColumns.length - 1;
+  const isDataColumn = (col: number) => col >= titleCol && col <= lastDataCol;
 
   const gridRef = useRef<HTMLTableElement>(null);
   const [active, setActive] = useState<Cell | null>(null);
+  /** The other corner of a cell range; absent while the selection is one cell. */
+  const [anchor, setAnchor] = useState<Cell | null>(null);
+  // The rectangle the reader has marked, in data coordinates. A control column
+  // has no range: the wash, the bar and the copy all name data only.
+  const range =
+    anchor && active && isDataColumn(anchor.col) && isDataColumn(active.col)
+      ? normalizeRange(anchor, active)
+      : null;
+  const rangeStats = range ? rangeSize(range) : null;
   /** The card holds focus: the ring only speaks for a grid you are inside. */
   const [gridFocused, setGridFocused] = useState(false);
   /** A pinned title shows a stronger edge only once columns have slid under it. */
@@ -297,17 +320,29 @@ export function TableView({
   }, []);
 
   useEffect(() => {
+    // A new page, filter, sort, search or view is a new grid: neither corner of
+    // the old range means anything in it.
+    setAnchor(null);
+    setActive(rows.length > 0 ? { row: 0, col: titleCol } : null);
+  }, [scopeKey, titleCol]);
+
+  useEffect(() => {
+    // A live delete or a filter can shorten the page under the reader. The
+    // range and the active cell saturate instead of pointing past the end.
     if (rows.length === 0) {
       setActive(null);
+      setAnchor(null);
       return;
     }
-    // The first data cell, not the checkbox: once the cell buttons leave the
-    // Tab order, this roving `<td>` is the grid's one native entry point, so a
-    // reader who Tabs in from the header lands on data instead of a control.
+    const rowCount = rows.length;
+    const columnCount = colCount;
     setActive((current) =>
-      current && current.row < rows.length ? current : { row: 0, col: titleCol },
+      current ? clampCell(current, rowCount, columnCount) : { row: 0, col: titleCol },
     );
-  }, [rows.length, titleCol]);
+    setAnchor((current) =>
+      current ? clampCell(current, rowCount, columnCount) : null,
+    );
+  }, [rows.length, colCount, titleCol]);
 
   // A selection made by keyboard or the bulk bar must keep its checkboxes.
   useEffect(() => {
@@ -340,7 +375,10 @@ export function TableView({
     }
   }
 
-  function activate(row: number, col: number) {
+  function activate(row: number, col: number, keepAnchor = false) {
+    if (!keepAnchor) {
+      setAnchor(null);
+    }
     setActive({ row, col });
     window.requestAnimationFrame(() => {
       const cell = gridRef.current?.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`);
@@ -384,13 +422,24 @@ export function TableView({
     }
   }
 
-  function move(rowDelta: number, colDelta: number) {
-    const base = active ?? { row: 0, col: 0 };
+  function move(rowDelta: number, colDelta: number, extend = false) {
+    const base = active ?? { row: 0, col: titleCol };
     const next = stepCell(base, rowDelta, colDelta, rows.length, colCount);
     if (!next) {
       return;
     }
-    activate(next.row, next.col);
+    if (!extend) {
+      activate(next.row, next.col);
+      return;
+    }
+    // Shift never walks into a control column: a range is made of data only.
+    const col = Math.min(Math.max(next.col, titleCol), lastDataCol);
+    const start = anchor ?? {
+      row: Math.min(Math.max(base.row, 0), rows.length - 1),
+      col: Math.min(Math.max(base.col, titleCol), lastDataCol),
+    };
+    setAnchor(start);
+    activate(next.row, col, true);
   }
 
   function activateCell(cell: Cell) {
@@ -425,16 +474,16 @@ export function TableView({
     const key = event.key;
     if (key === "j" || key === "ArrowDown") {
       event.preventDefault();
-      move(1, 0);
+      move(1, 0, event.shiftKey);
     } else if (key === "k" || key === "ArrowUp") {
       event.preventDefault();
-      move(-1, 0);
+      move(-1, 0, event.shiftKey);
     } else if (key === "l" || key === "ArrowRight") {
       event.preventDefault();
-      move(0, 1);
+      move(0, 1, event.shiftKey);
     } else if (key === "h" || key === "ArrowLeft") {
       event.preventDefault();
-      move(0, -1);
+      move(0, -1, event.shiftKey);
     } else if (key === "Tab") {
       // Spreadsheet traversal, deliberately not the APG grid's leave-the-grid
       // Tab: only a data cell intercepts it, so header controls, the checkbox
@@ -479,6 +528,11 @@ export function TableView({
       activateCell(cell);
     } else if (key === "Escape") {
       event.preventDefault();
+      if (anchor) {
+        // The first Escape gives up the rectangle, not the reader's place.
+        setAnchor(null);
+        return;
+      }
       setActive(null);
       onClearSelection();
     } else if (key === "/") {
@@ -544,11 +598,43 @@ export function TableView({
    * land on the active data cell, which is the grid's one native entry point.
    */
   function dataCellProps(row: number, col: number) {
+    const inRange = range !== null && rangeContains(range, { row, col });
     return {
       ...cellProps(row, col),
       "data-grid-cell": "",
       "data-active": isActiveCell(row, col) ? "true" : undefined,
+      "data-in-range": inRange ? "true" : undefined,
+      // Only a live range marks cells; the row's own aria-selected still means
+      // the bulk selection.
+      "aria-selected": range ? (inRange ? "true" : "false") : undefined,
       onFocus: () => setActive({ row, col }),
+      onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+        // A touch tap is not a range gesture: the phone table keeps its old
+        // behaviour and never raises the selection bar.
+        if (event.pointerType === "touch") {
+          setAnchor(null);
+          setActive({ row, col });
+          return;
+        }
+        // Shift is the range gesture; a plain press collapses the rectangle to
+        // the pressed cell and makes it the anchor a later Shift click grows.
+        if (event.shiftKey) {
+          return;
+        }
+        setAnchor({ row, col });
+        setActive({ row, col });
+      },
+      onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
+        // Capture runs before the cell's display button, so a Shift click
+        // grows the rectangle instead of opening an editor.
+        if (!event.shiftKey) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setAnchor((current) => current ?? { row, col });
+        setActive({ row, col });
+      },
     } as const;
   }
 
@@ -572,9 +658,19 @@ export function TableView({
     return active !== null && active.row === row && active.col === col;
   }
 
-  /** The active cell's ring, painted only while the card holds focus. */
+  /** The active cell's ring, or the range's two-corner grammar. */
   function ringOf(row: number, col: number): string | null {
-    return gridFocused && isActiveCell(row, col) ? activeRing : null;
+    if (!gridFocused) {
+      return null;
+    }
+    const cell = { row, col };
+    if (range && rangeContains(range, cell)) {
+      if (anchor && sameCell(anchor, cell)) {
+        return activeRing;
+      }
+      return isActiveCell(row, col) ? rangeRing : null;
+    }
+    return isActiveCell(row, col) ? activeRing : null;
   }
 
   function sortHeader(key: string) {
@@ -589,6 +685,8 @@ export function TableView({
   // The page floats the bulk band over the viewport's bottom edge; the card
   // keeps a matching empty strip so the band never covers a row.
   const bandOpen = canEdit && selected.size > 0;
+  const counted = (count: number, one: string, many: string) =>
+    `${count} ${count === 1 ? one : many}`;
 
   // The rail header travels to whichever edge the rail occupies; the add
   // control on a phone lives there too.
@@ -621,12 +719,46 @@ export function TableView({
     </button>
   ) : null;
 
+  // The bar lives in a row that is already reserved above the card, so a
+  // selection never pushes the rows the reader is working in down the page.
+  const rangeBar = rangeStats ? (
+    <div
+      role="group"
+      aria-label="Cell selection"
+      className={cn(
+        "flex w-full min-w-0 items-center gap-2 rounded-[8px] border border-line bg-raised px-2",
+        compact ? "min-h-11" : "h-6",
+      )}
+    >
+      <span
+        aria-live="polite"
+        className="min-w-0 flex-1 truncate font-mono text-[11px] tabular-nums tracking-[0.06em] text-muted"
+      >
+        <span aria-hidden>
+          {`${counted(rangeStats.cells, "cell", "cells")} · ${counted(rangeStats.rows, "row", "rows")} × ${counted(rangeStats.columns, "column", "columns")}`}
+        </span>
+        <span className="sr-only">
+          {`${counted(rangeStats.rows, "row", "rows")} by ${counted(rangeStats.columns, "column", "columns")}, ${counted(rangeStats.cells, "cell", "cells")} selected`}
+        </span>
+      </span>
+      <button
+        type="button"
+        className="inline-flex min-h-6 shrink-0 items-center rounded-[6px] px-2 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink pointer-coarse:min-h-11"
+        onClick={() => setAnchor(null)}
+      >
+        Clear
+      </button>
+    </div>
+  ) : null;
+
   return (
     <>
     {compact ? (
       <div className="mt-3 flex min-h-11 items-center gap-3">
         {railBefore ? selectToggle : null}
-        {compactStatus ? (
+        {rangeBar ? (
+          <div className="min-w-0 flex-1">{rangeBar}</div>
+        ) : compactStatus ? (
           <div className="min-w-0 flex-1">{compactStatus}</div>
         ) : (
           <p
@@ -639,13 +771,14 @@ export function TableView({
         {railBefore ? null : selectToggle}
       </div>
     ) : null}
+    {compact ? null : <div className="mt-1 h-6">{rangeBar}</div>}
     <div
       ref={portRef}
       className={cn(
         "rounded-[20px] border border-line bg-surface",
         compact
           ? "mt-2 overflow-x-auto overscroll-x-contain"
-          : "mt-6 max-h-[70dvh] overflow-auto overscroll-contain",
+          : "mt-1 max-h-[70dvh] overflow-auto overscroll-contain",
         bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : bandOpen ? "pb-[4.5rem]" : "pb-2",
       )}
       onKeyDown={onGridKeyDown}
@@ -949,12 +1082,14 @@ export function TableView({
                   }
                   className={cn(
                     "sticky z-20 border-r rule py-1 pr-2 text-left font-normal outline-none",
-                    isSelected
-                      ? compact
-                        ? selectedSurface
-                        : selectedSurface
+                    isSelected ||
+                      (range !== null &&
+                        rangeContains(range, { row: rowIndex, col: titleCol }))
+                      ? selectedSurface
                       : "bg-surface",
-                    !isSelected && (compact ? hoverSurface : hoverSurface),
+                    !isSelected &&
+                      !(range !== null && rangeContains(range, { row: rowIndex, col: titleCol })) &&
+                      (compact ? hoverSurface : hoverSurface),
                     ringOf(rowIndex, titleCol),
                   )}
                   style={{ left: pinnedOffset }}
@@ -969,14 +1104,18 @@ export function TableView({
                 </th>
                 {propertyKeys.map((key, offset) => {
                   const property = propertyByKey.get(key);
+                  const cellCol = titleCol + 1 + offset;
+                  const inRange =
+                    range !== null && rangeContains(range, { row: rowIndex, col: cellCol });
                   if (!property) {
                     return (
                       <td
                         key={key}
-                        {...dataCellProps(rowIndex, titleCol + 1 + offset)}
+                        {...dataCellProps(rowIndex, cellCol)}
                         className={cn(
                           "py-1 pr-2 font-mono text-[11px] text-faint outline-none",
-                          ringOf(rowIndex, titleCol + 1 + offset),
+                          inRange && selectedSurface,
+                          ringOf(rowIndex, cellCol),
                         )}
                       >
                         {key}
@@ -987,10 +1126,11 @@ export function TableView({
                   return (
                     <td
                       key={key}
-                      {...dataCellProps(rowIndex, titleCol + 1 + offset)}
+                      {...dataCellProps(rowIndex, cellCol)}
                       className={cn(
                         "py-1 pr-2 outline-none",
-                        ringOf(rowIndex, titleCol + 1 + offset),
+                        inRange && selectedSurface,
+                        ringOf(rowIndex, cellCol),
                       )}
                       aria-label={
                         isComputed(property) || !canEdit

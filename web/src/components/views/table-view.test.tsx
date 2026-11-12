@@ -69,6 +69,7 @@ function renderTable() {
       canEdit
       completing={false}
       busy={false}
+      scopeKey="scope"
       sorts={[]}
       selected={new Set()}
       pendingRows={new Set()}
@@ -219,6 +220,7 @@ function gridElement(
   handlers: {
     onToggleRow?: (id: string) => void;
     onDuplicate?: (row: ObjectSummary) => void;
+    scopeKey?: string;
   } = {},
 ) {
   return (
@@ -231,6 +233,7 @@ function gridElement(
       canEdit
       completing={false}
       busy={false}
+      scopeKey={handlers.scopeKey ?? "scope"}
       sorts={[]}
       selected={new Set()}
       pendingRows={new Set()}
@@ -257,6 +260,7 @@ function renderGrid(
   handlers: {
     onToggleRow?: (id: string) => void;
     onDuplicate?: (row: ObjectSummary) => void;
+    scopeKey?: string;
   } = {},
 ) {
   return renderWithProviders(gridElement(handlers));
@@ -462,5 +466,120 @@ describe("the active cell", () => {
     expect(gridCell(container, 0, 2)).toHaveAttribute("data-grid-cell");
     expect(gridCell(container, 0, 3)).toHaveAttribute("data-grid-cell");
     expect(gridCell(container, 0, 0)).not.toHaveAttribute("data-grid-cell");
+  });
+});
+
+describe("the cell range", () => {
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    });
+  });
+
+  /** The data cells a range has marked; control columns never enter it. */
+  function selectedCells(container: HTMLElement): HTMLElement[] {
+    return Array.from(
+      container.querySelectorAll<HTMLElement>('[data-grid-cell][aria-selected="true"]'),
+    );
+  }
+
+  function shiftArrow(target: HTMLElement, key: string) {
+    fireEvent.keyDown(target, { key, shiftKey: true });
+    return document.activeElement as HTMLElement;
+  }
+
+  it("extends a rectangle over rows and columns with Shift and the arrows", () => {
+    const { container } = renderGrid();
+    let focus = shiftArrow(focusCell(container, 0, 1), "ArrowRight");
+    focus = shiftArrow(focus, "ArrowDown");
+
+    expect(selectedCells(container)).toHaveLength(4);
+    for (const row of [0, 1]) {
+      for (const col of [1, 2]) {
+        expect(gridCell(container, row, col)).toHaveAttribute("aria-selected", "true");
+      }
+    }
+    expect(gridCell(container, 1, 3)).toHaveAttribute("aria-selected", "false");
+    // The live region names both corners while the bar names the shape.
+    expect(screen.getByText("2 rows by 2 columns, 4 cells selected")).toBeInTheDocument();
+    expect(screen.getByText(/4 cells · 2 rows × 2 columns/)).toBeInTheDocument();
+    expect(focus).toBe(gridCell(container, 1, 2));
+  });
+
+  it("collapses the range on a plain move and keeps the active cell", () => {
+    const { container } = renderGrid();
+    fireEvent.keyDown(focusCell(container, 0, 1), { key: "ArrowRight", shiftKey: true });
+    expect(screen.getByRole("group", { name: "Cell selection" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "ArrowRight" });
+    expect(selectedCells(container)).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "Cell selection" })).toBeNull();
+    expect(gridCell(container, 0, 3)).toHaveAttribute("data-active", "true");
+  });
+
+  it("extends from a keyboard anchor on a Shift click without opening an editor", () => {
+    const { container } = renderGrid();
+    fireEvent.keyDown(focusCell(container, 0, 1), { key: "ArrowRight", shiftKey: true });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Edit title for “Fern”/ }),
+      { shiftKey: true },
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Title" })).toBeNull();
+    expect(selectedCells(container)).toHaveLength(2);
+    expect(gridCell(container, 1, 1)).toHaveAttribute("aria-selected", "true");
+    expect(gridCell(container, 0, 1)).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("anchors a plain press, so the next Shift click grows from it", () => {
+    const { container } = renderGrid();
+
+    fireEvent.pointerDown(gridCell(container, 0, 2));
+    expect(screen.getByText(/1 cell · 1 row × 1 column/)).toBeInTheDocument();
+
+    fireEvent.click(gridCell(container, 1, 3), { shiftKey: true });
+
+    expect(selectedCells(container)).toHaveLength(4);
+    expect(gridCell(container, 0, 2)).toHaveAttribute("aria-selected", "true");
+    expect(gridCell(container, 1, 3)).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("keeps a touch tap out of the range model", () => {
+    const { container } = renderGrid();
+
+    fireEvent.pointerDown(gridCell(container, 0, 2), { pointerType: "touch" });
+
+    expect(screen.queryByRole("group", { name: "Cell selection" })).toBeNull();
+    expect(selectedCells(container)).toHaveLength(0);
+    expect(gridCell(container, 0, 2)).toHaveAttribute("data-active", "true");
+  });
+
+  it("gives up the rectangle on Escape before it clears the grid", () => {
+    const { container } = renderGrid();
+    fireEvent.keyDown(focusCell(container, 0, 1), { key: "ArrowDown", shiftKey: true });
+
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+
+    expect(selectedCells(container)).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "Cell selection" })).toBeNull();
+    expect(gridCell(container, 1, 1)).toHaveAttribute("data-active", "true");
+
+    // The second Escape is the existing clear.
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+    expect(gridCell(container, 1, 1)).not.toHaveAttribute("data-active");
+  });
+
+  it("clears both corners when the page's scope changes", () => {
+    const { container, rerender } = renderGrid();
+    fireEvent.keyDown(focusCell(container, 0, 1), { key: "ArrowRight", shiftKey: true });
+    expect(screen.getByRole("group", { name: "Cell selection" })).toBeInTheDocument();
+
+    rerender(gridElement({ scopeKey: "page-2" }));
+
+    expect(screen.queryByRole("group", { name: "Cell selection" })).toBeNull();
+    expect(selectedCells(container)).toHaveLength(0);
+    expect(gridCell(container, 0, 1)).toHaveAttribute("data-active", "true");
   });
 });

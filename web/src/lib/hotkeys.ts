@@ -84,6 +84,13 @@ export const TABLE_SHORTCUTS: ShortcutDescriptor[] = [
     scope: "Table",
   },
   {
+    id: "table-extend",
+    key: "arrow",
+    keys: "Shift + arrow",
+    label: "Extend the cell selection",
+    scope: "Table",
+  },
+  {
     id: "table-activate",
     key: "enter",
     keys: "Enter",

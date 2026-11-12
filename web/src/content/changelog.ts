@@ -42,6 +42,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     upcoming: true,
     highlights: [
       "Tab walks a table's cells one at a time, wrapping to the next row, and Shift+Tab walks back.",
+      "Shift with an arrow key marks a rectangle of cells, the bar above the table names its size, and Escape clears it without losing the active cell.",
       "The cell a keyboard reader is on carries an accent ring once the table has focus, so the next keystroke has a visible target.",
       "Walking a wide table with the arrow keys scrolls each cell clear of the pinned title column and the action rail instead of leaving it underneath them.",
       "O opens the record under the cursor, so the keyboard never has to walk to the row's action rail.",
