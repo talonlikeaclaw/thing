@@ -483,6 +483,19 @@ tool's trigger carries the accent wash while its panel is open. A filter panel n
 matched, offers the schedule's own questions as one-tap conditions and says a chip for each
 of them; nothing about it is stored beyond the URL's ordinary filter.
 
+**The Grid's Selection and Summaries.** The ledger's cells are one keyboard surface: the active
+cell carries a 2 px inset accent ring, drawn as a shadow rather than an outline so the sticky
+header and the card's clip cannot cut it, and a marked rectangle fills every cell in it with the
+12% accent wash. The anchor keeps the ring and the focus cell carries a thinner one; a row
+selection and a rectangle may overlay, because each answers a different question and the bar names
+the rectangle's size. The selection bar sits in normal flow between the type toolbar and the card,
+its count in the mono voice with `Copy`, `Copy as Markdown` and `Clear` as the ledger's small
+controls. The summary footer is the table's last row — the header band's raised fill, one cell per
+data column aligned by the same colgroup, numbers in the mono tabular voice and labels in muted
+ink, one `rule` top edge — sticky to the bottom of the desktop scrollport, and the last row once
+the bulk band owns that edge. A footer cell's visible short text is `aria-hidden`, so a screen
+reader hears only its full sentence. No new token, motion or material is introduced.
+
 **The Promotion Sheet.** Turning a column into a type is a three-step sheet with the same
 header, scrolling body and sticky footer as every overlay: `Target`, `Preview`, `Run`. Target is a
 name, plural, icon, relation name, cardinality and an optional text delimiter. Preview is the

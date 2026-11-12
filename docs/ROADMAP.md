@@ -104,7 +104,9 @@ written the way these were. M6–M14 are recorded here so the format does not
 need reshaping later; each carries its decisions already made. M6.2's workspace UX patch landed as
 `0.7.1`; its spec is at
 [`docs/plan/m6.2-workspace-ux.md`](plan/m6.2-workspace-ux.md). M8 landed as `0.8.0` with schema 7;
-its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properties.md).
+its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properties.md). The M8.1
+grid-interaction patch landed as `0.8.1`, also at schema 7, with no format, route or dependency
+change; its spec is at [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md).
 
 **Revised 2026-11-11 (M9 merged):** table presentation was requested as its own `0.9.0` milestone,
 but `0.9.0` was already held for property model depth. Rather than renumber M10–M14, M9 now carries
@@ -112,7 +114,7 @@ both halves on one schema bump: presentation first (the `display` block, the vie
 switches), then the property-depth list unchanged. M10 keeps view depth and loses only "persisted
 aggregations", which the band's switches now own. Spec:
 [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md).
-M8.1's checkpoint 5, which ships `0.8.1`, still runs before M9's checkpoint 1.
+M8.1 landed as `0.8.1`, so M9's checkpoint 1 is next.
 
 **Revised 2026-11-11:** milestone numbers now equal the workspace minor: computed properties is
 **M8** (`0.8.0`), the inserted patches are M8.1–M8.5, property model depth is M9 (`0.9.0`), view
@@ -366,10 +368,11 @@ usability move ahead of search.
   type is a `409` that names the holder. The seed space's Plant type carries `days_since_watered`
   (formula), `related_plants` (count) and `related_titles` (list).
   - **M8.1 — Grid interaction.** `0.8.1`, no format change; spec:
-    [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md) (written, not started).
-    Tab and Shift+Tab movement, rectangular cell selection, copy a range as TSV or a markdown
-    table, and an ephemeral aggregation footer over the displayed rows. Read-only; every later
-    grid write builds on this selection.
+    [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md) (implemented 2026-11-11,
+    checkpoints 1–5; schema 7, no format, route or dependency change). Tab and Shift+Tab movement,
+    rectangular cell selection, copy a range as TSV or a markdown table, and an ephemeral
+    aggregation footer over the displayed rows. Read-only; every later grid write builds on this
+    selection.
   - **M8.2 — Trust and bulk writing.** `0.8.2`, no format change. Restore a revision, undo the last
     write, compare any two revisions, a space activity feed, a trash purge preview, a conflict
     inbox for an external edit that races a write, and the space doctor (unparsed files, dangling
@@ -387,7 +390,7 @@ usability move ahead of search.
     with a browser-local daily type.
 - **M9 — Property depth and presentation.** **Planned** (workspace `0.9.0`, schema 8); spec:
   [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md)
-  (written 2026-11-11, not started; it opens only after M8.1's checkpoint 5 ships `0.8.1`). Two halves
+  (written 2026-11-11, not started; it opens after M8.1 landed as `0.8.1`). Two halves
   on one schema bump. **Presentation (checkpoints 1–6):** a property gains an optional `display`
   block — `align` for every format, and `currency` (ISO 4217), `decimals` (0–4) and `grouping` for
   numbers — and a table view gains `footer` and `footer_hidden`, so the M8.1 summary band can be

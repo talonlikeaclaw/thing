@@ -31,7 +31,10 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   move-to-trash with Undo, header sorting, a pinned title and dimmed stale rows. **Columns** sits
   beside Filter and Sort with a live count, and **Add property** in the trailing header or that
   panel adds an existing or new property to the type and the current view without leaving the
-  table. Select and Multi-select columns sort by their option order. On a phone the row actions
+  table. Select and Multi-select columns sort by their option order. Tab walks the data cells one
+  at a time, Shift with an arrow marks a rectangle that copies as a spreadsheet block or a markdown
+  table, and a band under the table totals the rows on screen and says whether more rows exist. On a
+  phone the row actions
   fold into one menu so property columns stay reachable, and the bottom bar carries the space
   drawer, Capture and Search within thumb reach.
 - **A query you can see.** Filter, Sort and Columns open as glass popovers over the ledger on a wide

@@ -33,8 +33,9 @@ v0.4.1 follow-ups (`0.4.1`), v0.4.2 mobile craft (`0.4.2`), v0.4.3 touch follow-
 links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-landing and rename
 repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4), and
 the v0.5.3 stability pass (`0.5.3`, schema 4), M6 files and images (`0.6.0`, schema 5) and M6.1
-attachments UX (`0.7.0`, schema 6), the M6.2 workspace UX patch (`0.7.1`, schema 6) and M8
-calculated properties (`0.8.0`, schema 7) are implemented, not yet tagged or deployed; CI is green.
+attachments UX (`0.7.0`, schema 6), the M6.2 workspace UX patch (`0.7.1`, schema 6), M8
+calculated properties (`0.8.0`, schema 7) and the M8.1 grid-interaction patch (`0.8.1`, schema 7)
+are implemented, not yet tagged or deployed; CI is green.
 The
 v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
@@ -271,6 +272,15 @@ schema page and Add property (with an insertable field/function reference), the 
 field render read-only with the kind, result and definition, and `list` joins its labels. Schema 7,
 workspace `0.8.0`; no dependency is added.
 
+M8.1 is the grid-interaction patch at the same schema 7 and workspace `0.8.1`: `web/src/lib/grid.ts`
+owns the data-column, cell and range model (`tabCell`, `normalizeRange`, `rangeCells`) and the two
+copy encoders (`toTsv`, `toMarkdown`), `web/src/lib/aggregate.ts` owns one per-format summary rule
+and its sentences, and `components/views/table-view.tsx` gains the `anchor` beside `active`, the
+Tab/Shift+Tab branch, the range paint, the selection bar, `mod+C` and the `<tfoot>` summary row.
+`components/type-table.tsx` passes `scopeKey` and `total`. The footer sums only the rows the list
+read returned, states that scope under the table, and never enters a view, a type, the URL or the
+server. No route, format, permission or dependency changes.
+
 ## Where the plan lives
 
 | File | Role |
@@ -293,7 +303,7 @@ workspace `0.8.0`; no dependency is added.
 | `docs/plan/m6.1-attachments-ux.md` | The v0.7.0 spec: schema 6 and the `attachments` list format, labels and CSV paths, the lightbox carousel, the attachments field and its read surfaces, body images with their GC rule, the space library and storage settings, and the release pass. Landed as `0.7.0`, schema 6. |
 | `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Landed as `0.7.1`, schema 6. |
 | `docs/plan/m8-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Landed as `0.8.0`, schema 7. |
-| `docs/plan/m8.1-grid-interaction.md` | The v0.8.1 spec: the data-column and range model, Tab traversal, rectangular selection, TSV and markdown copy, the row-scoped aggregation footer, and the release pass. Planned; no format or server change. |
+| `docs/plan/m8.1-grid-interaction.md` | The v0.8.1 spec: the data-column and range model, Tab traversal, rectangular selection, TSV and markdown copy, the row-scoped aggregation footer, and the release pass. Landed as `0.8.1`, schema 7; no format or server change. |
 | `docs/plan/m9-property-depth-and-presentation.md` | The v0.9.0 spec at schema 8: the property `display` block (alignment, ISO currency, decimals, grouping) and a table view's `footer`/`footer_hidden` switches, then the property-depth list (validation, defaults, rollup filters, member format, relation filters, formula additions, daily type). Planned; opens after M8.1's release. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
@@ -341,8 +351,10 @@ targets; links and finish; the wizard; this release pass) are landed at workspac
 checkpoints 1–8 of M8 (schema 7, `compute` and the `list` format; the formula language; the compute
 engine; server definitions, reads and write refusal; rename, delete and CSV; computed values on
 every read surface; formula and rollup authoring; this release pass) are landed at workspace
-`0.8.0`.** M1 is
-deployed; M2–M6.2 are not deployed. The
+`0.8.0`, and checkpoints 1–5 of M8.1 (the grid model and Tab traversal; rectangular selection;
+TSV and markdown copy; the aggregation footer; version, docs and release QA) are landed at
+workspace `0.8.1`.** M1 is
+deployed; M2–M8.1 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
 carries the v0.4.2 keyboard gate and the v0.4.4 device pass.
@@ -763,7 +775,7 @@ code is; "it works" does not excuse a skipped gate, a secret change, or a commit
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 885 tests (260 `thing-core`, 18 `tests/roundtrip.rs`, 121 `thing-server`, 486
+- **Current coverage:** 1158 tests (306 `thing-core`, 19 `tests/roundtrip.rs`, 129 `thing-server`, 704
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

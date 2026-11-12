@@ -37,30 +37,120 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
-    title: "Grid interaction",
-    upcoming: true,
-    highlights: [
-      "Tab walks a table's cells one at a time, wrapping to the next row, and Shift+Tab walks back.",
-      "Shift with an arrow key marks a rectangle of cells, the bar above the table names its size, and Escape clears it without losing the active cell.",
-      "Ctrl+C or ⌘C copies the marked rectangle as a block that pastes straight into a spreadsheet.",
-      "With no rectangle marked, the same keys copy just the cell under the cursor.",
-      "The selection bar copies the same rectangle as a markdown table, ready to paste into a record's body or a message.",
-      "A band under the table totals the page it shows: sums and averages for numbers, earliest and latest days, checked boxes and distinct values.",
-      "The line under the table says whether those totals cover every record or only the rows shown.",
-      "The cell a keyboard reader is on carries an accent ring once the table has focus, so the next keystroke has a visible target.",
-      "Walking a wide table with the arrow keys scrolls each cell clear of the pinned title column and the action rail instead of leaving it underneath them.",
-      "O opens the record under the cursor, so the keyboard never has to walk to the row's action rail.",
-      "Closing a select, multi-select or recurrence editor puts focus back on the cell it edited, not on the toolbar control touched before it.",
-      "A floating cell editor sits a few pixels below its own cell instead of over it, and follows the cell as the table scrolls.",
-      "Selecting rows keeps the last row readable: the table leaves a clear strip for the floating selection bar.",
-      "A column's menu offers Turn into a relation only for text, select and multi-select columns, instead of listing an action that cannot run.",
-      "A narrow column's header wraps its name instead of cutting it off, and the full name stays available on hover.",
-      "Every column's header starts at the same top edge, so a wrapped name never pulls its label or its sort arrow out of line.",
-      "A property's format sits on the header band's bottom edge, so every type reads at one height.",
-      "The Title column names its Text format with every other column.",
-      "A header shows its format as an icon when the words no longer fit, on the same line as the spelled formats, with the spelling on its tooltip.",
-      "On a phone every column header keeps its property type's icon beside the name, so a stored format reads as clearly as a calculated one.",
+    version: "0.8.1",
+    title: "A grid you can work in",
+    date: "2026-11-11",
+    summary:
+      "The type table now takes the keyboard the way a spreadsheet does: Tab walks its cells, a rectangle of cells can be marked and copied, and a band under the rows totals what the page shows.",
+    sections: [
+      {
+        title: "Move and select",
+        intro:
+          "The ledger is one grid, with a visible target and a rectangle you can mark in either direction.",
+        items: [
+          {
+            lead: "Tab walks the data cells",
+            body: "Tab steps to the next cell and wraps to the next row; Shift+Tab reverses, and either key leaves the table at the end.",
+          },
+          {
+            lead: "Shift with an arrow marks a rectangle",
+            body: "The bar above the table names its size, and Escape clears it without losing the cell you were on.",
+          },
+          {
+            lead: "The active cell carries an accent ring",
+            body: "Once the table has focus, the next keystroke has a visible target in both schemes.",
+          },
+          {
+            lead: "Arrow keys keep the cell in view",
+            body: "Walking a wide table scrolls each cell clear of the pinned title column and the action rail instead of leaving it underneath them.",
+          },
+          {
+            lead: "O opens the record under the cursor",
+            body: "The keyboard no longer has to walk to the row's action rail.",
+          },
+          {
+            lead: "Closing a cell editor returns focus to its cell",
+            body: "A select, multi-select or recurrence editor no longer strands focus on the toolbar control touched before it.",
+          },
+          {
+            lead: "A floating editor sits below its cell",
+            body: "It no longer covers the value being edited and follows the cell as the table scrolls.",
+          },
+          {
+            lead: "The last row stays readable",
+            body: "Selecting rows leaves a clear strip for the floating selection bar, so the table's final row is never hidden behind it.",
+          },
+        ],
+      },
+      {
+        title: "Copy out",
+        intro:
+          "A marked rectangle leaves the page as data, in either of the two spellings a reader needs.",
+        items: [
+          {
+            lead: "Copy a block into a spreadsheet",
+            body: "Ctrl+C or ⌘C copies the marked rectangle as tab-separated text that pastes into any spreadsheet or notes app.",
+          },
+          {
+            lead: "Copy one cell without a rectangle",
+            body: "With no rectangle marked, the same keys copy just the cell under the cursor.",
+          },
+          {
+            lead: "Copy the same rectangle as a markdown table",
+            body: "The selection bar's second action produces a table ready for a record's body or a message.",
+          },
+          {
+            lead: "A copy says what it did",
+            body: "A toast reports the copied cell count or the markdown table, and a refused clipboard keeps the selection.",
+          },
+        ],
+      },
+      {
+        title: "Read the numbers",
+        intro:
+          "The table now answers what its page adds up to without an export.",
+        items: [
+          {
+            lead: "A summary band totals the page shown",
+            body: "Numbers carry a sum and an average, dates their earliest and latest day, checkboxes how many are checked, and text how many distinct values it holds.",
+          },
+          {
+            lead: "Every column has a short summary and a full sentence",
+            body: "The compact form fits a narrow footer, and the cell's tooltip and screen-reader name spell out how many rows are filled and the full range.",
+          },
+          {
+            lead: "The scope line is honest about the rows",
+            body: "It says whether the totals cover every record or only the rows on screen.",
+          },
+        ],
+      },
+      {
+        title: "Headers that hold their line",
+        intro:
+          "A narrow column keeps its identity even when its name no longer fits.",
+        items: [
+          {
+            lead: "A header wraps its name",
+            body: "A narrow column's name wraps onto up to three lines, and the full name stays on hover.",
+          },
+          {
+            lead: "Headers share a top edge",
+            body: "A wrapped name never pulls its label or its sort arrow out of line with its neighbours.",
+          },
+          {
+            lead: "The format sits on the header's bottom edge",
+            body: "Every property type reads at one height, and the Title column names Text with them.",
+          },
+          {
+            lead: "A format becomes an icon when the words do not fit",
+            body: "The icon keeps the spelling in its tooltip, and a phone keeps the type's glyph beside every name.",
+          },
+          {
+            lead: "Turn into a relation only appears where it can run",
+            body: "The column menu no longer lists the action for a format that cannot become a type.",
+          },
+        ],
+      },
     ],
   },
   {
