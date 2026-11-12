@@ -90,10 +90,30 @@ export interface OptionDef {
   color: string;
 }
 
+/** How a value sits in its column; `auto` lets the format decide. */
+export type Align = "auto" | "left" | "right";
+
+/**
+ * How a property's values read, as opposed to what they store. Every field is
+ * optional, and the block itself is absent on a property that reads plainly.
+ */
+export interface PropertyDisplay {
+  /** Every format; absent means `auto`. */
+  align?: Align;
+  /** `number` only: an ISO 4217 code, three uppercase letters. */
+  currency?: string;
+  /** `number` only: 0–4 fraction digits; absent means the value's own digits. */
+  decimals?: number;
+  /** `number` only: `false` drops the thousands separators. */
+  grouping?: boolean;
+}
+
 export interface PropertyDef {
   key: string;
   name: string;
   format: PropertyFormat;
+  /** How the values read; absent means plain. */
+  display?: PropertyDisplay;
   /** Present only for `select` and `multi_select`; omitted when empty. */
   options?: OptionDef[];
   /** Present only for `relation`; omitted when any type is allowed. */
@@ -168,6 +188,10 @@ export interface ViewDef {
   cover?: string;
   /** `calendar` only: the date property that places a record on a day. */
   date_property?: string;
+  /** The aggregation footer; absent or `true` means shown. `table` only. */
+  footer?: boolean;
+  /** Columns whose footer cell stays blank. `table` only. */
+  footer_hidden?: string[];
 }
 
 /** A new view; omitted layout and query fields copy the current default view. */
@@ -194,6 +218,10 @@ export interface UpdateView {
   /** `null` clears the cover. */
   cover?: string | null;
   date_property?: string;
+  /** `null` restores the shown band; `false` turns it off. */
+  footer?: boolean | null;
+  /** The whole denylist; `[]` summarises every column again. */
+  footer_hidden?: string[];
 }
 
 export type RecurrenceKind = "days" | "weekly" | "monthly";

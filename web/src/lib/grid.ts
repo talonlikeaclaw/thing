@@ -1,4 +1,5 @@
-import type { ObjectSummary, PropertyFormat } from "@/api/types";
+import type { ObjectSummary, PropertyDisplay, PropertyFormat } from "@/api/types";
+import { displayLabel } from "@/lib/presentation";
 
 /** The only view column that is not a property; the server calls it `model::TITLE_KEY`. */
 export const TITLE_COLUMN_KEY = "title";
@@ -11,6 +12,8 @@ export interface GridColumn {
   label: string;
   /** Absent for the title and for a view column whose property no longer exists. */
   format?: PropertyFormat;
+  /** How the property's values read; absent means the server's label. */
+  display?: PropertyDisplay;
 }
 
 /** A position in the data grid: row index and data-column index. */
@@ -202,7 +205,11 @@ export function cellText(column: GridColumn, row: ObjectSummary): string {
   if (column.key === TITLE_COLUMN_KEY) {
     return row.title;
   }
-  return row.values[column.key]?.label ?? "";
+  const value = row.values[column.key];
+  if (!value) {
+    return "";
+  }
+  return displayLabel(column, value.value, value.label);
 }
 
 /** Header labels plus one text row per grid row, in view order. */

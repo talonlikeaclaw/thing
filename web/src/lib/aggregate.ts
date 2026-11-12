@@ -2,6 +2,7 @@ import type { ObjectSummary, PropertyFormat } from "@/api/types";
 import { formatDateTime, formatDay } from "@/lib/display";
 import { plural } from "@/lib/format";
 import { TITLE_COLUMN_KEY, type GridColumn } from "@/lib/grid";
+import { numberText } from "@/lib/presentation";
 
 /** One data column's footer: a short line for the cell, a sentence for the reader. */
 export interface ColumnSummary {
@@ -70,15 +71,17 @@ function summarizeNumbers(
   if (numbers.length === 0) {
     return emptySummary(column, total);
   }
+  // The display's grammar where it has one, the 0.8.1 reading where it does not.
+  const text = (number: number) => numberText(number, column.display) ?? numberFormat.format(number);
   const sum = numbers.reduce((running, value) => running + value, 0);
   const average = sum / numbers.length;
   const lowest = Math.min(...numbers);
   const highest = Math.max(...numbers);
-  const sumText = numberFormat.format(sum);
-  const averageText = numberFormat.format(average);
+  const sumText = text(sum);
+  const averageText = text(average);
   return {
     short: `Σ ${sumText} · avg ${averageText}`,
-    long: `${column.label}: ${numbers.length} of ${total} filled; sum ${sumText}; average ${averageText}; lowest ${numberFormat.format(lowest)}; highest ${numberFormat.format(highest)}`,
+    long: `${column.label}: ${numbers.length} of ${total} filled; sum ${sumText}; average ${averageText}; lowest ${text(lowest)}; highest ${text(highest)}`,
     filled: numbers.length,
     total,
   };

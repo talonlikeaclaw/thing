@@ -93,6 +93,47 @@ describe("a number column's footer", () => {
       total: 2,
     });
   });
+
+  it("reads every number in the property's currency", () => {
+    const money: GridColumn = { ...amount, display: { currency: "USD" } };
+    const moneyText = (value: number) =>
+      new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(value);
+    const rows = [
+      record("a", { amount: { value: 1, label: "1" } }),
+      record("b", { amount: { value: 2, label: "2" } }),
+    ];
+    const summary = summarizeColumn(money, rows, "UTC");
+    expect(summary.short).toBe(`Σ ${moneyText(3)} · avg ${moneyText(1.5)}`);
+    expect(summary.long).toBe(
+      `Amount: 2 of 2 filled; sum ${moneyText(3)}; average ${moneyText(1.5)}; lowest ${moneyText(1)}; highest ${moneyText(2)}`,
+    );
+    expect(summary.filled).toBe(2);
+  });
+
+  it("fixes the decimals and drops the separators the display asks for", () => {
+    const fixed: GridColumn = { ...amount, display: { decimals: 2, grouping: false } };
+    const fixedText = (value: number) =>
+      new Intl.NumberFormat(undefined, {
+        useGrouping: false,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value);
+    const rows = [
+      record("a", { amount: { value: 1200000, label: "1200000" } }),
+      record("b", { amount: { value: 2408, label: "2408" } }),
+    ];
+    expect(summarizeColumn(fixed, rows, "UTC").short).toBe(
+      `Σ ${fixedText(1202408)} · avg ${fixedText(601204)}`,
+    );
+  });
+
+  it("keeps the 0.8.1 reading for a display that only aligns", () => {
+    const aligned: GridColumn = { ...amount, display: { align: "right" } };
+    const rows = [record("a", { amount: { value: 1204, label: "1204" } })];
+    expect(summarizeColumn(aligned, rows, "UTC").short).toBe(
+      summarizeColumn(amount, rows, "UTC").short,
+    );
+  });
 });
 
 describe("a checkbox column's footer", () => {

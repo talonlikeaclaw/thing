@@ -265,6 +265,26 @@ describe("cellText", () => {
     const missing: GridColumn = { key: "gone", label: "Gone" };
     expect(cellText(missing, copyRows[0] as ObjectSummary)).toBe("");
   });
+
+  it("copies a number through its property's display, so the copy matches the cell", () => {
+    const money: GridColumn = {
+      key: "amount",
+      label: "Amount",
+      format: "number",
+      display: { currency: "USD" },
+    };
+    const row: ObjectSummary = {
+      ...(copyRows[0] as ObjectSummary),
+      values: { amount: { value: 1204, label: "1204" } },
+    };
+    const shown = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+    }).format(1204);
+    expect(cellText(money, row)).toBe(shown);
+    // Without the display the copy stays the server's label, as it was.
+    expect(cellText({ ...money, display: undefined }, row)).toBe("1204");
+  });
 });
 
 describe("rangeMatrix", () => {
