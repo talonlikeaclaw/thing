@@ -573,6 +573,7 @@ fn set_schedule(index: &SpaceIndex, next: &mut TypeDef, schedule: bool) -> Resul
     for view in &mut next.views {
         view.columns.retain(|column| !is_schedule_key(column));
         view.widths.retain(|key, _| !is_schedule_key(key));
+        view.footer_hidden.retain(|entry| !is_schedule_key(entry));
         view.sorts.retain(|sort| !is_schedule_key(&sort.property));
         view.filter
             .conditions
@@ -862,6 +863,7 @@ mod tests {
             direction: Direction::Asc,
             empty: EmptyPlacement::End,
         });
+        def.views[0].footer_hidden = vec![DUE_DATE_KEY.to_owned(), TITLE_KEY.to_owned()];
         def.views[0]
             .filter
             .conditions
@@ -876,6 +878,7 @@ mod tests {
         assert!(!def.schedule);
         assert!(def.schedule_labels.is_empty());
         assert_eq!(def.views[0].columns, vec![TITLE_KEY]);
+        assert_eq!(def.views[0].footer_hidden, vec![TITLE_KEY]);
         assert_eq!(
             def.views[0]
                 .sorts

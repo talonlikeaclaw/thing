@@ -17,7 +17,8 @@ use thing_core::compute;
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
-    ComputeDef, ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role, is_reserved_key,
+    Align, ComputeDef, DisplayDef, ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role,
+    is_reserved_key,
 };
 use thing_core::schedule::is_schedule_key;
 use thing_core::slug::{is_valid_key, key_from_name};
@@ -25,7 +26,7 @@ use thing_core::store::{SpaceStore, property_path};
 use thing_core::validate::{self, MAX_TITLE_LEN};
 use time::OffsetDateTime;
 
-use super::{ApiJson, ApiQuery, clean_text, space_for, uuid_param};
+use super::{ApiJson, ApiQuery, clean_text, double_option, space_for, uuid_param};
 use crate::auth::Caller;
 use crate::error::ApiError;
 use crate::spaces::SpaceHandle;
@@ -93,6 +94,9 @@ struct CreatePropertyRequest {
     /// Present only for a calculated property.
     #[serde(default)]
     compute: Option<ComputeDef>,
+    /// How the values read; omitted means plain.
+    #[serde(default)]
+    display: Option<DisplayDef>,
 }
 
 /// `POST /api/spaces/{space}/properties` [editor]
@@ -124,7 +128,7 @@ async fn create(
         target_type: body.target_type.clone(),
         multi,
         compute: body.compute.clone(),
-        display: None,
+        display: normalize_display(body.display),
     };
 
     let _guard = handle.write.lock().await;
@@ -156,6 +160,9 @@ struct PatchPropertyRequest {
     /// Present only for an already-calculated property; the kind may not change.
     #[serde(default)]
     compute: Option<ComputeDef>,
+    /// `null` clears the block; leaving it out leaves it alone.
+    #[serde(default, deserialize_with = "double_option")]
+    display: Option<Option<DisplayDef>>,
 }
 
 /// `PATCH /api/spaces/{space}/properties/{key}` [editor]
@@ -170,7 +177,11 @@ async fn update(
 ) -> Result<Json<Value>, ApiError> {
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Editor)?;
-    if body.name.is_none() && body.options.is_none() && body.compute.is_none() {
+    if body.name.is_none()
+        && body.options.is_none()
+        && body.compute.is_none()
+        && body.display.is_none()
+    {
         return Err(ApiError::validation("body", "nothing to change"));
     }
     let name = body
@@ -201,6 +212,9 @@ async fn update(
         }
         if let Some(name) = name {
             next.name = name;
+        }
+        if let Some(display) = body.display {
+            next.display = normalize_display(display);
         }
         if let Some(options) = &body.options {
             let read = read_options(options, Some(&next.options))?;
@@ -516,10 +530,27 @@ fn holds_option(doc: &ObjectDoc, key: &str, option: &str) -> bool {
     }
 }
 
+/// One state, one spelling: `align: auto` is stored as no align, and a block
+/// with nothing left in it is stored as no block. Every writer (create and
+/// patch) goes through this, so a cleared display carries no bytes.
+fn normalize_display(display: Option<DisplayDef>) -> Option<DisplayDef> {
+    let mut display = display?;
+    if display.align == Some(Align::Auto) {
+        display.align = None;
+    }
+    if display == DisplayDef::default() {
+        None
+    } else {
+        Some(display)
+    }
+}
+
 /// Checks a new definition: options belong to `select` and `multi_select` and
-/// name real keys, a relation may name a type, and nothing else takes either.
+/// name real keys, a relation may name a type, a display carries only fields
+/// its format can honour, and nothing else takes either.
 fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
-    let definition_errors = compute::validate_definition(def);
+    let mut definition_errors = compute::validate_definition(def);
+    definition_errors.extend(validate::validate_display(def));
     if !definition_errors.is_empty() {
         return Err(ApiError::validation_all(definition_errors));
     }
@@ -572,6 +603,38 @@ mod tests {
             assert_eq!(err.message(), format!("{key} is a generated schedule key"));
         }
         reject_schedule_key("name", "room").expect("an ordinary key");
+    }
+
+    #[test]
+    fn a_display_is_stored_in_one_spelling() {
+        assert_eq!(normalize_display(None), None);
+        // `auto` is what an absent align means, so it is never written.
+        assert_eq!(
+            normalize_display(Some(DisplayDef {
+                align: Some(Align::Auto),
+                ..DisplayDef::default()
+            })),
+            None
+        );
+        // A block with nothing left in it is no block.
+        assert_eq!(
+            normalize_display(Some(DisplayDef {
+                align: Some(Align::Auto),
+                decimals: Some(2),
+                ..DisplayDef::default()
+            })),
+            Some(DisplayDef {
+                decimals: Some(2),
+                ..DisplayDef::default()
+            })
+        );
+        let amount = DisplayDef {
+            align: Some(Align::Right),
+            currency: Some("USD".to_owned()),
+            decimals: Some(0),
+            grouping: Some(false),
+        };
+        assert_eq!(normalize_display(Some(amount.clone())), Some(amount));
     }
 
     #[test]

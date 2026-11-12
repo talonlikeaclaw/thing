@@ -400,6 +400,7 @@ mod tests {
     use crate::accounts::Accounts;
     use crate::spaces::SpaceRegistry;
     use crate::state::{ACCOUNTS_FILE, AppState};
+    use thing_core::store::SpaceStore;
     use thing_core::validate::MAX_TITLE_LEN;
 
     const PASSWORD: &str = "correct-horse-battery";
@@ -2435,6 +2436,150 @@ mod tests {
                 .await;
             assert_eq!(reserved.status, StatusCode::UNPROCESSABLE_ENTITY);
             assert_eq!(reserved.field(), "name");
+        });
+    }
+
+    #[test]
+    fn a_display_round_trips_and_a_format_refuses_what_it_cannot_show() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("display@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let properties = format!("/api/spaces/{}/properties", garden.space);
+            let amount = format!("{properties}/amount");
+
+            let created = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Amount",
+                        "format": "number",
+                        "display": { "currency": "USD" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            assert_eq!(created.body["display"], json!({ "currency": "USD" }));
+
+            // The block is stored, not just echoed: a read agrees.
+            let reread = server.call("GET", &amount, None, Some(&cookie)).await;
+            assert_eq!(reread.body["display"], json!({ "currency": "USD" }));
+
+            let full = server
+                .call(
+                    "PATCH",
+                    &amount,
+                    Some(json!({
+                        "display": {
+                            "align": "right",
+                            "currency": "USD",
+                            "decimals": 2,
+                            "grouping": false,
+                        },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(full.status, StatusCode::OK, "{:?}", full.body);
+            assert_eq!(
+                full.body["display"],
+                json!({
+                    "align": "right",
+                    "currency": "USD",
+                    "decimals": 2,
+                    "grouping": false,
+                })
+            );
+
+            // `auto` is the absent spelling, so it is stored as nothing.
+            let auto = server
+                .call(
+                    "PATCH",
+                    &amount,
+                    Some(json!({ "display": { "align": "auto", "decimals": 1 } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(auto.status, StatusCode::OK, "{:?}", auto.body);
+            assert_eq!(auto.body["display"], json!({ "decimals": 1 }));
+
+            // `null` clears the block; leaving it out leaves it alone.
+            let kept = server
+                .call(
+                    "PATCH",
+                    &amount,
+                    Some(json!({ "name": "Cost" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(kept.body["display"], json!({ "decimals": 1 }));
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &amount,
+                    Some(json!({ "display": null })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK, "{:?}", cleared.body);
+            assert_eq!(cleared.body.get("display"), None);
+
+            // A text property cannot carry a number's display, on either writer.
+            let on_text = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/room"),
+                    Some(json!({ "display": { "currency": "USD" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(on_text.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(on_text.field(), "display.currency");
+            assert_eq!(
+                on_text.body["error"]["message"],
+                "belongs to number properties only"
+            );
+            let stored_text = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Rate",
+                        "format": "text",
+                        "display": { "decimals": 2 },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(stored_text.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(stored_text.field(), "display.decimals");
+
+            let too_many = server
+                .call(
+                    "PATCH",
+                    &amount,
+                    Some(json!({ "display": { "decimals": 5 } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(too_many.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(too_many.field(), "display.decimals");
+            assert_eq!(too_many.body["error"]["message"], "must be 0 to 4");
+
+            let malformed = server
+                .call(
+                    "PATCH",
+                    &amount,
+                    Some(json!({ "display": { "currency": "usd" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(malformed.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(malformed.field(), "display.currency");
         });
     }
 
@@ -4825,6 +4970,152 @@ mod tests {
                 last.body["error"]["details"]["reason"],
                 "a type needs at least one view"
             );
+        });
+    }
+
+    #[test]
+    fn a_table_view_keeps_its_footer_switches_and_another_kind_refuses_them() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("footer@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+            let base = format!("/api/spaces/{}/types/plant", garden.space);
+
+            let set = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({
+                        "columns": ["title", "room"],
+                        "footer": false,
+                        "footer_hidden": ["room"],
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(set.status, StatusCode::OK, "{:?}", set.body);
+            assert_eq!(view(&set.body, "all")["footer"], json!(false));
+            assert_eq!(view(&set.body, "all")["footer_hidden"], json!(["room"]));
+
+            // The two switches are edited apart: clearing one keeps the other.
+            let shown = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({ "footer": null })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(shown.status, StatusCode::OK, "{:?}", shown.body);
+            assert_eq!(view(&shown.body, "all")["footer"], Value::Null);
+            assert_eq!(view(&shown.body, "all")["footer_hidden"], json!(["room"]));
+
+            let emptied = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({ "footer_hidden": [] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(view(&emptied.body, "all")["footer_hidden"], Value::Null);
+
+            // A denylist entry has to be a column of the view carrying it.
+            let ghost = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({ "footer_hidden": ["ghost"] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(ghost.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(ghost.field(), "views.all.footer_hidden.ghost");
+
+            // The band is a table's, so a board refuses either switch.
+            let board = server
+                .call(
+                    "POST",
+                    &format!("{base}/views"),
+                    Some(json!({ "name": "By room", "kind": "board", "group_by": "room" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(board.status, StatusCode::CREATED, "{:?}", board.body);
+            let refused = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/by_room"),
+                    Some(json!({ "footer": false })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(refused.field(), "views.by_room.footer");
+            assert_eq!(
+                refused.body["error"]["message"],
+                "belongs to table views only"
+            );
+        });
+    }
+
+    #[test]
+    fn a_hand_edited_footer_denylist_shows_in_health_without_taking_the_type_offline() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("hand-edited@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            // Written past the API, the way a hand edit arrives.
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&garden.space).expect("a space id"))
+                .expect("the space is loaded");
+            let mut def =
+                handle.with_index(|index| index.type_def("plant").expect("the type").clone());
+            def.views[0].footer_hidden = vec!["ghost".to_owned()];
+            let path = thing_core::store::type_path(&def.key);
+            let expected = handle.with_index(|index| index.fingerprint(&path));
+            handle.store.save_type(&def, expected).expect("a hand edit");
+            handle
+                .with_index_mut(|index| index.reload_file(&handle.store, &path))
+                .expect("the index reloads");
+
+            let health = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/health", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(health.status, StatusCode::OK);
+            assert_eq!(
+                health.body["view_problems"],
+                json!([{
+                    "type": "plant",
+                    "view": "all",
+                    "field": "views.all.footer_hidden.ghost",
+                    "message": "is not a column of this view",
+                }])
+            );
+
+            // The problem is reported, not fatal: the type still reads.
+            let read = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{}/types/plant", garden.space),
+                    None,
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(read.status, StatusCode::OK);
+            assert_eq!(view(&read.body, "all")["footer_hidden"], json!(["ghost"]));
         });
     }
 

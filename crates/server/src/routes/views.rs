@@ -187,6 +187,12 @@ struct PatchViewRequest {
     cover: Option<Option<String>>,
     #[serde(default, deserialize_with = "double_option")]
     date_property: Option<Option<String>>,
+    /// `null` restores the shown band; `false` turns it off.
+    #[serde(default, deserialize_with = "double_option")]
+    footer: Option<Option<bool>>,
+    /// The whole denylist; `[]` summarises every column again.
+    #[serde(default)]
+    footer_hidden: Option<Vec<String>>,
 }
 
 impl PatchViewRequest {
@@ -199,6 +205,8 @@ impl PatchViewRequest {
             && self.group_by.is_none()
             && self.cover.is_none()
             && self.date_property.is_none()
+            && self.footer.is_none()
+            && self.footer_hidden.is_none()
     }
 }
 
@@ -254,6 +262,12 @@ async fn update(
         }
         if let Some(date_property) = body.date_property {
             view.date_property = clean_optional_key(date_property);
+        }
+        if let Some(footer) = body.footer {
+            view.footer = footer;
+        }
+        if let Some(footer_hidden) = body.footer_hidden {
+            view.footer_hidden = footer_hidden;
         }
         validated(index, &next)?;
         Ok(next)

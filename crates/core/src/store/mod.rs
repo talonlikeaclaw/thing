@@ -432,6 +432,12 @@ pub(crate) fn rename_property_in_type(def: &mut TypeDef, old: &str, new: &str) -
             view.widths.insert(new.to_owned(), width);
             changed = true;
         }
+        for hidden in &mut view.footer_hidden {
+            if hidden == old {
+                *hidden = new.to_owned();
+                changed = true;
+            }
+        }
         for sort in &mut view.sorts {
             if sort.property == old {
                 sort.property = new.to_owned();
@@ -490,6 +496,10 @@ pub fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
         changed |= view.columns.len() != columns;
 
         changed |= view.widths.remove(key).is_some();
+
+        let hidden = view.footer_hidden.len();
+        view.footer_hidden.retain(|entry| entry != key);
+        changed |= view.footer_hidden.len() != hidden;
 
         let sorts = view.sorts.len();
         view.sorts.retain(|sort| sort.property != key);
@@ -751,6 +761,7 @@ mod tests {
     #[test]
     fn renaming_a_property_rewrites_every_reference_in_a_type() {
         let mut def = type_def();
+        def.views[0].footer_hidden = vec!["room".to_owned(), "title".to_owned()];
         assert!(rename_property_in_type(&mut def, "room", "space"));
         assert_eq!(
             def.properties
@@ -763,6 +774,7 @@ mod tests {
         assert_eq!(def.views[0].sorts[0].property, "space");
         assert_eq!(def.views[0].filter.conditions[0].property, "space");
         assert_eq!(def.views[0].widths.get("space").copied(), Some(140));
+        assert_eq!(def.views[0].footer_hidden, vec!["space", "title"]);
         assert_eq!(def.views[1].columns, vec!["title", "space"]);
         assert_eq!(def.views[1].group_by.as_deref(), Some("space"));
         assert!(!rename_property_in_type(&mut def, "room", "space"));
@@ -783,6 +795,7 @@ mod tests {
     #[test]
     fn removing_a_property_from_a_type_drops_every_reference() {
         let mut def = type_def();
+        def.views[0].footer_hidden = vec!["room".to_owned(), "title".to_owned()];
         assert!(remove_property_from_type(&mut def, "room"));
         assert_eq!(
             def.properties
@@ -796,6 +809,7 @@ mod tests {
         assert!(def.views[0].filter.conditions.is_empty());
         assert_eq!(def.views[0].widths.get("room"), None);
         assert_eq!(def.views[0].widths.get("title").copied(), Some(240));
+        assert_eq!(def.views[0].footer_hidden, vec!["title"]);
         assert_eq!(def.views[1].columns, vec!["title"]);
         assert_eq!(def.views[1].group_by, None);
         assert!(!remove_property_from_type(&mut def, "room"));
