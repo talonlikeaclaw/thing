@@ -39,6 +39,8 @@ interface PropertyCellProps {
   rowTitle: string;
   /** How a calculated cell derives its value; its tooltip and read-only reason. */
   description?: string;
+  /** The grid's roving tab stop; the display button is opened with Enter instead. */
+  tabIndex?: number;
   onCommit: (commit: CellCommit) => Promise<WriteResult>;
 }
 
@@ -52,6 +54,7 @@ export function PropertyCell({
   canEdit,
   rowTitle,
   description,
+  tabIndex = 0,
   onCommit,
 }: PropertyCellProps) {
   const [editing, setEditing] = useState(false);
@@ -80,6 +83,11 @@ export function PropertyCell({
     setEditing(false);
     setAttempt(null);
     setFailure(null);
+  }
+
+  /** Base UI's own close-time focus target: the cell the editor belongs to. */
+  function returnFocusToCell(): HTMLElement | false {
+    return button.current ?? false;
   }
 
   async function write(next: CellCommit) {
@@ -188,7 +196,7 @@ export function PropertyCell({
             <Dialog.Portal>
               <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
               <SheetViewport>
-                <SheetPopup>
+                <SheetPopup finalFocus={returnFocusToCell}>
                   <SheetHeader>
                     {handedness === "left" ? (
                       <>
@@ -246,13 +254,19 @@ export function PropertyCell({
           >
             <Popover.Portal>
               <Popover.Positioner
-                anchor={anchor}
+                /* The cell, not the chip: four pixels below the cell's edge,
+                   so the editor never sits over its own row. */
+                anchor={() => anchor.current?.closest("[data-cell]") ?? null}
                 sideOffset={4}
                 collisionPadding={8}
                 className="z-50"
               >
                 <Popover.Popup
                   aria-label={`${property.name} editor for “${rowTitle}”`}
+                  /* Closing returns focus to the cell, never to whatever the
+                     reader last touched in the toolbar. Resolved after the
+                     close commits, so the cell's button exists by then. */
+                  finalFocus={returnFocusToCell}
                   className={cn(
                     // The recurrence row holds a label, a number and a select;
                     // it needs a little more than the shared minimum. Never
@@ -290,6 +304,7 @@ export function PropertyCell({
     <button
       ref={button}
       type="button"
+      tabIndex={tabIndex}
       disabled={!canEdit}
       aria-label={`Edit ${property.name} for “${rowTitle}”, currently “${label || "empty"}”`}
       className={cn(
@@ -317,12 +332,15 @@ export function TitleCell({
   title,
   icon,
   canEdit,
+  tabIndex = 0,
   onCommit,
 }: {
   title: string;
   /** The record's glyph; an absent icon adds no slot. */
   icon?: string;
   canEdit: boolean;
+  /** The grid's roving tab stop; the display button is opened with Enter instead. */
+  tabIndex?: number;
   onCommit: (title: string) => Promise<WriteResult>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -400,6 +418,7 @@ export function TitleCell({
     <button
       ref={button}
       type="button"
+      tabIndex={tabIndex}
       disabled={!canEdit}
       aria-label={`Edit title for “${title}”, currently “${title}”`}
       className={cn(

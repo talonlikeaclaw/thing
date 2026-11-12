@@ -1,8 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { PropertyDef } from "@/api/types";
 import { PropertyCell } from "@/components/property-cell";
+import { renderWithProviders } from "@/test/harness";
+
+afterEach(cleanup);
 
 const formula: PropertyDef = {
   key: "label",
@@ -55,5 +58,43 @@ describe("a calculated cell", () => {
     expect(
       screen.getByRole("button", { name: /Edit Room for “Monstera”/ }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("a floating editor", () => {
+  it("returns focus to its cell when it closes", async () => {
+    const select: PropertyDef = {
+      key: "room",
+      name: "Room",
+      format: "select",
+      options: [{ key: "kitchen", name: "Kitchen", color: "red" }],
+    };
+    renderWithProviders(
+      <>
+        {/* The toolbar control the reader touched before the cell. */}
+        <button type="button">Columns</button>
+        <PropertyCell
+          spaceId="space"
+          property={select}
+          cell={{ value: "kitchen", label: "Kitchen" }}
+          schedule={undefined}
+          canEdit
+          rowTitle="Monstera"
+          onCommit={() => Promise.resolve({ ok: true })}
+        />
+      </>,
+    );
+
+    act(() => screen.getByRole("button", { name: "Columns" }).focus());
+    const cell = screen.getByRole("button", { name: /Edit Room for “Monstera”/ });
+    act(() => cell.focus());
+    fireEvent.click(cell);
+
+    const editor = await screen.findByLabelText("Room editor for “Monstera”");
+    fireEvent.keyDown(editor, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Edit Room for “Monstera”/ })).toHaveFocus(),
+    );
   });
 });

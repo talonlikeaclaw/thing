@@ -75,6 +75,14 @@ export const TABLE_SHORTCUTS: ShortcutDescriptor[] = [
   { id: "table-previous", key: "k", keys: "K / ↑", label: "Previous row", scope: "Table" },
   { id: "table-right", key: "l", keys: "L / →", label: "Next column", scope: "Table" },
   { id: "table-left", key: "h", keys: "H / ←", label: "Previous column", scope: "Table" },
+  { id: "table-tab", key: "tab", keys: "Tab", label: "Next cell", scope: "Table" },
+  {
+    id: "table-tab-back",
+    key: "tab",
+    keys: "Shift + Tab",
+    label: "Previous cell",
+    scope: "Table",
+  },
   {
     id: "table-activate",
     key: "enter",
@@ -83,6 +91,13 @@ export const TABLE_SHORTCUTS: ShortcutDescriptor[] = [
     scope: "Table",
   },
   { id: "table-select", key: "x", keys: "X", label: "Select the active row", scope: "Table" },
+  {
+    id: "table-open",
+    key: "o",
+    keys: "O",
+    label: "Open the active record",
+    scope: "Table",
+  },
   { id: "table-search", key: "/", keys: "/", label: "Focus search", scope: "Table" },
   {
     id: "table-clear",

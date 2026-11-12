@@ -38,6 +38,14 @@ import { useThumbHandedness } from "@/components/handedness";
 import { FORMAT_ICONS } from "@/components/format-icon";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { cn } from "@/lib/cn";
+import {
+  TITLE_COLUMN_KEY,
+  revealDelta,
+  stepCell,
+  tabCell,
+  type Cell,
+  type GridColumn,
+} from "@/lib/grid";
 import { isEditableTarget } from "@/lib/hotkeys";
 import { useCoarsePointer } from "@/lib/media";
 import { completeLabel } from "@/lib/schedule";
@@ -64,11 +72,8 @@ const ADD_PROPERTY_WIDTH = 132;
 const FORMAT_TEXT_ADVANCE = 7.6;
 /** The header cell's right padding; the format words must clear it. */
 const HEADER_RIGHT_PADDING = 8;
-
-interface Cell {
-  row: number;
-  col: number;
-}
+/** Breathing room between a revealed cell and the sticky chrome around it. */
+const CELL_CLEARANCE = 6;
 
 interface TableViewProps {
   spaceId: string;
@@ -113,8 +118,9 @@ interface TableViewProps {
 
 /**
  * The table renderer: one row per record, saved widths, cells edited in place.
- * It is also a keyboard grid: one tab stop, arrow/j/k/h/l movement, Enter to
- * open the active cell, `x` to select a row and `/` to reach search.
+ * It is also a keyboard grid: one tab stop, arrow/j/k/h/l movement, Tab to walk
+ * the data cells, Enter to open the active cell, `o` to open its record, `x` to
+ * select the row and `/` to reach search.
  */
 export function TableView({
   spaceId,
@@ -146,9 +152,19 @@ export function TableView({
   compactStatus,
 }: TableViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
-  const columns = view.columns.filter((key) => key !== "title");
+  const navigate = useNavigate();
+  const propertyKeys = view.columns.filter((key) => key !== TITLE_COLUMN_KEY);
+  // The data columns in view order. The checkbox, add-property, tail and rail
+  // columns are controls, so they are never data and never get a range cell.
+  const gridColumns: GridColumn[] = [
+    { key: TITLE_COLUMN_KEY, label: "Title" },
+    ...propertyKeys.map((key) => {
+      const property = propertyByKey.get(key);
+      return { key, label: property?.name ?? key, format: property?.format };
+    }),
+  ];
   const [preview, setPreview] = useState<Record<string, number>>({});
-  const flexKeys = ["title", ...columns];
+  const flexKeys = [TITLE_COLUMN_KEY, ...propertyKeys];
   // Literal widths: the saved value — or the phone width — is what the column
   // paints. The window's leftover space becomes one filler column, so a drag
   // moves only the column under the finger and never reflows its neighbours.
@@ -232,6 +248,10 @@ export function TableView({
   const hoverSurface =
     "group-hover:bg-[color-mix(in_srgb,var(--color-accent)_6%,var(--color-surface))]!";
   const selectedSurface = "bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]";
+  // The active data cell's ring, inset so the sticky header and the card's clip
+  // can never cut it, in both schemes and on the accent wash. It marks where
+  // the next keystroke lands, so a finger-only device keeps the plain table.
+  const activeRing = coarse ? null : "shadow-[inset_0_0_0_2px_var(--color-accent)]";
   const railSeamToneSelected = railBefore
     ? "after:bg-[color-mix(in_srgb,var(--color-accent)_12%,var(--color-surface))]"
     : null;
@@ -243,11 +263,13 @@ export function TableView({
   // The pinned data columns start after the rail when it leads the row.
   const pinnedOffset = (railBefore ? openWidth : 0) + selectOffset * SELECT_WIDTH;
   const titleCol = selectOffset;
-  const actionCol = selectOffset + columns.length + 1;
+  const actionCol = selectOffset + propertyKeys.length + 1;
   const colCount = actionCol + 1;
 
   const gridRef = useRef<HTMLTableElement>(null);
   const [active, setActive] = useState<Cell | null>(null);
+  /** The card holds focus: the ring only speaks for a grid you are inside. */
+  const [gridFocused, setGridFocused] = useState(false);
   /** A pinned title shows a stronger edge only once columns have slid under it. */
   const [scrolled, setScrolled] = useState(false);
   /** More columns sit past the right edge, so the ledger offers a visible cue. */
@@ -279,8 +301,13 @@ export function TableView({
       setActive(null);
       return;
     }
-    setActive((current) => (current && current.row < rows.length ? current : { row: 0, col: 0 }));
-  }, [rows.length]);
+    // The first data cell, not the checkbox: once the cell buttons leave the
+    // Tab order, this roving `<td>` is the grid's one native entry point, so a
+    // reader who Tabs in from the header lands on data instead of a control.
+    setActive((current) =>
+      current && current.row < rows.length ? current : { row: 0, col: titleCol },
+    );
+  }, [rows.length, titleCol]);
 
   // A selection made by keyboard or the bulk bar must keep its checkboxes.
   useEffect(() => {
@@ -316,19 +343,54 @@ export function TableView({
   function activate(row: number, col: number) {
     setActive({ row, col });
     window.requestAnimationFrame(() => {
-      gridRef.current?.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`)?.focus();
+      const cell = gridRef.current?.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`);
+      // The browser's own scroll stops at the scrollport's edge, which the
+      // sticky title and rail cover; reveal the cell inside the clear band.
+      cell?.focus({ preventScroll: true });
+      revealCell(row, col);
     });
   }
 
-  function move(rowDelta: number, colDelta: number) {
-    if (rows.length === 0) {
+  /**
+   * Scrolls the card until the cell clears the pinned title column, the action
+   * rail and the sticky header. Only data columns move: a sticky cell is
+   * already at its own edge.
+   */
+  function revealCell(row: number, col: number) {
+    const port = portRef.current;
+    const cell = gridRef.current?.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`);
+    if (!port || !cell) {
       return;
     }
-    const base = active ?? { row: 0, col: 0 };
-    activate(
-      Math.min(Math.max(0, base.row + rowDelta), rows.length - 1),
-      Math.min(Math.max(0, base.col + colDelta), colCount - 1),
+    const portRect = port.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const header = gridRef.current?.querySelector("thead")?.getBoundingClientRect();
+    const sticky = col <= titleCol || col === actionCol;
+    const delta = revealDelta(
+      cellRect,
+      portRect,
+      {
+        left: sticky ? 0 : pinnedOffset + columnWidth(TITLE_COLUMN_KEY) + CELL_CLEARANCE,
+        right: railBefore ? 0 : openWidth + CELL_CLEARANCE,
+        top: (header?.height ?? 0) + CELL_CLEARANCE,
+        bottom: CELL_CLEARANCE,
+      },
     );
+    if (delta.left !== 0) {
+      port.scrollLeft += delta.left;
+    }
+    if (delta.top !== 0) {
+      port.scrollTop += delta.top;
+    }
+  }
+
+  function move(rowDelta: number, colDelta: number) {
+    const base = active ?? { row: 0, col: 0 };
+    const next = stepCell(base, rowDelta, colDelta, rows.length, colCount);
+    if (!next) {
+      return;
+    }
+    activate(next.row, next.col);
   }
 
   function activateCell(cell: Cell) {
@@ -357,7 +419,9 @@ export function TableView({
     if (event.defaultPrevented || isEditableTarget(event.target)) {
       return;
     }
-    const cell = active ?? { row: 0, col: 0 };
+    // The key addresses the cell that has focus, so a checkbox or a rail
+    // control keeps working while the roving ring stays on data.
+    const cell = cellAt(event.target) ?? active ?? { row: 0, col: 0 };
     const key = event.key;
     if (key === "j" || key === "ArrowDown") {
       event.preventDefault();
@@ -371,12 +435,43 @@ export function TableView({
     } else if (key === "h" || key === "ArrowLeft") {
       event.preventDefault();
       move(0, -1);
+    } else if (key === "Tab") {
+      // Spreadsheet traversal, deliberately not the APG grid's leave-the-grid
+      // Tab: only a data cell intercepts it, so header controls, the checkbox
+      // column and the rail keep their native order. At either boundary the
+      // key is left alone and the browser moves focus out of the table.
+      if (
+        !(event.target instanceof HTMLElement) ||
+        !event.target.closest("[data-grid-cell]")
+      ) {
+        return;
+      }
+      const next = tabCell(
+        cell,
+        titleCol,
+        titleCol + gridColumns.length - 1,
+        rows.length,
+        event.shiftKey,
+      );
+      if (!next) {
+        return;
+      }
+      event.preventDefault();
+      activate(next.row, next.col);
     } else if (key === "x" && canEdit) {
       event.preventDefault();
       if (!event.repeat) {
         const row = rows[cell.row];
         if (row) {
           onToggleRow(row.id);
+        }
+      }
+    } else if (key === "o") {
+      event.preventDefault();
+      if (!event.repeat) {
+        const row = rows[cell.row];
+        if (row) {
+          navigate(`/s/${spaceId}/o/${row.id}`);
         }
       }
     } else if (key === "Enter") {
@@ -428,12 +523,58 @@ export function TableView({
   }
 
   function cellProps(row: number, col: number) {
-    const current = active !== null && active.row === row && active.col === col;
     return {
       "data-cell": `${row}:${col}`,
-      tabIndex: current ? 0 : -1,
+      tabIndex: isRovingCell(row, col) ? 0 : -1,
+    } as const;
+  }
+
+  /**
+   * The grid's one tab stop: the active cell, or the first data cell while
+   * Escape has cleared it, so the body never loses its keyboard entry point.
+   */
+  function isRovingCell(row: number, col: number): boolean {
+    const roving = active ?? { row: 0, col: titleCol };
+    return roving.row === row && roving.col === col;
+  }
+
+  /**
+   * A data cell is also the roving position when it takes focus. A control
+   * cell must not steal it: after the row checkbox the browser's own Tab has to
+   * land on the active data cell, which is the grid's one native entry point.
+   */
+  function dataCellProps(row: number, col: number) {
+    return {
+      ...cellProps(row, col),
+      "data-grid-cell": "",
+      "data-active": isActiveCell(row, col) ? "true" : undefined,
       onFocus: () => setActive({ row, col }),
     } as const;
+  }
+
+  /** The cell a focused element sits in, parsed from its host's `data-cell`. */
+  function cellAt(target: EventTarget | null): Cell | null {
+    if (!(target instanceof HTMLElement)) {
+      return null;
+    }
+    const raw = target.closest<HTMLElement>("[data-cell]")?.dataset.cell;
+    if (!raw) {
+      return null;
+    }
+    const [rowText, colText] = raw.split(":");
+    const row = Number(rowText);
+    const col = Number(colText);
+    return Number.isInteger(row) && Number.isInteger(col) ? { row, col } : null;
+  }
+
+  /** The one roving cell: only it is tabbable among the body cells. */
+  function isActiveCell(row: number, col: number): boolean {
+    return active !== null && active.row === row && active.col === col;
+  }
+
+  /** The active cell's ring, painted only while the card holds focus. */
+  function ringOf(row: number, col: number): string | null {
+    return gridFocused && isActiveCell(row, col) ? activeRing : null;
   }
 
   function sortHeader(key: string) {
@@ -445,6 +586,9 @@ export function TableView({
 
   const selectedOnPage = rows.filter((row) => selected.has(row.id)).length;
   const allSelected = rows.length > 0 && selectedOnPage === rows.length;
+  // The page floats the bulk band over the viewport's bottom edge; the card
+  // keeps a matching empty strip so the band never covers a row.
+  const bandOpen = canEdit && selected.size > 0;
 
   // The rail header travels to whichever edge the rail occupies; the add
   // control on a phone lives there too.
@@ -502,9 +646,15 @@ export function TableView({
         compact
           ? "mt-2 overflow-x-auto overscroll-x-contain"
           : "mt-6 max-h-[70dvh] overflow-auto overscroll-contain",
-        bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : "pb-2",
+        bulkOpen ? "pb-[26rem] sm:pb-[14rem]" : bandOpen ? "pb-[4.5rem]" : "pb-2",
       )}
       onKeyDown={onGridKeyDown}
+      onFocus={() => setGridFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setGridFocused(false);
+        }
+      }}
       onScroll={(event) => {
         setScrolled(event.currentTarget.scrollLeft > 0);
         const el = event.currentTarget;
@@ -526,7 +676,7 @@ export function TableView({
           {railBefore ? <col style={{ width: openWidth }} /> : null}
           {showSelect ? <col style={{ width: SELECT_WIDTH }} /> : null}
           <col style={{ width: columnWidth("title") }} />
-          {columns.map((key) => (
+          {propertyKeys.map((key) => (
             <col key={key} style={{ width: columnWidth(key) }} />
           ))}
           {showAddColumn ? <col style={{ width: ADD_PROPERTY_WIDTH }} /> : null}
@@ -607,7 +757,7 @@ export function TableView({
                 inset="left-3"
               />
             </th>
-            {columns.map((key) => {
+            {propertyKeys.map((key) => {
               const property = propertyByKey.get(key);
               const label = property?.name ?? key;
               return (
@@ -790,7 +940,7 @@ export function TableView({
                   </td>
                 ) : null}
                 <th
-                  {...cellProps(rowIndex, titleCol)}
+                  {...dataCellProps(rowIndex, titleCol)}
                   scope="row"
                   aria-label={
                     canEdit
@@ -805,6 +955,7 @@ export function TableView({
                         : selectedSurface
                       : "bg-surface",
                     !isSelected && (compact ? hoverSurface : hoverSurface),
+                    ringOf(rowIndex, titleCol),
                   )}
                   style={{ left: pinnedOffset }}
                 >
@@ -812,17 +963,21 @@ export function TableView({
                     title={row.title}
                     icon={row.icon}
                     canEdit={canEdit}
+                    tabIndex={-1}
                     onCommit={(title) => onTitleCommit(row, title)}
                   />
                 </th>
-                {columns.map((key, offset) => {
+                {propertyKeys.map((key, offset) => {
                   const property = propertyByKey.get(key);
                   if (!property) {
                     return (
                       <td
                         key={key}
-                        {...cellProps(rowIndex, titleCol + 1 + offset)}
-                        className="py-1 pr-2 font-mono text-[11px] text-faint outline-none"
+                        {...dataCellProps(rowIndex, titleCol + 1 + offset)}
+                        className={cn(
+                          "py-1 pr-2 font-mono text-[11px] text-faint outline-none",
+                          ringOf(rowIndex, titleCol + 1 + offset),
+                        )}
                       >
                         {key}
                       </td>
@@ -832,13 +987,16 @@ export function TableView({
                   return (
                     <td
                       key={key}
-                      {...cellProps(rowIndex, titleCol + 1 + offset)}
+                      {...dataCellProps(rowIndex, titleCol + 1 + offset)}
+                      className={cn(
+                        "py-1 pr-2 outline-none",
+                        ringOf(rowIndex, titleCol + 1 + offset),
+                      )}
                       aria-label={
                         isComputed(property) || !canEdit
                           ? `${property.name} for “${row.title}”: ${label || "empty"}${isComputed(property) ? ", calculated" : ""}`
                           : `Edit ${property.name} for “${row.title}”, currently “${label || "empty"}”`
                       }
-                      className="py-1 pr-2 outline-none"
                     >
                       <PropertyCell
                         spaceId={spaceId}
@@ -848,6 +1006,7 @@ export function TableView({
                         schedule={row.schedule}
                         canEdit={canEdit}
                         rowTitle={row.title}
+                        tabIndex={-1}
                         description={computeDescription(property, properties)}
                         onCommit={(cell) => onCellCommit(row, property, cell)}
                       />

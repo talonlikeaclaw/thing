@@ -41,6 +41,13 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: "Grid interaction",
     upcoming: true,
     highlights: [
+      "Tab walks a table's cells one at a time, wrapping to the next row, and Shift+Tab walks back.",
+      "The cell a keyboard reader is on carries an accent ring once the table has focus, so the next keystroke has a visible target.",
+      "Walking a wide table with the arrow keys scrolls each cell clear of the pinned title column and the action rail instead of leaving it underneath them.",
+      "O opens the record under the cursor, so the keyboard never has to walk to the row's action rail.",
+      "Closing a select, multi-select or recurrence editor puts focus back on the cell it edited, not on the toolbar control touched before it.",
+      "A floating cell editor sits a few pixels below its own cell instead of over it, and follows the cell as the table scrolls.",
+      "Selecting rows keeps the last row readable: the table leaves a clear strip for the floating selection bar.",
       "A column's menu offers Turn into a relation only for text, select and multi-select columns, instead of listing an action that cannot run.",
       "A narrow column's header wraps its name instead of cutting it off, and the full name stays available on hover.",
       "Every column's header starts at the same top edge, so a wrapped name never pulls its label or its sort arrow out of line.",
