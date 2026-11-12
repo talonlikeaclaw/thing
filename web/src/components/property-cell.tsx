@@ -19,6 +19,7 @@ import { formatDateTime, formatDay } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
 import { imagePaths } from "@/lib/files";
 import { dueCellLabel, dueTone } from "@/lib/schedule";
+import { alignOf, displayLabel } from "@/lib/presentation";
 import { isComputed } from "@/lib/schema";
 import { cn } from "@/lib/cn";
 
@@ -69,7 +70,10 @@ export function PropertyCell({
   const anchor = useRef<HTMLSpanElement | null>(null);
   const returnFocus = useRef(false);
   const value = cell?.value;
-  const label = cell?.label ?? "";
+  // The display is presentation: the stored value and the server's label stay
+  // untouched, and only the text a reader sees is re-derived.
+  const label = displayLabel(property, value, cell?.label ?? "");
+  const rightAligned = alignOf(property) === "right";
 
   useEffect(() => {
     if (!editing && returnFocus.current) {
@@ -125,7 +129,7 @@ export function PropertyCell({
       <div
         className={cn(
           "flex min-h-8 w-full items-center gap-1.5 rounded-[8px] px-1.5 py-1 text-[length:var(--text-small)]",
-          property.format === "number" && "justify-end text-right",
+          rightAligned ? "justify-end text-right" : "justify-start text-left",
           "pointer-coarse:min-h-11",
         )}
         aria-readonly="true"
@@ -309,7 +313,7 @@ export function PropertyCell({
       aria-label={`Edit ${property.name} for “${rowTitle}”, currently “${label || "empty"}”`}
       className={cn(
         "flex min-h-8 w-full items-center gap-1.5 rounded-[8px] px-1.5 py-1 text-left text-[length:var(--text-small)] transition-colors",
-        property.format === "number" && "justify-end text-right",
+        rightAligned ? "justify-end text-right" : "justify-start text-left",
         canEdit ? "hover:bg-raised" : "cursor-default",
         "pointer-coarse:min-h-11",
       )}

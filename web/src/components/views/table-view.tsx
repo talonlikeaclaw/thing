@@ -61,6 +61,7 @@ import {
 } from "@/lib/grid";
 import { isEditableTarget } from "@/lib/hotkeys";
 import { useCoarsePointer } from "@/lib/media";
+import { alignOf, displayLabel } from "@/lib/presentation";
 import { completeLabel } from "@/lib/schedule";
 import { computeDescription, formatLabel, isComputed } from "@/lib/schema";
 import {
@@ -182,13 +183,21 @@ export function TableView({
     { key: TITLE_COLUMN_KEY, label: "Title" },
     ...propertyKeys.map((key) => {
       const property = propertyByKey.get(key);
-      return { key, label: property?.name ?? key, format: property?.format };
+      return {
+        key,
+        label: property?.name ?? key,
+        format: property?.format,
+        display: property?.display,
+      };
     }),
   ];
+  // The band is a denylist: absent means shown, so an old view reads unchanged.
+  const footerShown = view.footer !== false;
+  const footerHidden = new Set(view.footer_hidden ?? []);
   // The footer reads the rows the table shows: one page, the active filter and
   // the server's order, never a server-side aggregate.
   const summaries =
-    rows.length > 0
+    rows.length > 0 && footerShown
       ? gridColumns.map((column) => summarizeColumn(column, rows, timeZone))
       : [];
   const [preview, setPreview] = useState<Record<string, number>>({});
@@ -1255,13 +1264,18 @@ export function TableView({
                       </td>
                     );
                   }
-                  const label = row.values[key]?.label ?? "";
+                  const label =
+                    displayLabel(property, row.values[key]?.value, row.values[key]?.label ?? "");
+                  // The column decides the edge: a number sits right unless the
+                  // property pins it, and every other format sits left.
+                  const align = alignOf(property);
                   return (
                     <td
                       key={key}
                       {...dataCellProps(rowIndex, cellCol)}
                       className={cn(
                         "py-1 pr-2 outline-none",
+                        align === "right" ? "text-right" : "text-left",
                         inRange && selectedSurface,
                         ringOf(rowIndex, cellCol),
                       )}
@@ -1305,25 +1319,33 @@ export function TableView({
               {showSelect ? (
                 <td aria-hidden className={cn(footerCell, footerStick, "bg-surface")} />
               ) : null}
-              {gridColumns.map((column, index) => (
-                <td
-                  key={column.key}
-                  aria-label={summaries[index]?.long}
-                  title={summaries[index]?.long}
-                  className={cn(
-                    footerCell,
-                    footerStick,
-                    "z-20 bg-surface",
-                    // The title column stays pinned on every width, as its body does.
-                    index === 0 && "sticky left-0 border-r rule",
-                  )}
-                  style={index === 0 ? { left: pinnedOffset } : undefined}
-                >
-                  <span aria-hidden className="block truncate">
-                    {summaries[index]?.short}
-                  </span>
-                </td>
-              ))}
+              {gridColumns.map((column, index) => {
+                // A hidden column keeps its place in the row and reads blank;
+                // the scope sentence still covers the rows it does not count.
+                const hidden = footerHidden.has(column.key);
+                return (
+                  <td
+                    key={column.key}
+                    aria-label={hidden ? undefined : summaries[index]?.long}
+                    title={hidden ? undefined : summaries[index]?.long}
+                    className={cn(
+                      footerCell,
+                      footerStick,
+                      "z-20 bg-surface",
+                      alignOf(column) === "right" ? "text-right" : "text-left",
+                      // The title column stays pinned on every width, as its body does.
+                      index === 0 && "sticky left-0 border-r rule",
+                    )}
+                    style={index === 0 ? { left: pinnedOffset } : undefined}
+                  >
+                    {hidden ? null : (
+                      <span aria-hidden className="block truncate">
+                        {summaries[index]?.short}
+                      </span>
+                    )}
+                  </td>
+                );
+              })}
               {showAddColumn ? (
                 <td aria-hidden className={cn(footerCell, footerStick, "bg-surface")} />
               ) : null}
@@ -1341,7 +1363,7 @@ export function TableView({
     </div>
     {rows.length > 0 || (!compact && moreRight) ? (
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted">
-        {rows.length > 0 ? (
+        {rows.length > 0 && footerShown ? (
           <p>
             {total > rows.length
               ? `Summaries cover the ${rows.length} rows shown, not all ${total}.`

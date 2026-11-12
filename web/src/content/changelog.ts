@@ -37,6 +37,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "Numbers that read",
+    upcoming: true,
+    summary:
+      "A number column can say what its values are, sit where a ledger puts them, and choose whether the band under the rows summarises it.",
+    sections: [
+      {
+        title: "Say what the number is",
+        items: [
+          {
+            lead: "Money reads as money",
+            body: "A number property can carry a currency and a fixed number of decimals, so the cell and its total say $1,204.00 instead of 1204.",
+          },
+          {
+            lead: "Numbers line up on the right",
+            body: "Every number column now sits against its digits' right edge, and a column can be pinned left when its codes read better that way.",
+          },
+          {
+            lead: "The summary band is yours",
+            body: "A table view can switch its summary band off, or blank a single column's cell, without losing the totals it still shows.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.8.1",
     title: "A grid you can work in",
     date: "2026-11-11",

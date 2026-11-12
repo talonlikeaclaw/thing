@@ -868,3 +868,165 @@ describe("the aggregation footer", () => {
     expect(screen.getByText("Σ 3 · avg 1.5")).toBeInTheDocument();
   });
 });
+
+/* A displayed number: the cell, its alignment and the band all read one grammar. */
+
+const moneyProperties: PropertyDef[] = [
+  {
+    key: "amount",
+    name: "Amount",
+    format: "number",
+    display: { currency: "USD", decimals: 2 },
+  },
+  { key: "notes", name: "Notes", format: "text" },
+  { key: "flat", name: "Flat", format: "number", display: { align: "left" } },
+];
+
+const moneyType: TypeDef = {
+  key: "plant",
+  name: "Plant",
+  name_plural: "Plants",
+  description: "",
+  schedule: false,
+  properties: moneyProperties.map((property) => ({
+    key: property.key,
+    required: false,
+    featured: true,
+  })),
+  views: [],
+  default_view: "table",
+};
+
+const moneyView: ViewDef = {
+  key: "table",
+  name: "Table",
+  kind: "table",
+  sorts: [],
+  filter: { op: "and", conditions: [] },
+  columns: ["title", "amount", "notes", "flat"],
+};
+
+const moneyRows: ObjectSummary[] = [
+  {
+    id: "0193b000-0000-7000-8000-000000000001",
+    type: "plant",
+    title: "Monstera",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {
+      amount: { value: 1204, label: "1204" },
+      notes: { value: "left", label: "left" },
+      flat: { value: 3, label: "3" },
+    },
+    missing_relations: [],
+  },
+  {
+    id: "0193b000-0000-7000-8000-000000000002",
+    type: "plant",
+    title: "Fern",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {},
+    missing_relations: [],
+  },
+];
+
+function moneyElement(overrides: Partial<ViewDef> = {}) {
+  return (
+    <TableView
+      spaceId="space"
+      type={moneyType}
+      view={{ ...moneyView, ...overrides }}
+      rows={moneyRows}
+      properties={moneyProperties}
+      canEdit
+      completing={false}
+      busy={false}
+      scopeKey="scope"
+      total={moneyRows.length}
+      sorts={[]}
+      selected={new Set()}
+      pendingRows={new Set()}
+      bulkOpen={false}
+      timeZone="America/Toronto"
+      onSort={() => undefined}
+      onToggleRow={() => undefined}
+      onToggleAll={() => undefined}
+      onClearSelection={() => undefined}
+      onTitleCommit={() => Promise.resolve({ ok: true })}
+      onCellCommit={() => Promise.resolve({ ok: true })}
+      onComplete={() => undefined}
+      onDuplicate={() => undefined}
+      onTrash={() => undefined}
+      onFocusSearch={() => undefined}
+      onResize={() => Promise.resolve()}
+      layoutPending={false}
+      onAddProperty={() => undefined}
+    />
+  );
+}
+
+describe("a displayed number", () => {
+  it("reads as currency in the cell and in its total", () => {
+    renderWithProviders(moneyElement());
+
+    expect(screen.getByText("$1,204.00")).toBeInTheDocument();
+    expect(screen.getByText("Σ $1,204.00 · avg $1,204.00")).toBeInTheDocument();
+  });
+
+  it("drops the whole band and its scope line when the view says so", () => {
+    const { container } = renderWithProviders(moneyElement({ footer: false }));
+
+    expect(container.querySelector("tfoot")).toBeNull();
+    expect(screen.queryByText(/Summaries cover/)).toBeNull();
+  });
+
+  it("leaves one hidden column's cell blank and keeps the rest", () => {
+    renderWithProviders(moneyElement({ footer_hidden: ["notes"] }));
+
+    expect(screen.queryByLabelText(/^Notes:/)).toBeNull();
+    expect(screen.getByText("Σ $1,204.00 · avg $1,204.00")).toBeInTheDocument();
+    expect(screen.getByText("Summaries cover all 2 rows.")).toBeInTheDocument();
+  });
+
+  it("puts a number at the right edge and text at the left", () => {
+    const { container } = renderWithProviders(moneyElement());
+
+    // Column 0 is the checkbox rail; the title is 1, Amount 2, Notes 3.
+    expect(gridCell(container, 0, 2)).toHaveClass("text-right");
+    expect(gridCell(container, 0, 3)).toHaveClass("text-left");
+  });
+
+  it("honours a number column pinned to the left", () => {
+    const { container } = renderWithProviders(moneyElement());
+
+    expect(gridCell(container, 0, 4)).toHaveClass("text-left");
+  });
+
+  it("copies the text the cell shows", async () => {
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    });
+    try {
+      const { container } = renderWithProviders(moneyElement());
+      const focus = focusCell(container, 0, 2);
+
+      fireEvent.keyDown(focus, { key: "c", ctrlKey: true });
+
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith("$1,204.00"));
+    } finally {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, "clipboard", originalClipboard);
+      } else {
+        Reflect.deleteProperty(navigator, "clipboard");
+      }
+    }
+  });
+});
