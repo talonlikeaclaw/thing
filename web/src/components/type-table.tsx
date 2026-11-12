@@ -1597,6 +1597,7 @@ export function TypeTable({
               completing={complete.isPending}
               busy={busy}
               scopeKey={selectionKey}
+              total={total}
               sorts={query.sorts}
               selected={selection}
               pendingRows={pendingRows}

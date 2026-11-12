@@ -40,6 +40,7 @@ import { useThumbHandedness } from "@/components/handedness";
 import { FORMAT_ICONS } from "@/components/format-icon";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
 import { useToast } from "@/components/ui/toast";
+import { summarizeColumn } from "@/lib/aggregate";
 import { cn } from "@/lib/cn";
 import {
   TITLE_COLUMN_KEY,
@@ -101,6 +102,8 @@ interface TableViewProps {
   busy: boolean;
   /** Changes whenever the page, filter, sort, search or view changes. */
   scopeKey: string;
+  /** Every row the view matches, so the footer can say when it covers only a page. */
+  total: number;
   sorts: Sort[];
   selected: ReadonlySet<string>;
   /** Rows whose action is in flight, so only their controls freeze. */
@@ -153,6 +156,7 @@ export function TableView({
   pendingRows,
   bulkOpen,
   timeZone,
+  total,
   onSort,
   onToggleRow,
   onToggleAll,
@@ -181,6 +185,12 @@ export function TableView({
       return { key, label: property?.name ?? key, format: property?.format };
     }),
   ];
+  // The footer reads the rows the table shows: one page, the active filter and
+  // the server's order, never a server-side aggregate.
+  const summaries =
+    rows.length > 0
+      ? gridColumns.map((column) => summarizeColumn(column, rows, timeZone))
+      : [];
   const [preview, setPreview] = useState<Record<string, number>>({});
   const flexKeys = [TITLE_COLUMN_KEY, ...propertyKeys];
   // Literal widths: the saved value — or the phone width — is what the column
@@ -804,6 +814,11 @@ export function TableView({
   // selection never pushes the rows the reader is working in down the page.
   const barButton =
     "inline-flex min-h-6 shrink-0 items-center rounded-[6px] px-2 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink pointer-coarse:min-h-11";
+  // The footer band is opaque and pinned to the scrollport's bottom edge; the
+  // bulk editor owns that edge while it is open, so the band drops the offset.
+  const footerCell =
+    "py-1.5 pr-2 align-top font-mono text-[11px] tabular-nums text-muted outline-none";
+  const footerStick = !compact && !bulkOpen ? "sticky bottom-0" : null;
   const rangeBar = rangeStats ? (
     <div
       role="group"
@@ -916,7 +931,7 @@ export function TableView({
         ref={gridRef}
         role="grid"
         aria-label={`${type.name_plural} records`}
-        aria-rowcount={rows.length + 1}
+        aria-rowcount={rows.length + (summaries.length > 0 ? 2 : 1)}
         aria-colcount={colCount}
         aria-busy={busy}
         aria-multiselectable={canEdit ? true : undefined}
@@ -1278,13 +1293,68 @@ export function TableView({
             );
           })}
         </tbody>
+        {summaries.length > 0 ? (
+          <tfoot>
+            <tr className="border-t rule">
+              {railBefore ? (
+                <td
+                  aria-hidden
+                  className={cn(footerCell, footerStick, railEdge, "bg-surface")}
+                />
+              ) : null}
+              {showSelect ? (
+                <td aria-hidden className={cn(footerCell, footerStick, "bg-surface")} />
+              ) : null}
+              {gridColumns.map((column, index) => (
+                <td
+                  key={column.key}
+                  aria-label={summaries[index]?.long}
+                  title={summaries[index]?.long}
+                  className={cn(
+                    footerCell,
+                    footerStick,
+                    "z-20 bg-surface",
+                    // The title column stays pinned on every width, as its body does.
+                    index === 0 && "sticky left-0 border-r rule",
+                  )}
+                  style={index === 0 ? { left: pinnedOffset } : undefined}
+                >
+                  <span aria-hidden className="block truncate">
+                    {summaries[index]?.short}
+                  </span>
+                </td>
+              ))}
+              {showAddColumn ? (
+                <td aria-hidden className={cn(footerCell, footerStick, "bg-surface")} />
+              ) : null}
+              <td aria-hidden className={cn(footerCell, footerStick, "bg-surface")} />
+              {railBefore ? null : (
+                <td
+                  aria-hidden
+                  className={cn(footerCell, footerStick, railEdge, "bg-surface")}
+                />
+              )}
+            </tr>
+          </tfoot>
+        ) : null}
       </table>
     </div>
-    {!compact && moreRight ? (
-      <p className="mt-2 flex items-center gap-1.5 text-[12px] text-muted">
-        <ArrowRight aria-hidden size={12} />
-        Scroll sideways for every column
-      </p>
+    {rows.length > 0 || (!compact && moreRight) ? (
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted">
+        {rows.length > 0 ? (
+          <p>
+            {total > rows.length
+              ? `Summaries cover the ${rows.length} rows shown, not all ${total}.`
+              : `Summaries cover all ${rows.length} rows.`}
+          </p>
+        ) : null}
+        {!compact && moreRight ? (
+          <p className="flex items-center gap-1.5">
+            <ArrowRight aria-hidden size={12} />
+            Scroll sideways for every column
+          </p>
+        ) : null}
+      </div>
     ) : null}
     </>
   );

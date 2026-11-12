@@ -70,6 +70,7 @@ function renderTable() {
       completing={false}
       busy={false}
       scopeKey="scope"
+      total={rows.length}
       sorts={[]}
       selected={new Set()}
       pendingRows={new Set()}
@@ -221,6 +222,7 @@ function gridElement(
     onToggleRow?: (id: string) => void;
     onDuplicate?: (row: ObjectSummary) => void;
     scopeKey?: string;
+    total?: number;
   } = {},
 ) {
   return (
@@ -234,6 +236,7 @@ function gridElement(
       completing={false}
       busy={false}
       scopeKey={handlers.scopeKey ?? "scope"}
+      total={handlers.total ?? gridRows.length}
       sorts={[]}
       selected={new Set()}
       pendingRows={new Set()}
@@ -261,6 +264,7 @@ function renderGrid(
     onToggleRow?: (id: string) => void;
     onDuplicate?: (row: ObjectSummary) => void;
     scopeKey?: string;
+    total?: number;
   } = {},
 ) {
   return renderWithProviders(gridElement(handlers));
@@ -688,5 +692,179 @@ describe("copying cells", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("The browser refused the copy.");
     expect(screen.getByRole("group", { name: "Cell selection" })).toBeInTheDocument();
+  });
+});
+
+/* The aggregation footer: one page of rows, summarised by format. */
+
+const footerProperties: PropertyDef[] = [
+  { key: "height", name: "Height", format: "number" },
+  { key: "watered", name: "Watered", format: "checkbox" },
+  { key: "due", name: "Due", format: "date" },
+  {
+    key: "linked",
+    name: "Linked",
+    format: "list",
+    compute: { kind: "rollup", relation: "related", aggregate: "list" },
+  },
+  { key: "nursery", name: "Nursery", format: "text" },
+];
+
+const footerView: ViewDef = {
+  key: "table",
+  name: "Table",
+  kind: "table",
+  sorts: [],
+  filter: { op: "and", conditions: [] },
+  columns: ["title", "height", "watered", "due", "linked", "nursery"],
+};
+
+const footerRows: ObjectSummary[] = [
+  {
+    id: "0193d000-0000-7000-8000-000000000001",
+    type: "plant",
+    title: "Monstera",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {
+      height: { value: 1, label: "1" },
+      watered: { value: true, label: "" },
+      due: { value: "2026-03-03", label: "Mar 3" },
+      linked: { value: ["f"], label: "Fern" },
+    },
+    missing_relations: [],
+  },
+  {
+    id: "0193d000-0000-7000-8000-000000000002",
+    type: "plant",
+    title: "Fern",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {
+      height: { value: 2, label: "2" },
+      watered: { value: false, label: "" },
+      due: { value: "2026-11-09", label: "Nov 9" },
+      linked: { value: ["f", "m"], label: "Fern, Monstera" },
+    },
+    missing_relations: [],
+  },
+  {
+    id: "0193d000-0000-7000-8000-000000000003",
+    type: "plant",
+    title: "Cactus",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {},
+    missing_relations: [],
+  },
+];
+
+function footerElement({
+  total = 3,
+  canEdit = true,
+}: { total?: number; canEdit?: boolean } = {}) {
+  return (
+    <TableView
+      spaceId="space"
+      type={gridType}
+      view={footerView}
+      rows={footerRows}
+      properties={footerProperties}
+      canEdit={canEdit}
+      completing={false}
+      busy={false}
+      scopeKey="scope"
+      total={total}
+      sorts={[]}
+      selected={new Set()}
+      pendingRows={new Set()}
+      bulkOpen={false}
+      timeZone="America/Toronto"
+      onSort={() => undefined}
+      onToggleRow={() => undefined}
+      onToggleAll={() => undefined}
+      onClearSelection={() => undefined}
+      onTitleCommit={() => Promise.resolve({ ok: true })}
+      onCellCommit={() => Promise.resolve({ ok: true })}
+      onComplete={() => undefined}
+      onDuplicate={() => undefined}
+      onTrash={() => undefined}
+      onFocusSearch={() => undefined}
+      onResize={() => Promise.resolve()}
+      layoutPending={false}
+      onAddProperty={() => undefined}
+    />
+  );
+}
+
+function renderFooter(options: { total?: number; canEdit?: boolean } = {}) {
+  return renderWithProviders(footerElement(options));
+}
+
+describe("the aggregation footer", () => {
+  it("sums and averages a number column and names the filled cells", () => {
+    renderFooter();
+
+    expect(screen.getByText("Σ 3 · avg 1.5")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Height: 2 of 3 filled; sum 3; average 1.5; lowest 1; highest 2"),
+    ).toBeInTheDocument();
+  });
+
+  it("counts checked boxes against the booleans it found", () => {
+    renderFooter();
+    expect(screen.getByText("1 of 2 checked")).toBeInTheDocument();
+    expect(screen.getByLabelText("Watered: 2 of 3 filled; 1 checked")).toBeInTheDocument();
+  });
+
+  it("reads a date column as its earliest and latest day", () => {
+    renderFooter();
+    const day = (iso: string) =>
+      new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(iso));
+    expect(
+      screen.getByText(`${day("2026-03-03T00:00:00Z")} – ${day("2026-11-09T00:00:00Z")}`),
+    ).toBeInTheDocument();
+  });
+
+  it("counts the distinct labels of a calculated list column", () => {
+    renderFooter();
+    expect(screen.getByText("2 distinct")).toBeInTheDocument();
+    expect(screen.getByLabelText("Linked: 2 of 3 filled; 2 distinct values")).toBeInTheDocument();
+  });
+
+  it("shows an empty column as an em dash with a spoken sentence", () => {
+    renderFooter();
+    expect(screen.getByLabelText("Nursery: none of the 3 rows have a value")).toHaveTextContent(
+      "—",
+    );
+  });
+
+  it("counts the title column as the rows it shows", () => {
+    renderFooter();
+    expect(screen.getByLabelText("Title: 3 rows")).toHaveTextContent("3 rows");
+  });
+
+  it("says when the footer covers only a page, and when it covers everything", () => {
+    const { rerender } = renderFooter({ total: 340 });
+    expect(
+      screen.getByText("Summaries cover the 3 rows shown, not all 340."),
+    ).toBeInTheDocument();
+
+    rerender(footerElement({ total: 3 }));
+    expect(screen.getByText("Summaries cover all 3 rows.")).toBeInTheDocument();
+  });
+
+  it("counts the footer as the grid's last row", () => {
+    const { container } = renderFooter();
+    expect(container.querySelector('[role="grid"]')).toHaveAttribute("aria-rowcount", "5");
+  });
+
+  it("renders for a viewer too", () => {
+    renderFooter({ canEdit: false });
+    expect(screen.getByText("Σ 3 · avg 1.5")).toBeInTheDocument();
   });
 });

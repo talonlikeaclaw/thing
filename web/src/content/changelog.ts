@@ -46,6 +46,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Ctrl+C or ⌘C copies the marked rectangle as a block that pastes straight into a spreadsheet.",
       "With no rectangle marked, the same keys copy just the cell under the cursor.",
       "The selection bar copies the same rectangle as a markdown table, ready to paste into a record's body or a message.",
+      "A band under the table totals the page it shows: sums and averages for numbers, earliest and latest days, checked boxes and distinct values.",
+      "The line under the table says whether those totals cover every record or only the rows shown.",
       "The cell a keyboard reader is on carries an accent ring once the table has focus, so the next keystroke has a visible target.",
       "Walking a wide table with the arrow keys scrolls each cell clear of the pinned title column and the action rail instead of leaving it underneath them.",
       "O opens the record under the cursor, so the keyboard never has to walk to the row's action rail.",
