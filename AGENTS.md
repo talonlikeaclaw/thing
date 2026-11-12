@@ -294,6 +294,7 @@ workspace `0.8.0`; no dependency is added.
 | `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Landed as `0.7.1`, schema 6. |
 | `docs/plan/m8-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Landed as `0.8.0`, schema 7. |
 | `docs/plan/m8.1-grid-interaction.md` | The v0.8.1 spec: the data-column and range model, Tab traversal, rectangular selection, TSV and markdown copy, the row-scoped aggregation footer, and the release pass. Planned; no format or server change. |
+| `docs/plan/m9-property-depth-and-presentation.md` | The v0.9.0 spec at schema 8: the property `display` block (alignment, ISO currency, decimals, grouping) and a table view's `footer`/`footer_hidden` switches, then the property-depth list (validation, defaults, rollup filters, member format, relation filters, formula additions, daily type). Planned; opens after M8.1's release. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and

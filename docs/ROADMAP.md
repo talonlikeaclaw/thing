@@ -106,6 +106,14 @@ need reshaping later; each carries its decisions already made. M6.2's workspace 
 [`docs/plan/m6.2-workspace-ux.md`](plan/m6.2-workspace-ux.md). M8 landed as `0.8.0` with schema 7;
 its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properties.md).
 
+**Revised 2026-11-11 (M9 merged):** table presentation was requested as its own `0.9.0` milestone,
+but `0.9.0` was already held for property model depth. Rather than renumber M10–M14, M9 now carries
+both halves on one schema bump: presentation first (the `display` block, the view's summary-band
+switches), then the property-depth list unchanged. M10 keeps view depth and loses only "persisted
+aggregations", which the band's switches now own. Spec:
+[`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md).
+M8.1's checkpoint 5, which ships `0.8.1`, still runs before M9's checkpoint 1.
+
 **Revised 2026-11-11:** milestone numbers now equal the workspace minor: computed properties is
 **M8** (`0.8.0`), the inserted patches are M8.1–M8.5, property model depth is M9 (`0.9.0`), view
 model depth is M10 (`0.10.0`) with M10.1–M10.2, the agent surface is M11, collaboration is M12,
@@ -377,15 +385,25 @@ usability move ahead of search.
   - **M8.5 — Time and habit.** `0.8.5`, no format change. An ICS feed per scheduled type, completion
     stats and streaks derived from revisions, a since-last-visit summary, and a daily-note route
     with a browser-local daily type.
-- **M9 — Property model depth.** **Planned**; spec written when the milestone starts. Schema 8,
-  workspace `0.9.0`: validation (required, min/max, pattern, unique), create-time defaults,
-  rollup filters, a member/assignee format, relation target filters and a one-to-one constraint,
-  the `coalesce`/`contains`/`length`/`replace`/`date_add`/`format_date` formula additions, and the
+- **M9 — Property depth and presentation.** **Planned** (workspace `0.9.0`, schema 8); spec:
+  [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md)
+  (written 2026-11-11, not started; it opens only after M8.1's checkpoint 5 ships `0.8.1`). Two halves
+  on one schema bump. **Presentation (checkpoints 1–6):** a property gains an optional `display`
+  block — `align` for every format, and `currency` (ISO 4217), `decimals` (0–4) and `grouping` for
+  numbers — and a table view gains `footer` and `footer_hidden`, so the M8.1 summary band can be
+  switched off for a view or blanked per column and its amounts read in the property's currency. The
+  web owns one number grammar (`lib/presentation.ts`); a stored value, a sort, a filter and a CSV
+  cell stay raw, and the server's `label` stays plain. `align: auto` right-aligns numbers, a visible
+  change named in the release notes. **Depth (checkpoints 7–12):** validation (`min`/`max`/`pattern`/
+  `unique`, with `required` staying on the membership), create-time defaults, rollup filters, a
+  member/assignee format, relation target filters and a one-to-one constraint, the
+  `coalesce`/`contains`/`length`/`replace`/`date_add`/`format_date` formula additions, and the
   shared daily type. It fixes property semantics before views and agents are built on them.
 - **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
   workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
-  and list; conditional formatting as saved view rules; persisted aggregations, row height and
-  pinned columns; record layout; relation preview configuration; and saved cross-type queries.
+  and list; conditional formatting as saved view rules; row height and pinned columns; record
+  layout; relation preview configuration; and saved cross-type queries. Persisted aggregations moved
+  to M9 with the table's summary band; the rest of view depth stays here.
   - **M10.1 — Charts and overview.** `0.10.1`, schema 9. Chart view kinds (bar, line, pie), metric
     blocks, and a space overview composed of pinned views — not a freeform block canvas.
   - **M10.2 — Templates.** `0.10.2`, no format change. Record templates under `templates/<type>/`,
