@@ -1,6 +1,6 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ObjectSummary, PropertyDef, TypeDef, ViewDef } from "@/api/types";
 import { TableView } from "@/components/views/table-view";
@@ -581,5 +581,112 @@ describe("the cell range", () => {
     expect(screen.queryByRole("group", { name: "Cell selection" })).toBeNull();
     expect(selectedCells(container)).toHaveLength(0);
     expect(gridCell(container, 0, 1)).toHaveAttribute("data-active", "true");
+  });
+});
+
+describe("copying cells", () => {
+  // jsdom has no clipboard; the table only ever writes text.
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  let writeText: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    if (originalClipboard) {
+      Object.defineProperty(navigator, "clipboard", originalClipboard);
+      return;
+    }
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+
+  /** The 2 × 2 rectangle over the title and Room columns of both rows. */
+  function markRectangle(container: HTMLElement): HTMLElement {
+    fireEvent.keyDown(focusCell(container, 0, 1), { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(document.activeElement as HTMLElement, {
+      key: "ArrowDown",
+      shiftKey: true,
+    });
+    return document.activeElement as HTMLElement;
+  }
+
+  it("copies a marked rectangle as a TSV block on the keyboard", async () => {
+    const { container } = renderGrid();
+    const focus = markRectangle(container);
+
+    fireEvent.keyDown(focus, { key: "c", ctrlKey: true });
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith("Title\tRoom\nMonstera\tkitchen\nFern\tstudy");
+    expect(await screen.findByRole("status")).toHaveTextContent("Copied 4 cells.");
+  });
+
+  it("copies the rectangle as a markdown table from the bar", async () => {
+    const { container } = renderGrid();
+    markRectangle(container);
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy as Markdown" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText).toHaveBeenCalledWith(
+      [
+        "| Title | Room |",
+        "| --- | --- |",
+        "| Monstera | kitchen |",
+        "| Fern | study |",
+      ].join("\n"),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Copied as a markdown table.",
+    );
+  });
+
+  it("copies one focused cell's label without a header", async () => {
+    const { container } = renderGrid();
+    const focus = focusCell(container, 1, 2);
+
+    fireEvent.keyDown(focus, { key: "c", metaKey: true });
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("study"));
+    // The single cell has no bar, so its own polite region carries it too.
+    expect(await screen.findByRole("status")).toHaveTextContent("Copied 1 cell.");
+  });
+
+  it("leaves mod+C to the browser while an editor has focus", () => {
+    const { container } = renderGrid();
+    fireEvent.keyDown(focusCell(container, 0, 1), { key: "Enter" });
+    const editor = screen.getByRole("textbox", { name: "Title" });
+
+    // Not prevented, so the editor's own select-all and copy keep working.
+    expect(fireEvent.keyDown(editor, { key: "c", ctrlKey: true })).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("leaves mod+C alone on a control column", () => {
+    const { container } = renderGrid();
+    const checkbox = focusCell(container, 0, 0);
+
+    expect(fireEvent.keyDown(checkbox, { key: "c", ctrlKey: true })).toBe(true);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("keeps the range and says so when the clipboard refuses", async () => {
+    writeText.mockImplementationOnce(() => Promise.reject(new Error("denied")));
+    const { container } = renderGrid();
+    const focus = markRectangle(container);
+
+    fireEvent.keyDown(focus, { key: "c", ctrlKey: true });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The browser refused the copy.");
+    expect(screen.getByRole("group", { name: "Cell selection" })).toBeInTheDocument();
   });
 });

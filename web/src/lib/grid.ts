@@ -1,4 +1,4 @@
-import type { PropertyFormat } from "@/api/types";
+import type { ObjectSummary, PropertyFormat } from "@/api/types";
 
 /** The only view column that is not a property; the server calls it `model::TITLE_KEY`. */
 export const TITLE_COLUMN_KEY = "title";
@@ -175,6 +175,65 @@ export function rangeSize(range: Range): {
   const rows = range.bottom - range.top + 1;
   const columns = range.right - range.left + 1;
   return { rows, columns, cells: rows * columns };
+}
+
+/**
+ * A tab, CR or LF inside a TSV cell would invent a column or a row, so the
+ * copy folds them into one space instead.
+ */
+function tsvText(text: string): string {
+  return text.replace(/[\t\r\n]+/g, " ");
+}
+
+/**
+ * A markdown cell escapes what would end the cell or the row, and keeps a
+ * line break as an in-cell break; surrounding whitespace is trimmed.
+ */
+function markdownText(text: string): string {
+  return text
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|")
+    .replace(/\r\n|\r|\n/g, "<br>");
+}
+
+/** The displayed text of one data cell: the title, or the row's label for the key. */
+export function cellText(column: GridColumn, row: ObjectSummary): string {
+  if (column.key === TITLE_COLUMN_KEY) {
+    return row.title;
+  }
+  return row.values[column.key]?.label ?? "";
+}
+
+/** Header labels plus one text row per grid row, in view order. */
+export function rangeMatrix(
+  columns: readonly GridColumn[],
+  rows: readonly ObjectSummary[],
+  range: Range,
+): { header: string[]; rows: string[][] } {
+  const selected = columns.slice(range.left, range.right + 1);
+  const header = selected.map((column) => column.label);
+  const body: string[][] = [];
+  for (let row = range.top; row <= range.bottom; row += 1) {
+    const record = rows[row];
+    body.push(record ? selected.map((column) => cellText(column, record)) : header.map(() => ""));
+  }
+  return { header, rows: body };
+}
+
+/** Header line, then one line per row: tabs between cells, newlines between rows. */
+export function toTsv(header: readonly string[], rows: readonly string[][]): string {
+  const lines = header.length > 0 ? [header] : [];
+  return [...lines, ...rows]
+    .map((cells) => cells.map(tsvText).join("\t"))
+    .join("\n");
+}
+
+/** A markdown table: the header, a separator over its width, then one line per row. */
+export function toMarkdown(header: readonly string[], rows: readonly string[][]): string {
+  const line = (cells: readonly string[]) => `| ${cells.map(markdownText).join(" | ")} |`;
+  const separator = header.map(() => "---");
+  return [line(header), line(separator), ...rows.map(line)].join("\n");
 }
 
 /** The rectangle's cells in row-major order. */

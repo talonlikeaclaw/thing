@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
 
+import type { ObjectSummary } from "@/api/types";
 import {
+  cellText,
   clampCell,
   normalizeRange,
   rangeCells,
   rangeContains,
+  rangeMatrix,
   rangeSize,
   revealDelta,
   sameCell,
   stepCell,
   tabCell,
+  toMarkdown,
+  toTsv,
+  type GridColumn,
 } from "@/lib/grid";
 
 describe("sameCell", () => {
@@ -203,5 +209,136 @@ describe("the range model", () => {
       { row: 1, col: 1 },
       { row: 1, col: 2 },
     ]);
+  });
+});
+
+/* The copy builders: data columns over two records, one with a relation. */
+
+const copyColumns: GridColumn[] = [
+  { key: "title", label: "Title" },
+  { key: "room", label: "Room", format: "text" },
+  { key: "plant", label: "Plant", format: "relation" },
+];
+
+const copyRows: ObjectSummary[] = [
+  {
+    id: "0193b000-0000-7000-8000-000000000001",
+    type: "plant",
+    title: "Monstera",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {
+      room: { value: "kitchen", label: "kitchen" },
+      plant: { value: "0193b000-0000-7000-8000-000000000009", label: "Big fern" },
+    },
+    missing_relations: [],
+  },
+  {
+    id: "0193b000-0000-7000-8000-000000000002",
+    type: "plant",
+    title: "Fern",
+    rev: 1,
+    updated_at: "2026-11-11T00:00:00Z",
+    values: {
+      room: { value: "study", label: "study" },
+    },
+    missing_relations: [],
+  },
+];
+
+describe("cellText", () => {
+  it("copies the title column from the record's own title", () => {
+    expect(cellText(copyColumns[0] as GridColumn, copyRows[0] as ObjectSummary)).toBe(
+      "Monstera",
+    );
+  });
+
+  it("copies what the cell shows, not what it stores", () => {
+    // The relation stores an id; the copy carries the target's title.
+    expect(cellText(copyColumns[2] as GridColumn, copyRows[0] as ObjectSummary)).toBe(
+      "Big fern",
+    );
+  });
+
+  it("copies an unset value and a missing property as empty text", () => {
+    expect(cellText(copyColumns[2] as GridColumn, copyRows[1] as ObjectSummary)).toBe("");
+    const missing: GridColumn = { key: "gone", label: "Gone" };
+    expect(cellText(missing, copyRows[0] as ObjectSummary)).toBe("");
+  });
+});
+
+describe("rangeMatrix", () => {
+  it("takes the header from the view and the rows from the rectangle", () => {
+    const matrix = rangeMatrix(copyColumns, copyRows, {
+      top: 0,
+      left: 0,
+      bottom: 1,
+      right: 2,
+    });
+    expect(matrix.header).toEqual(["Title", "Room", "Plant"]);
+    expect(matrix.rows).toEqual([
+      ["Monstera", "kitchen", "Big fern"],
+      ["Fern", "study", ""],
+    ]);
+  });
+
+  it("keeps only the columns and rows the rectangle covers", () => {
+    const matrix = rangeMatrix(copyColumns, copyRows, {
+      top: 1,
+      left: 1,
+      bottom: 1,
+      right: 1,
+    });
+    expect(matrix).toEqual({ header: ["Room"], rows: [["study"]] });
+  });
+});
+
+describe("toTsv", () => {
+  it("puts tabs between cells and newlines between rows, with no trailing newline", () => {
+    const text = toTsv(["Title", "Room"], [["Monstera", "kitchen"], ["Fern", "study"]]);
+    expect(text).toBe("Title\tRoom\nMonstera\tkitchen\nFern\tstudy");
+    expect(text.endsWith("\n")).toBe(false);
+  });
+
+  it("folds a tab, a CR or a LF inside a label into one space", () => {
+    const text = toTsv(["Note"], [["a\tb"], ["c\r\nd"], ["e\nf"]]);
+    expect(text).toBe("Note\na b\nc d\ne f");
+  });
+
+  it("leaves an empty cell empty", () => {
+    expect(toTsv(["Title", "Room"], [["Fern", ""]])).toBe("Title\tRoom\nFern\t");
+  });
+
+  it("writes a single cell without a header", () => {
+    expect(toTsv([], [["Monstera"]])).toBe("Monstera");
+  });
+});
+
+describe("toMarkdown", () => {
+  it("writes the header, a separator over its width, then every row", () => {
+    expect(toMarkdown(["Title", "Room"], [["Monstera", "kitchen"], ["Fern", "study"]])).toBe(
+      [
+        "| Title | Room |",
+        "| --- | --- |",
+        "| Monstera | kitchen |",
+        "| Fern | study |",
+      ].join("\n"),
+    );
+  });
+
+  it("escapes pipes and backslashes and turns a line break into a break", () => {
+    expect(toMarkdown(["Note"], [["a|b"], ["c\\d"], ["e\nf"]])).toBe(
+      ["| Note |", "| --- |", "| a\\|b |", "| c\\\\d |", "| e<br>f |"].join("\n"),
+    );
+  });
+
+  it("trims surrounding whitespace and keeps an empty cell empty", () => {
+    expect(toMarkdown(["Note"], [["  spaced  "], [""]])).toBe(
+      ["| Note |", "| --- |", "| spaced |", "|  |"].join("\n"),
+    );
+  });
+
+  it("writes a one-column table", () => {
+    expect(toMarkdown(["Room"], [["study"]])).toBe("| Room |\n| --- |\n| study |");
   });
 });

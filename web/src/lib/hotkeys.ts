@@ -107,6 +107,14 @@ export const TABLE_SHORTCUTS: ShortcutDescriptor[] = [
   },
   { id: "table-search", key: "/", keys: "/", label: "Focus search", scope: "Table" },
   {
+    id: "table-copy",
+    key: "c",
+    mod: true,
+    keys: "⌘C / Ctrl C",
+    label: "Copy the selected cells",
+    scope: "Table",
+  },
+  {
     id: "table-clear",
     key: "escape",
     allowInInput: true,

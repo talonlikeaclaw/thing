@@ -39,17 +39,22 @@ import type {
 import { useThumbHandedness } from "@/components/handedness";
 import { FORMAT_ICONS } from "@/components/format-icon";
 import { PropertyCell, TitleCell } from "@/components/property-cell";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import {
   TITLE_COLUMN_KEY,
+  cellText,
   clampCell,
   normalizeRange,
   rangeContains,
+  rangeMatrix,
   rangeSize,
   revealDelta,
   sameCell,
   stepCell,
   tabCell,
+  toMarkdown,
+  toTsv,
   type Cell,
   type GridColumn,
 } from "@/lib/grid";
@@ -81,6 +86,8 @@ const FORMAT_TEXT_ADVANCE = 7.6;
 const HEADER_RIGHT_PADDING = 8;
 /** Breathing room between a revealed cell and the sticky chrome around it. */
 const CELL_CLEARANCE = 6;
+/** The two spellings a copy writes: a TSV block, or a markdown table. */
+type CopyKind = "tsv" | "markdown";
 
 interface TableViewProps {
   spaceId: string;
@@ -163,6 +170,7 @@ export function TableView({
 }: TableViewProps) {
   const propertyByKey = new Map(properties.map((property) => [property.key, property]));
   const navigate = useNavigate();
+  const toast = useToast();
   const propertyKeys = view.columns.filter((key) => key !== TITLE_COLUMN_KEY);
   // The data columns in view order. The checkbox, add-property, tail and rail
   // columns are controls, so they are never data and never get a range cell.
@@ -291,6 +299,15 @@ export function TableView({
       ? normalizeRange(anchor, active)
       : null;
   const rangeStats = range ? rangeSize(range) : null;
+  /** The rectangle's corners as one value, so leaving it can clear the note. */
+  const rangeShape = range
+    ? `${range.top}:${range.left}:${range.bottom}:${range.right}`
+    : "";
+  /**
+   * The last copy's sentence, announced politely and cleared as soon as the
+   * rectangle moves: the reader hears the result once, beside the range's size.
+   */
+  const [copyNote, setCopyNote] = useState<string | null>(null);
   /** The card holds focus: the ring only speaks for a grid you are inside. */
   const [gridFocused, setGridFocused] = useState(false);
   /** A pinned title shows a stronger edge only once columns have slid under it. */
@@ -350,6 +367,11 @@ export function TableView({
       setSelecting(true);
     }
   }, [selected.size]);
+
+  useEffect(() => {
+    // A copy's sentence belongs to the rectangle that is no longer there.
+    setCopyNote(null);
+  }, [rangeShape]);
 
   // Toggling Select inserts the 44 px checkbox rail before the pinned title,
   // which widens the pinned group. Keep the scroll exactly where it was: adding
@@ -464,6 +486,57 @@ export function TableView({
     element.querySelector<HTMLButtonElement>("button")?.click();
   }
 
+  /** The label one cell shows; the copy writes exactly this, never the value. */
+  function labelAt(cell: Cell): string | null {
+    if (!isDataColumn(cell.col)) {
+      return null;
+    }
+    const row = rows[cell.row];
+    const column = gridColumns[cell.col - titleCol];
+    return row && column ? cellText(column, row) : null;
+  }
+
+  /** The text a copy writes: the rectangle as a table, or one cell's label. */
+  function copyPayload(kind: CopyKind, cell: Cell | null): string | null {
+    if (range) {
+      // The range is in DOM columns; the model's data columns start at the
+      // title, after the checkbox column.
+      const matrix = rangeMatrix(gridColumns, rows, {
+        ...range,
+        left: range.left - titleCol,
+        right: range.right - titleCol,
+      });
+      return kind === "markdown"
+        ? toMarkdown(matrix.header, matrix.rows)
+        : toTsv(matrix.header, matrix.rows);
+    }
+    return cell ? labelAt(cell) : null;
+  }
+
+  /**
+   * Writes the selection — or the focused cell — to the clipboard. A refused
+   * copy keeps the range so the reader can retry; nothing throws.
+   */
+  async function copy(kind: CopyKind, cell: Cell | null) {
+    const text = copyPayload(kind, cell);
+    if (text === null) {
+      return;
+    }
+    const note =
+      kind === "markdown"
+        ? "Copied as a markdown table."
+        : `Copied ${counted(rangeStats?.cells ?? 1, "cell", "cells")}.`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyNote(note);
+      toast.showToast(note);
+    } catch {
+      const refusal = "The browser refused the copy.";
+      setCopyNote(refusal);
+      toast.showToast(refusal, "danger");
+    }
+  }
+
   function onGridKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.defaultPrevented || isEditableTarget(event.target)) {
       return;
@@ -526,6 +599,14 @@ export function TableView({
     } else if (key === "Enter") {
       event.preventDefault();
       activateCell(cell);
+    } else if ((event.metaKey || event.ctrlKey) && key.toLowerCase() === "c") {
+      // Selected prose is the reader's own copy, and a control column has no
+      // label to write: both leave the key to the browser.
+      if (window.getSelection()?.toString() || !isDataColumn(cell.col)) {
+        return;
+      }
+      event.preventDefault();
+      void copy("tsv", cell);
     } else if (key === "Escape") {
       event.preventDefault();
       if (anchor) {
@@ -721,18 +802,25 @@ export function TableView({
 
   // The bar lives in a row that is already reserved above the card, so a
   // selection never pushes the rows the reader is working in down the page.
+  const barButton =
+    "inline-flex min-h-6 shrink-0 items-center rounded-[6px] px-2 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink pointer-coarse:min-h-11";
   const rangeBar = rangeStats ? (
     <div
       role="group"
       aria-label="Cell selection"
       className={cn(
         "flex w-full min-w-0 items-center gap-2 rounded-[8px] border border-line bg-raised px-2",
-        compact ? "min-h-11" : "h-6",
+        compact ? "min-h-11 flex-wrap py-1" : "h-6",
       )}
     >
       <span
         aria-live="polite"
-        className="min-w-0 flex-1 truncate font-mono text-[11px] tabular-nums tracking-[0.06em] text-muted"
+        className={cn(
+          "min-w-0 flex-1 truncate font-mono text-[11px] tabular-nums tracking-[0.06em] text-muted",
+          // Three finger-sized buttons leave the count no room beside them, so
+          // the bar wraps and the count keeps its own line.
+          compact && "w-full flex-none",
+        )}
       >
         <span aria-hidden>
           {`${counted(rangeStats.cells, "cell", "cells")} · ${counted(rangeStats.rows, "row", "rows")} × ${counted(rangeStats.columns, "column", "columns")}`}
@@ -740,10 +828,26 @@ export function TableView({
         <span className="sr-only">
           {`${counted(rangeStats.rows, "row", "rows")} by ${counted(rangeStats.columns, "column", "columns")}, ${counted(rangeStats.cells, "cell", "cells")} selected`}
         </span>
+        {/* The copy's result joins the same live region, beside the shape. */}
+        {copyNote ? <span className="sr-only">{`. ${copyNote}`}</span> : null}
       </span>
       <button
         type="button"
-        className="inline-flex min-h-6 shrink-0 items-center rounded-[6px] px-2 text-[11px] text-muted transition-colors hover:bg-surface hover:text-ink pointer-coarse:min-h-11"
+        className={barButton}
+        onClick={() => void copy("tsv", active)}
+      >
+        Copy
+      </button>
+      <button
+        type="button"
+        className={barButton}
+        onClick={() => void copy("markdown", active)}
+      >
+        Copy as Markdown
+      </button>
+      <button
+        type="button"
+        className={barButton}
         onClick={() => setAnchor(null)}
       >
         Clear
@@ -769,9 +873,23 @@ export function TableView({
           </p>
         )}
         {railBefore ? null : selectToggle}
+        {/* With no bar, a single-cell copy still needs a polite surface. */}
+        {rangeBar ? null : (
+          <span aria-live="polite" className="sr-only">
+            {copyNote}
+          </span>
+        )}
       </div>
     ) : null}
-    {compact ? null : <div className="mt-1 h-6">{rangeBar}</div>}
+    {compact ? null : (
+      <div className="mt-1 h-6">
+        {rangeBar ?? (
+          <span aria-live="polite" className="sr-only">
+            {copyNote}
+          </span>
+        )}
+      </div>
+    )}
     <div
       ref={portRef}
       className={cn(
