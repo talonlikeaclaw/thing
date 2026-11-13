@@ -58,6 +58,39 @@ export const CHANGELOG: ChangelogEntry[] = [
             lead: "The summary band is yours",
             body: "A table view can switch its summary band off, or blank a single column's cell, without losing the totals it still shows.",
           },
+          {
+            lead: "Each column prints the measure you choose",
+            body: "A number can show its sum, average, lowest or highest, a date its earliest or latest, and a text column its distinct or filled count.",
+          },
+        ],
+      },
+      {
+        title: "Set it where you work",
+        items: [
+          {
+            lead: "No file editing needed",
+            body: "A property's display sits under its format, and View settings carries the band's switch beside a checklist of the columns it summarises.",
+          },
+          {
+            lead: "One View button holds it all",
+            body: "Columns, Sort, Settings, Save as view and Data are tabs in one sheet, so no setting is buried behind a kebab.",
+          },
+          {
+            lead: "The sheet says where you are",
+            body: "Its header names the view, its kind and its counts; each tab opens with a heading and one sentence of purpose; and a footer says changes save as you go, so nothing looks like it is waiting for a Save button.",
+          },
+          {
+            lead: "Every tab fits a phone again",
+            body: "The tab strip is one scrolling row that feathers its end instead of wrapping into a ragged second line, and the rest of the sheet reads top to bottom without sideways scrolling.",
+          },
+          {
+            lead: "Column names stay whole",
+            body: "A long property name wraps instead of trailing off, and a calculated column keeps the kind's glyph on a phone with the full spelling as its tooltip.",
+          },
+          {
+            lead: "The CSV field looks like the app",
+            body: "Importing is a button and the chosen file's name rather than the browser's own file control, and a clear control resets it so the same file can be chosen twice.",
+          },
         ],
       },
     ],

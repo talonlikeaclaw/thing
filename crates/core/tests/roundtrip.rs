@@ -494,12 +494,17 @@ fn a_schema_seven_type_and_property_load_without_display_or_footer() {
     let type_text = fixture("type_views.yml")
         .replace("schema: 8", "schema: 7")
         .replace("  footer: false\n", "")
-        .replace("  footer_hidden:\n  - room\n", "");
+        .replace("  footer_hidden:\n  - room\n", "")
+        .replace(
+            "  footer_summary:\n    due_date: latest\n    title: rows\n",
+            "",
+        );
     assert!(!type_text.contains("footer"), "{type_text}");
     let def = parse_type(&type_text).expect("a schema 7 type parses");
     for view in &def.views {
         assert_eq!(view.footer, None, "{}", view.key);
         assert!(view.footer_hidden.is_empty(), "{}", view.key);
+        assert!(view.footer_summary.is_empty(), "{}", view.key);
     }
     assert!(serialize_type(&def).starts_with("schema: 8\n"));
 }

@@ -450,30 +450,47 @@ built-in text column and names `Text` on the same edge. The card clips the table
 scrolls inside it. The
 page's Filter never pushes the ledger down: it is an overlay, a glass popover under its own
 button on a fine pointer and the shared sheet on a phone, with the header and footer fixed
-and the middle scrolling. Sort and Columns follow the same rule: each is its own toolbar
-trigger, a glass popover on a wide screen and the same sheet on a phone, never a row inside
-another menu. A sort row is a searchable property picker above one action line: reorder,
-options and remove grouped beside the one-tap `Ascending`/`Descending` segment, so the whole
-cluster sits at the thumb edge with the segment outermost — right in right-handed mode, left
-in left-handed. Empty placement is in the row's options menu. A column row pairs identity with a row menu, hide and position;
-the menu carries `Edit property` and, for a text, select or multi-select column,
-`Turn into a relation…`, disabled with its reason when the format cannot convert. The
-position pill ends the row at the thumb edge in both modes: it opens a menu of every slot
-the column can take, so moving it three places is one choice rather than three taps at a
-target that moves under the finger. One search field narrows the shown and the hidden list
-together, printing `{shown} of {total}`.
-The phone's toolbar is `Search`, `Filter` and `View`. The View sheet holds Sort, Columns,
-View settings, `Save as view…` and Data — the daily tools first, each opening in place
-behind a `Back` control. Every sheet keeps its own header, a scrolling body and the
-safe-area padding; the ledger never moves for any of them.
+and the middle scrolling. Everything about the view itself — its columns, its order, its
+details and its CSV — is one View sheet, opened from the `View` button beside `Filter` at
+every width, so a setting is one tab from the view instead of a chain of popovers. The
+sheet names what it edits before it offers a control: the view kind's glyph in a neutral
+tile, the view's name in the display voice, and a mono folio of its kind and counts
+(`TABLE VIEW · 10 COLUMNS · 1 SORT`). Below it, a recessed segmented strip holds the tabs —
+the daily tools first, a rule before `Save as view` because that one creates rather than
+edits, Data last. The strip is one scrolling row at every width and hugs its tabs; a phone
+feathers its ends rather than wrapping a second ragged line, and the selected tab is
+scrolled into view. Each tab's body opens with its own heading and one sentence of purpose,
+so a panel reached sideways still says where it is. The three panels that edit write as they
+are touched and close on a footer line saying so; the two that create or move data do not
+claim it.
+A sort row is a searchable property picker with its remove on the first line, then reorder,
+options and the one-tap `Ascending`/`Descending` segment on the second, the segment outermost
+— right in right-handed mode, left in left-handed. Empty placement is in the row's options
+menu, and a rule's ordinal leads the row because the first rule decides. A column row pairs
+identity with a row menu, hide and position; the name wraps rather than truncating a word
+away, and a phone swaps the chip's spelling for the calculated kind's glyph and the format
+word, keeping the full spelling as the tooltip. The menu carries `Edit property` and, for a
+text, select or multi-select column, `Turn into a relation…`, disabled with its reason when
+the format cannot convert. The Title row cannot move: a lock marks its slot, and the Title
+has no menu because its only setting, its summary cell, is one of the band's own list in the
+General panel. The position pill ends the row at the
+thumb edge in both modes: it opens a menu of every slot the column can take, so moving it
+three places is one choice rather than three taps at a target that moves under the finger.
+One search field narrows the shown and the hidden list together, printing `{shown} of
+{total}`.
+The General panel is the view's page: its name with `Rename` beside it (and the key only
+when the key differs from the name), the default with its state on the heading line, the
+kind's own control — board grouping, gallery cover, calendar date — the summary band with
+its per-column list behind a 1px rule, and `Delete view` last. Every sheet keeps its own
+header, a scrolling body and the safe-area padding; the ledger never moves for any of them.
 The query is visible as a chip row under the chrome: one chip per complete condition, the
 column in ink, the value beside it, a remove target on the trailing edge, and `Clear all`
 at the end; the row scrolls sideways on a phone and never wraps. A condition is a property
 first — the searchable picker — and only then an operator and a value, so a half-built row
 is a draft that never reaches the query.
-View settings and the CSV panel are page editors, not ledger content: they open the same
-centred glass dialog as the other overlays instead of an inline band that pushes the
-table down. The view tabs are a recessed segmented track with the active
+The view's details and the CSV panel are page editors, not ledger content: they open
+inside the View sheet instead of an inline band that pushes the table down. The view tabs
+are a recessed segmented track with the active
 segment on the accent wash. The strip closes the panel, sitting below the search and tools on the
 container's bottom edge, so a view is chosen where the views meet the records. Its two
 edge actions are 36 px circles (44 px coarse) on the accent wash: Reorder on the

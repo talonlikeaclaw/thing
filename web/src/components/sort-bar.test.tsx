@@ -31,15 +31,13 @@ function published(): Sort[] {
 }
 
 describe("SortBar", () => {
-  it("adds a sort from the property picker and removes it", () => {
+  it("adds a rule as soon as a column is chosen, and removes it", () => {
     renderWithProviders(<Host />);
+    expect(screen.getByText("Nothing is sorted; the records keep their saved order.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add a sort column: Title" }));
-    const list = screen.getByRole("listbox", { name: "Choose property" });
+    fireEvent.click(screen.getByRole("button", { name: "Add a sort column" }));
+    const list = screen.getByRole("listbox", { name: "Add a sort column" });
     fireEvent.click(within(list).getByRole("option", { name: /Artist/ }));
-    expect(published()).toEqual([]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Add sort" }));
     expect(published()).toEqual([{ property: "artist", direction: "asc", empty: "end" }]);
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Artist sort" }));
@@ -62,7 +60,7 @@ describe("SortBar", () => {
   it("moves empty placement into the row menu", () => {
     renderWithProviders(<Host initial={[{ property: "room", direction: "asc", empty: "end" }]} />);
 
-    // The row is two controls wide: a direction segmented control and a remove.
+    // The common row carries no empty-placement control of its own.
     expect(screen.queryByRole("combobox", { name: "Empty placement" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Room sort options" }));
@@ -111,9 +109,16 @@ describe("SortBar", () => {
     expect(anchored).toHaveAttribute("data-align", "start");
   });
 
-  it("leaves the saved order alone until a sort is added", () => {
-    renderWithProviders(<Host />);
-    expect(screen.getByText("The type's saved order.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add sort" })).toBeEnabled();
+  it("offers only columns that are not already rules", () => {
+    renderWithProviders(<Host initial={[{ property: "room", direction: "asc", empty: "end" }]} />);
+
+    // The row's own trigger names the property it holds; the add picker only
+    // offers the columns that are not already rules.
+    expect(screen.getByRole("button", { name: "Sort column: Room" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a sort column" }));
+    const add = screen.getByRole("listbox", { name: "Add a sort column" });
+    expect(within(add).queryByRole("option", { name: /Room/ })).not.toBeInTheDocument();
+    expect(within(add).getByRole("option", { name: /Size/ })).toBeInTheDocument();
   });
 });

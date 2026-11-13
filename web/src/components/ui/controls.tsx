@@ -167,7 +167,7 @@ interface TextFieldProps extends Omit<ComponentProps<typeof Field.Control>, "cla
 }
 
 /** The one field frame; every text, textarea and select control consumes it. */
-export const fieldFrame = `w-full rounded-[10px] border border-line-interactive/70 bg-raised/40/70 bg-raised/40 px-[var(--space-3)] text-[length:var(--text-body)] leading-[var(--text-body--line-height)] text-ink transition-[border-color,background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)] placeholder:text-faint hover:border-line-strong focus:border-accent aria-invalid:border-danger aria-invalid:focus:border-danger disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line-interactive/70 read-only:text-muted pointer-coarse:text-[16px] ${focusRing}`;
+export const fieldFrame = `w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-[var(--space-3)] text-[length:var(--text-body)] leading-[var(--text-body--line-height)] text-ink transition-[border-color,background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)] placeholder:text-faint hover:border-line-strong focus:border-accent aria-invalid:border-danger aria-invalid:focus:border-danger disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-line-interactive/70 read-only:text-muted pointer-coarse:text-[16px] ${focusRing}`;
 
 function FieldMessages({
   hint,

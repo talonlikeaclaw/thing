@@ -715,6 +715,7 @@ mod tests {
                     date_property: None,
                     footer: None,
                     footer_hidden: Vec::new(),
+                    footer_summary: BTreeMap::new(),
                 },
                 ViewDef {
                     key: "by_room".to_owned(),
@@ -732,6 +733,7 @@ mod tests {
                     date_property: None,
                     footer: None,
                     footer_hidden: Vec::new(),
+                    footer_summary: BTreeMap::new(),
                 },
             ],
             default_view: "all".to_owned(),

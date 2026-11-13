@@ -180,7 +180,11 @@ export function TableView({
   // The data columns in view order. The checkbox, add-property, tail and rail
   // columns are controls, so they are never data and never get a range cell.
   const gridColumns: GridColumn[] = [
-    { key: TITLE_COLUMN_KEY, label: "Title" },
+    {
+      key: TITLE_COLUMN_KEY,
+      label: "Title",
+      summary: view.footer_summary?.[TITLE_COLUMN_KEY],
+    },
     ...propertyKeys.map((key) => {
       const property = propertyByKey.get(key);
       return {
@@ -188,6 +192,7 @@ export function TableView({
         label: property?.name ?? key,
         format: property?.format,
         display: property?.display,
+        summary: view.footer_summary?.[key],
       };
     }),
   ];
@@ -1313,11 +1318,15 @@ export function TableView({
               {railBefore ? (
                 <td
                   aria-hidden
-                  className={cn(footerCell, footerStick, railEdge, "bg-surface")}
+                  className={cn(footerCell, footerStick, railEdge, "z-20 bg-surface")}
                 />
               ) : null}
               {showSelect ? (
-                <td aria-hidden className={cn(footerCell, footerStick, "bg-surface")} />
+                <td
+                  aria-hidden
+                  className={cn(footerCell, footerStick, "sticky z-20 bg-surface")}
+                  style={{ left: railBefore ? openWidth : 0 }}
+                />
               ) : null}
               {gridColumns.map((column, index) => {
                 // A hidden column keeps its place in the row and reads blank;
@@ -1331,10 +1340,11 @@ export function TableView({
                     className={cn(
                       footerCell,
                       footerStick,
-                      "z-20 bg-surface",
+                      "bg-surface",
                       alignOf(column) === "right" ? "text-right" : "text-left",
-                      // The title column stays pinned on every width, as its body does.
-                      index === 0 && "sticky left-0 border-r rule",
+                      // The title column stays pinned on every width, as its body
+                      // does, and sits above the scrolling summaries.
+                      index === 0 && "sticky left-0 z-30 border-r rule",
                     )}
                     style={index === 0 ? { left: pinnedOffset } : undefined}
                   >
@@ -1353,7 +1363,7 @@ export function TableView({
               {railBefore ? null : (
                 <td
                   aria-hidden
-                  className={cn(footerCell, footerStick, railEdge, "bg-surface")}
+                  className={cn(footerCell, footerStick, railEdge, "z-20 bg-surface")}
                 />
               )}
             </tr>

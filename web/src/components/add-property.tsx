@@ -21,6 +21,12 @@ import {
   emptyComputedDraft,
   type ComputedDraft,
 } from "@/components/schema/computed-fields";
+import {
+  DisplayFields,
+  displayPayload,
+  emptyDisplayDraft,
+  type DisplayDraft,
+} from "@/components/schema/display-fields";
 import { PropertyPicker } from "@/components/property-picker";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
@@ -115,6 +121,7 @@ export function AddPropertyDialog({
   const [existingKey, setExistingKey] = useState(available[0]?.key ?? "");
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<ComputedDraft>(emptyComputedDraft);
+  const [display, setDisplay] = useState<DisplayDraft>(emptyDisplayDraft);
   const [targetType, setTargetType] = useState(NEW_TARGET);
   const [targetName, setTargetName] = useState("");
   const [targetPlural, setTargetPlural] = useState("");
@@ -253,9 +260,11 @@ export function AddPropertyDialog({
       if (mode === "new" && key === null) {
         setRunning("property");
         try {
+          const displayValue = displayPayload(display, format);
           const property = await createProperty.mutateAsync({
             name: label,
             ...computedPayload(draft),
+            ...(displayValue ? { display: displayValue } : {}),
             ...(relation && targetKey !== null
               ? { target_type: targetKey, multi }
               : {}),
@@ -515,6 +524,14 @@ export function AddPropertyDialog({
                         </div>
                       </fieldset>
                     )}
+                  />
+
+                  <DisplayFields
+                    draft={display}
+                    onChange={setDisplay}
+                    format={format}
+                    disabled={propertyFrozen}
+                    idPrefix="add-property"
                   />
 
                   {relation ? (

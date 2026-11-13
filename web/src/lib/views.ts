@@ -3,6 +3,7 @@ import type {
   ObjectSummary,
   PropertyDef,
   Sort,
+  SummaryKind,
   TypeDef,
   ViewDef,
 } from "@/api/types";
@@ -131,6 +132,40 @@ export function withColumn(
   }
   const widths = { ...view.widths };
   return { columns: setColumn(titleFirst(view.columns), key, true), widths };
+}
+
+/**
+ * The footer's denylist after one column's summary is turned on or off. The
+ * list is absent-means-shown, so turning a summary back on removes the key.
+ */
+export function footerHiddenWith(
+  view: ViewDef,
+  key: string,
+  summarised: boolean,
+): string[] {
+  const hidden = view.footer_hidden ?? [];
+  if (summarised) {
+    return hidden.filter((entry) => entry !== key);
+  }
+  return hidden.includes(key) ? hidden : [...hidden, key];
+}
+
+/**
+ * The summary map after one column's measure changes. An empty measure removes
+ * the key, so the format's default is never stored twice.
+ */
+export function footerSummaryWith(
+  view: ViewDef,
+  key: string,
+  measure: SummaryKind | "",
+): Record<string, SummaryKind> {
+  const next = { ...view.footer_summary };
+  if (measure === "") {
+    delete next[key];
+    return next;
+  }
+  next[key] = measure;
+  return next;
 }
 
 /**

@@ -23,6 +23,7 @@ import type {
   PromoteRequest,
   PromoteTargetsResult,
   PropertyDef,
+  PropertyDisplay,
   PropertyFormat,
   Revision,
   Role,
@@ -461,6 +462,8 @@ export interface NewProperty {
   multi?: boolean;
   /** Present only for a calculated property; the format is its result. */
   compute?: ComputeDef;
+  /** How the values read; omitted means plain. */
+  display?: PropertyDisplay;
 }
 
 export interface UpdateProperty {
@@ -468,6 +471,8 @@ export interface UpdateProperty {
   options?: OptionInput[];
   /** Present only for an already-calculated property; the kind is fixed. */
   compute?: ComputeDef;
+  /** `null` clears the block; leaving it out leaves it alone. */
+  display?: PropertyDisplay | null;
 }
 
 export function useCreateProperty(spaceId: string) {

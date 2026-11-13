@@ -110,3 +110,39 @@ describe("PropertyEditorForm", () => {
     expect(screen.getByRole("button", { name: "Delete this property" })).toBeDisabled();
   });
 });
+
+describe("PropertyEditorForm display", () => {
+  it("saves a currency with the rest of the property untouched", async () => {
+    const amount: PropertyDef = { key: "amount", name: "Amount", format: "number" };
+    let body: Record<string, unknown> | null = null;
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      if ((init?.method ?? "GET") === "PATCH") {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return jsonResponse({ ...amount, display: body?.display });
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={amount}
+        types={[]}
+        library={[amount]}
+        canEdit
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Display", { selector: "summary" }));
+    fireEvent.click(screen.getByLabelText("Open currency list"));
+    fireEvent.click(await screen.findByRole("option", { name: "USD" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toEqual({
+      name: "Amount",
+      display: { currency: "USD" },
+    });
+  });
+});

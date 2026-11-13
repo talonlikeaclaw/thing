@@ -638,3 +638,58 @@ describe("AddPropertyDialog recovery", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("AddPropertyDialog display", () => {
+  it("creates a number with the currency the reader chose", async () => {
+    const calls: Call[] = [];
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? "GET";
+      const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
+      if (url.endsWith("/api/spaces/s1/types") && method === "GET") {
+        return jsonResponse([]);
+      }
+      if (url.endsWith("/api/spaces/s1/properties") && method === "POST") {
+        calls.push({ method, url, body });
+        return jsonResponse({
+          key: "amount",
+          name: "Amount",
+          format: "number",
+          display: { currency: "USD" },
+        });
+      }
+      if (method === "PATCH") {
+        calls.push({ method, url, body });
+        return jsonResponse(album([{ key: "amount", required: false, featured: true }]));
+      }
+      throw new Error(`unstubbed ${method} ${url}`);
+    });
+
+    renderWithProviders(
+      <AddPropertyDialog
+        spaceId="s1"
+        type={album()}
+        library={[]}
+        onClose={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Amount" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Number" }));
+    fireEvent.click(screen.getByText("Display", { selector: "summary" }));
+    fireEvent.click(screen.getByLabelText("Open currency list"));
+    fireEvent.click(await screen.findByRole("option", { name: "USD" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0]).toMatchObject({
+      method: "POST",
+      url: "/api/spaces/s1/properties",
+      body: {
+        name: "Amount",
+        format: "number",
+        display: { currency: "USD" },
+      },
+    });
+  });
+});

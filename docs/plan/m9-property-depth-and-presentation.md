@@ -5,8 +5,8 @@ decided here in full, released as `0.9.0` at checkpoint 6), then **property dept
 roadmap's existing M9 list, decisions locked here, per-checkpoint work confirmed when that half
 starts) and its own release pass at `0.9.1` (checkpoint 13).
 
-**Status: planned, not started.** The milestone opens only after M8.1's checkpoint 5 lands the
-`0.8.1` release. Merged 2026-11-11: table presentation was requested as its own milestone at
+**Status: checkpoints 1–5 landed in the working tree; checkpoint 6 (the `0.9.0` release) is next.**
+The milestone opens only after M8.1's checkpoint 5 lands the `0.8.1` release. Merged 2026-11-11: table presentation was requested as its own milestone at
 `0.9.0`; the roadmap already held that version for property model depth, so both live here, on one
 schema bump, rather than renumbering M10–M14. The merge is recorded in `docs/ROADMAP.md`.
 
@@ -90,13 +90,19 @@ holds — alignment and currency reuse the ledger's existing typography.
 9. **The summary band's switches are a denylist.** `footer` turns the band off for the view;
    `footer_hidden` names columns whose cell is blank. Absent means shown and summarised, so every
    existing view renders exactly as it did at `0.8.1`, and a property added later is summarised
-   without another write.
+   without another write. **Revised 2026-11-12:** each column can also name the measure it prints
+   (`footer_summary`), because all-or-none and one fixed line per format cannot express “show the
+   highest, not the sum”. An absent key keeps the format's default.
 10. **The band honours the display.** A number column's `Σ`, average, lowest and highest go through
     `numberText` (currency, decimals, grouping); its `filled`/`total` counts do not. A text column's
     distinct count is unchanged.
 11. **Authoring is the existing schema editor, column panel and view settings.** No new dialog and
-    no new sheet: a display disclosure beside the property's format, a Summarise toggle on each
-    column's row menu, a Summaries switch in the view's settings.
+    no new sheet: a display disclosure beside the property's format, a Summaries switch in the
+    view's settings with the per-column list under it. **Revised 2026-11-12:** the
+    toolbar's Columns button, Sort button, kebab and the separate settings/CSV dialogs collapse
+    into one **View** sheet whose tabs are Columns, Sort, Settings, Save as view and Data. The
+    panels themselves are unchanged; only their doors are one, so a setting is one tap from the
+    view it edits instead of a popover chain.
 12. **The depth half keeps the roadmap's order.** Validation, create-time defaults, rollup filters,
     the member format, relation target filters and one-to-one, formula additions, then the shared
     daily type — because each later item is built on the earlier ones.
@@ -145,14 +151,23 @@ views:
     columns: [title, amount, notes]
     footer: false
     footer_hidden: [notes]
+    footer_summary:
+      amount: highest
+      notes: distinct
 ```
 
 - `footer: bool`, absent or `true` means shown.
 - `footer_hidden: [key…]`, absent or `[]` means every column is summarised. Entries must be
   members of `columns`; a duplicate is refused; `title` is allowed (hiding the row count for a
   narrow table).
-- Both fields are refused on `board`, `gallery` and `calendar` (`belongs to table views only`), the
-  same rule `widths` already carries.
+- `footer_summary: {key: measure}`, absent means each column keeps its format's default line. Keys
+  must be members of `columns`. Measures are validated against the column's format: a number takes
+  `filled`, `sum`, `average`, `lowest` or `highest`; a checkbox `filled` or `checked`; a date or
+  datetime `filled`, `earliest` or `latest`; text-like formats `filled` or `distinct`; a counted
+  format only `filled`; `title` only `rows`. A measure that does not fit is refused with
+  `does not fit this column's format`.
+- All three fields are refused on `board`, `gallery` and `calendar` (`belongs to table views
+  only`), the same rule `widths` already carries.
 - `footer: false` wins at render; `footer_hidden` is kept as written, because the two switches are
   edited independently and turning the band back on must restore the reader's denylist.
 
@@ -300,13 +315,16 @@ band or one column's cell.
   `Intl.supportedValuesOf("currency")`, plus None), **Decimals** (Auto, 0–4) and **Thousands** (on by
   default). Mounted by `components/schema/property-editor.tsx` and by the add-property sheet so the
   two cannot drift.
-- `components/views/column-panel.tsx`: each shown column's row menu gains **Summarise this column**,
-  a checkbox that PATCHes `footer_hidden`; the title row carries it too.
-- `components/views/view-settings.tsx`: a **Summaries** switch that PATCHes `footer`.
-- All three write through the existing property and view mutations; no optimistic state of its own.
+- `components/views/view-settings.tsx`: a **Summary band** switch that PATCHes `footer`, and the
+  band's own list is where a single column's cell is switched off (`footer_hidden`) — one place for
+  the band, beside its switch, so the column panel's row menu carries only the property's actions.
+  **Revised 2026-11-12:** the row-menu switch and the Title row's copy of it were removed on
+  request; the sheet's General panel is the one door.
+- All of it writes through the existing property and view mutations; no optimistic state of its own.
 - Tests: the display form refuses to offer currency on a text property; saving a currency PATCHes
-  `display` and keeps the rest of the property; the Summarise toggle adds and removes a key from
-  `footer_hidden`; the Summaries switch PATCHes `footer`; both survive an unrelated view PATCH.
+  `display` and keeps the rest of the property; a column's checkbox adds and removes a key from
+  `footer_hidden`; the band's switch PATCHes `footer`; the band hides its list while it is off; both
+  survive an unrelated view PATCH.
 
 **Acceptance:** every setting in checkpoints 1–4 is reachable without editing a file.
 

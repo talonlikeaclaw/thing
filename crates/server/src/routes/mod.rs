@@ -4999,6 +4999,44 @@ mod tests {
             assert_eq!(view(&set.body, "all")["footer"], json!(false));
             assert_eq!(view(&set.body, "all")["footer_hidden"], json!(["room"]));
 
+            let measures = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({
+                        "footer_summary": { "title": "rows", "room": "distinct" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(measures.status, StatusCode::OK, "{:?}", measures.body);
+            assert_eq!(
+                view(&measures.body, "all")["footer_summary"],
+                json!({ "title": "rows", "room": "distinct" })
+            );
+
+            let wrong_measure = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({ "footer_summary": { "room": "highest" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(wrong_measure.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(wrong_measure.field(), "views.all.footer_summary.room");
+
+            let ghost_measure = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/all"),
+                    Some(json!({ "footer_summary": { "ghost": "distinct" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(ghost_measure.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(ghost_measure.field(), "views.all.footer_summary.ghost");
+
             // The two switches are edited apart: clearing one keeps the other.
             let shown = server
                 .call(
@@ -5058,6 +5096,16 @@ mod tests {
                 refused.body["error"]["message"],
                 "belongs to table views only"
             );
+            let refused_measures = server
+                .call(
+                    "PATCH",
+                    &format!("{base}/views/by_room"),
+                    Some(json!({ "footer_summary": { "title": "rows" } })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(refused_measures.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(refused_measures.field(), "views.by_room.footer_summary");
         });
     }
 

@@ -1,9 +1,19 @@
 import { Menu } from "@base-ui/react/menu";
-import { Link2, MoreHorizontal, Pencil, Plus, Search, X } from "lucide-react";
+import {
+  Link2,
+  Lock,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Sigma,
+  SquareFunction,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
-import type { PropertyDef, PropertyFormat, ViewDef } from "@/api/types";
+import type { PropertyDef, PropertyFormat, UpdateView, ViewDef } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
 import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import { SmallButton } from "@/components/schema/small-button";
@@ -14,7 +24,11 @@ import { useCoarsePointer } from "@/lib/media";
 import { searchProperties } from "@/lib/property-search";
 import { promotionBlocker } from "@/lib/promotion";
 import { computeKindLabel, formatLabel } from "@/lib/schema";
-import { moveViewColumnTo, withColumn, withoutColumn } from "@/lib/views";
+import {
+  moveViewColumnTo,
+  withColumn,
+  withoutColumn,
+} from "@/lib/views";
 
 interface ColumnPanelProps {
   spaceId: string;
@@ -23,7 +37,7 @@ interface ColumnPanelProps {
   view: ViewDef;
   properties: PropertyDef[];
   disabled: boolean;
-  onPatch: (change: { columns: string[]; widths: Record<string, number> }) => void;
+  onPatch: (change: UpdateView) => void;
   /** Opens the add-property dialog shared with the table header. */
   onAddProperty: () => void;
   /** The panel body's id, so the toolbar's trigger can name it. */
@@ -35,6 +49,45 @@ const ICON_BUTTON =
 
 /** A shown column, resolved to the property that names it. */
 type ShownColumn = Pick<PropertyDef, "key" | "name" | "format" | "compute">;
+
+/** The row menu's one item shape, so its actions line up at the same height. */
+const ROW_MENU_ITEM =
+  "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11";
+
+/**
+ * The format marker of a column row. A wide sheet spells the format out — with
+ * the calculated kind ahead of it — and a phone keeps the kind as its glyph and
+ * the format word, so a long name never has to shrink to an ellipsis to fit it.
+ */
+function ColumnChip({
+  format,
+  computed,
+}: {
+  format: PropertyFormat;
+  computed?: string | null;
+}) {
+  const word = formatLabel(format);
+  const ComputeGlyph = computed === "Rollup" ? Sigma : SquareFunction;
+  return (
+    <FormatChip
+      title={computed ? `${computed} · ${word}` : word}
+      className="border-accent/40 bg-accent-wash text-accent-on-wash"
+    >
+      {computed ? (
+        <>
+          <span className="hidden sm:inline">{computed} · </span>
+          <ComputeGlyph
+            aria-hidden
+            size={11}
+            strokeWidth={1.75}
+            className="mr-1 sm:hidden"
+          />
+        </>
+      ) : null}
+      {word}
+    </FormatChip>
+  );
+}
 
 /** The key the row's edit action opens: the schema page's property editor. */
 function editHref(spaceId: string, key: string): string {
@@ -134,12 +187,18 @@ export function ColumnPanel({
 
       <ul className="mt-1">
         <li className="flex items-center gap-2 border-b rule py-1.5">
-          <span className="min-w-0 flex-1 truncate text-[14px]">Title</span>
-          <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
-            {formatLabel("text")}
-          </FormatChip>
-          <span className="flex w-[7.75rem] shrink-0 justify-end">
-            <span className="label">fixed first</span>
+          <span className="min-w-0 flex-1 text-[14px] leading-snug">Title</span>
+          <ColumnChip format="text" />
+          {/* The menu and hide slots the other rows fill, so every chip in the
+              list ends on the same edge; the lock stands in the position slot. */}
+          <span aria-hidden className="size-9 shrink-0 pointer-coarse:size-11" />
+          <span aria-hidden className="size-9 shrink-0 pointer-coarse:size-11" />
+          <span
+            title="The Title column always comes first"
+            className="inline-flex size-9 shrink-0 items-center justify-center text-faint pointer-coarse:size-11"
+          >
+            <Lock aria-hidden size={13} />
+            <span className="sr-only">Title is fixed first</span>
           </span>
         </li>
         {shownMatches.map((column) => {
@@ -149,14 +208,13 @@ export function ColumnPanel({
               {/* Canonical right-handed order ends at the thumb edge, so the
                   position selector is last; left mode reverses the row. */}
               <ThumbRow className="items-center gap-2 py-1.5">
-                <span className="min-w-0 flex-1 truncate text-[14px] text-accent">
+                <span className="min-w-0 flex-1 text-[14px] leading-snug text-accent">
                   {column.name}
                 </span>
-                <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
-                  {computeKindLabel(column)
-                    ? `${computeKindLabel(column)} · ${formatLabel(column.format)}`
-                    : formatLabel(column.format)}
-                </FormatChip>
+                <ColumnChip
+                  format={column.format}
+                  computed={computeKindLabel(column)}
+                />
                 <RowActions
                   spaceId={spaceId}
                   property={column}
@@ -197,11 +255,10 @@ export function ColumnPanel({
               <li key={property.key} className="border-b rule">
                 <ThumbRow className="items-center gap-2 py-1.5">
                   <span className="min-w-0 flex-1 truncate text-[14px]">{property.name}</span>
-                  <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
-                    {computeKindLabel(property)
-                      ? `${computeKindLabel(property)} · ${formatLabel(property.format)}`
-                      : formatLabel(property.format)}
-                  </FormatChip>
+                  <ColumnChip
+                    format={property.format}
+                    computed={computeKindLabel(property)}
+                  />
                   <Link
                     to={editHref(spaceId, property.key)}
                     aria-label={`Edit ${property.name} property`}
@@ -272,17 +329,14 @@ function RowActions({
         <Menu.Positioner sideOffset={4} align="end" className="z-50">
           <Menu.Popup className="glass-strong min-w-[15rem] rounded-card p-1.5 text-[13px] text-ink outline-none">
             <Menu.Item
-              className="flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
+              className={ROW_MENU_ITEM}
               render={<Link to={editHref(spaceId, property.key)} />}
             >
               <Pencil aria-hidden size={14} className="text-faint" />
               Edit property
             </Menu.Item>
             {promotable ? (
-              <Menu.Item
-                className="flex min-h-9 w-full items-center gap-2 rounded-[10px] px-3 text-left text-ink transition-colors hover:bg-raised pointer-coarse:min-h-11"
-                onClick={onPromote}
-              >
+              <Menu.Item className={ROW_MENU_ITEM} onClick={onPromote}>
                 <Link2 aria-hidden size={14} className="text-faint" />
                 Turn into a relation…
               </Menu.Item>

@@ -17,7 +17,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
-    Filter, MAX_VIEW_NAME_LEN, Role, Sort, TITLE_KEY, TypeDef, ViewDef, ViewKind,
+    Filter, MAX_VIEW_NAME_LEN, Role, Sort, SummaryKind, TITLE_KEY, TypeDef, ViewDef, ViewKind,
 };
 use thing_core::slug::key_from_name;
 use thing_core::store::{SpaceStore, type_path};
@@ -127,6 +127,7 @@ async fn create(
             date_property: clean_optional_key(body.date_property),
             footer: None,
             footer_hidden: Vec::new(),
+            footer_summary: BTreeMap::new(),
         };
         let mut next = def.clone();
         next.views.push(view);
@@ -193,6 +194,9 @@ struct PatchViewRequest {
     /// The whole denylist; `[]` summarises every column again.
     #[serde(default)]
     footer_hidden: Option<Vec<String>>,
+    /// The whole per-column measure map; `{}` restores each column's default.
+    #[serde(default)]
+    footer_summary: Option<BTreeMap<String, SummaryKind>>,
 }
 
 impl PatchViewRequest {
@@ -207,6 +211,7 @@ impl PatchViewRequest {
             && self.date_property.is_none()
             && self.footer.is_none()
             && self.footer_hidden.is_none()
+            && self.footer_summary.is_none()
     }
 }
 
@@ -268,6 +273,9 @@ async fn update(
         }
         if let Some(footer_hidden) = body.footer_hidden {
             view.footer_hidden = footer_hidden;
+        }
+        if let Some(footer_summary) = body.footer_summary {
+            view.footer_summary = footer_summary;
         }
         validated(index, &next)?;
         Ok(next)

@@ -229,6 +229,7 @@ pub fn initial_view() -> ViewDef {
         date_property: None,
         footer: None,
         footer_hidden: Vec::new(),
+        footer_summary: BTreeMap::new(),
     }
 }
 
@@ -291,6 +292,53 @@ pub enum ViewKind {
     Calendar,
 }
 
+/// One measure a table's summary band can print for a column. Absent from
+/// `footer_summary` means the format's own default line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SummaryKind {
+    Filled,
+    Checked,
+    Sum,
+    Average,
+    Lowest,
+    Highest,
+    Earliest,
+    Latest,
+    Distinct,
+    Rows,
+}
+
+impl SummaryKind {
+    /// Whether this measure reads a value of `format`; the validator refuses
+    /// the rest, so the renderer never meets a statistic it cannot compute.
+    pub fn fits(self, format: PropertyFormat) -> bool {
+        use PropertyFormat as Format;
+        use SummaryKind as Kind;
+        match format {
+            Format::Number => matches!(
+                self,
+                Kind::Filled | Kind::Sum | Kind::Average | Kind::Lowest | Kind::Highest
+            ),
+            Format::Checkbox => matches!(self, Kind::Filled | Kind::Checked),
+            Format::Date | Format::Datetime => {
+                matches!(self, Kind::Filled | Kind::Earliest | Kind::Latest)
+            }
+            Format::Text
+            | Format::Select
+            | Format::MultiSelect
+            | Format::Url
+            | Format::Email
+            | Format::List => matches!(self, Kind::Filled | Kind::Distinct),
+            Format::Relation
+            | Format::Recurrence
+            | Format::File
+            | Format::Image
+            | Format::Attachments => matches!(self, Kind::Filled),
+        }
+    }
+}
+
 /// One named saved view of a type.
 ///
 /// A flat shape rather than four nested configs: `columns` means visible
@@ -324,6 +372,10 @@ pub struct ViewDef {
     /// Columns whose footer cell stays blank. Table views only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub footer_hidden: Vec<String>,
+    /// The measure each column's footer prints; an absent key keeps the
+    /// format's default. Table views only.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub footer_summary: BTreeMap<String, SummaryKind>,
 }
 
 /// A boolean combination of conditions.

@@ -35,7 +35,9 @@ function Host() {
         view={current}
         properties={properties}
         disabled={false}
-        onPatch={(change) => setCurrent((existing) => ({ ...existing, ...change }))}
+        onPatch={(change) =>
+          setCurrent((existing) => ({ ...existing, ...change }) as ViewDef)
+        }
         onAddProperty={() => undefined}
       />
     </div>
@@ -145,6 +147,19 @@ describe("ColumnPanel", () => {
     expect(screen.getByRole("menuitem", { name: "Turn into a relation…" })).toBeEnabled();
   });
 
+  it("offers only the property actions in a row menu", () => {
+    renderWithProviders(<Host />);
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Room" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "Edit property",
+      "Turn into a relation…",
+    ]);
+    expect(
+      screen.queryByRole("menuitemcheckbox", { name: "Summarise this column" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("does not offer conversion for a column format that cannot become a relation", () => {
     renderWithProviders(<Host />);
     fireEvent.click(screen.getByRole("button", { name: "More actions for Bedroom" }));
@@ -161,3 +176,4 @@ describe("ColumnPanel", () => {
     expect(within(shown as HTMLElement).getByText("Select")).toBeInTheDocument();
   });
 });
+

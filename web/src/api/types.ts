@@ -170,6 +170,19 @@ export interface Filter {
 
 export type ViewKind = "table" | "board" | "gallery" | "calendar";
 
+/** One measure a table's summary band prints for a column. */
+export type SummaryKind =
+  | "filled"
+  | "checked"
+  | "sum"
+  | "average"
+  | "lowest"
+  | "highest"
+  | "earliest"
+  | "latest"
+  | "distinct"
+  | "rows";
+
 /** One named saved view; every field belongs to the type file on disk. */
 export interface ViewDef {
   /** Stable slug minted from the name at creation. */
@@ -192,6 +205,8 @@ export interface ViewDef {
   footer?: boolean;
   /** Columns whose footer cell stays blank. `table` only. */
   footer_hidden?: string[];
+  /** The measure each column's footer prints; absent keeps its format default. */
+  footer_summary?: Record<string, SummaryKind>;
 }
 
 /** A new view; omitted layout and query fields copy the current default view. */
@@ -222,6 +237,8 @@ export interface UpdateView {
   footer?: boolean | null;
   /** The whole denylist; `[]` summarises every column again. */
   footer_hidden?: string[];
+  /** The whole measure map; `{}` restores each column's default. */
+  footer_summary?: Record<string, SummaryKind>;
 }
 
 export type RecurrenceKind = "days" | "weekly" | "monthly";

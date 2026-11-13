@@ -29,6 +29,9 @@ views:
   footer: false
   footer_hidden:
   - room
+  footer_summary:
+    due_date: latest
+    title: rows
 - key: by_room
   name: By room
   kind: board

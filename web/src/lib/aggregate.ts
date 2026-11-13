@@ -1,4 +1,4 @@
-import type { ObjectSummary, PropertyFormat } from "@/api/types";
+import type { ObjectSummary, PropertyFormat, SummaryKind } from "@/api/types";
 import { formatDateTime, formatDay } from "@/lib/display";
 import { plural } from "@/lib/format";
 import { TITLE_COLUMN_KEY, type GridColumn } from "@/lib/grid";
@@ -77,14 +77,30 @@ function summarizeNumbers(
   const average = sum / numbers.length;
   const lowest = Math.min(...numbers);
   const highest = Math.max(...numbers);
+  const filled = `${numbers.length} of ${total} filled`;
   const sumText = text(sum);
   const averageText = text(average);
-  return {
-    short: `Σ ${sumText} · avg ${averageText}`,
-    long: `${column.label}: ${numbers.length} of ${total} filled; sum ${sumText}; average ${averageText}; lowest ${text(lowest)}; highest ${text(highest)}`,
-    filled: numbers.length,
-    total,
-  };
+  const lowestText = text(lowest);
+  const highestText = text(highest);
+  switch (column.summary) {
+    case "sum":
+      return { short: `Σ ${sumText}`, long: `${column.label}: ${filled}; sum ${sumText}`, filled: numbers.length, total };
+    case "average":
+      return { short: `avg ${averageText}`, long: `${column.label}: ${filled}; average ${averageText}`, filled: numbers.length, total };
+    case "lowest":
+      return { short: `low ${lowestText}`, long: `${column.label}: ${filled}; lowest ${lowestText}`, filled: numbers.length, total };
+    case "highest":
+      return { short: `high ${highestText}`, long: `${column.label}: ${filled}; highest ${highestText}`, filled: numbers.length, total };
+    case "filled":
+      return { short: filled, long: `${column.label}: ${filled}`, filled: numbers.length, total };
+    default:
+      return {
+        short: `Σ ${sumText} · avg ${averageText}`,
+        long: `${column.label}: ${filled}; sum ${sumText}; average ${averageText}; lowest ${lowestText}; highest ${highestText}`,
+        filled: numbers.length,
+        total,
+      };
+  }
 }
 
 function summarizeCheckboxes(
@@ -99,6 +115,14 @@ function summarizeCheckboxes(
     return emptySummary(column, total);
   }
   const checked = booleans.filter(Boolean).length;
+  if (column.summary === "filled") {
+    return {
+      short: `${booleans.length} filled`,
+      long: `${column.label}: ${booleans.length} of ${total} filled`,
+      filled: booleans.length,
+      total,
+    };
+  }
   return {
     short: `${checked} of ${booleans.length} checked`,
     long: `${column.label}: ${booleans.length} of ${total} filled; ${checked} checked`,
@@ -123,6 +147,31 @@ function summarizeStamps(
   const latest = stamps[stamps.length - 1];
   if (earliest === undefined || latest === undefined) {
     return emptySummary(column, total);
+  }
+  const filled = `${stamps.length} of ${total} filled`;
+  if (column.summary === "earliest") {
+    return {
+      short: short(earliest),
+      long: `${column.label}: ${filled}; earliest ${long(earliest)}`,
+      filled: stamps.length,
+      total,
+    };
+  }
+  if (column.summary === "latest") {
+    return {
+      short: short(latest),
+      long: `${column.label}: ${filled}; latest ${long(latest)}`,
+      filled: stamps.length,
+      total,
+    };
+  }
+  if (column.summary === "filled") {
+    return {
+      short: `${stamps.length} filled`,
+      long: `${column.label}: ${filled}`,
+      filled: stamps.length,
+      total,
+    };
   }
   return {
     short: `${short(earliest)} – ${short(latest)}`,
@@ -161,6 +210,14 @@ function summarizeDistinct(
     return emptySummary(column, total);
   }
   const distinct = new Set(labels).size;
+  if (column.summary === "filled") {
+    return {
+      short: `${labels.length} filled`,
+      long: `${column.label}: ${labels.length} of ${total} filled`,
+      filled: labels.length,
+      total,
+    };
+  }
   return {
     short: `${distinct} distinct`,
     long: `${column.label}: ${labels.length} of ${total} filled; ${plural(distinct, "distinct value", "distinct values")}`,
@@ -212,4 +269,63 @@ export function summarizeColumn(
     return summarizeFilled(column, values, total);
   }
   return summarizeDistinct(column, values, total);
+}
+
+/** One selectable measure in the summary authoring list. */
+export interface SummaryChoice {
+  /** `""` is the format's default line. */
+  value: SummaryKind | "";
+  label: string;
+}
+
+/**
+ * The measures a column's format can print, in the order an editor lists them.
+ * The first entry is the default; an empty list means the format has no choice
+ * (the title counts rows and a file set counts filled cells).
+ */
+export function summaryChoices(
+  format: PropertyFormat | undefined,
+  title = false,
+): SummaryChoice[] {
+  if (title) {
+    return [];
+  }
+  switch (format) {
+    case "number":
+      return [
+        { value: "", label: "Sum and average" },
+        { value: "sum", label: "Sum" },
+        { value: "average", label: "Average" },
+        { value: "lowest", label: "Lowest" },
+        { value: "highest", label: "Highest" },
+        { value: "filled", label: "Filled count" },
+      ];
+    case "checkbox":
+      return [
+        { value: "", label: "Checked of filled" },
+        { value: "checked", label: "Checked" },
+        { value: "filled", label: "Filled count" },
+      ];
+    case "date":
+    case "datetime":
+      return [
+        { value: "", label: "Earliest to latest" },
+        { value: "earliest", label: "Earliest" },
+        { value: "latest", label: "Latest" },
+        { value: "filled", label: "Filled count" },
+      ];
+    case "text":
+    case "select":
+    case "multi_select":
+    case "url":
+    case "email":
+    case "list":
+      return [
+        { value: "", label: "Distinct values" },
+        { value: "distinct", label: "Distinct count" },
+        { value: "filled", label: "Filled count" },
+      ];
+    default:
+      return [];
+  }
 }

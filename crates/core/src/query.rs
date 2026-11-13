@@ -293,6 +293,7 @@ mod tests {
             date_property: None,
             footer: None,
             footer_hidden: Vec::new(),
+            footer_summary: BTreeMap::new(),
         }
     }
 

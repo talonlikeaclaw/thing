@@ -20,6 +20,12 @@ import {
   computedPatch,
   type ComputedDraft,
 } from "@/components/schema/computed-fields";
+import {
+  DisplayFields,
+  displayDraft,
+  displayPayload,
+  type DisplayDraft,
+} from "@/components/schema/display-fields";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
@@ -87,6 +93,7 @@ export function PropertyEditorForm({
   const toast = useToast();
   const [name, setName] = useState(property.name);
   const [draft, setDraft] = useState<ComputedDraft>(() => computedDraft(property));
+  const [display, setDisplay] = useState<DisplayDraft>(() => displayDraft(property.display));
   const [options, setOptions] = useState<OptionDraft[]>(() => optionDrafts(property.options));
   const [confirmKey, setConfirmKey] = useState("");
   const [renameKey, setRenameKey] = useState("");
@@ -98,16 +105,23 @@ export function PropertyEditorForm({
     if (update.data) {
       setName(update.data.name);
       setDraft(computedDraft(update.data));
+      setDisplay(displayDraft(update.data.display));
       setOptions(optionDrafts(update.data.options));
     }
   }, [update.data]);
 
   const calculated = isComputed(property);
   const showsOptions = !calculated && hasOptions(property.format);
+  const displayValue = displayPayload(display, property.format);
+  const initialDisplay = displayPayload(displayDraft(property.display), property.format);
+  // A display the reader did not touch stays out of the write, so an unrelated
+  // edit cannot rewrite the block; a cleared one is sent as `null`.
+  const displayChanged = !sameJson(displayValue, initialDisplay);
   const payload = {
     name: name.trim(),
     ...(calculated ? computedPatch(draft) : {}),
     ...(showsOptions ? { options: optionInputs(options) } : {}),
+    ...(displayChanged ? { display: displayValue } : {}),
   };
   const initial = {
     name: property.name,
@@ -219,6 +233,16 @@ export function PropertyEditorForm({
           <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
             {formatLabel(property.format)}
           </p>
+        </FieldRow>
+        <FieldRow label="Display" hint="How the values read in a table; the stored value never changes.">
+          <DisplayFields
+            draft={display}
+            onChange={setDisplay}
+            format={property.format}
+            disabled={!canEdit}
+            idPrefix={`property-${property.key}`}
+            initialOpen={property.display !== undefined}
+          />
         </FieldRow>
         {calculated ? (
           <FieldRow label={computeKindLabel(property) ?? "Calculation"}>

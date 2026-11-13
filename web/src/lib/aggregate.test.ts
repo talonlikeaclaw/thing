@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ObjectSummary } from "@/api/types";
-import { summarizeColumn } from "@/lib/aggregate";
+import { summarizeColumn, summaryChoices } from "@/lib/aggregate";
 import { formatDateTime, formatDay } from "@/lib/display";
 import type { GridColumn } from "@/lib/grid";
 
@@ -312,5 +312,65 @@ describe("a column whose property is gone", () => {
       filled: 0,
       total: 2,
     });
+  });
+});
+
+describe("a column with a chosen summary measure", () => {
+  const rows = [
+    record("a", {
+      amount: { value: 1, label: "1" },
+      due: { value: "2026-03-03", label: "Mar 3" },
+      room: { value: "kitchen", label: "kitchen" },
+      watered: { value: true, label: "" },
+    }),
+    record("b", {
+      amount: { value: 3, label: "3" },
+      due: { value: "2026-11-09", label: "Nov 9" },
+      room: { value: "study", label: "study" },
+      watered: { value: false, label: "" },
+    }),
+  ];
+
+  it("prints only the measure it was asked for", () => {
+    const highest = { ...column("amount", "Amount", "number"), summary: "highest" as const };
+    expect(summarizeColumn(highest, rows, "UTC")).toEqual({
+      short: "high 3",
+      long: "Amount: 2 of 2 filled; highest 3",
+      filled: 2,
+      total: 2,
+    });
+
+    const lowest = { ...column("amount", "Amount", "number"), summary: "lowest" as const };
+    expect(summarizeColumn(lowest, rows, "UTC").short).toBe("low 1");
+
+    const latest = { ...column("due", "Due", "date"), summary: "latest" as const };
+    const shortDay = new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(new Date("2026-11-09T00:00:00Z"));
+    expect(summarizeColumn(latest, rows, "UTC").short).toBe(shortDay);
+
+    const filled = { ...column("room", "Room", "text"), summary: "filled" as const };
+    expect(summarizeColumn(filled, rows, "UTC").short).toBe("2 filled");
+
+    const checked = { ...column("watered", "Watered", "checkbox"), summary: "checked" as const };
+    expect(summarizeColumn(checked, rows, "UTC").short).toBe("1 of 2 checked");
+  });
+
+  it("offers each format only the measures it can compute", () => {
+    expect(summaryChoices("number")[0]).toEqual({ value: "", label: "Sum and average" });
+    expect(summaryChoices("number").map((choice) => choice.value)).toEqual([
+      "",
+      "sum",
+      "average",
+      "lowest",
+      "highest",
+      "filled",
+    ]);
+    expect(summaryChoices("date").map((choice) => choice.value)).toContain("latest");
+    expect(summaryChoices("text").map((choice) => choice.value)).toContain("distinct");
+    expect(summaryChoices("relation")).toEqual([]);
+    expect(summaryChoices(undefined, true)).toEqual([]);
   });
 });

@@ -762,12 +762,13 @@ const footerRows: ObjectSummary[] = [
 function footerElement({
   total = 3,
   canEdit = true,
-}: { total?: number; canEdit?: boolean } = {}) {
+  view = footerView,
+}: { total?: number; canEdit?: boolean; view?: ViewDef } = {}) {
   return (
     <TableView
       spaceId="space"
       type={gridType}
-      view={footerView}
+      view={view}
       rows={footerRows}
       properties={footerProperties}
       canEdit={canEdit}
@@ -797,7 +798,9 @@ function footerElement({
   );
 }
 
-function renderFooter(options: { total?: number; canEdit?: boolean } = {}) {
+function renderFooter(
+  options: { total?: number; canEdit?: boolean; view?: ViewDef } = {},
+) {
   return renderWithProviders(footerElement(options));
 }
 
@@ -866,6 +869,18 @@ describe("the aggregation footer", () => {
   it("renders for a viewer too", () => {
     renderFooter({ canEdit: false });
     expect(screen.getByText("Σ 3 · avg 1.5")).toBeInTheDocument();
+  });
+
+  it("prints the measure the view chose for a column", () => {
+    renderFooter({
+      view: { ...footerView, footer_summary: { height: "highest", title: "rows" } },
+    });
+
+    expect(screen.getByText("high 2")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Height: 2 of 3 filled; highest 2"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Σ 3 · avg 1.5")).toBeNull();
   });
 });
 
@@ -1028,5 +1043,20 @@ describe("a displayed number", () => {
         Reflect.deleteProperty(navigator, "clipboard");
       }
     }
+  });
+});
+
+describe("the pinned footer column", () => {
+  it("keeps the title summary above the columns that scroll under it", () => {
+    const { container } = renderFooter();
+
+    const title = screen.getByLabelText("Title: 3 rows");
+    expect(title).toHaveClass("sticky", "z-30");
+    expect(title.style.left).not.toBe("");
+    expect(screen.getByLabelText(/^Height:/)).not.toHaveClass("z-30");
+
+    // The checkbox strip and the action rail stay opaque at their own edges.
+    const cells = Array.from(container.querySelectorAll("tfoot td"));
+    expect(cells.filter((cell) => cell.classList.contains("z-20")).length).toBeGreaterThan(0);
   });
 });

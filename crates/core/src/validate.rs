@@ -15,8 +15,8 @@ use uuid::Uuid;
 use crate::error::CoreError;
 use crate::model::{
     CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_DECIMALS, MAX_VIEW_NAME_LEN,
-    MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, TITLE_KEY, TypeDef,
-    UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
+    MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, SummaryKind,
+    TITLE_KEY, TypeDef, UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
 };
 use crate::value;
 
@@ -434,6 +434,21 @@ fn validate_view(schema: &Schema, def: &TypeDef, view: &ViewDef, errors: &mut Ve
                 ));
             }
         }
+        for (key, kind) in &view.footer_summary {
+            let field = view_field(view, &format!("footer_summary.{key}"));
+            if !view.columns.iter().any(|column| column == key) {
+                errors.push(invalid(&field, "is not a column of this view"));
+                continue;
+            }
+            let fits = if key == TITLE_KEY {
+                *kind == SummaryKind::Rows
+            } else {
+                column(schema, def, key).is_some_and(|found| kind.fits(found.format))
+            };
+            if !fits {
+                errors.push(invalid(&field, "does not fit this column's format"));
+            }
+        }
     } else {
         if view.footer.is_some() {
             errors.push(invalid(
@@ -444,6 +459,12 @@ fn validate_view(schema: &Schema, def: &TypeDef, view: &ViewDef, errors: &mut Ve
         if !view.footer_hidden.is_empty() {
             errors.push(invalid(
                 &view_field(view, "footer_hidden"),
+                "belongs to table views only",
+            ));
+        }
+        if !view.footer_summary.is_empty() {
+            errors.push(invalid(
+                &view_field(view, "footer_summary"),
                 "belongs to table views only",
             ));
         }
@@ -885,7 +906,7 @@ mod tests {
     use super::*;
     use crate::model::{
         Aggregate, Align, ComputeDef, ComputeKind, Direction, DisplayDef, EmptyPlacement, FilterOp,
-        OptionDef, Recurrence, RecurrenceKind, TypeProperty, Value, ViewDef, ViewKind,
+        OptionDef, Recurrence, RecurrenceKind, SummaryKind, TypeProperty, Value, ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -994,6 +1015,7 @@ mod tests {
                     date_property: None,
                     footer: None,
                     footer_hidden: Vec::new(),
+                    footer_summary: BTreeMap::new(),
                 }],
                 default_view: "all".to_owned(),
             };
@@ -1414,6 +1436,7 @@ mod tests {
                 date_property: None,
                 footer: None,
                 footer_hidden: Vec::new(),
+                footer_summary: BTreeMap::new(),
             }],
             default_view: "all".to_owned(),
         };
@@ -1694,6 +1717,7 @@ mod tests {
             date_property: None,
             footer: None,
             footer_hidden: Vec::new(),
+            footer_summary: BTreeMap::new(),
         }
     }
 
@@ -1872,10 +1896,48 @@ mod tests {
                 .contains(&"invalid views.all.footer_hidden.room: is listed twice".to_owned())
         );
 
+        let mut chosen = view("all", "All", ViewKind::Table);
+        chosen.columns = vec![TITLE_KEY.to_owned(), "room".to_owned(), "count".to_owned()];
+        chosen
+            .footer_summary
+            .insert(TITLE_KEY.to_owned(), SummaryKind::Rows);
+        chosen
+            .footer_summary
+            .insert("room".to_owned(), SummaryKind::Distinct);
+        chosen
+            .footer_summary
+            .insert("count".to_owned(), SummaryKind::Highest);
+        views_valid(&fixture, &type_with(&fixture, vec![chosen]));
+
+        let mut ghost_summary = view("all", "All", ViewKind::Table);
+        ghost_summary
+            .footer_summary
+            .insert("ghost".to_owned(), SummaryKind::Distinct);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![ghost_summary])).contains(
+                &"invalid views.all.footer_summary.ghost: is not a column of this view".to_owned()
+            )
+        );
+
+        let mut wrong_measure = view("all", "All", ViewKind::Table);
+        wrong_measure.columns = vec![TITLE_KEY.to_owned(), "count".to_owned()];
+        wrong_measure
+            .footer_summary
+            .insert("count".to_owned(), SummaryKind::Distinct);
+        assert!(
+            view_errors(&fixture, &type_with(&fixture, vec![wrong_measure])).contains(
+                &"invalid views.all.footer_summary.count: does not fit this column's format"
+                    .to_owned()
+            )
+        );
+
         let mut board = view("board", "Board", ViewKind::Board);
         board.group_by = Some("status".to_owned());
         board.footer = Some(false);
         board.footer_hidden = vec![TITLE_KEY.to_owned()];
+        board
+            .footer_summary
+            .insert(TITLE_KEY.to_owned(), SummaryKind::Rows);
         let errors = view_errors(&fixture, &type_with(&fixture, vec![board]));
         assert!(
             errors.contains(&"invalid views.board.footer: belongs to table views only".to_owned())
@@ -1883,6 +1945,12 @@ mod tests {
         assert!(
             errors.contains(
                 &"invalid views.board.footer_hidden: belongs to table views only".to_owned()
+            ),
+            "{errors:?}"
+        );
+        assert!(
+            errors.contains(
+                &"invalid views.board.footer_summary: belongs to table views only".to_owned()
             ),
             "{errors:?}"
         );

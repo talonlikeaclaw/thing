@@ -1,4 +1,9 @@
-import type { ObjectSummary, PropertyDisplay, PropertyFormat } from "@/api/types";
+import type {
+  ObjectSummary,
+  PropertyDisplay,
+  PropertyFormat,
+  SummaryKind,
+} from "@/api/types";
 import { displayLabel } from "@/lib/presentation";
 
 /** The only view column that is not a property; the server calls it `model::TITLE_KEY`. */
@@ -14,6 +19,8 @@ export interface GridColumn {
   format?: PropertyFormat;
   /** How the property's values read; absent means the server's label. */
   display?: PropertyDisplay;
+  /** The footer measure the view chose; absent means the format's default. */
+  summary?: SummaryKind;
 }
 
 /** A position in the data grid: row index and data-column index. */

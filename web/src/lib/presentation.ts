@@ -27,6 +27,22 @@ export interface Displayed {
  */
 const SUPPORTED_CURRENCIES: ReadonlySet<string> | null = supportedCurrencies();
 
+/**
+ * The ISO 4217 codes this runtime knows, sorted for the authoring list. Empty
+ * when the runtime cannot enumerate them; the field then offers none.
+ */
+export function currencyCodes(): readonly string[] {
+  const intl = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
+  if (typeof intl.supportedValuesOf !== "function") {
+    return [];
+  }
+  try {
+    return [...intl.supportedValuesOf("currency")].sort();
+  } catch {
+    return [];
+  }
+}
+
 function supportedCurrencies(): ReadonlySet<string> | null {
   const intl = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
   if (typeof intl.supportedValuesOf !== "function") {

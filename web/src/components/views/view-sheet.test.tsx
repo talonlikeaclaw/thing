@@ -6,9 +6,12 @@ import { ViewSheet, type ViewSheetPanel } from "@/components/views/view-sheet";
 import { renderWithProviders } from "@/test/harness";
 
 /** The sheet over one panel the host owns, like the type page. */
-function Host() {
+function Host({ canEdit = true }: { canEdit?: boolean } = {}) {
   const [open, setOpen] = useState(true);
-  const [panel, setPanel] = useState<ViewSheetPanel>("menu");
+  const [panel, setPanel] = useState<ViewSheetPanel>("columns");
+  const available: ViewSheetPanel[] = canEdit
+    ? ["columns", "sort", "settings", "save", "data"]
+    : ["sort", "data"];
   return (
     <div>
       <output data-testid="panel">{panel}</output>
@@ -17,7 +20,9 @@ function Host() {
         onOpenChange={setOpen}
         panel={panel}
         onPanelChange={setPanel}
-        canEdit
+        viewName="All"
+        kind="table"
+        available={available}
         counts={{ sorts: 2, columns: 7 }}
         panels={{
           sort: <p>Sort body</p>,
@@ -32,66 +37,62 @@ function Host() {
 }
 
 describe("ViewSheet", () => {
-  it("holds every view action with its active count", () => {
+  it("puts every view surface one tab from the view", () => {
     renderWithProviders(<Host />);
 
-    expect(screen.getByRole("button", { name: "Sort, 2" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Columns, 7" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "View settings" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save as view…" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Data — CSV" })).toBeInTheDocument();
-  });
-
-  it("opens Sort and Columns in the same sheet behind Back", () => {
-    renderWithProviders(<Host />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sort, 2" }));
-    expect(screen.getByText("Sort body")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "Columns, 7" }));
+    expect(screen.getByRole("tab", { name: "Columns, 7" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Sort, 2" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Save as view" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Data" })).toBeInTheDocument();
+    // The sheet names the view it edits and says what the view holds.
+    expect(screen.getByText("All")).toBeInTheDocument();
+    expect(screen.getByText("table view · 7 columns · 2 sorts")).toBeInTheDocument();
     expect(screen.getByText("Columns body")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("button", { name: "Sort, 2" })).toBeInTheDocument();
   });
 
-  it("swaps the body in place and returns through Back", () => {
+  it("swaps the body in place without a menu or a Back step", () => {
     renderWithProviders(<Host />);
 
-    fireEvent.click(screen.getByRole("button", { name: "View settings" }));
-    expect(screen.getByTestId("panel")).toHaveTextContent("settings");
-    expect(screen.getByText("Settings body")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Data — CSV" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Sort, 2" }));
+    expect(screen.getByTestId("panel")).toHaveTextContent("sort");
+    expect(screen.getByText("Sort body")).toBeInTheDocument();
+    expect(screen.queryByText("Columns body")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByTestId("panel")).toHaveTextContent("menu");
-    expect(screen.getByRole("button", { name: "Data — CSV" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    expect(screen.getByText("Settings body")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Back" })).not.toBeInTheDocument();
   });
 
-  it("withholds the editor rows from a viewer", () => {
-    renderWithProviders(
-      <ViewSheet
-        open
-        onOpenChange={() => undefined}
-        panel="menu"
-        onPanelChange={() => undefined}
-        canEdit={false}
-        counts={{ sorts: 0, columns: 0 }}
-        panels={{}}
-      />,
-    );
+  it("withholds the editor tabs from a viewer", () => {
+    renderWithProviders(<Host canEdit={false} />);
 
-    expect(screen.queryByRole("button", { name: "View settings" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Columns, 0" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sort" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save as view…" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Data — CSV" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Columns/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "General" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Save as view" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Sort, 2" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Data" })).toBeInTheDocument();
+  });
+
+  it("moves between panels with the arrow keys", () => {
+    renderWithProviders(<Host />);
+
+    const columns = screen.getByRole("tab", { name: "Columns, 7" });
+    expect(columns).toHaveAttribute("tabindex", "0");
+
+    fireEvent.keyDown(columns, { key: "ArrowRight" });
+    expect(screen.getByTestId("panel")).toHaveTextContent("sort");
+    expect(screen.getByRole("tab", { name: "Sort, 2" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Columns, 7" })).toHaveAttribute("tabindex", "-1");
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Sort, 2" }), { key: "End" });
+    expect(screen.getByTestId("panel")).toHaveTextContent("data");
   });
 
   it("closes back to its opener", () => {
     renderWithProviders(<Host />);
 
     fireEvent.click(screen.getByRole("button", { name: "Close view" }));
-    expect(screen.queryByRole("button", { name: "Data — CSV" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Data" })).not.toBeInTheDocument();
   });
 });

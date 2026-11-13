@@ -155,9 +155,19 @@ export function FieldRow({ label, htmlFor, hint, children, className }: FieldRow
  * a caller tints it with the accent wash when it sits beside an accent property
  * name in the property-identity motif.
  */
-export function FormatChip({ children, className }: { children: ReactNode; className?: string }) {
+export function FormatChip({
+  children,
+  className,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** The full spelling, when the chip itself had to shorten it. */
+  title?: string;
+}) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex shrink-0 items-center rounded-full border border-line px-[var(--space-2)] py-0.5 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.09em] text-muted uppercase",
         className,
