@@ -34,8 +34,9 @@ links and the writing surface (`0.5.0`, schema 4), the v0.5.1 links, search-land
 repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2`, schema 4), and
 the v0.5.3 stability pass (`0.5.3`, schema 4), M6 files and images (`0.6.0`, schema 5) and M6.1
 attachments UX (`0.7.0`, schema 6), the M6.2 workspace UX patch (`0.7.1`, schema 6), M8
-calculated properties (`0.8.0`, schema 7) and the M8.1 grid-interaction patch (`0.8.1`, schema 7)
-are implemented, not yet tagged or deployed; CI is green.
+calculated properties (`0.8.0`, schema 7), the M8.1 grid-interaction patch (`0.8.1`, schema 7) and
+M9's presentation half (`0.9.0`, schema 8) are implemented, not yet tagged or deployed; CI is
+green.
 The
 v0.4.3 physical-iPhone pass is still open.**
 `thing-core` exposes
@@ -304,7 +305,7 @@ server. No route, format, permission or dependency changes.
 | `docs/plan/m6.2-workspace-ux.md` | The v0.7.1 spec: the searchable property picker, filter/sort/columns overlays and chips, add/manage property from the record, schema tabs, and staged column-to-relation promotion. Landed as `0.7.1`, schema 6. |
 | `docs/plan/m8-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Landed as `0.8.0`, schema 7. |
 | `docs/plan/m8.1-grid-interaction.md` | The v0.8.1 spec: the data-column and range model, Tab traversal, rectangular selection, TSV and markdown copy, the row-scoped aggregation footer, and the release pass. Landed as `0.8.1`, schema 7; no format or server change. |
-| `docs/plan/m9-property-depth-and-presentation.md` | The v0.9.0 spec at schema 8: the property `display` block (alignment, ISO currency, decimals, grouping) and a table view's `footer`/`footer_hidden` switches, then the property-depth list (validation, defaults, rollup filters, member format, relation filters, formula additions, daily type). Planned; opens after M8.1's release. |
+| `docs/plan/m9-property-depth-and-presentation.md` | The v0.9.0 spec at schema 8: the property `display` block (alignment, ISO currency, decimals, grouping) and a table view's `footer`/`footer_hidden` switches, then the property-depth list (validation, defaults, rollup filters, member format, relation filters, formula additions, daily type). Presentation landed as `0.9.0`, schema 8; the depth half follows at `0.9.1`. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -353,8 +354,10 @@ engine; server definitions, reads and write refusal; rename, delete and CSV; com
 every read surface; formula and rollup authoring; this release pass) are landed at workspace
 `0.8.0`, and checkpoints 1–5 of M8.1 (the grid model and Tab traversal; rectangular selection;
 TSV and markdown copy; the aggregation footer; version, docs and release QA) are landed at
-workspace `0.8.1`.** M1 is
-deployed; M2–M8.1 are not deployed. The
+workspace `0.8.1`, and checkpoints 1–6 of M9 (schema 8 and the `display` block; the server's
+round trip and refusals; one number grammar; the table's alignment and band; authoring; this
+release pass) are landed at workspace `0.9.0`.** M1 is
+deployed; M2–M9 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also
 carries the v0.4.2 keyboard gate and the v0.4.4 device pass.
@@ -658,7 +661,7 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
 | `crates/core/src/error.rs` | `CoreError`; the server maps it to HTTP status codes in one place |
 | `crates/core/src/slug.rs` | `slugify` / `unique_slug` for filenames under `objects/<type>/`, and the key grammar: `is_valid_key`, `key_from_name`, `MAX_KEY_LEN` |
 | `crates/core/src/value.rs` | Per-format YAML/JSON conversion with the property key in the error, plus ordering for sorting |
-| `crates/core/src/markdown.rs` | The on-disk format (schema 7): object frontmatter, space/type/property YAML including `compute`, legacy type-view normalization, history lines |
+| `crates/core/src/markdown.rs` | The on-disk format (schema 8): object frontmatter, space/type/property YAML including `compute`, legacy type-view normalization, history lines |
 | `crates/core/src/schedule.rs` | The calendar-day schedule engine: timezone resolution, `today_in`, recurrence validation/advance, `state`, `complete`, `snooze` (with the shared `rephase_base`), `MAX_SNOOZE_DAYS`, recurrence labels |
 | `crates/core/src/search.rs` | The derived inverted index: `tokens` (lowercased alphanumeric runs, 64-char cap), `SearchIndex::upsert`/`remove`/`rebuild`/`query` with the pinned score and total order, and `snippet` for the matching body window |
 | `crates/core/src/links.rs` | The `[[Type/Title]]` grammar: `parse` (fences, inline code and escapes excluded, first slash, 200-char cap), `LinkStatus`/`LinkView`, relation and mention backlink shapes, and `excerpt` |
@@ -775,7 +778,7 @@ code is; "it works" does not excuse a skipped gate, a secret change, or a commit
   pinned.
 - **Web tests:** `web/src/**/*.test.ts(x)`, run with `npm run test:run`; drive the real API client
   or a component, never a copy of it.
-- **Current coverage:** 1158 tests (306 `thing-core`, 19 `tests/roundtrip.rs`, 129 `thing-server`, 704
+- **Current coverage:** 1209 tests (309 `thing-core`, 20 `tests/roundtrip.rs`, 133 `thing-server`, 747
   `web`) — one `#[cfg(test)]` module per Rust source file. New behavior needs a test exercising the
   changed path.
 - **Fixtures:** `crates/core/tests/fixtures/` holds one hand-written file per format concern;

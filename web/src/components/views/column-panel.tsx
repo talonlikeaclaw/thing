@@ -14,7 +14,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import type { PropertyDef, PropertyFormat, UpdateView, ViewDef } from "@/api/types";
-import { ThumbRow } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import { PropertyEditorSheet } from "@/components/schema/property-editor";
 import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button } from "@/components/ui/controls";
@@ -23,6 +24,7 @@ import { PositionMenu } from "@/components/ui/position-menu";
 import { useCoarsePointer } from "@/lib/media";
 import { searchProperties } from "@/lib/property-search";
 import { promotionBlocker } from "@/lib/promotion";
+import { isScheduleKey } from "@/lib/schedule";
 import { computeKindLabel, formatLabel } from "@/lib/schema";
 import {
   moveViewColumnTo,
@@ -37,6 +39,8 @@ interface ColumnPanelProps {
   view: ViewDef;
   properties: PropertyDef[];
   disabled: boolean;
+  /** Whether the reader may open the property editor the rows point at. */
+  canEdit: boolean;
   onPatch: (change: UpdateView) => void;
   /** Opens the add-property dialog shared with the table header. */
   onAddProperty: () => void;
@@ -89,9 +93,13 @@ function ColumnChip({
   );
 }
 
-/** The key the row's edit action opens: the schema page's property editor. */
-function editHref(spaceId: string, key: string): string {
-  return `/s/${spaceId}/schema?property=${encodeURIComponent(key)}`;
+/**
+ * Where a generated column's edit action goes: a schedule key has no property
+ * to edit, so it opens the type's scheduling block, which is where its label
+ * and its switch live.
+ */
+function scheduleHref(spaceId: string, typeKey: string): string {
+  return `/s/${spaceId}/schema?type=${encodeURIComponent(typeKey)}#type-schedule`;
 }
 
 /**
@@ -106,6 +114,7 @@ export function ColumnPanel({
   view,
   properties,
   disabled,
+  canEdit,
   onPatch,
   onAddProperty,
   id,
@@ -113,6 +122,7 @@ export function ColumnPanel({
   const coarse = useCoarsePointer();
   const [query, setQuery] = useState("");
   const [promoteKey, setPromoteKey] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   const shownColumns = useMemo<ShownColumn[]>(() => {
     const propertyByKey = new Map(properties.map((property) => [property.key, property]));
     return view.columns
@@ -140,6 +150,9 @@ export function ColumnPanel({
   const last = Math.max(1, view.columns.length - 1);
   const promoteProperty = promoteKey
     ? properties.find((property) => property.key === promoteKey)
+    : undefined;
+  const editingProperty = editingKey
+    ? properties.find((property) => property.key === editingKey)
     : undefined;
 
   function moveTo(key: string, index: number) {
@@ -186,20 +199,24 @@ export function ColumnPanel({
       </Button>
 
       <ul className="mt-1">
-        <li className="flex items-center gap-2 border-b rule py-1.5">
-          <span className="min-w-0 flex-1 text-[14px] leading-snug">Title</span>
-          <ColumnChip format="text" />
-          {/* The menu and hide slots the other rows fill, so every chip in the
-              list ends on the same edge; the lock stands in the position slot. */}
-          <span aria-hidden className="size-9 shrink-0 pointer-coarse:size-11" />
-          <span aria-hidden className="size-9 shrink-0 pointer-coarse:size-11" />
-          <span
-            title="The Title column always comes first"
-            className="inline-flex size-9 shrink-0 items-center justify-center text-faint pointer-coarse:size-11"
-          >
-            <Lock aria-hidden size={13} />
-            <span className="sr-only">Title is fixed first</span>
-          </span>
+        <li className="border-b rule">
+          {/* The lock stands in the position slot, so the fixed row ends on the
+              same thumb edge as every movable one. */}
+          <ThumbRow className="items-center gap-2 py-1.5">
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="min-w-0 flex-1 text-[14px] leading-snug">Title</span>
+              <ColumnChip format="text" />
+            </span>
+            <span aria-hidden className="size-9 shrink-0 pointer-coarse:size-11" />
+            <span aria-hidden className="size-9 shrink-0 pointer-coarse:size-11" />
+            <span
+              title="The Title column always comes first"
+              className="inline-flex size-9 shrink-0 items-center justify-center text-faint pointer-coarse:size-11"
+            >
+              <Lock aria-hidden size={13} />
+              <span className="sr-only">Title is fixed first</span>
+            </span>
+          </ThumbRow>
         </li>
         {shownMatches.map((column) => {
           const index = view.columns.indexOf(column.key);
@@ -208,17 +225,23 @@ export function ColumnPanel({
               {/* Canonical right-handed order ends at the thumb edge, so the
                   position selector is last; left mode reverses the row. */}
               <ThumbRow className="items-center gap-2 py-1.5">
-                <span className="min-w-0 flex-1 text-[14px] leading-snug text-accent">
-                  {column.name}
+                {/* The name and its format stay one identity pair, so a left
+                    hand moves the actions without reversing title and pill. */}
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="min-w-0 flex-1 text-[14px] leading-snug text-accent">
+                    {column.name}
+                  </span>
+                  <ColumnChip
+                    format={column.format}
+                    computed={computeKindLabel(column)}
+                  />
                 </span>
-                <ColumnChip
-                  format={column.format}
-                  computed={computeKindLabel(column)}
-                />
                 <RowActions
                   spaceId={spaceId}
+                  typeKey={typeKey}
                   property={column}
                   disabled={disabled}
+                  onEdit={() => setEditingKey(column.key)}
                   onPromote={() => setPromoteKey(column.key)}
                 />
                 <SmallButton
@@ -254,19 +277,35 @@ export function ColumnPanel({
             {hiddenMatches.map((property) => (
               <li key={property.key} className="border-b rule">
                 <ThumbRow className="items-center gap-2 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-[14px]">{property.name}</span>
-                  <ColumnChip
-                    format={property.format}
-                    computed={computeKindLabel(property)}
-                  />
-                  <Link
-                    to={editHref(spaceId, property.key)}
-                    aria-label={`Edit ${property.name} property`}
-                    title={`Edit ${property.name}`}
-                    className={ICON_BUTTON}
-                  >
-                    <Pencil aria-hidden size={14} />
-                  </Link>
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-[14px]">
+                      {property.name}
+                    </span>
+                    <ColumnChip
+                      format={property.format}
+                      computed={computeKindLabel(property)}
+                    />
+                  </span>
+                  {isScheduleKey(property.key) ? (
+                    <Link
+                      to={scheduleHref(spaceId, typeKey)}
+                      aria-label={`Edit schedule for ${property.name}`}
+                      title={`Edit ${property.name}`}
+                      className={ICON_BUTTON}
+                    >
+                      <Pencil aria-hidden size={14} />
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`Edit ${property.name} property`}
+                      title={`Edit ${property.name}`}
+                      className={ICON_BUTTON}
+                      onClick={() => setEditingKey(property.key)}
+                    >
+                      <Pencil aria-hidden size={14} />
+                    </button>
+                  )}
                   <SmallButton
                     label={`Show ${property.name}`}
                     disabled={disabled}
@@ -293,6 +332,15 @@ export function ColumnPanel({
           onClose={() => setPromoteKey(null)}
         />
       ) : null}
+
+      {editingProperty ? (
+        <PropertyEditorSheet
+          spaceId={spaceId}
+          property={editingProperty}
+          canEdit={canEdit}
+          onClose={() => setEditingKey(null)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -305,15 +353,20 @@ export function ColumnPanel({
  */
 function RowActions({
   spaceId,
+  typeKey,
   property,
   disabled,
+  onEdit,
   onPromote,
 }: {
   spaceId: string;
+  typeKey: string;
   property: ShownColumn;
   disabled: boolean;
+  onEdit: () => void;
   onPromote: () => void;
 }) {
+  const handedness = useThumbHandedness();
   const promotable = promotionBlocker(property, 1) === null;
   return (
     <Menu.Root>
@@ -326,15 +379,26 @@ function RowActions({
         <MoreHorizontal aria-hidden size={15} />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={4} align="end" className="z-50">
+        <Menu.Positioner
+          sideOffset={4}
+          align={handedness === "left" ? "start" : "end"}
+          className="z-50"
+        >
           <Menu.Popup className="glass-strong min-w-[15rem] rounded-card p-1.5 text-[13px] text-ink outline-none">
-            <Menu.Item
-              className={ROW_MENU_ITEM}
-              render={<Link to={editHref(spaceId, property.key)} />}
-            >
-              <Pencil aria-hidden size={14} className="text-faint" />
-              Edit property
-            </Menu.Item>
+            {isScheduleKey(property.key) ? (
+              <Menu.Item
+                className={ROW_MENU_ITEM}
+                render={<Link to={scheduleHref(spaceId, typeKey)} />}
+              >
+                <Pencil aria-hidden size={14} className="text-faint" />
+                Edit schedule
+              </Menu.Item>
+            ) : (
+              <Menu.Item className={ROW_MENU_ITEM} onClick={onEdit}>
+                <Pencil aria-hidden size={14} className="text-faint" />
+                Edit property
+              </Menu.Item>
+            )}
             {promotable ? (
               <Menu.Item className={ROW_MENU_ITEM} onClick={onPromote}>
                 <Link2 aria-hidden size={14} className="text-faint" />

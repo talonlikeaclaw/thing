@@ -199,11 +199,13 @@ export function ViewSheet({
               aria-label="View panels"
               ref={track}
               className={cn(
-                "mx-3 mt-3 flex w-fit max-w-[calc(100%-1.5rem)] shrink-0 flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-full border border-line/80 bg-inset/60 p-1",
-                // A phone cannot fit five tabs, so the strip scrolls and its
-                // ends feather, which reads as "there is more" without a second
-                // colour or a scrollbar to theme.
-                "max-sm:[mask-image:linear-gradient(to_right,transparent,black_10px,black_calc(100%-10px),transparent)]",
+                // The strip is a direct flex item so a finger can pan it; a
+                // scroll container nested in a shrink-0 block does not scroll
+                // by touch. The min-height keeps the flex item from shrinking
+                // its tabs away on a short sheet. There is deliberately no
+                // mask here: a mask on a scroll container can break touch
+                // panning in mobile Safari, and the cut tab is the "more" cue.
+                "mx-3 mt-3 flex min-h-11 w-fit min-w-0 max-w-[calc(100%-1.5rem)] flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain rounded-full border border-line/80 bg-inset/60 p-1 pointer-coarse:min-h-14",
               )}
               onKeyDown={(event) => {
                 if (event.key === "ArrowRight" || event.key === "ArrowDown") {

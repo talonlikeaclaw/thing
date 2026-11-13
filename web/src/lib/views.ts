@@ -2,6 +2,7 @@ import type {
   Filter,
   ObjectSummary,
   PropertyDef,
+  PropertyFormat,
   Sort,
   SummaryKind,
   TypeDef,
@@ -14,6 +15,14 @@ export const MIN_COLUMN_WIDTH = 80;
 export const MAX_COLUMN_WIDTH = 800;
 export const TITLE_WIDTH = 240;
 export const DEFAULT_COLUMN_WIDTH = 140;
+
+/**
+ * The formats a gallery cover can read: a picture, a photo set, or a select
+ * whose option tints the tile. A text or number cover would draw nothing.
+ */
+export function isCoverFormat(format: PropertyFormat): boolean {
+  return format === "image" || format === "attachments" || format === "select";
+}
 
 /** The selected view and whether the URL named a key the type no longer has. */
 export interface SelectedView {

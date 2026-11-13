@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useCsvPreview, useExportCsv, useImportCsv } from "@/api/queries";
 import type { CsvProblem, TypeDef } from "@/api/types";
+import { ThumbRow } from "@/components/handedness";
 import { SmallButton } from "@/components/schema/small-button";
 import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -333,7 +334,7 @@ export function DataPanel({ spaceId, type, canEdit, onImported }: DataPanelProps
             />
           ) : null}
 
-          <div className="flex flex-wrap items-center gap-2">
+          <ThumbRow className="flex-wrap items-center gap-2">
             <Button
               type="button"
               className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -342,7 +343,7 @@ export function DataPanel({ spaceId, type, canEdit, onImported }: DataPanelProps
             >
               {commit.isPending ? "Importing…" : importLabel}
             </Button>
-          </div>
+          </ThumbRow>
         </div>
       ) : null}
     </section>

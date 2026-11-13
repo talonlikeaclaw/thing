@@ -1,11 +1,15 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/use-dirty-guard", () => ({
+  useDirtyGuard: () => null,
+}));
 
 import type { PropertyDef, ViewDef } from "@/api/types";
 import { HandednessProvider } from "@/components/handedness";
 import { ColumnPanel } from "@/components/views/column-panel";
-import { renderWithProviders } from "@/test/harness";
+import { jsonResponse, renderWithProviders, requestUrl, stubFetch } from "@/test/harness";
 
 const properties: PropertyDef[] = [
   { key: "room", name: "Room", format: "select" },
@@ -35,6 +39,7 @@ function Host() {
         view={current}
         properties={properties}
         disabled={false}
+        canEdit
         onPatch={(change) =>
           setCurrent((existing) => ({ ...existing, ...change }) as ViewDef)
         }
@@ -112,6 +117,35 @@ describe("ColumnPanel", () => {
     expect(hide.compareDocumentPosition(position) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("keeps the name ahead of its format in either hand", () => {
+    renderWithProviders(
+      <HandednessProvider value={{ handedness: "left", setHandedness: () => undefined }}>
+        <Host />
+      </HandednessProvider>,
+    );
+
+    const shown = screen.getByRole("button", { name: "Hide Room" }).closest("li");
+    const name = within(shown as HTMLElement).getByText("Room");
+    const chip = within(shown as HTMLElement).getByText("Select");
+    expect(
+      name.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("puts the fixed title's lock on the position selector's edge", () => {
+    renderWithProviders(
+      <HandednessProvider value={{ handedness: "left", setHandedness: () => undefined }}>
+        <Host />
+      </HandednessProvider>,
+    );
+
+    const lock = screen.getByText("Title is fixed first");
+    const name = screen.getByText("Title");
+    expect(
+      lock.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("anchors the position menu to the chosen hand", () => {
     renderWithProviders(
       <HandednessProvider value={{ handedness: "left", setHandedness: () => undefined }}>
@@ -128,16 +162,67 @@ describe("ColumnPanel", () => {
     expect(anchored).toHaveAttribute("data-align", "start");
   });
 
-  it("edits a shown property from its row menu", () => {
+  it("opens the property editor over the view from a row menu", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      if (url.endsWith("/api/spaces/s1/properties")) {
+        return jsonResponse(properties);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
     renderWithProviders(<Host />);
+
     fireEvent.click(screen.getByRole("button", { name: "More actions for Room" }));
-    expect(screen.getByRole("menuitem", { name: "Edit property" })).toHaveAttribute(
-      "href",
-      "/s/s1/schema?property=room",
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit property" }));
+
+    expect(await screen.findByRole("dialog", { name: "Edit Room" })).toBeInTheDocument();
+  });
+
+  it("opens the property editor from a hidden row's pencil", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      if (url.endsWith("/api/spaces/s1/properties")) {
+        return jsonResponse(properties);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+    renderWithProviders(<Host />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Size property" }));
+
+    expect(await screen.findByRole("dialog", { name: "Edit Size" })).toBeInTheDocument();
+  });
+
+  it("sends a generated schedule column to the type's scheduling block", () => {
+    renderWithProviders(
+      <ColumnPanel
+        spaceId="s1"
+        typeKey="album"
+        view={{
+          ...view,
+          columns: ["title", "due_date"],
+        }}
+        properties={[
+          ...properties,
+          { key: "due_date", name: "Next watering", format: "date" },
+        ]}
+        disabled={false}
+        canEdit
+        onPatch={() => undefined}
+        onAddProperty={() => undefined}
+      />,
     );
-    expect(screen.getByRole("link", { name: "Edit Size property" })).toHaveAttribute(
+
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Next watering" }));
+    expect(screen.getByRole("menuitem", { name: "Edit schedule" })).toHaveAttribute(
       "href",
-      "/s/s1/schema?property=size",
+      "/s/s1/schema?type=album#type-schedule",
     );
   });
 

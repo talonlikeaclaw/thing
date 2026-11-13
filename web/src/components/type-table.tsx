@@ -1,4 +1,4 @@
-import { Columns3, ListFilter, ListTree, Pencil, Search, X } from "lucide-react";
+import { ListFilter, ListTree, Pencil, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   useEffect,
   useLayoutEffect,
@@ -459,14 +459,7 @@ export function TypeTable({
         />
       </div>
       <FormError message={createView.error ? readError(createView.error) : null} />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="submit"
-          className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-          disabled={!saveAsName.trim() || createView.isPending}
-        >
-          {createView.isPending ? "Creating…" : "Create view"}
-        </Button>
+      <ThumbRow className="flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="ghost"
@@ -475,7 +468,14 @@ export function TypeTable({
         >
           Cancel
         </Button>
-      </div>
+        <Button
+          type="submit"
+          className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+          disabled={!saveAsName.trim() || createView.isPending}
+        >
+          {createView.isPending ? "Creating…" : "Create view"}
+        </Button>
+      </ThumbRow>
     </form>
   ) : null;
 
@@ -825,9 +825,19 @@ export function TypeTable({
       aria-label="View"
       aria-expanded={viewOpen}
       className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
-      onClick={() => openView(canEdit && view.kind !== "calendar" ? "columns" : "sort")}
+      onClick={() =>
+        openView(
+          canEdit && view.kind !== "calendar"
+            ? "columns"
+            : view.kind !== "calendar"
+              ? "sort"
+              : canEdit
+                ? "settings"
+                : "data",
+        )
+      }
     >
-      <Columns3 aria-hidden size={14} />
+      <SlidersHorizontal aria-hidden size={14} />
       <span className="max-sm:hidden">View</span>
     </Button>,
   );
@@ -1103,6 +1113,7 @@ export function TypeTable({
                 view={view}
                 properties={properties}
                 disabled={layout.isPending}
+                canEdit={canEdit}
                 onPatch={writeLayout}
                 onAddProperty={() => {
                   closeView();

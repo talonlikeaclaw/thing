@@ -134,7 +134,8 @@ describe("PropertyEditorForm display", () => {
       />,
     );
 
-    fireEvent.click(screen.getByText("Display", { selector: "summary" }));
+    // Display starts open in the property editor; the currency control is
+    // reachable without unfolding it.
     fireEvent.click(screen.getByLabelText("Open currency list"));
     fireEvent.click(await screen.findByRole("option", { name: "USD" }));
     fireEvent.click(screen.getByRole("button", { name: "Save property" }));

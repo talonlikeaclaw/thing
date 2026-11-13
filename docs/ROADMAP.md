@@ -114,7 +114,8 @@ both halves on one schema bump: presentation first (the `display` block, the vie
 switches), then the property-depth list unchanged. M10 keeps view depth and loses only "persisted
 aggregations", which the band's switches now own. Spec:
 [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md).
-M8.1 landed as `0.8.1`, so M9's checkpoint 1 is next.
+M9's presentation half landed as `0.9.0` at schema 8: checkpoints 1–6 are committed, and the depth
+half (checkpoints 7–12) follows at `0.9.1`.
 
 **Revised 2026-11-11:** milestone numbers now equal the workspace minor: computed properties is
 **M8** (`0.8.0`), the inserted patches are M8.1–M8.5, property model depth is M9 (`0.9.0`), view
@@ -388,9 +389,10 @@ usability move ahead of search.
   - **M8.5 — Time and habit.** `0.8.5`, no format change. An ICS feed per scheduled type, completion
     stats and streaks derived from revisions, a since-last-visit summary, and a daily-note route
     with a browser-local daily type.
-- **M9 — Property depth and presentation.** **Planned** (workspace `0.9.0`, schema 8); spec:
+- **M9 — Property depth and presentation.** **Presentation landed** as `0.9.0`, schema 8;
+  the depth half is planned at `0.9.1`. Spec:
   [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md)
-  (written 2026-11-11, not started; it opens after M8.1 landed as `0.8.1`). Two halves
+  (written 2026-11-11; checkpoints 1–6 landed 2026-11-13). Two halves
   on one schema bump. **Presentation (checkpoints 1–6):** a property gains an optional `display`
   block — `align` for every format, and `currency` (ISO 4217), `decimals` (0–4) and `grouping` for
   numbers — and a table view gains `footer` and `footer_hidden`, so the M8.1 summary band can be

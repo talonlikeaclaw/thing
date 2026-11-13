@@ -469,9 +469,12 @@ options and the one-tap `Ascending`/`Descending` segment on the second, the segm
 menu, and a rule's ordinal leads the row because the first rule decides. A column row pairs
 identity with a row menu, hide and position; the name wraps rather than truncating a word
 away, and a phone swaps the chip's spelling for the calculated kind's glyph and the format
-word, keeping the full spelling as the tooltip. The menu carries `Edit property` and, for a
-text, select or multi-select column, `Turn into a relation…`, disabled with its reason when
-the format cannot convert. The Title row cannot move: a lock marks its slot, and the Title
+word, keeping the full spelling as the tooltip. The menu carries `Edit property`, which opens
+the shared property editor over the view rather than leaving the table, and, for a text,
+select or multi-select column, `Turn into a relation…`, disabled with its reason when the
+format cannot convert. A generated schedule column has no property to edit, so its menu
+reads `Edit schedule` and opens the type's scheduling block, where the label and the switch
+live. The Title row cannot move: a lock marks its slot, and the Title
 has no menu because its only setting, its summary cell, is one of the band's own list in the
 General panel. The position pill ends the row at the
 thumb edge in both modes: it opens a menu of every slot the column can take, so moving it
@@ -512,6 +515,16 @@ data column aligned by the same colgroup, numbers in the mono tabular voice and 
 ink, one `rule` top edge — sticky to the bottom of the desktop scrollport, and the last row once
 the bulk band owns that edge. A footer cell's visible short text is `aria-hidden`, so a screen
 reader hears only its full sentence. No new token, motion or material is introduced.
+
+**Numbers and Their Column.** A number sits against its column's right edge, where the digits meet
+the eye; every other format keeps the left edge unless the property pins it. The cell's text is the
+space's own `Intl` grammar — the currency's prefix or suffix, the property's fixed decimals, its
+grouping — never a hand-built string, and the same text is what a copy carries. The header keeps its
+alignment so the band above does not move. In the summary footer the total, average, lowest and
+highest inherit that grammar, so `Σ $1,204.00` sits directly over the `$602.00` it sums; a column
+whose summary cell is blanked leaves the gap in the band rather than shifting its neighbours. The
+mono tabular voice belongs to the figure, not to the unit: a currency prefix is set in the same
+cell voice, and no new token, badge or chip is introduced for money.
 
 **The Promotion Sheet.** Turning a column into a type is a three-step sheet with the same
 header, scrolling body and sticky footer as every overlay: `Target`, `Preview`, `Run`. Target is a

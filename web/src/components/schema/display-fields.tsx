@@ -89,6 +89,11 @@ interface DisplayFieldsProps {
   idPrefix: string;
   /** Open the disclosure on a property that already says something. */
   initialOpen?: boolean;
+  /**
+   * A disclosure in a capture form; the property page shows the fields bare,
+   * under its own Display row, so the section is never folded there.
+   */
+  disclosure?: boolean;
 }
 
 /**
@@ -103,6 +108,7 @@ export function DisplayFields({
   disabled,
   idPrefix,
   initialOpen = false,
+  disclosure = true,
 }: DisplayFieldsProps) {
   const base = useId();
   const controlsId = `${idPrefix}-display-${base}`;
@@ -113,16 +119,8 @@ export function DisplayFields({
     onChange({ ...draft, [key]: value });
   }
 
-  return (
-    <details
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="rounded-[12px] border border-line/70 bg-raised/30 px-3 py-2"
-    >
-      <summary className="label cursor-pointer py-1 select-none pointer-coarse:min-h-11">
-        Display
-      </summary>
-      <div id={controlsId} className="mt-2 grid gap-4">
+  const body = (
+    <div id={controlsId} className={cn("grid gap-4", disclosure && "mt-2")}>
         <div>
           <span className="label mb-2 block">Alignment</span>
           <div
@@ -247,7 +245,27 @@ export function DisplayFields({
             </label>
           </>
         ) : null}
-      </div>
+        <p className="text-[12px] leading-[1.5] text-muted">
+          These settings read in every view. A table view chooses its own summary
+          measure in the view&apos;s General panel.
+        </p>
+    </div>
+  );
+
+  if (!disclosure) {
+    return body;
+  }
+
+  return (
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="rounded-[12px] border border-line/70 bg-raised/30 px-3 py-2"
+    >
+      <summary className="label cursor-pointer py-1 select-none pointer-coarse:min-h-11">
+        Display
+      </summary>
+      {body}
     </details>
   );
 }

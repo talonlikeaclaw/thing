@@ -16,6 +16,7 @@ import { useThumbHandedness } from "@/components/handedness";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
+import { whenScrollUnlocked } from "@/lib/scroll-lock";
 import { useRouteMeta } from "@/lib/route";
 import { effectiveProperties } from "@/lib/schema";
 
@@ -49,13 +50,15 @@ export function SchemaPage() {
         : "types";
 
   /**
-   * The type page's Edit action deep-links to `#type-editor`. On a phone there
-   * is no side-by-side fallback to the first type, so the hash selects one
-   * into the URL before the list paints; after that the editor scrolls into
-   * view exactly as it did before the tabs existed.
+   * The type page's Edit action deep-links to `#type-editor`, and a generated
+   * column's edit action to `#type-schedule`. On a phone there is no
+   * side-by-side fallback to the first type, so the hash selects one into the
+   * URL before the list paints; after that the named block scrolls into view.
    */
-  const scrollToEditor = useRef(location.hash === "#type-editor");
-  const deepLink = scrollToEditor.current;
+  const scrollTarget = useRef(
+    location.hash.length > 1 ? location.hash.slice(1) : null,
+  );
+  const deepLink = scrollTarget.current !== null;
 
   // Desktop keeps the old default: the first type is open beside the list.
   const selectedTypeKey = compact
@@ -77,16 +80,22 @@ export function SchemaPage() {
   }, [deepLink, selectedTypeParam, types.data, params, setParams]);
 
   useEffect(() => {
-    if (!scrollToEditor.current || !type.data) {
+    const target = scrollTarget.current;
+    if (target === null || !type.data) {
       return;
     }
-    scrollToEditor.current = false;
-    const frame = window.requestAnimationFrame(() => {
+    // The ref is consumed by the scroll itself: a refetch can re-run this
+    // effect before the sheet releases, and clearing it early would drop the
+    // deep link on the floor.
+    return whenScrollUnlocked(() => {
+      if (scrollTarget.current !== target) {
+        return;
+      }
+      scrollTarget.current = null;
       document
-        .getElementById("type-editor")
+        .getElementById(target)
         ?.scrollIntoView({ block: "start", inline: "nearest" });
     });
-    return () => window.cancelAnimationFrame(frame);
   }, [type.data]);
 
   // A New property form may open in the editor column below the fold, or

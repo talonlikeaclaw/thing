@@ -5,7 +5,7 @@ decided here in full, released as `0.9.0` at checkpoint 6), then **property dept
 roadmap's existing M9 list, decisions locked here, per-checkpoint work confirmed when that half
 starts) and its own release pass at `0.9.1` (checkpoint 13).
 
-**Status: checkpoints 1–5 landed in the working tree; checkpoint 6 (the `0.9.0` release) is next.**
+**Status: checkpoints 1–6 landed at workspace `0.9.0`, schema 8; the depth half (7–12) is next.**
 The milestone opens only after M8.1's checkpoint 5 lands the `0.8.1` release. Merged 2026-11-11: table presentation was requested as its own milestone at
 `0.9.0`; the roadmap already held that version for property model depth, so both live here, on one
 schema bump, rather than renumbering M10–M14. The merge is recorded in `docs/ROADMAP.md`.

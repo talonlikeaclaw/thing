@@ -12,7 +12,7 @@ import {
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useCreateView, useMoveView } from "@/api/queries";
-import { useThumbHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import type {
   CreateView,
   PropertyDef,
@@ -29,7 +29,7 @@ import {
 import { readError } from "@/lib/display";
 import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
-import { movedViewSlot } from "@/lib/views";
+import { isCoverFormat, movedViewSlot } from "@/lib/views";
 
 /** One edge action of the view strip: a circle, 44 px on a coarse pointer. */
 const EDGE_BUTTON =
@@ -91,25 +91,23 @@ export function ViewTabs({
   const [kind, setKind] = useState<ViewKind>("table");
   const selectProperties = properties.filter((property) => property.format === "select");
   const dateProperties = properties.filter((property) => property.format === "date");
+  const coverProperties = properties.filter((property) => isCoverFormat(property.format));
   const [groupBy, setGroupBy] = useState("");
   const [cover, setCover] = useState("");
   const [dateProperty, setDateProperty] = useState("");
 
   const keyboardNav = useRef(false);
 
-  // A selected tab that is scrolled out of the strip must become visible, and
-  // an arrow-key selection moves focus with it. Compact wraps instead of
-  // scrolling, so there is nothing to bring into view there.
+  // A selected tab that is scrolled out of the strip must become visible at
+  // every width, and an arrow-key selection moves focus with it.
   useEffect(() => {
     const tab = document.getElementById(`view-tab-${selectedKey}`);
-    if (!compact) {
-      tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    }
+    tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
     if (keyboardNav.current) {
       keyboardNav.current = false;
       tab?.focus();
     }
-  }, [selectedKey, compact]);
+  }, [selectedKey]);
 
   function start() {
     setOpen(true);
@@ -266,7 +264,7 @@ export function ViewTabs({
                 tabIndex={selected ? 0 : -1}
                 title={`${viewKindLabel(view.kind)} view`}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[length:var(--text-small)] transition-colors pointer-coarse:min-h-11",
+                  "flex touch-pan-x items-center gap-1.5 rounded-full px-3 py-1.5 text-[length:var(--text-small)] transition-colors pointer-coarse:min-h-11",
                   // One row: the strip scrolls sideways rather than wrapping a
                   // second line under the first.
                   "shrink-0",
@@ -349,7 +347,7 @@ export function ViewTabs({
               <div
                 role="group"
                 aria-labelledby={`new-${type.key}-view-kind`}
-                className="flex flex-wrap gap-1"
+                className="grid grid-cols-2 gap-1 sm:flex sm:flex-wrap"
               >
                 {KINDS.map(({ value, label, icon: Icon }) => (
                   <button
@@ -392,12 +390,17 @@ export function ViewTabs({
               value={cover}
               options={[
                 { value: "", label: "No cover (type icon)" },
-                ...properties.map((property) => ({
+                ...coverProperties.map((property) => ({
                   value: property.key,
                   label: property.name,
                 })),
               ]}
               onValueChange={setCover}
+              hint={
+                coverProperties.length === 0
+                  ? "Add an image, attachment or select property in the schema first."
+                  : undefined
+              }
             />
           ) : null}
 
@@ -425,14 +428,7 @@ export function ViewTabs({
             The kind is fixed after creation.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="submit"
-              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={invalid || create.isPending}
-            >
-              {create.isPending ? "Creating…" : "Create view"}
-            </Button>
+          <ThumbRow className="flex-wrap items-center gap-3">
             <Button
               type="button"
               variant="ghost"
@@ -441,9 +437,16 @@ export function ViewTabs({
             >
               Cancel
             </Button>
-            <div className="min-w-[12rem] flex-1">
-              <FormError message={create.error ? readError(create.error) : null} />
-            </div>
+            <Button
+              type="submit"
+              className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={invalid || create.isPending}
+            >
+              {create.isPending ? "Creating…" : "Create view"}
+            </Button>
+          </ThumbRow>
+          <div className="min-w-[12rem]">
+            <FormError message={create.error ? readError(create.error) : null} />
           </div>
         </form>
       ) : null}

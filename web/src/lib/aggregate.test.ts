@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ObjectSummary } from "@/api/types";
-import { summarizeColumn, summaryChoices } from "@/lib/aggregate";
+import { summarizeColumn, summaryChoices, summaryFixedLabel } from "@/lib/aggregate";
 import { formatDateTime, formatDay } from "@/lib/display";
 import type { GridColumn } from "@/lib/grid";
 
@@ -372,5 +372,14 @@ describe("a column with a chosen summary measure", () => {
     expect(summaryChoices("text").map((choice) => choice.value)).toContain("distinct");
     expect(summaryChoices("relation")).toEqual([]);
     expect(summaryChoices(undefined, true)).toEqual([]);
+  });
+
+  it("names the fixed summary a format cannot choose", () => {
+    expect(summaryFixedLabel(undefined, true)).toBe("Row count");
+    expect(summaryFixedLabel("relation")).toBe("Filled count");
+    expect(summaryFixedLabel("recurrence")).toBe("Filled count");
+    expect(summaryFixedLabel("attachments")).toBe("Filled count");
+    expect(summaryFixedLabel("number")).toBeNull();
+    expect(summaryFixedLabel("text")).toBeNull();
   });
 });

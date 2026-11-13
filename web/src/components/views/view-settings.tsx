@@ -5,11 +5,11 @@ import { useDeleteView, useSetDefaultView, useUpdateView } from "@/api/queries";
 import type { PropertyDef, SummaryKind, TypeDef, ViewDef } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
-import { summaryChoices } from "@/lib/aggregate";
+import { summaryChoices, summaryFixedLabel } from "@/lib/aggregate";
 import { readError } from "@/lib/display";
 import { TITLE_COLUMN_KEY } from "@/lib/grid";
 import { keyFromName } from "@/lib/schema";
-import { footerHiddenWith, footerSummaryWith } from "@/lib/views";
+import { footerHiddenWith, footerSummaryWith, isCoverFormat } from "@/lib/views";
 
 interface ViewSettingsProps {
   spaceId: string;
@@ -36,15 +36,15 @@ function Block({
   return (
     <section className="grid gap-2 border-t rule pt-4 first:border-t-0 first:pt-0">
       {title ? (
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        <ThumbRow className="items-start gap-3">
+          <div className="min-w-0 flex-1">
             <h4 className="text-[13px] font-medium text-ink">{title}</h4>
             {blurb ? (
               <p className="mt-0.5 text-[12px] leading-[1.5] text-muted">{blurb}</p>
             ) : null}
           </div>
           {action ?? null}
-        </div>
+        </ThumbRow>
       ) : null}
       {children}
     </section>
@@ -75,6 +75,7 @@ export function ViewSettings({
   const nameDirty = name.trim() !== view.name && name.trim() !== "";
   const selectProperties = properties.filter((property) => property.format === "select");
   const dateProperties = properties.filter((property) => property.format === "date");
+  const coverProperties = properties.filter((property) => isCoverFormat(property.format));
   const groupMissing =
     view.kind === "board" &&
     view.group_by !== undefined &&
@@ -83,10 +84,11 @@ export function ViewSettings({
     view.kind === "calendar" &&
     view.date_property !== undefined &&
     !properties.some((property) => property.key === view.date_property);
+  const coverProperty = properties.find((property) => property.key === view.cover);
   const coverMissing =
     view.kind === "gallery" &&
     view.cover !== undefined &&
-    !properties.some((property) => property.key === view.cover);
+    (coverProperty === undefined || !isCoverFormat(coverProperty.format));
 
   useEffect(() => {
     setName(view.name);
@@ -94,16 +96,23 @@ export function ViewSettings({
   }, [view.key, view.name]);
 
   // Every shown column can be summarised; the denylist is what turns one off.
-  const summarisedColumns = view.columns.map((key) => {
-    const property =
-      key === TITLE_COLUMN_KEY
-        ? undefined
-        : properties.find((entry) => entry.key === key);
-    return {
-      key,
-      label: property?.name ?? (key === TITLE_COLUMN_KEY ? "Title" : key),
-      choices: summaryChoices(property?.format, key === TITLE_COLUMN_KEY),
-    };
+  // A column whose property is gone has no cell to write, so it is left out.
+  const summarisedColumns = view.columns.flatMap((key) => {
+    const title = key === TITLE_COLUMN_KEY;
+    const property = title
+      ? undefined
+      : properties.find((entry) => entry.key === key);
+    if (!title && property === undefined) {
+      return [];
+    }
+    return [
+      {
+        key,
+        label: property?.name ?? "Title",
+        choices: summaryChoices(property?.format, title),
+        fixed: summaryFixedLabel(property?.format, title),
+      },
+    ];
   });
   const hiddenSummaries = view.footer_hidden ?? [];
 
@@ -127,31 +136,29 @@ export function ViewSettings({
   return (
     <section aria-label="View details" className="grid gap-4">
       <Block>
-        <form
-          onSubmit={rename}
-          className="flex items-end gap-2"
-          aria-label="Rename view"
-        >
-          <div className="min-w-0 flex-1">
-            <TextField
-              label="Name"
-              name={`${type.key}-${view.key}-name`}
-              maxLength={80}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            {view.key !== keyFromName(view.name) ? (
-              <p className="mt-1 font-mono text-[11px] text-faint">Key: {view.key}</p>
-            ) : null}
-          </div>
-          <Button
-            type="submit"
-            variant="ghost"
-            className="min-h-10 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
-            disabled={!nameDirty || update.isPending}
-          >
-            {update.isPending ? "Renaming…" : "Rename"}
-          </Button>
+        <form onSubmit={rename} aria-label="Rename view">
+          <ThumbRow className="items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <TextField
+                label="Name"
+                name={`${type.key}-${view.key}-name`}
+                maxLength={80}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+              {view.key !== keyFromName(view.name) ? (
+                <p className="mt-1 font-mono text-[11px] text-faint">Key: {view.key}</p>
+              ) : null}
+            </div>
+            <Button
+              type="submit"
+              variant="ghost"
+              className="min-h-10 shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
+              disabled={!nameDirty || update.isPending}
+            >
+              {update.isPending ? "Renaming…" : "Rename"}
+            </Button>
+          </ThumbRow>
         </form>
       </Block>
 
@@ -184,7 +191,9 @@ export function ViewSettings({
             <span className="min-w-0">
               <span className="block text-[13px] font-medium text-ink">Summary band</span>
               <span className="mt-0.5 block text-[12px] leading-[1.5] text-muted">
-                A row under the records that totals each column.
+                A row under the records that totals each column. Each view chooses its
+                own measure; the number&apos;s currency and decimals come from the
+                property.
               </span>
             </span>
             <input
@@ -255,7 +264,7 @@ export function ViewSettings({
                         </select>
                       ) : (
                         <span className="pr-2 font-mono text-[11px] text-faint">
-                          {column.choices[0]?.label ?? "—"}
+                          {column.fixed ?? column.choices[0]?.label ?? "—"}
                         </span>
                       )}
                     </li>
@@ -309,25 +318,33 @@ export function ViewSettings({
       {view.kind === "gallery" ? (
         <Block
           title="Gallery covers"
-          blurb="The picture each tile leads with; without one, the tile shows the type's icon."
+          blurb="The picture or tint each tile leads with; without one, the tile shows the type's icon."
         >
           <SelectField
             label="Cover property"
             value={view.cover ?? ""}
             options={[
               { value: "", label: "No cover (type icon)" },
-              ...properties.map((property) => ({
+              ...coverProperties.map((property) => ({
                 value: property.key,
                 label: property.name,
               })),
             ]}
             onValueChange={(next) => update.mutate({ cover: next || null })}
             disabled={update.isPending}
+            hint={
+              coverProperties.length === 0
+                ? "Add an image, attachment or select property in the schema first."
+                : undefined
+            }
           />
           {coverMissing ? (
             <p className="border-l border-warning pl-3 text-[12px] text-warning">
-              The saved cover property <span className="font-mono">{view.cover}</span> no
-              longer exists. Choose another one here.
+              The saved cover property <span className="font-mono">{view.cover}</span>{" "}
+              {coverProperty === undefined
+                ? "no longer exists."
+                : "cannot be a cover."}{" "}
+              Choose another one here.
             </p>
           ) : null}
         </Block>

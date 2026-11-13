@@ -288,7 +288,7 @@ export function TypeEditor({
       </div>
 
       {schedule ? (
-        <div className="mt-6">
+        <div id="type-schedule" className="mt-6 scroll-mt-6">
           <SectionRule level={3} title="From scheduling" count="generated" />
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <TextField

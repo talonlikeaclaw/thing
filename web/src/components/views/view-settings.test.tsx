@@ -131,6 +131,13 @@ describe("ViewSettings summarised columns", () => {
   });
 });
 
+describe("ViewSettings fixed summaries", () => {
+  it("names the title's row count instead of a dash", () => {
+    renderSettings();
+    expect(screen.getByText("Row count")).toBeInTheDocument();
+  });
+});
+
 describe("ViewSettings summary measures", () => {
   it("writes the measure chosen for one column", async () => {
     const body = renderSettings();

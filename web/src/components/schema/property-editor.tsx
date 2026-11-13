@@ -234,14 +234,17 @@ export function PropertyEditorForm({
             {formatLabel(property.format)}
           </p>
         </FieldRow>
-        <FieldRow label="Display" hint="How the values read in a table; the stored value never changes.">
+        <FieldRow
+          label="Display"
+          hint="How the values read in every table; the stored value never changes."
+        >
           <DisplayFields
             draft={display}
             onChange={setDisplay}
             format={property.format}
             disabled={!canEdit}
             idPrefix={`property-${property.key}`}
-            initialOpen={property.display !== undefined}
+            disclosure={false}
           />
         </FieldRow>
         {calculated ? (

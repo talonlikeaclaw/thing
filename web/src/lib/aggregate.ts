@@ -329,3 +329,21 @@ export function summaryChoices(
       return [];
   }
 }
+
+/**
+ * The one line a column prints when its format offers no choice: the title
+ * counts rows, and the formats that carry a set or a link count filled cells.
+ * `null` means the format has neither a choice nor a fixed line.
+ */
+export function summaryFixedLabel(
+  format: PropertyFormat | undefined,
+  title = false,
+): string | null {
+  if (title) {
+    return "Row count";
+  }
+  if (format !== undefined && COUNTED_FORMATS[format]) {
+    return "Filled count";
+  }
+  return null;
+}

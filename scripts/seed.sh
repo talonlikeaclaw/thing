@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the "Garden" demo space through the API: two scheduled types, seven
+# Builds the "Garden" demo space through the API: two scheduled types, eight
 # shared properties (three of them calculated), eight records and five Plant
 # views (the default table, a room board, a gallery, a watering calendar and a
 # nurseries table). Dates are relative to Montreal's calendar day so the
@@ -8,7 +8,8 @@
 # The Nursery text column is the promotion fixture: two distinct values, three
 # links, one empty value, a column move, a sort, a moved is_not_empty filter and
 # a dropped value-bearing filter. Room is shared by Plant and Chore, so the same
-# action reports it as blocked.
+# action reports it as blocked. Price is the display fixture: a number column
+# that reads in US dollars with two decimals.
 #
 #   THING_DATA_DIR=./data cargo run -p thing-server &
 #   scripts/seed.sh
@@ -164,6 +165,9 @@ request POST "/api/spaces/$space/properties" \
     '{"name":"Related plant","format":"relation","target_type":"plant"}' >/dev/null
 request POST "/api/spaces/$space/properties" \
     '{"name":"Nursery","format":"text"}' >/dev/null
+request POST "/api/spaces/$space/properties" \
+    '{"name":"Price","format":"number",
+      "display":{"currency":"USD","decimals":2}}' >/dev/null
 # Two ways to derive a value from what the row already has: a formula over its
 # own schedule keys, and a rollup over the records its relation links to.
 request POST "/api/spaces/$space/properties" \
@@ -175,7 +179,7 @@ request POST "/api/spaces/$space/properties" \
 request POST "/api/spaces/$space/properties" \
     '{"name":"Related titles","format":"list",
       "compute":{"kind":"rollup","relation":"related_plant","property":"title","aggregate":"list"}}' >/dev/null
-echo "seed: properties room, tags, related_plant, nursery, days_since_watered, related_plants, related_titles"
+echo "seed: properties room, tags, related_plant, nursery, price, days_since_watered, related_plants, related_titles"
 
 # --- what each type shows --------------------------------------------------
 
@@ -185,13 +189,16 @@ request PATCH "/api/spaces/$space/types/plant" '{
         {"key":"tags"},
         {"key":"related_plant"},
         {"key":"nursery"},
+        {"key":"price","featured":true},
         {"key":"days_since_watered","featured":true},
         {"key":"related_plants","featured":true},
         {"key":"related_titles"}
     ]}' >/dev/null
 request PATCH "/api/spaces/$space/types/plant/views/all" '{
-    "columns": ["title","room","days_since_watered","related_plants","related_titles","nursery","due_date","recurrence","last_completed_at","tags","related_plant"],
-    "widths": {"title":280,"due_date":160,"days_since_watered":180,"related_titles":160},
+    "columns": ["title","room","price","days_since_watered","related_plants","related_titles","nursery","due_date","recurrence","last_completed_at","tags","related_plant"],
+    "widths": {"title":280,"due_date":160,"price":120,"days_since_watered":180,"related_titles":160},
+    "footer_hidden": ["nursery"],
+    "footer_summary": {"price":"sum","days_since_watered":"sum","due_date":"earliest"},
     "sorts": [{"property":"updated_at","direction":"desc"}],
     "filter": {"op":"and","conditions":[]}
 }' >/dev/null
@@ -238,22 +245,22 @@ echo "seed: type views set"
 # stays link-free, which is the empty-state case.
 
 fiddle="$(object plant "Fiddle-leaf fig" \
-    "{\"room\":\"study\",\"nursery\":\"Verdant\",\"due_date\":\"$in_two\",\"recurrence\":{\"kind\":\"days\",\"every\":10},\"last_completed_at\":\"$last_eight\",\"tags\":[\"indoors\"]}" \
+    "{\"room\":\"study\",\"nursery\":\"Verdant\",\"price\":24.5,\"due_date\":\"$in_two\",\"recurrence\":{\"kind\":\"days\",\"every\":10},\"last_completed_at\":\"$last_eight\",\"tags\":[\"indoors\"]}" \
     "
 Repotted in spring; leaves wiped every other week.
 " "🌿")"
 monstera="$(object plant "Monstera in the study" \
-    "{\"room\":\"kitchen\",\"nursery\":\"Leaf and Co\",\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":7},\"last_completed_at\":\"$last_eight\",\"tags\":[\"easy\",\"indoors\"],\"related_plant\":\"$fiddle\"}" \
+    "{\"room\":\"kitchen\",\"nursery\":\"Leaf and Co\",\"price\":18,\"due_date\":\"$yesterday\",\"recurrence\":{\"kind\":\"days\",\"every\":7},\"last_completed_at\":\"$last_eight\",\"tags\":[\"easy\",\"indoors\"],\"related_plant\":\"$fiddle\"}" \
     "
 Watered this week, new leaf unfurling at the top. Sits beside the [[plant/Fiddle-leaf fig]].
 " "🪴")"
 object plant "Balcony herbs" \
-    "{\"room\":\"balcony\",\"nursery\":\"Verdant\",\"due_date\":\"$today\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_three\",\"tags\":[\"easy\"]}" \
+    "{\"room\":\"balcony\",\"nursery\":\"Verdant\",\"price\":6.75,\"due_date\":\"$today\",\"recurrence\":{\"kind\":\"days\",\"every\":3},\"last_completed_at\":\"$last_three\",\"tags\":[\"easy\"]}" \
     "
 Basil, mint and thyme in one trough.
 " "🌿" >/dev/null
 object plant "Snake plant" \
-    "{\"room\":\"study\",\"due_date\":\"$in_fourteen\",\"recurrence\":{\"kind\":\"days\",\"every\":14},\"last_completed_at\":\"$now\",\"tags\":[\"easy\"]}" \
+    "{\"room\":\"study\",\"price\":32,\"due_date\":\"$in_fourteen\",\"recurrence\":{\"kind\":\"days\",\"every\":14},\"last_completed_at\":\"$now\",\"tags\":[\"easy\"]}" \
     "
 Nearly impossible to kill; water it when the soil is dry.
 " "🌱" >/dev/null

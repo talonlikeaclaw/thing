@@ -33,7 +33,9 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   panel adds an existing or new property to the type and the current view without leaving the
   table. Select and Multi-select columns sort by their option order. Tab walks the data cells one
   at a time, Shift with an arrow marks a rectangle that copies as a spreadsheet block or a markdown
-  table, and a band under the table totals the rows on screen and says whether more rows exist. On a
+  table, and a band under the table totals the rows on screen and says whether more rows exist. A
+  number column can carry a currency and fixed decimals, numbers sit against their digits' right
+  edge, a column can be pinned left, and the band can be switched off or blanked per column. On a
   phone the row actions
   fold into one menu so property columns stay reachable, and the bottom bar carries the space
   drawer, Capture and Search within thumb reach.
@@ -94,7 +96,7 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 
 - **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
-  Files are written as schema 7; every schema-1…6 file still loads, and a record's icon, cover and
+  Files are written as schema 8; every schema-1…7 file still loads, and a record's icon, cover and
   cover framing are optional frontmatter keys rather than properties. A record's computed blocks —
   a formula's expression, a rollup's relation and aggregate — are stored, but the values they
   produce are not: a backup of the space carries what is stored, and calculated columns are

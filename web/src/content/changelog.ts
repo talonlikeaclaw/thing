@@ -37,40 +37,70 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.9.0",
     title: "Numbers that read",
-    upcoming: true,
+    date: "2026-11-13",
     summary:
-      "A number column can say what its values are, sit where a ledger puts them, and choose whether the band under the rows summarises it.",
+      "A number column can say what its values are, sit where a ledger puts them, and choose whether the band under the rows summarises it. The view sheet follows the hand holding the phone, names the summaries it cannot choose, and edits a column without leaving the table.",
     sections: [
       {
         title: "Say what the number is",
+        intro:
+          "A number column can name its unit and its precision, so a reader never has to remember which column meant what.",
         items: [
           {
             lead: "Money reads as money",
             body: "A number property can carry a currency and a fixed number of decimals, so the cell and its total say $1,204.00 instead of 1204.",
           },
           {
+            lead: "Thousands can group",
+            body: "Grouping is on by default and can be switched off for years, codes and other numbers that read better unbroken.",
+          },
+        ],
+      },
+      {
+        title: "Line up",
+        intro:
+          "Every column now sits where its values are read, and a column can move to the edge that suits it.",
+        items: [
+          {
             lead: "Numbers line up on the right",
-            body: "Every number column now sits against its digits' right edge, and a column can be pinned left when its codes read better that way.",
+            body: "Every number column now sits against its digits' right edge, a visible change to every table you already have.",
           },
           {
-            lead: "The summary band is yours",
-            body: "A table view can switch its summary band off, or blank a single column's cell, without losing the totals it still shows.",
+            lead: "A column can be pinned left",
+            body: "A text column whose codes read better at the left edge can keep that edge instead of following its format.",
+          },
+        ],
+      },
+      {
+        title: "The band, on your terms",
+        intro:
+          "The summary row is a setting of the view, not a fixture under every table.",
+        items: [
+          {
+            lead: "The summary band can be switched off",
+            body: "A table view can drop the band entirely when its last columns are notes rather than measures.",
+          },
+          {
+            lead: "A column's summary cell can be blanked",
+            body: "The band's own list removes one column's cell while its neighbours keep their totals.",
           },
           {
             lead: "Each column prints the measure you choose",
             body: "A number can show its sum, average, lowest or highest, a date its earliest or latest, and a text column its distinct or filled count.",
           },
-        ],
-      },
-      {
-        title: "Set it where you work",
-        items: [
           {
             lead: "No file editing needed",
             body: "A property's display sits under its format, and View settings carries the band's switch beside a checklist of the columns it summarises.",
           },
+        ],
+      },
+      {
+        title: "Set it where you work",
+        intro:
+          "The view's settings are one sheet, opened from the View button at every width.",
+        items: [
           {
             lead: "One View button holds it all",
             body: "Columns, Sort, Settings, Save as view and Data are tabs in one sheet, so no setting is buried behind a kebab.",
@@ -90,6 +120,60 @@ export const CHANGELOG: ChangelogEntry[] = [
           {
             lead: "The CSV field looks like the app",
             body: "Importing is a button and the chosen file's name rather than the browser's own file control, and a clear control resets it so the same file can be chosen twice.",
+          },
+        ],
+      },
+      {
+        title: "Every hand",
+        intro:
+          "The view sheet's rows, actions and tabs follow the hand holding the phone.",
+        items: [
+          {
+            lead: "The view tabs keep their touch",
+            body: "A sheet no longer cancels every touch that is not a vertical scroll, so a finger can pan the tab strip sideways and a tap still selects the tab it lands on — the last tabs are reachable again.",
+          },
+          {
+            lead: "A column keeps its name first",
+            body: "A left hand moves a row's actions to the thumb edge without reversing the column's name and format pill.",
+          },
+          {
+            lead: "The actions meet the thumb",
+            body: "Rename, Make default, Save as view and Import sit on the chosen edge instead of the far side.",
+          },
+          {
+            lead: "The saved view stays visible",
+            body: "Selecting a view scrolls its tab into the strip on a phone, so the active view is never off-screen.",
+          },
+        ],
+      },
+      {
+        title: "Honest controls",
+        intro:
+          "A control that cannot change anything no longer looks like it can.",
+        items: [
+          {
+            lead: "Display and summary say which is which",
+            body: "A number's currency and decimals are property-level and read in every view; the summary measure is the view's. The property editor and the summary band now say so.",
+          },
+          {
+            lead: "Fixed summaries say what they are",
+            body: "The title reads Row count and a relation or recurrence reads Filled count instead of a dash.",
+          },
+          {
+            lead: "A cover is a picture, a photo set or a tint",
+            body: "The cover picker offers only the formats a tile can draw, and the copy says a select property tints the tile.",
+          },
+          {
+            lead: "The View button is not a columns button",
+            body: "The toolbar's view options use a sliders glyph on every kind, and a calendar opens its own details.",
+          },
+          {
+            lead: "A column is edited where it is",
+            body: "A column's Edit property opens the shared property editor over the view instead of sending you to the schema page, so a rename or an option colour lands without losing the table.",
+          },
+          {
+            lead: "A generated column edits its schedule",
+            body: "Next watering, Water every and Last watered have no property to open, so their column menu now reads Edit schedule and lands on the type's scheduling block instead of an empty property editor.",
           },
         ],
       },
