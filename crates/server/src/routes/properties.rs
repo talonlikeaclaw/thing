@@ -18,7 +18,7 @@ use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
     Align, ComputeDef, DisplayDef, ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role,
-    is_reserved_key,
+    ValidationDef, is_reserved_key,
 };
 use thing_core::schedule::is_schedule_key;
 use thing_core::slug::{is_valid_key, key_from_name};
@@ -97,6 +97,9 @@ struct CreatePropertyRequest {
     /// How the values read; omitted means plain.
     #[serde(default)]
     display: Option<DisplayDef>,
+    /// What the values must satisfy; omitted means only the format's rules.
+    #[serde(default)]
+    validation: Option<ValidationDef>,
 }
 
 /// `POST /api/spaces/{space}/properties` [editor]
@@ -129,6 +132,7 @@ async fn create(
         multi,
         compute: body.compute.clone(),
         display: normalize_display(body.display),
+        validation: normalize_validation(body.validation),
     };
 
     let _guard = handle.write.lock().await;
@@ -163,6 +167,9 @@ struct PatchPropertyRequest {
     /// `null` clears the block; leaving it out leaves it alone.
     #[serde(default, deserialize_with = "double_option")]
     display: Option<Option<DisplayDef>>,
+    /// `null` clears the block; leaving it out leaves it alone.
+    #[serde(default, deserialize_with = "double_option")]
+    validation: Option<Option<ValidationDef>>,
 }
 
 /// `PATCH /api/spaces/{space}/properties/{key}` [editor]
@@ -181,6 +188,7 @@ async fn update(
         && body.options.is_none()
         && body.compute.is_none()
         && body.display.is_none()
+        && body.validation.is_none()
     {
         return Err(ApiError::validation("body", "nothing to change"));
     }
@@ -215,6 +223,9 @@ async fn update(
         }
         if let Some(display) = body.display {
             next.display = normalize_display(display);
+        }
+        if let Some(validation) = body.validation {
+            next.validation = normalize_validation(validation);
         }
         if let Some(options) = &body.options {
             let read = read_options(options, Some(&next.options))?;
@@ -545,12 +556,19 @@ fn normalize_display(display: Option<DisplayDef>) -> Option<DisplayDef> {
     }
 }
 
+/// One state, one spelling: a validation block that says nothing is stored as
+/// no block. Every writer (create and patch) goes through this.
+fn normalize_validation(validation: Option<ValidationDef>) -> Option<ValidationDef> {
+    validation.filter(|block| !block.is_empty())
+}
+
 /// Checks a new definition: options belong to `select` and `multi_select` and
 /// name real keys, a relation may name a type, a display carries only fields
 /// its format can honour, and nothing else takes either.
 fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
     let mut definition_errors = compute::validate_definition(def);
     definition_errors.extend(validate::validate_display(def));
+    definition_errors.extend(validate::validate_validation(def));
     if !definition_errors.is_empty() {
         return Err(ApiError::validation_all(definition_errors));
     }
@@ -719,6 +737,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         };
         store.save_property(&status, None).expect("property");
         let doc = ObjectDoc {

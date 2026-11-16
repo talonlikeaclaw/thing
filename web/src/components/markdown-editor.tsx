@@ -25,7 +25,8 @@ import { createPortal } from "react-dom";
 
 import { useCreateObject, useSearch, useTypes, useUploadFile } from "@/api/queries";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
-import { Button, focusRing } from "@/components/ui/controls";
+import { Button } from "@/components/ui/controls";
+import { useToast } from "@/components/ui/toast";
 import { caretContent, caretRect, scrollTopForCaret } from "@/lib/caret";
 import { cn } from "@/lib/cn";
 import { useDebouncedValue } from "@/lib/debounce";
@@ -185,12 +186,8 @@ export function MarkdownEditor({
   const types = useTypes(spaceId);
   /* Pasted or dropped images upload into the space and land in the body. */
   const upload = useUploadFile(spaceId);
+  const toast = useToast();
   const [uploading, setUploading] = useState(false);
-  const [uploadFailure, setUploadFailure] = useState<{
-    files: File[];
-    error: string;
-    at: { start: number; end: number };
-  } | null>(null);
   /** The freshest body, so an upload landing after typing inserts correctly. */
   const latest = useRef(value);
   latest.current = value;
@@ -591,7 +588,6 @@ export function MarkdownEditor({
       return;
     }
     uploadingRef.current = true;
-    setUploadFailure(null);
     setUploading(true);
     const stored: { path: string; name: string }[] = [];
     const retry: File[] = [];
@@ -599,7 +595,7 @@ export function MarkdownEditor({
     try {
       for (const file of files) {
         if (file.size > MAX_UPLOAD_BYTES) {
-          refusal ??= "A file may be at most 10 MiB.";
+          refusal ??= `${file.name}: a file may be at most 10 MiB.`;
           continue;
         }
         try {
@@ -610,7 +606,7 @@ export function MarkdownEditor({
           });
         } catch (error) {
           retry.push(file);
-          refusal ??= readError(error);
+          refusal ??= `${file.name}: ${readError(error)}`;
         }
       }
     } finally {
@@ -626,7 +622,13 @@ export function MarkdownEditor({
       apply(insertImages(body, start, end, stored));
     }
     if (refusal !== null) {
-      setUploadFailure({ files: retry, error: refusal, at });
+      toast.showToast(
+        refusal,
+        "danger",
+        retry.length > 0
+          ? { label: "Retry", onAction: () => void uploadImages(retry, at) }
+          : undefined,
+      );
     }
   }
 
@@ -1025,30 +1027,11 @@ export function MarkdownEditor({
             immersed && "flex min-h-0 flex-1 flex-col",
           )}
         >
-          {uploading || uploadFailure ? (
+          {uploading ? (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px]">
-              {uploading ? (
-                <span role="status" className="text-muted">
-                  Uploading image…
-                </span>
-              ) : null}
-              {uploadFailure ? (
-                <div role="alert" className="flex flex-wrap items-center gap-2 text-danger">
-                  <span>{uploadFailure.error}</span>
-                  {uploadFailure.files.length > 0 ? (
-                    <button
-                      type="button"
-                      className={cn(
-                        "underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11",
-                        focusRing,
-                      )}
-                      onClick={() => void uploadImages(uploadFailure.files, uploadFailure.at)}
-                    >
-                      Retry
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
+              <span role="status" className="text-muted">
+                Uploading image…
+              </span>
             </div>
           ) : null}
           <div
@@ -1106,11 +1089,7 @@ export function MarkdownEditor({
                 const images = chosen.filter((file) => isAcceptedImageType(file.type));
                 if (images.length === 0) {
                   if (chosen.length > 0) {
-                    setUploadFailure({
-                      files: [],
-                      error: "Choose a PNG, JPEG, WebP or GIF image.",
-                      at,
-                    });
+                    toast.showToast("Choose a PNG, JPEG, WebP or GIF image.", "danger");
                   }
                   return;
                 }

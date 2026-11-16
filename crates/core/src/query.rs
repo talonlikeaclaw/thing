@@ -172,6 +172,7 @@ mod tests {
                         multi: false,
                         compute: None,
                         display: None,
+                        validation: None,
                     },
                 )
             })
@@ -260,6 +261,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         }
     }
 

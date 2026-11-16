@@ -14,9 +14,9 @@ use uuid::Uuid;
 
 use crate::error::CoreError;
 use crate::model::{
-    CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_DECIMALS, MAX_VIEW_NAME_LEN,
-    MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort, SummaryKind,
-    TITLE_KEY, TypeDef, UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
+    CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_DECIMALS, MAX_PATTERN_LEN,
+    MAX_VIEW_NAME_LEN, MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort,
+    SummaryKind, TITLE_KEY, TypeDef, UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
 };
 use crate::value;
 
@@ -290,6 +290,110 @@ pub fn validate_display(property: &PropertyDef) -> Vec<CoreError> {
 /// ASCII letters. Whether the code exists is the formatter's question.
 fn is_currency_code(code: &str) -> bool {
     code.len() == 3 && code.bytes().all(|byte| byte.is_ascii_uppercase())
+}
+
+/// Checks a property's `validation` block on its own: which fields a format
+/// may carry, the bounds' variants and order, and the pattern's shape.
+///
+/// The pattern is compiled here, so a property that saves is one whose values
+/// can be checked; a pattern that does not compile is refused with the
+/// compiler's own sentence.
+pub fn validate_validation(property: &PropertyDef) -> Vec<CoreError> {
+    let Some(validation) = &property.validation else {
+        return Vec::new();
+    };
+    if property.is_computed() {
+        return vec![invalid(
+            "validation",
+            "a calculated property cannot be validated",
+        )];
+    }
+    let mut errors = Vec::new();
+    let bounded = matches!(
+        property.format,
+        PropertyFormat::Number | PropertyFormat::Date
+    );
+    for (field, bound) in [("min", &validation.min), ("max", &validation.max)] {
+        let Some(bound) = bound else {
+            continue;
+        };
+        if !bounded {
+            errors.push(invalid(
+                &format!("validation.{field}"),
+                "belongs to number and date properties only",
+            ));
+        } else if !bound_matches(property.format, bound) {
+            errors.push(invalid(
+                &format!("validation.{field}"),
+                match property.format {
+                    PropertyFormat::Date => "expects a YYYY-MM-DD date",
+                    _ => "expects a number",
+                },
+            ));
+        }
+    }
+    if let (Some(min), Some(max)) = (&validation.min, &validation.max)
+        && bounded
+        && bound_matches(property.format, min)
+        && bound_matches(property.format, max)
+        && value::compare(property.format, min, max).is_gt()
+    {
+        errors.push(invalid(
+            "validation.min",
+            "must not be greater than validation.max",
+        ));
+    }
+    if let Some(pattern) = &validation.pattern {
+        if !matches!(
+            property.format,
+            PropertyFormat::Text | PropertyFormat::Url | PropertyFormat::Email
+        ) {
+            errors.push(invalid(
+                "validation.pattern",
+                "belongs to text, url and email properties only",
+            ));
+        } else if pattern.chars().count() > MAX_PATTERN_LEN {
+            errors.push(invalid(
+                "validation.pattern",
+                format!("keep it under {MAX_PATTERN_LEN} characters"),
+            ));
+        } else if let Err(message) = compile_pattern(pattern) {
+            errors.push(invalid("validation.pattern", message));
+        }
+    }
+    if validation.unique && is_multi_value(property) {
+        errors.push(invalid("validation.unique", "needs a single value"));
+    }
+    errors
+}
+
+/// Whether a bound is the variant its format stores: a finite number, or a
+/// parseable `YYYY-MM-DD` date.
+fn bound_matches(format: PropertyFormat, bound: &Value) -> bool {
+    match (format, bound) {
+        (PropertyFormat::Number, Value::Number(number)) => number.is_finite(),
+        (PropertyFormat::Date, Value::Text(text)) => value::parse_date(text).is_some(),
+        _ => false,
+    }
+}
+
+/// Whether the format stores several values at once, so `unique` has no one
+/// thing to compare.
+fn is_multi_value(property: &PropertyDef) -> bool {
+    match property.format {
+        PropertyFormat::MultiSelect
+        | PropertyFormat::Attachments
+        | PropertyFormat::Recurrence
+        | PropertyFormat::List => true,
+        PropertyFormat::Relation => property.multi,
+        _ => false,
+    }
+}
+
+/// Compiles a `validation.pattern` as a full match, so `[A-Z]{2}` means exactly
+/// two letters rather than a substring.
+fn compile_pattern(pattern: &str) -> Result<regex::Regex, String> {
+    regex::Regex::new(&format!("^(?:{pattern})$")).map_err(|error| error.to_string())
 }
 
 /// Every problem with every view of a type: keys, names, the default, the
@@ -591,6 +695,85 @@ pub fn missing_relations(schema: &Schema, doc: &ObjectDoc) -> Vec<Uuid> {
     missing
 }
 
+/// Which cross-record rule a write would break.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConflictKind {
+    /// A `unique` value another live record already holds.
+    Duplicate,
+    /// A `one_to_one` target another live record already links.
+    TargetTaken,
+}
+
+/// One live record that already holds what a write wants to store.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Conflict {
+    pub property: String,
+    pub value: Value,
+    pub kind: ConflictKind,
+    pub holder: Uuid,
+    pub holder_title: String,
+}
+
+impl Conflict {
+    /// The sentence a refused write carries.
+    pub fn message(&self) -> String {
+        match self.kind {
+            ConflictKind::Duplicate => format!(
+                "{} must be unique; {} is already on \"{}\"",
+                self.property,
+                value::plain(&self.value),
+                self.holder_title
+            ),
+            ConflictKind::TargetTaken => format!(
+                "{}: {} is already linked by \"{}\"",
+                self.property,
+                value::plain(&self.value),
+                self.holder_title
+            ),
+        }
+    }
+}
+
+/// Every cross-record rule the document would break.
+///
+/// Structural rules live in [`validate_object`]; this is the state one file
+/// cannot answer. Only live records of the same type count, and the document
+/// itself is excluded, so trash never blocks a write and a save never collides
+/// with its own previous value.
+pub fn conflicts(schema: &Schema, doc: &ObjectDoc) -> Vec<Conflict> {
+    let mut found = Vec::new();
+    for (key, value) in &doc.properties {
+        let Some(property) = schema.property(key) else {
+            continue;
+        };
+        if !property
+            .validation
+            .as_ref()
+            .is_some_and(|validation| validation.unique)
+        {
+            continue;
+        }
+        for other in schema.objects.values() {
+            if other.id == doc.id || other.type_key != doc.type_key {
+                continue;
+            }
+            let Some(held) = other.properties.get(key) else {
+                continue;
+            };
+            if value::equals(property.format, held, value) {
+                found.push(Conflict {
+                    property: key.clone(),
+                    value: value.clone(),
+                    kind: ConflictKind::Duplicate,
+                    holder: other.id,
+                    holder_title: other.title.clone(),
+                });
+            }
+        }
+    }
+    found
+}
+
 fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Result<(), CoreError> {
     let key = property.key.as_str();
     if !variant_matches(property, value) {
@@ -603,7 +786,7 @@ fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Res
             ),
         ));
     }
-    match (property.format, value) {
+    let checked = match (property.format, value) {
         (PropertyFormat::Date, Value::Text(text)) if value::parse_date(text).is_none() => {
             Err(invalid(key, "expected a YYYY-MM-DD date"))
         }
@@ -638,7 +821,55 @@ fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Res
             crate::schedule::validate_recurrence(recurrence)
         }
         _ => Ok(()),
+    };
+    checked?;
+    check_validation(property, value)
+}
+
+/// Applies a property's `validation` block to a value its format already
+/// accepted: the bounds, then the pattern.
+fn check_validation(property: &PropertyDef, value: &Value) -> Result<(), CoreError> {
+    let Some(validation) = &property.validation else {
+        return Ok(());
+    };
+    let key = property.key.as_str();
+    let bounded = matches!(
+        property.format,
+        PropertyFormat::Number | PropertyFormat::Date
+    );
+    if bounded {
+        if let Some(min) = &validation.min
+            && bound_matches(property.format, min)
+            && value::compare(property.format, value, min).is_lt()
+        {
+            return Err(invalid(
+                key,
+                format!("must be at least {}", value::plain(min)),
+            ));
+        }
+        if let Some(max) = &validation.max
+            && bound_matches(property.format, max)
+            && value::compare(property.format, value, max).is_gt()
+        {
+            return Err(invalid(
+                key,
+                format!("must be at most {}", value::plain(max)),
+            ));
+        }
     }
+    let patterned = matches!(
+        property.format,
+        PropertyFormat::Text | PropertyFormat::Url | PropertyFormat::Email
+    );
+    if patterned
+        && let Some(pattern) = &validation.pattern
+        && let Value::Text(text) = value
+        && let Ok(regex) = compile_pattern(pattern)
+        && !regex.is_match(text)
+    {
+        return Err(invalid(key, format!("must match {pattern}")));
+    }
+    Ok(())
 }
 
 fn validate_condition(
@@ -906,7 +1137,8 @@ mod tests {
     use super::*;
     use crate::model::{
         Aggregate, Align, ComputeDef, ComputeKind, Direction, DisplayDef, EmptyPlacement, FilterOp,
-        OptionDef, Recurrence, RecurrenceKind, SummaryKind, TypeProperty, Value, ViewDef, ViewKind,
+        OptionDef, Recurrence, RecurrenceKind, SummaryKind, TypeProperty, ValidationDef, Value,
+        ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -927,6 +1159,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         }
     }
 
@@ -2044,6 +2277,227 @@ mod tests {
             ..DisplayDef::default()
         });
         assert!(validate_display(&align_only).is_empty());
+    }
+
+    /// Validation errors as their display text, in the order they were found.
+    fn validation_messages(property: &PropertyDef) -> Vec<String> {
+        validate_validation(property)
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn a_validation_block_is_the_property_formats_it_belongs_to() {
+        let mut number = property("count", PropertyFormat::Number);
+        number.validation = Some(ValidationDef {
+            min: Some(Value::Number(0.0)),
+            max: Some(Value::Number(500.0)),
+            ..ValidationDef::default()
+        });
+        assert!(validate_validation(&number).is_empty());
+
+        let mut date = property("watered", PropertyFormat::Date);
+        date.validation = Some(ValidationDef {
+            min: Some(text("2026-01-01")),
+            max: Some(text("2026-12-31")),
+            ..ValidationDef::default()
+        });
+        assert!(validate_validation(&date).is_empty());
+
+        let mut text_bound = property("room", PropertyFormat::Text);
+        text_bound.validation = Some(ValidationDef {
+            min: Some(Value::Number(0.0)),
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&text_bound),
+            vec!["invalid validation.min: belongs to number and date properties only"]
+        );
+
+        let mut number_pattern = property("count", PropertyFormat::Number);
+        number_pattern.validation = Some(ValidationDef {
+            pattern: Some("^[0-9]+$".to_owned()),
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&number_pattern),
+            vec!["invalid validation.pattern: belongs to text, url and email properties only"]
+        );
+
+        let mut bad_date = property("watered", PropertyFormat::Date);
+        bad_date.validation = Some(ValidationDef {
+            min: Some(text("2026-13-45")),
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&bad_date),
+            vec!["invalid validation.min: expects a YYYY-MM-DD date"]
+        );
+
+        let mut inverted = property("count", PropertyFormat::Number);
+        inverted.validation = Some(ValidationDef {
+            min: Some(Value::Number(10.0)),
+            max: Some(Value::Number(5.0)),
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&inverted),
+            vec!["invalid validation.min: must not be greater than validation.max"]
+        );
+
+        let mut multi = property("tags", PropertyFormat::MultiSelect);
+        multi.validation = Some(ValidationDef {
+            unique: true,
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&multi),
+            vec!["invalid validation.unique: needs a single value"]
+        );
+
+        let mut computed = property("total", PropertyFormat::Number);
+        computed.compute = Some(ComputeDef {
+            kind: ComputeKind::Formula,
+            expression: Some("1".to_owned()),
+            relation: None,
+            property: None,
+            aggregate: None,
+        });
+        computed.validation = Some(ValidationDef {
+            unique: true,
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&computed),
+            vec!["invalid validation: a calculated property cannot be validated"]
+        );
+
+        let mut long = property("room", PropertyFormat::Text);
+        long.validation = Some(ValidationDef {
+            pattern: Some("a".repeat(MAX_PATTERN_LEN + 1)),
+            ..ValidationDef::default()
+        });
+        assert_eq!(
+            validation_messages(&long),
+            vec![format!(
+                "invalid validation.pattern: keep it under {MAX_PATTERN_LEN} characters"
+            )]
+        );
+
+        let mut broken = property("room", PropertyFormat::Text);
+        broken.validation = Some(ValidationDef {
+            pattern: Some("[A-Z".to_owned()),
+            ..ValidationDef::default()
+        });
+        let refusal = validation_messages(&broken);
+        assert_eq!(refusal.len(), 1, "{refusal:?}");
+        assert!(
+            refusal[0].starts_with("invalid validation.pattern: "),
+            "{refusal:?}"
+        );
+    }
+
+    #[test]
+    fn a_value_is_checked_against_its_bounds_and_pattern() {
+        let mut fixture = Fixture::new();
+        let mut count = property("count", PropertyFormat::Number);
+        count.validation = Some(ValidationDef {
+            min: Some(Value::Number(0.0)),
+            max: Some(Value::Number(500.0)),
+            ..ValidationDef::default()
+        });
+        fixture.properties.insert("count".to_owned(), count);
+        let mut room = property("room", PropertyFormat::Text);
+        room.validation = Some(ValidationDef {
+            pattern: Some("[A-Z]{2}-\\d{4}".to_owned()),
+            ..ValidationDef::default()
+        });
+        fixture.properties.insert("room".to_owned(), room);
+        let schema = fixture.schema();
+
+        for count in [0.0, 500.0] {
+            valid(validate_object(
+                &schema,
+                &with(&[("room", text("AB-1042")), ("count", Value::Number(count))]),
+            ));
+        }
+        valid(validate_object(
+            &schema,
+            &with(&[("room", text("AB-1042"))]),
+        ));
+
+        assert_eq!(
+            problems(validate_object(
+                &schema,
+                &with(&[("room", text("AB-1042")), ("count", Value::Number(-5.0))])
+            )),
+            vec!["invalid count: must be at least 0"]
+        );
+        assert_eq!(
+            problems(validate_object(
+                &schema,
+                &with(&[("room", text("AB-1042")), ("count", Value::Number(501.0))])
+            )),
+            vec!["invalid count: must be at most 500"]
+        );
+        // The pattern is a full match: a matching prefix is not enough.
+        assert_eq!(
+            problems(validate_object(
+                &schema,
+                &with(&[("room", text("AB-1042 extra"))])
+            )),
+            vec!["invalid room: must match [A-Z]{2}-\\d{4}"]
+        );
+    }
+
+    #[test]
+    fn a_unique_value_names_the_record_that_already_holds_it() {
+        let mut fixture = Fixture::new();
+        let mut room = property("room", PropertyFormat::Text);
+        room.validation = Some(ValidationDef {
+            unique: true,
+            ..ValidationDef::default()
+        });
+        fixture.properties.insert("room".to_owned(), room);
+
+        let mut holder = doc(10, "plant", "March invoice");
+        holder.properties.insert("room".to_owned(), text("AB-1042"));
+        fixture.objects.insert(holder.id, holder.clone());
+        let mut other_type = doc(11, "tree", "Oak");
+        other_type
+            .properties
+            .insert("room".to_owned(), text("AB-1042"));
+        fixture.objects.insert(other_type.id, other_type);
+
+        // Text compares case-insensitively, and a different type never collides.
+        let same = with(&[("room", text("ab-1042"))]);
+        let found = conflicts(&fixture.schema(), &same);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].kind, ConflictKind::Duplicate);
+        assert_eq!(found[0].holder, Uuid::from_u128(10));
+        assert_eq!(found[0].holder_title, "March invoice");
+        assert_eq!(
+            found[0].message(),
+            "room must be unique; ab-1042 is already on \"March invoice\""
+        );
+
+        // A record never collides with itself, so a save keeps its value.
+        let mut itself = doc(12, "plant", "Self");
+        itself.properties.insert("room".to_owned(), text("AB-1042"));
+        fixture.objects.insert(itself.id, itself.clone());
+        assert!(
+            conflicts(&fixture.schema(), &itself)
+                .iter()
+                .all(|conflict| conflict.holder != itself.id)
+        );
+
+        // Trash never blocks a write.
+        fixture.objects.remove(&itself.id);
+        fixture.objects.remove(&holder.id);
+        fixture.trash.insert(holder.id, holder);
+        let same = with(&[("room", text("AB-1042"))]);
+        assert!(conflicts(&fixture.schema(), &same).is_empty());
     }
 
     #[test]

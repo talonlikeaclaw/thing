@@ -353,6 +353,52 @@ describe("AddPropertyDialog", () => {
     expect(calls[1]?.method).toBe("PATCH");
   });
 
+  it("carries a unique rule on a text property", async () => {
+    const calls = logCalls();
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? "GET";
+      const body =
+        init?.body === undefined
+          ? null
+          : (JSON.parse(String(init.body)) as Record<string, unknown>);
+      if (method === "GET" && url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      if (method === "POST" && url.endsWith("/api/spaces/s1/properties")) {
+        calls.push({ method, url, body });
+        return jsonResponse(
+          { key: "code", name: "Code", format: "text", validation: body?.validation },
+          201,
+        );
+      }
+      if (method === "PATCH" && url.endsWith("/api/spaces/s1/types/album")) {
+        calls.push({ method, url, body });
+        return jsonResponse(album([{ key: "code", required: false, featured: true }]));
+      }
+      throw new Error(`unstubbed ${method} ${url}`);
+    });
+
+    const onClose = vi.fn();
+    renderWithProviders(
+      <AddPropertyDialog spaceId="s1" type={album()} library={[]} onClose={onClose} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Code" } });
+    // The sheet's relation cardinality defaults to several targets; a text
+    // property still offers uniqueness.
+    fireEvent.click(screen.getByText("Validation", { selector: "summary" }));
+    fireEvent.click(screen.getByLabelText("One record per value"));
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(calls[0]?.body).toEqual({
+      name: "Code",
+      format: "text",
+      validation: { unique: true },
+    });
+  });
+
   it("derives a rollup's result type from its aggregate", async () => {
     const calls = logCalls();
     stubFetch((input, init) => {

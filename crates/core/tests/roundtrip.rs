@@ -13,7 +13,7 @@ use thing_core::markdown::{
 };
 use thing_core::model::ObjectDoc;
 use thing_core::slug::slugify;
-use thing_core::validate::{Schema, validate_display, validate_views};
+use thing_core::validate::{Schema, validate_display, validate_validation, validate_views};
 
 /// Reads `tests/fixtures/<name>` as UTF-8.
 fn fixture(name: &str) -> String {
@@ -170,6 +170,7 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
         properties,
         vec![
             "property_amount.yml".to_owned(),
+            "property_code.yml".to_owned(),
             "property_days_since_watered.yml".to_owned(),
             "property_photos.yml".to_owned(),
             "property_recurrence.yml".to_owned(),
@@ -317,6 +318,8 @@ fn invalid_fixtures_are_refused() {
         vec![
             "missing_frontmatter.md".to_owned(),
             "property_display_currency_on_text.yml".to_owned(),
+            "property_pattern_on_number.yml".to_owned(),
+            "property_pattern_unclosed.yml".to_owned(),
             "schema_9.md".to_owned(),
             "type_footer_on_calendar.yml".to_owned(),
             "unknown_frontmatter_key.md".to_owned(),
@@ -342,6 +345,24 @@ fn invalid_fixtures_are_refused() {
     assert_eq!(
         messages(validate_display(&property)),
         vec!["invalid display.currency: belongs to number properties only".to_owned()]
+    );
+
+    let numbered = parse_property(&read("property_pattern_on_number.yml"))
+        .expect("the property parses; its validation is what is wrong");
+    assert_eq!(
+        messages(validate_validation(&numbered)),
+        vec![
+            "invalid validation.pattern: belongs to text, url and email properties only".to_owned()
+        ]
+    );
+
+    let unclosed = parse_property(&read("property_pattern_unclosed.yml"))
+        .expect("the property parses; its pattern is what is wrong");
+    let refusal = messages(validate_validation(&unclosed));
+    assert_eq!(refusal.len(), 1, "{refusal:?}");
+    assert!(
+        refusal[0].starts_with("invalid validation.pattern: "),
+        "{refusal:?}"
     );
 
     let def = parse_type(&read("type_footer_on_calendar.yml"))

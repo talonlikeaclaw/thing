@@ -987,6 +987,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         }
     }
 
@@ -1534,6 +1535,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         };
         store.save_property(&property, None).expect("save property");
         assert_eq!(

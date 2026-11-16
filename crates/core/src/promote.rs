@@ -317,6 +317,7 @@ pub fn plan(
         multi: false,
         compute: None,
         display: None,
+        validation: None,
     });
     if declared.is_none() {
         blocking.push(format!(
@@ -774,6 +775,7 @@ pub fn links(index: &SpaceIndex, plan: &PromotePlan) -> Result<PromoteLinks, Cor
         multi: plan.relation.multi,
         compute: None,
         display: None,
+        validation: None,
     });
 
     if !type_def
@@ -964,6 +966,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         }
     }
 
@@ -1243,6 +1246,7 @@ mod tests {
                     multi: false,
                     compute: None,
                     display: None,
+                    validation: None,
                 },
             ],
             &[],
@@ -1282,6 +1286,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         };
         let objects = vec![
             object(1, "album", "One", &[("room", "study")]),
@@ -1338,6 +1343,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         };
         let mut doc = object(1, "album", "One", &[]);
         doc.properties.insert(
@@ -1445,6 +1451,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         });
         let index = space.index();
         let plan = super::plan(&index, "album", "artist", &artist_options(), Some("artist"));
@@ -1520,6 +1527,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         });
         space.save_type(&type_def("album", "Album", &["artist"], vec![by_room]));
         let index = space.index();

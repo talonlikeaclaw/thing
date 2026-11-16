@@ -30,6 +30,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Tailscale Serve fronts the dev server over HTTPS so a phone on the
+    // tailnet can reach it; Vite refuses a Host header it does not know.
+    allowedHosts: ["devbox.tail56f1e1.ts.net"],
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8080",

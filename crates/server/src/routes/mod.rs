@@ -2584,6 +2584,149 @@ mod tests {
     }
 
     #[test]
+    fn a_validation_block_refuses_a_bad_definition_and_a_duplicate_value() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("validation@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Studio").await;
+            let types = format!("/api/spaces/{space}/types");
+            let properties = format!("/api/spaces/{space}/properties");
+            let objects = format!("/api/spaces/{space}/objects");
+
+            let created_type = server
+                .call(
+                    "POST",
+                    &types,
+                    Some(json!({ "name": "Invoice" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                created_type.status,
+                StatusCode::CREATED,
+                "{:?}",
+                created_type.body
+            );
+
+            // A pattern that does not compile is refused at save.
+            let broken = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Code",
+                        "format": "text",
+                        "validation": { "pattern": "[A-Z" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(broken.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(broken.field(), "validation.pattern");
+
+            let code = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Code",
+                        "format": "text",
+                        "validation": { "pattern": "[A-Z]{2}-\\d{4}", "unique": true },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(code.status, StatusCode::CREATED, "{:?}", code.body);
+            assert_eq!(
+                code.body["validation"],
+                json!({ "pattern": "[A-Z]{2}-\\d{4}", "unique": true })
+            );
+
+            let member = server
+                .call(
+                    "PATCH",
+                    &format!("{types}/invoice"),
+                    Some(json!({
+                        "properties": [{ "key": "code", "featured": true }],
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(member.status, StatusCode::OK, "{:?}", member.body);
+
+            let first = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "invoice",
+                        "title": "March invoice",
+                        "properties": { "code": "AB-1042" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(first.status, StatusCode::CREATED, "{:?}", first.body);
+
+            // Text compares case-insensitively, and the refusal names the holder.
+            let duplicate = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "invoice",
+                        "title": "April invoice",
+                        "properties": { "code": "AB-1042" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                duplicate.status,
+                StatusCode::CONFLICT,
+                "{:?}",
+                duplicate.body
+            );
+            assert_eq!(
+                duplicate.body["error"]["message"],
+                "code must be unique; AB-1042 is already on \"March invoice\""
+            );
+            assert_eq!(
+                duplicate.body["error"]["details"]["reason"],
+                "duplicate value"
+            );
+            assert_eq!(duplicate.body["error"]["details"]["property"], "code");
+            assert_eq!(duplicate.body["error"]["details"]["value"], "AB-1042");
+            assert_eq!(
+                duplicate.body["error"]["details"]["holder"]["title"],
+                "March invoice"
+            );
+
+            // A value outside the pattern is structural, not a conflict.
+            let shape = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "invoice",
+                        "title": "May invoice",
+                        "properties": { "code": "nope" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(shape.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(shape.body["error"]["details"]["errors"][0]["field"], "code");
+            assert_eq!(
+                shape.body["error"]["details"]["errors"][0]["message"],
+                "must match [A-Z]{2}-\\d{4}"
+            );
+        });
+    }
+
+    #[test]
     fn a_cover_patches_clears_and_reaches_every_projection() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

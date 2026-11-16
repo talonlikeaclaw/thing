@@ -727,6 +727,7 @@ Watered today.
                 multi: format == PropertyFormat::Relation,
                 compute: None,
                 display: None,
+                validation: None,
             };
             let text = serialize_property(&def);
             assert_eq!(parse_property(&text).expect("parses back"), def, "{text}");
@@ -760,6 +761,7 @@ Watered today.
                 multi: false,
                 compute: Some(compute),
                 display: None,
+                validation: None,
             };
             let text = serialize_property(&def);
             assert!(text.contains("\ncompute:\n"), "{text}");
@@ -778,6 +780,7 @@ Watered today.
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         });
         assert_eq!(text, "schema: 8\nkey: room\nname: Room\nformat: text\n");
     }

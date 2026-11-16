@@ -1,0 +1,6 @@
+schema: 8
+key: amount
+name: Amount
+format: number
+validation:
+  pattern: ^[0-9]+$

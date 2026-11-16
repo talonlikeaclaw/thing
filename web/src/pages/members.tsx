@@ -126,11 +126,7 @@ function MemberList({
   const removeMember = useRemoveMember(spaceId);
   const navigate = useNavigate();
   const toast = useToast();
-  const [roleError, setRoleError] = useState<{ user: string; message: string } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
-  const [removeError, setRemoveError] = useState<{ user: string; message: string } | null>(
-    null,
-  );
   // The server refuses to leave a space ownerless; saying so beats an error
   // after the tap.
   const ownerCount = detail.members.filter((member) => member.role === "owner").length;
@@ -139,19 +135,16 @@ function MemberList({
     if (role === member.role || !owner) {
       return;
     }
-    setRoleError(null);
     setMember.mutate(
       { user: member.user, role },
       {
         onSuccess: () => toast.showToast(`${member.name} is now ${role}.`),
-        onError: (error) =>
-          setRoleError({ user: member.user, message: readError(error) }),
+        onError: (error) => toast.showToast(readError(error), "danger"),
       },
     );
   }
 
   function confirmRemoval(member: Member) {
-    setRemoveError(null);
     removeMember.mutate(member.user, {
       onSuccess: () => {
         setRemoving(null);
@@ -160,8 +153,7 @@ function MemberList({
           navigate("/");
         }
       },
-      onError: (error) =>
-        setRemoveError({ user: member.user, message: readError(error) }),
+      onError: (error) => toast.showToast(readError(error), "danger"),
     });
   }
 
@@ -227,10 +219,7 @@ function MemberList({
                       title={
                         lastOwner ? "The last owner cannot be removed or step down" : undefined
                       }
-                      onClick={() => {
-                        setRemoving(member.user);
-                        setRemoveError(null);
-                      }}
+                      onClick={() => setRemoving(member.user)}
                     >
                       Remove
                     </Button>
@@ -243,10 +232,6 @@ function MemberList({
                   The last owner cannot be removed or step down. Make someone else an owner
                   first.
                 </p>
-              ) : null}
-
-              {roleError?.user === member.user ? (
-                <FormError message={roleError.message} />
               ) : null}
 
               {owner && removingThis ? (
@@ -280,10 +265,6 @@ function MemberList({
                   </ThumbRow>
                 </div>
               ) : null}
-
-              {removeError?.user === member.user ? (
-                <FormError message={removeError.message} />
-              ) : null}
             </li>
           );
         })}
@@ -302,9 +283,6 @@ function InvitePanel({ spaceId, timeZone }: { spaceId: string; timeZone: string 
   const revoke = useRevokeInvite(spaceId);
   const toast = useToast();
   const [role, setRole] = useState<Role>("editor");
-  const [revokeError, setRevokeError] = useState<{ code: string; message: string } | null>(
-    null,
-  );
 
   const pending = (invites.data ?? []).filter((invite) => invite.used_at === null);
   const used = (invites.data ?? []).filter((invite) => invite.used_at !== null);
@@ -366,15 +344,12 @@ function InvitePanel({ spaceId, timeZone }: { spaceId: string; timeZone: string 
             timeZone={timeZone}
             empty="No unused invites. Create one above and copy its link."
             onRevoke={(code) => {
-              setRevokeError(null);
               revoke.mutate(code, {
                 onSuccess: () => toast.showToast("Invite revoked."),
-                onError: (error) =>
-                  setRevokeError({ code, message: readError(error) }),
+                onError: (error) => toast.showToast(readError(error), "danger"),
               });
             }}
             revoking={revoke.isPending ? revoke.variables : undefined}
-            revokeError={revokeError}
           />
           {used.length > 0 ? (
             <InviteList
@@ -384,7 +359,6 @@ function InvitePanel({ spaceId, timeZone }: { spaceId: string; timeZone: string 
               empty=""
               onRevoke={undefined}
               revoking={undefined}
-              revokeError={null}
             />
           ) : null}
         </>
@@ -400,7 +374,6 @@ function InviteList({
   empty,
   onRevoke,
   revoking,
-  revokeError,
 }: {
   title: string;
   invites: Invite[];
@@ -408,7 +381,6 @@ function InviteList({
   empty: string;
   onRevoke: ((code: string) => void) | undefined;
   revoking: string | undefined;
-  revokeError: { code: string; message: string } | null;
 }) {
   return (
     <div className="mt-6">
@@ -424,7 +396,6 @@ function InviteList({
               timeZone={timeZone}
               onRevoke={onRevoke}
               revoking={revoking === invite.code}
-              error={revokeError?.code === invite.code ? revokeError.message : null}
             />
           ))}
         </ul>
@@ -438,13 +409,11 @@ function InviteRow({
   timeZone,
   onRevoke,
   revoking,
-  error,
 }: {
   invite: Invite;
   timeZone: string;
   onRevoke: ((code: string) => void) | undefined;
   revoking: boolean;
-  error: string | null;
 }) {
   const toast = useToast();
   const url = inviteUrl(invite.code);
@@ -500,7 +469,6 @@ function InviteRow({
         onFocus={(event) => event.currentTarget.select()}
         className="w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-3 py-2 font-mono text-[11px] text-muted"
       />
-      {error ? <FormError message={error} /> : null}
     </li>
   );
 }

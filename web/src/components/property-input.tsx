@@ -103,26 +103,29 @@ function TextInput({ property, value, onCommit, onCancel }: PropertyInputProps) 
   const [invalid, setInvalid] = useState(false);
   const settled = useRef(false);
 
+  /** The value this text stands for, or `undefined` when it cannot be read. */
+  function parse(raw: string): unknown {
+    if (format === "date") {
+      return raw.trim() === "" ? null : parseCalendarDate(raw.trim());
+    }
+    if (format === "datetime") {
+      return fromDatetimeLocal(raw);
+    }
+    if (format === "number") {
+      const trimmed = raw.trim();
+      if (trimmed === "") {
+        return null;
+      }
+      return Number.isFinite(Number(trimmed)) ? Number(trimmed) : undefined;
+    }
+    return raw.trim() === "" ? null : raw;
+  }
+
   function commit() {
     if (settled.current) {
       return;
     }
-    const raw =
-      format === "date"
-        ? text.trim() === ""
-          ? null
-          : parseCalendarDate(text.trim())
-        : format === "datetime"
-          ? fromDatetimeLocal(text)
-          : format === "number"
-            ? text.trim() === ""
-              ? null
-              : Number.isFinite(Number(text.trim()))
-                ? Number(text.trim())
-                : undefined
-            : text.trim() === ""
-              ? null
-              : text;
+    const raw = parse(text);
     if (raw === undefined) {
       setInvalid(true);
       return;

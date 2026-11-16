@@ -21,6 +21,7 @@ use crate::error::CoreError;
 use crate::model::{ObjectDoc, PropertyDef, PropertyFormat, Recurrence, TITLE_KEY, TypeDef, Value};
 use crate::schedule::{self, SCHEDULE_KEYS};
 use crate::validate::{self, Schema};
+use crate::value;
 
 /// The body column's header. It cannot collide with a property key, which has
 /// to start with a lowercase letter.
@@ -158,6 +159,9 @@ pub fn parse(schema: &Schema, def: &TypeDef, text: &str) -> CsvParse {
     let mut rows = 0;
     let mut records = Vec::new();
     let mut problems = Vec::new();
+    // The unique values the file itself already carries, so two rows cannot
+    // share one even though neither is on disk yet.
+    let mut seen: Vec<(String, usize, Value)> = Vec::new();
     for (offset, result) in reader.records().enumerate() {
         let row = offset + 1;
         rows = row;
@@ -232,12 +236,36 @@ pub fn parse(schema: &Schema, def: &TypeDef, text: &str) -> CsvParse {
             body: body.clone(),
         };
         match validate::validate_object(schema, &doc) {
-            Ok(()) => records.push(CsvRecord {
-                row,
-                title,
-                properties,
-                body,
-            }),
+            Ok(()) => {
+                let unique = unique_values(schema, &properties);
+                let mut row_conflicts = stored_conflicts(schema, &doc, row);
+                for (key, value, format) in &unique {
+                    let earlier = seen.iter().find(|(seen_key, _, seen_value)| {
+                        seen_key == key && value::equals(*format, seen_value, value)
+                    });
+                    if let Some((_, earlier_row, _)) = earlier {
+                        row_conflicts.push(CsvProblem {
+                            row,
+                            field: key.clone(),
+                            message: format!(
+                                "{key} {} is already on row {earlier_row}",
+                                value::plain(value)
+                            ),
+                        });
+                    }
+                }
+                if row_conflicts.is_empty() {
+                    seen.extend(unique.into_iter().map(|(key, value, _)| (key, row, value)));
+                    records.push(CsvRecord {
+                        row,
+                        title,
+                        properties,
+                        body,
+                    });
+                } else {
+                    problems.extend(row_conflicts);
+                }
+            }
             Err(errors) => problems.extend(errors.into_iter().map(|error| rebase(error, row))),
         }
     }
@@ -377,6 +405,42 @@ fn parse_cell(property: &PropertyDef, raw: &str) -> Result<Value, String> {
     })
 }
 
+/// The values this row holds on a `unique` property, with the format their
+/// comparison uses.
+fn unique_values(
+    schema: &Schema,
+    properties: &BTreeMap<String, Value>,
+) -> Vec<(String, Value, PropertyFormat)> {
+    properties
+        .iter()
+        .filter_map(|(key, value)| {
+            let property = schema.property(key)?;
+            let unique = property
+                .validation
+                .as_ref()
+                .is_some_and(|validation| validation.unique);
+            unique.then(|| (key.clone(), value.clone(), property.format))
+        })
+        .collect()
+}
+
+/// The unique values this row would duplicate on a record already on disk.
+fn stored_conflicts(schema: &Schema, doc: &ObjectDoc, row: usize) -> Vec<CsvProblem> {
+    validate::conflicts(schema, doc)
+        .into_iter()
+        .map(|conflict| CsvProblem {
+            row,
+            field: conflict.property.clone(),
+            message: format!(
+                "{} {} is already on \"{}\"",
+                conflict.property,
+                value::plain(&conflict.value),
+                conflict.holder_title
+            ),
+        })
+        .collect()
+}
+
 /// Rebases a validation error onto the row that produced it.
 fn rebase(error: CoreError, row: usize) -> CsvProblem {
     match error {
@@ -466,6 +530,7 @@ mod tests {
             multi,
             compute: None,
             display: None,
+            validation: None,
         }
     }
 
@@ -1238,5 +1303,60 @@ mod tests {
         assert_eq!(parsed.problems[0].row, 1);
         assert_eq!(parsed.problems[0].field, "room");
         assert!(parsed.problems[0].message.contains("required"));
+    }
+
+    #[test]
+    fn a_unique_value_is_refused_twice_in_one_file_and_against_a_stored_record() {
+        let mut world = world();
+        let mut code = property("code", PropertyFormat::Text, &[], false);
+        code.validation = Some(crate::model::ValidationDef {
+            unique: true,
+            ..crate::model::ValidationDef::default()
+        });
+        world.properties.insert("code".to_owned(), code);
+        world
+            .types
+            .get_mut("plant")
+            .expect("the plant type")
+            .properties
+            .push(member("code", false));
+
+        let mut stored = doc(Uuid::from_u128(103), "plant", "March invoice");
+        stored
+            .properties
+            .insert("code".to_owned(), Value::Text("AB-1042".to_owned()));
+        world.objects.insert(stored.id, stored);
+
+        let parsed = parse_for(
+            &world,
+            "plant",
+            "title,room,code\nFern,Kitchen,AB-1042\nMoss,Hall,AB-1042\nIvy,Study,CD-7\n",
+        );
+        assert_eq!(
+            messages(&parsed),
+            vec![
+                "1:code:code AB-1042 is already on \"March invoice\"".to_owned(),
+                "2:code:code AB-1042 is already on \"March invoice\"".to_owned(),
+            ]
+        );
+        assert_eq!(parsed.records.len(), 1);
+        assert_eq!(parsed.records[0].title, "Ivy");
+
+        // Two rows in one file cannot share a value even with nothing on disk.
+        let world = {
+            let mut fresh = world;
+            fresh.objects.clear();
+            fresh
+        };
+        let parsed = parse_for(
+            &world,
+            "plant",
+            "title,room,code\nFern,Kitchen,AB-1042\nMoss,Hall,AB-1042\n",
+        );
+        assert_eq!(
+            messages(&parsed),
+            vec!["2:code:code AB-1042 is already on row 1".to_owned()]
+        );
+        assert_eq!(parsed.records.len(), 1);
     }
 }

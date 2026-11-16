@@ -1,0 +1,7 @@
+schema: 8
+key: code
+name: Code
+format: text
+validation:
+  pattern: ^[A-Z]{2}-\d{4}$
+  unique: true

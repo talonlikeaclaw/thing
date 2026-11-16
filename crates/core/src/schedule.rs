@@ -54,6 +54,7 @@ pub fn schedule_property_defs() -> BTreeMap<String, PropertyDef> {
         multi: false,
         compute: None,
         display: None,
+        validation: None,
     };
     BTreeMap::from([
         (

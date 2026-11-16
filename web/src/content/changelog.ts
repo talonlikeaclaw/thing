@@ -37,6 +37,46 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "A model with rules",
+    upcoming: true,
+    summary:
+      "A property can now say what a value must be, so a column refuses what does not belong in it instead of storing it quietly.",
+    sections: [
+      {
+        title: "Values that hold",
+        intro:
+          "A column states its rules once, and every surface that writes a value holds to them.",
+        items: [
+          {
+            lead: "A column can refuse a value",
+            body: "A number or date property can carry a lowest and highest value, a text, URL or email property can require a pattern, and a single-value column can hold each value only once.",
+          },
+          {
+            lead: "A refusal names the rule",
+            body: "A value outside the rules is refused in the cell and on the record with the sentence that says what was expected.",
+          },
+          {
+            lead: "A refused cell stays editable",
+            body: "A cell that refuses a value keeps the editor open, so a correction commits in place instead of a reload.",
+          },
+          {
+            lead: "A refusal never moves the layout",
+            body: "A refused write shows its sentence in a toast, so a table row, a record or a panel keeps its shape while the control waits for the correction.",
+          },
+          {
+            lead: "A duplicate names its holder",
+            body: "Writing a value another record already holds is refused, and the message names the record that has it.",
+          },
+          {
+            lead: "An import checks the same rules",
+            body: "A CSV file is refused row by row when a value breaks a rule or repeats one already in the file.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.9.0",
     title: "Numbers that read",
     date: "2026-11-13",

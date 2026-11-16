@@ -286,6 +286,7 @@ async fn create(
         if let Err(errors) = validate::validate_object(&index.schema(), &doc) {
             return Err(ApiError::validation_all(errors));
         }
+        check_conflicts(index, &doc)?;
         Ok(handle.store.new_object_path(&doc.type_key, &doc.title)?)
     })?;
 
@@ -369,7 +370,7 @@ async fn duplicate(
         if let Err(errors) = validate::validate_object(&index.schema(), &next) {
             return Err(ApiError::validation_all(errors));
         }
-        Ok(())
+        check_conflicts(index, &next)
     })?;
 
     handle.store.save_object(&path, &next, None)?;
@@ -612,6 +613,38 @@ struct SnoozeRequest {
     days: i64,
 }
 
+/// Refuses a write that breaks a cross-record rule: a `unique` value another
+/// record holds, or a `one_to_one` target another record already links.
+fn check_conflicts(index: &SpaceIndex, doc: &ObjectDoc) -> Result<(), ApiError> {
+    let Some(conflict) = validate::conflicts(&index.schema(), doc).into_iter().next() else {
+        return Ok(());
+    };
+    let details = match conflict.kind {
+        validate::ConflictKind::Duplicate => json!({
+            "reason": "duplicate value",
+            "property": &conflict.property,
+            "value": core_value::to_json(&conflict.value),
+            "holder": { "id": conflict.holder, "title": &conflict.holder_title },
+        }),
+        validate::ConflictKind::TargetTaken => {
+            let target = match &conflict.value {
+                CoreValue::Text(text) => Uuid::parse_str(text).ok(),
+                _ => None,
+            };
+            json!({
+                "reason": "target already linked",
+                "property": &conflict.property,
+                "target": {
+                    "id": target,
+                    "title": target.and_then(|id| index.object(id)).map(|doc| doc.title.clone()),
+                },
+                "holder": { "id": conflict.holder, "title": &conflict.holder_title },
+            })
+        }
+    };
+    Err(ApiError::conflict(conflict.message(), details))
+}
+
 /// One write path for every object mutation: lock, load, check the revision,
 /// apply the closure, increment, validate, save under the fingerprint guard,
 /// record the revision, reload the index and broadcast.
@@ -662,7 +695,7 @@ async fn commit(
         if let Err(errors) = validate::validate_object(&index.schema(), &next) {
             return Err(ApiError::validation_all(errors));
         }
-        Ok(())
+        check_conflicts(index, &next)
     })?;
 
     if target == path {

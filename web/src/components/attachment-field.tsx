@@ -6,6 +6,7 @@ import { AttachmentMenu } from "@/components/attachment-menu";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import {
@@ -80,10 +81,11 @@ export function AttachmentField({
   const handedness = useThumbHandedness();
   const upload = useUploadFile(spaceId);
   const input = useRef<HTMLInputElement | null>(null);
+  const toast = useToast();
   const [draft, setDraft] = useState<string[]>(() => storedPaths(value));
   const [uploading, setUploading] = useState(false);
+  /** Per-file refusals are a report, so they stay beside the set, not in a toast. */
   const [failed, setFailed] = useState<FailedFile[]>([]);
-  const [pasteError, setPasteError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<number | null>(null);
   /** The path whose removal is waiting for confirmation. */
@@ -155,7 +157,6 @@ export function AttachmentField({
     if (busy) {
       return;
     }
-    setPasteError(null);
     try {
       const items = await navigator.clipboard.read();
       const pasted: File[] = [];
@@ -169,7 +170,10 @@ export function AttachmentField({
       }
       await uploadBatch(pasted);
     } catch {
-      setPasteError("The clipboard could not be read; use Choose files instead.");
+      toast.showToast(
+        "The clipboard could not be read; use Choose files instead.",
+        "danger",
+      );
     }
   }
 
@@ -398,11 +402,6 @@ export function AttachmentField({
         <span role="status" className="text-[11px] text-muted">
           Uploading…
         </span>
-      ) : null}
-      {pasteError ? (
-        <p role="alert" className="text-[12px] text-danger">
-          {pasteError}
-        </p>
       ) : null}
       {failed.length > 0 ? (
         <ul className="grid gap-1">

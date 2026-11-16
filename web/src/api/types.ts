@@ -108,12 +108,29 @@ export interface PropertyDisplay {
   grouping?: boolean;
 }
 
+/**
+ * What a property's values must satisfy beyond their format. Every field is
+ * optional, and the block itself is absent on a property with no rules.
+ */
+export interface PropertyValidation {
+  /** `number` and `date`: the lowest legal value, in the format's variant. */
+  min?: number | string;
+  /** `number` and `date`: the highest legal value, in the format's variant. */
+  max?: number | string;
+  /** `text`, `url` and `email`: a regular expression matched in full. */
+  pattern?: string;
+  /** One stored value per type: a second record holding it is refused. */
+  unique?: boolean;
+}
+
 export interface PropertyDef {
   key: string;
   name: string;
   format: PropertyFormat;
   /** How the values read; absent means plain. */
   display?: PropertyDisplay;
+  /** What the values must satisfy; absent means only the format's rules. */
+  validation?: PropertyValidation;
   /** Present only for `select` and `multi_select`; omitted when empty. */
   options?: OptionDef[];
   /** Present only for `relation`; omitted when any type is allowed. */

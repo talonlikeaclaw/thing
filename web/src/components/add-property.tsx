@@ -27,6 +27,12 @@ import {
   emptyDisplayDraft,
   type DisplayDraft,
 } from "@/components/schema/display-fields";
+import {
+  ValidationFields,
+  emptyValidationDraft,
+  validationPayload,
+  type ValidationDraft,
+} from "@/components/schema/validation-fields";
 import { PropertyPicker } from "@/components/property-picker";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
@@ -122,6 +128,7 @@ export function AddPropertyDialog({
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<ComputedDraft>(emptyComputedDraft);
   const [display, setDisplay] = useState<DisplayDraft>(emptyDisplayDraft);
+  const [validation, setValidation] = useState<ValidationDraft>(emptyValidationDraft);
   const [targetType, setTargetType] = useState(NEW_TARGET);
   const [targetName, setTargetName] = useState("");
   const [targetPlural, setTargetPlural] = useState("");
@@ -261,10 +268,19 @@ export function AddPropertyDialog({
         setRunning("property");
         try {
           const displayValue = displayPayload(display, format);
+          const validationValue =
+            draft.kind === "stored"
+              ? validationPayload(
+                  validation,
+                  format,
+                  format === "relation" ? multi : false,
+                )
+              : null;
           const property = await createProperty.mutateAsync({
             name: label,
             ...computedPayload(draft),
             ...(displayValue ? { display: displayValue } : {}),
+            ...(validationValue ? { validation: validationValue } : {}),
             ...(relation && targetKey !== null
               ? { target_type: targetKey, multi }
               : {}),
@@ -533,6 +549,17 @@ export function AddPropertyDialog({
                     disabled={propertyFrozen}
                     idPrefix="add-property"
                   />
+
+                  {draft.kind === "stored" ? (
+                    <ValidationFields
+                      draft={validation}
+                      onChange={setValidation}
+                      format={format}
+                      multi={format === "relation" ? multi : false}
+                      disabled={propertyFrozen}
+                      idPrefix="add-property"
+                    />
+                  ) : null}
 
                   {relation ? (
                     <div className="grid gap-3">

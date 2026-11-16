@@ -132,9 +132,7 @@ export function BulkBar({
       return null;
     }
     const first = result.failed[0]?.message ?? "the server refused the write";
-    const message = `${result.failed.length} failed — ${first}`;
-    setError(message);
-    return message;
+    return `${result.failed.length} failed — ${first}`;
   }
 
   function apply(value: unknown) {
@@ -167,7 +165,7 @@ export function BulkBar({
             );
           }
         },
-        onError: (failure) => setError(readError(failure)),
+        onError: (failure) => toast.showToast(readError(failure), "danger"),
       },
     );
   }
@@ -210,7 +208,7 @@ export function BulkBar({
             { label: "Undo", onAction: () => onUndoDuplicate(created) },
           );
         },
-        onError: (failure) => setError(readError(failure)),
+        onError: (failure) => toast.showToast(readError(failure), "danger"),
       },
     );
   }
@@ -237,7 +235,7 @@ export function BulkBar({
             { label: "Undo", onAction: () => onUndoTrash(moved) },
           );
         },
-        onError: (failure) => setError(readError(failure)),
+        onError: (failure) => toast.showToast(readError(failure), "danger"),
       },
     );
   }

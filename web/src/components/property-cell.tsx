@@ -14,6 +14,7 @@ import {
   SheetTitle,
   SheetViewport,
 } from "@/components/ui/sheet";
+import { useToast } from "@/components/ui/toast";
 import { useCompactWidth } from "@/lib/media";
 import { formatDateTime, formatDay } from "@/lib/display";
 import { isBlank, isChecked, optionName } from "@/lib/format";
@@ -60,9 +61,9 @@ export function PropertyCell({
 }: PropertyCellProps) {
   const [editing, setEditing] = useState(false);
   const [writing, setWriting] = useState(false);
-  const [failure, setFailure] = useState<WriteResult | null>(null);
   const [attempt, setAttempt] = useState<CellCommit | null>(null);
   const [edition, setEdition] = useState(0);
+  const toast = useToast();
   const compact = useCompactWidth();
   const handedness = useThumbHandedness();
   const button = useRef<HTMLButtonElement | null>(null);
@@ -86,7 +87,6 @@ export function PropertyCell({
     returnFocus.current = true;
     setEditing(false);
     setAttempt(null);
-    setFailure(null);
   }
 
   /** Base UI's own close-time focus target: the cell the editor belongs to. */
@@ -97,14 +97,16 @@ export function PropertyCell({
   async function write(next: CellCommit) {
     setAttempt(next);
     setWriting(true);
-    setFailure(null);
     const outcome = await onCommit(next);
     setWriting(false);
     if (outcome.ok) {
       finish();
-    } else {
-      setFailure(outcome);
+      return;
     }
+    // The sentence is transient, so the row never grows; the editor stays open
+    // on the refused value and remounts so it accepts the correction.
+    toast.showToast(outcome.message ?? "The write was refused.", "danger");
+    setEdition((current) => current + 1);
   }
 
   /**
@@ -148,34 +150,11 @@ export function PropertyCell({
   }
 
   if (editing && canEdit) {
-    const status = (
-      <>
-        {writing ? (
-          <span role="status" className="text-[11px] text-muted">
-            Saving…
-          </span>
-        ) : null}
-        {failure && !failure.ok ? (
-          <div role="alert" className="flex flex-wrap items-center gap-2 text-[11px] text-danger">
-            <span>{failure.message ?? "The write was refused."}</span>
-            <button
-              type="button"
-              className="underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11"
-              onClick={() => {
-                if (attempt) {
-                  void write(attempt);
-                } else {
-                  setFailure(null);
-                  setEdition((current) => current + 1);
-                }
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        ) : null}
-      </>
-    );
+    const status = writing ? (
+      <span role="status" className="text-[11px] text-muted">
+        Saving…
+      </span>
+    ) : null;
     const editor = (
       <PropertyInput
         key={edition}
@@ -349,9 +328,9 @@ export function TitleCell({
 }) {
   const [editing, setEditing] = useState(false);
   const [writing, setWriting] = useState(false);
-  const [failure, setFailure] = useState<WriteResult | null>(null);
   const [attempt, setAttempt] = useState(title);
   const [edition, setEdition] = useState(0);
+  const toast = useToast();
   const button = useRef<HTMLButtonElement | null>(null);
   const returnFocus = useRef(false);
 
@@ -365,20 +344,20 @@ export function TitleCell({
   function finish() {
     returnFocus.current = true;
     setEditing(false);
-    setFailure(null);
   }
 
   async function write(next: string) {
     setAttempt(next);
     setWriting(true);
-    setFailure(null);
     const outcome = await onCommit(next);
     setWriting(false);
     if (outcome.ok) {
       finish();
-    } else {
-      setFailure(outcome);
+      return;
     }
+    // A refused title toasts; the field stays open and able to commit again.
+    toast.showToast(outcome.message ?? "The write was refused.", "danger");
+    setEdition((current) => current + 1);
   }
 
   if (editing && canEdit) {
@@ -394,25 +373,6 @@ export function TitleCell({
           <span role="status" className="text-[11px] text-muted">
             Saving…
           </span>
-        ) : null}
-        {failure && !failure.ok ? (
-          <div role="alert" className="flex flex-wrap items-center gap-2 text-[11px] text-danger">
-            <span>{failure.message ?? "The write was refused."}</span>
-            <button
-              type="button"
-              className="underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11"
-              onClick={() => {
-                if (attempt) {
-                  void write(attempt);
-                } else {
-                  setFailure(null);
-                  setEdition((current) => current + 1);
-                }
-              }}
-            >
-              Retry
-            </button>
-          </div>
         ) : null}
       </div>
     );

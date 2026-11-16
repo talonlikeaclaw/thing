@@ -111,6 +111,105 @@ describe("PropertyEditorForm", () => {
   });
 });
 
+describe("PropertyEditorForm validation", () => {
+  it("saves a bound with the rest of the property untouched", async () => {
+    const amount: PropertyDef = { key: "amount", name: "Amount", format: "number" };
+    let body: Record<string, unknown> | null = null;
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      if ((init?.method ?? "GET") === "PATCH") {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return jsonResponse({ ...amount, validation: body?.validation });
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={amount}
+        types={[]}
+        library={[amount]}
+        canEdit
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Minimum"), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toEqual({ name: "Amount", validation: { min: 0 } });
+  });
+
+  it("leaves an untouched block out of an unrelated rename", async () => {
+    const amount: PropertyDef = {
+      key: "amount",
+      name: "Amount",
+      format: "number",
+      validation: { min: 0 },
+    };
+    let body: Record<string, unknown> | null = null;
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      if ((init?.method ?? "GET") === "PATCH") {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return jsonResponse({ ...amount, name: "Cost" });
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={amount}
+        types={[]}
+        library={[amount]}
+        canEdit
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Cost" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toEqual({ name: "Cost" });
+  });
+
+  it("clears a block with null when its last rule is removed", async () => {
+    const code: PropertyDef = {
+      key: "code",
+      name: "Code",
+      format: "text",
+      validation: { pattern: "[A-Z]{2}" },
+    };
+    let body: Record<string, unknown> | null = null;
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      if ((init?.method ?? "GET") === "PATCH") {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return jsonResponse({ ...code, validation: body?.validation });
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={code}
+        types={[]}
+        library={[code]}
+        canEdit
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Pattern"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body).not.toBeNull());
+    expect(body).toEqual({ name: "Code", validation: null });
+  });
+});
+
 describe("PropertyEditorForm display", () => {
   it("saves a currency with the rest of the property untouched", async () => {
     const amount: PropertyDef = { key: "amount", name: "Amount", format: "number" };

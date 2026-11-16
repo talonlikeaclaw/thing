@@ -12,6 +12,12 @@ import {
   type ComputedDraft,
 } from "@/components/schema/computed-fields";
 import { OptionEditor } from "@/components/schema/option-editor";
+import {
+  ValidationFields,
+  emptyValidationDraft,
+  validationPayload,
+  type ValidationDraft,
+} from "@/components/schema/validation-fields";
 import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
 import { EmptyState, FormatChip, SectionRule } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
@@ -194,10 +200,19 @@ export function PropertyCreateForm({
   const [targetType, setTargetType] = useState("");
   const [multi, setMulti] = useState(false);
   const [options, setOptions] = useState<OptionDraft[]>([]);
+  const [validation, setValidation] = useState<ValidationDraft>(emptyValidationDraft);
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const computed = computedPayload(draft);
+    const validationValue =
+      draft.kind === "stored"
+        ? validationPayload(
+            validation,
+            draft.format,
+            draft.format === "relation" ? multi : false,
+          )
+        : null;
     create.mutate(
       {
         name: name.trim(),
@@ -206,6 +221,7 @@ export function PropertyCreateForm({
         ...(computed.format === "relation" && draft.kind === "stored"
           ? { multi, ...(targetType ? { target_type: targetType } : {}) }
           : {}),
+        ...(validationValue ? { validation: validationValue } : {}),
       },
       {
         onSuccess: (created) => onCreated(created.key),
@@ -238,6 +254,16 @@ export function PropertyCreateForm({
           idPrefix="new-property"
           problem={readApiProblems(create.error)[0] ?? null}
         />
+        {draft.kind === "stored" ? (
+          <ValidationFields
+            draft={validation}
+            onChange={setValidation}
+            format={draft.format}
+            multi={draft.format === "relation" ? multi : false}
+            disabled={!canEdit}
+            idPrefix="new-property"
+          />
+        ) : null}
         {draft.kind === "stored" && draft.format === "relation" ? (
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <SelectField

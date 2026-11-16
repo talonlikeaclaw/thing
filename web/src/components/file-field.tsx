@@ -6,6 +6,7 @@ import { AttachmentMenu } from "@/components/attachment-menu";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { Button, focusRing } from "@/components/ui/controls";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import {
@@ -49,9 +50,8 @@ export function FileField({
   coverPath,
 }: FileFieldProps) {
   const upload = useUploadFile(spaceId);
+  const toast = useToast();
   const input = useRef<HTMLInputElement | null>(null);
-  const [attempt, setAttempt] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -67,14 +67,14 @@ export function FileField({
     if (busy) {
       return;
     }
-    setAttempt(file);
-    setError(null);
     upload.mutate(file, {
-      onSuccess: (stored) => {
-        setAttempt(null);
-        onChange(stored.path);
+      onSuccess: (stored) => onChange(stored.path),
+      onError: (failure) => {
+        toast.showToast(readError(failure), "danger", {
+          label: "Retry",
+          onAction: () => send(file),
+        });
       },
-      onError: (failure) => setError(readError(failure)),
     });
   }
 
@@ -84,13 +84,11 @@ export function FileField({
       return;
     }
     if (file.size > MAX_UPLOAD_BYTES) {
-      setAttempt(null);
-      setError("A file may be at most 10 MiB.");
+      toast.showToast("A file may be at most 10 MiB.", "danger");
       return;
     }
     if (image && file.type !== "" && !isAcceptedImageType(file.type)) {
-      setAttempt(null);
-      setError("Choose a PNG, JPEG, WebP or GIF image.");
+      toast.showToast("Choose a PNG, JPEG, WebP or GIF image.", "danger");
       return;
     }
     send(file);
@@ -270,8 +268,6 @@ export function FileField({
               disabled={busy}
               onClick={() => {
                 setConfirming(false);
-                setAttempt(null);
-                setError(null);
                 onChange(null);
               }}
             >
@@ -294,26 +290,6 @@ export function FileField({
         <span role="status" className="text-[11px] text-muted">
           Uploading…
         </span>
-      ) : null}
-      {error ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-2 text-[12px] text-danger"
-        >
-          <span>{error}</span>
-          {attempt ? (
-            <button
-              type="button"
-              className={cn(
-                "underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11",
-                focusRing,
-              )}
-              onClick={() => send(attempt)}
-            >
-              Retry
-            </button>
-          ) : null}
-        </div>
       ) : null}
       {onCancel ? (
         <button

@@ -1,10 +1,11 @@
 import { Check } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useDeleteView, useSetDefaultView, useUpdateView } from "@/api/queries";
 import type { PropertyDef, SummaryKind, TypeDef, ViewDef } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
-import { Button, FormError, SelectField, TextField } from "@/components/ui/controls";
+import { Button, SelectField, TextField } from "@/components/ui/controls";
+import { useToast } from "@/components/ui/toast";
 import { summaryChoices, summaryFixedLabel } from "@/lib/aggregate";
 import { readError } from "@/lib/display";
 import { TITLE_COLUMN_KEY } from "@/lib/grid";
@@ -67,8 +68,18 @@ export function ViewSettings({
   const update = useUpdateView(spaceId, type.key, view.key);
   const remove = useDeleteView(spaceId, type.key);
   const makeDefault = useSetDefaultView(spaceId, type.key);
+  const toast = useToast();
   const [name, setName] = useState(view.name);
   const [confirming, setConfirming] = useState(false);
+  // A refused view write toasts once; the panel keeps its controls in place.
+  const failure = update.error ?? makeDefault.error ?? remove.error;
+  const reported = useRef<unknown>(null);
+  useEffect(() => {
+    if (failure && failure !== reported.current) {
+      reported.current = failure;
+      toast.showToast(readError(failure), "danger");
+    }
+  }, [failure, toast]);
 
   const isDefault = view.key === type.default_view;
   const canDelete = type.views.length > 1;
@@ -435,17 +446,6 @@ export function ViewSettings({
         </div>
       </Block>
 
-      <FormError
-        message={
-          update.error
-            ? readError(update.error)
-            : makeDefault.error
-              ? readError(makeDefault.error)
-              : remove.error
-                ? readError(remove.error)
-                : null
-        }
-      />
     </section>
   );
 }

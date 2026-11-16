@@ -270,10 +270,10 @@ impl SpaceIndex {
     }
 
     /// Definition problems for every declared property — a compute block that
-    /// will not evaluate, a display block that cannot be honoured — then
-    /// membership problems for every computed member of every type. A bad
-    /// definition is reported here and evaluates to an empty cell; it never
-    /// stops the space from opening.
+    /// will not evaluate, a display block that cannot be honoured, a validation
+    /// block that cannot be applied — then membership problems for every
+    /// computed member of every type. A bad definition is reported here and
+    /// evaluates to an empty cell; it never stops the space from opening.
     fn computed_problems(&self) -> Vec<ComputedProblem> {
         let schema = self.schema();
         let mut found = Vec::new();
@@ -281,6 +281,7 @@ impl SpaceIndex {
             for error in compute::validate_definition(property)
                 .into_iter()
                 .chain(validate::validate_display(property))
+                .chain(validate::validate_validation(property))
             {
                 found.push(compute_problem(&property.key, "", error));
             }
@@ -1035,6 +1036,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         }
     }
 
@@ -1295,6 +1297,7 @@ mod tests {
                     multi: false,
                     compute: None,
                     display: None,
+                    validation: None,
                 },
                 None,
             )
@@ -1370,6 +1373,7 @@ mod tests {
                     multi: false,
                     compute: None,
                     display: None,
+                    validation: None,
                 },
                 None,
             )
@@ -1449,6 +1453,7 @@ mod tests {
                     multi: false,
                     compute: None,
                     display: None,
+                    validation: None,
                 },
                 None,
             )
@@ -1668,6 +1673,7 @@ mod tests {
                     multi: false,
                     compute: None,
                     display: None,
+                    validation: None,
                 },
                 None,
             )
@@ -1864,6 +1870,7 @@ mod tests {
             multi: false,
             compute: None,
             display: None,
+            validation: None,
         };
         space
             .store
@@ -1994,6 +2001,7 @@ mod tests {
                 multi: true,
                 compute: None,
                 display: None,
+                validation: None,
             };
             space
                 .store
@@ -2199,6 +2207,7 @@ mod tests {
                     multi: false,
                     compute: None,
                     display: None,
+                    validation: None,
                 },
                 None,
             )

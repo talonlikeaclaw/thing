@@ -25,6 +25,7 @@ import type {
   PropertyDef,
   PropertyDisplay,
   PropertyFormat,
+  PropertyValidation,
   Revision,
   Role,
   SearchResponse,
@@ -464,6 +465,8 @@ export interface NewProperty {
   compute?: ComputeDef;
   /** How the values read; omitted means plain. */
   display?: PropertyDisplay;
+  /** What the values must satisfy; omitted means only the format's rules. */
+  validation?: PropertyValidation;
 }
 
 export interface UpdateProperty {
@@ -473,6 +476,8 @@ export interface UpdateProperty {
   compute?: ComputeDef;
   /** `null` clears the block; leaving it out leaves it alone. */
   display?: PropertyDisplay | null;
+  /** `null` clears the block; leaving it out leaves it alone. */
+  validation?: PropertyValidation | null;
 }
 
 export function useCreateProperty(spaceId: string) {

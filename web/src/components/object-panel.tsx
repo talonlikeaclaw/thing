@@ -44,7 +44,7 @@ import { PropertyField } from "@/components/property-field";
 import { RenameLinksDialog, type MentionSource } from "@/components/rename-links-dialog";
 import { PropertyEditorSheet } from "@/components/schema/property-editor";
 import { ThingIcon } from "@/components/thing-icon";
-import { Button, FormError, StickyActionBar } from "@/components/ui/controls";
+import { Button, StickyActionBar } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
@@ -349,8 +349,7 @@ export function ObjectPanel({
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
   const [conflict, setConflict] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [coverError, setCoverError] = useState<string | null>(null);
-  const [coverAttempt, setCoverAttempt] = useState<File | null>(null);
+
   const [coverPreview, setCoverPreview] = useState(false);
   const [repositioning, setRepositioning] = useState(false);
   const [focusStart, setFocusStart] = useState("");
@@ -533,11 +532,8 @@ export function ObjectPanel({
     if (!file || !canEdit || coverUpload.isPending) {
       return;
     }
-    setCoverAttempt(file);
-    setCoverError(null);
     coverUpload.mutate(file, {
       onSuccess: (stored) => {
-        setCoverAttempt(null);
         setRepositioning(false);
         setDraft((current) => ({
           ...current,
@@ -545,13 +541,16 @@ export function ObjectPanel({
           coverPosition: "",
         }));
       },
-      onError: (error) => setCoverError(readError(error)),
+      onError: (error) => {
+        toast.showToast(readError(error), "danger", {
+          label: "Retry",
+          onAction: () => chooseCover(file),
+        });
+      },
     });
   }
 
   function removeCover() {
-    setCoverAttempt(null);
-    setCoverError(null);
     setRepositioning(false);
     setDraft((current) => ({ ...current, cover: "", coverPosition: "" }));
   }
@@ -634,7 +633,13 @@ export function ObjectPanel({
             resolve(true);
           },
           onError: (error) => {
-            if (error instanceof ApiError && error.status === 409) {
+            // A duplicate value or a taken target is a rule, not a stale copy:
+            // it reads as a save error, without the reload-and-retry actions.
+            const stateConflict =
+              error instanceof ApiError &&
+              (error.details.reason === "duplicate value" ||
+                error.details.reason === "target already linked");
+            if (error instanceof ApiError && error.status === 409 && !stateConflict) {
               setConflict(
                 error.message ||
                   "This record changed since you loaded it. Reload it to see the current version.",
@@ -643,7 +648,9 @@ export function ObjectPanel({
               resolve(false);
               return;
             }
+            setConflict(null);
             setSaveError(readError(error));
+            toast.showToast(readError(error), "danger");
             restoreFocus();
             resolve(false);
           },
@@ -703,7 +710,7 @@ export function ObjectPanel({
             void reload("theirs");
             return;
           }
-          setSaveError(readError(error));
+          toast.showToast(readError(error), "danger");
         },
       },
     );
@@ -807,7 +814,7 @@ export function ObjectPanel({
               }),
           });
         },
-        onError: (error) => setSaveError(readError(error)),
+        onError: (error) => toast.showToast(readError(error), "danger"),
       },
     );
   }
@@ -922,7 +929,7 @@ export function ObjectPanel({
       },
       onError: (error) => {
         setConfirmingTrash(false);
-        setSaveError(readError(error));
+        toast.showToast(readError(error), "danger");
       },
     });
   }
@@ -1176,23 +1183,6 @@ export function ObjectPanel({
         <p role="status" className="mb-3 text-[12px] text-muted">
           Uploading cover…
         </p>
-      ) : null}
-      {coverError ? (
-        <div
-          role="alert"
-          className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-danger"
-        >
-          <span>{coverError}</span>
-          {coverAttempt ? (
-            <button
-              type="button"
-              className="underline decoration-danger/50 hover:decoration-danger pointer-coarse:min-h-11"
-              onClick={() => chooseCover(coverAttempt)}
-            >
-              Retry
-            </button>
-          ) : null}
-        </div>
       ) : null}
       <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
       <div className="border-b rule pb-3 xl:col-span-8 xl:col-start-1">
@@ -1595,7 +1585,7 @@ export function ObjectPanel({
             resetToken={resetToken}
             dirty={dirty}
             saving={update.isPending}
-            error={saveError ?? conflict}
+            error={conflict}
             onSave={() => void save()}
             preview={(text) => (
               <MarkdownView
@@ -1678,7 +1668,7 @@ export function ObjectPanel({
           <StickyActionBar>
             {saveError ? (
               <span className="flex min-w-[14rem] flex-1 flex-wrap items-center gap-2">
-                <FormError message={saveError} />
+                <span className="label text-danger">save failed</span>
                 <Button
                   type="button"
                   variant="ghost"

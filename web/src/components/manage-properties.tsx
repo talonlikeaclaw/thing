@@ -8,8 +8,9 @@ import { AddPropertyDialog } from "@/components/add-property";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { PropertyEditorSheet } from "@/components/schema/property-editor";
 import { SmallButton } from "@/components/schema/small-button";
-import { Button, FormError } from "@/components/ui/controls";
+import { Button } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
+import { useToast } from "@/components/ui/toast";
 import { PositionMenu } from "@/components/ui/position-menu";
 import {
   SheetCloseButton,
@@ -67,7 +68,7 @@ export function ManageProperties({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const definitions = useMemo(
     () => effectiveProperties(type, library),
@@ -95,11 +96,10 @@ export function ManageProperties({
 
   function write(next: TypeProperty[], key: string) {
     setPendingKey(key);
-    setError(null);
     update.mutate(
       { properties: next },
       {
-        onError: (failure) => setError(readError(failure)),
+        onError: (failure) => toast.showToast(readError(failure), "danger"),
         onSettled: () => setPendingKey(null),
       },
     );
@@ -193,12 +193,6 @@ export function ManageProperties({
                   {rows.length === 1 ? "property" : "properties"}. Reorder or remove a member
                   here; the definition itself stays in the space library.
                 </p>
-
-                {error ? (
-                  <div className="mt-3">
-                    <FormError message={error} />
-                  </div>
-                ) : null}
 
                 {matches.length === 0 ? (
                   <p className="mt-4 text-[13px] text-muted">

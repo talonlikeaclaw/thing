@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { PropertyDef } from "@/api/types";
@@ -22,7 +22,7 @@ const rollup: PropertyDef = {
 };
 
 function renderCell(property: PropertyDef, value: unknown, label: string) {
-  return render(
+  return renderWithProviders(
     <PropertyCell
       spaceId="space"
       property={property}
@@ -58,6 +58,54 @@ describe("a calculated cell", () => {
     expect(
       screen.getByRole("button", { name: /Edit Room for “Monstera”/ }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("a refused cell write", () => {
+  const price: PropertyDef = { key: "price", name: "Price", format: "number" };
+
+  function renderPrice(onCommit: (commit: { value: unknown }) => Promise<{ ok: boolean; message?: string }>) {
+    return renderWithProviders(
+      <PropertyCell
+        spaceId="space"
+        property={price}
+        cell={{ value: 20, label: "20" }}
+        schedule={undefined}
+        canEdit
+        rowTitle="Monstera"
+        onCommit={onCommit}
+      />,
+    );
+  }
+
+  it("toasts the refusal and keeps the editor open and live", async () => {
+    const sent: unknown[] = [];
+    renderPrice((commit) => {
+      sent.push(commit.value);
+      return Promise.resolve(
+        sent.length === 1
+          ? { ok: false, message: "must be at most 500" }
+          : { ok: true },
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Edit Price for “Monstera”/ }));
+    const input = await screen.findByLabelText("Price");
+    fireEvent.change(input, { target: { value: "501" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    // The sentence is a danger toast, not a block that grows the row.
+    const toast = await screen.findByRole("alert");
+    expect(toast).toHaveTextContent("must be at most 500");
+    expect(screen.getByLabelText("Price")).toBeInTheDocument();
+
+    // The refused field accepts a new commit rather than staying settled.
+    const corrected = screen.getByLabelText("Price");
+    fireEvent.change(corrected, { target: { value: "20" } });
+    fireEvent.keyDown(corrected, { key: "Enter" });
+
+    await waitFor(() => expect(sent).toEqual([501, 20]));
+    await waitFor(() => expect(screen.queryByLabelText("Price")).toBeNull());
   });
 });
 

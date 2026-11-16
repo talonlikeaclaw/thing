@@ -14,6 +14,7 @@ import {
 } from "react";
 import { Link, useNavigate } from "react-router";
 
+import { ApiError } from "@/api/client";
 import {
   useCreateObject,
   useMe,
@@ -358,7 +359,13 @@ function QuickCaptureDialog({
         },
         onError: (failure) => {
           setError(readError(failure));
-          setProblemField(readApiProblems(failure)[0]?.field ?? "title");
+          // A duplicate names its property in `details.property`; a structural
+          // refusal names it in the errors list.
+          const named =
+            failure instanceof ApiError && typeof failure.details.property === "string"
+              ? failure.details.property
+              : undefined;
+          setProblemField(readApiProblems(failure)[0]?.field ?? named ?? "title");
         },
       },
     );

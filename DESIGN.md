@@ -584,8 +584,8 @@ are the shared button states. The `/` command list and the `[[` link list are on
 command palette. A pasted, dropped or picked image uploads into the space and inserts as
 an ordinary markdown image, so the body stays plain text: the preview and the saved record
 render it at the body's measure, lazily, and a tap opens the same lightbox over the body's
-images. While the bytes upload, one status line above the well says so, and a refusal
-names its file with `Retry` rather than dropping the insert.
+images. While the bytes upload, one status line above the well says so, and a refusal is
+a danger toast naming its file with `Retry` rather than dropping the insert.
 
 **The Library.** A quiet page: the shared header over one matte panel, its toolbar one row
 of the kind segment, the type filter, a name search and a sort select. Cards sit in a
@@ -678,7 +678,12 @@ sheets 28px. A single control never mixes corners.
   blurs 5px and dims to 55% (80% in light) — no colour fill, so the page stays
   recognisable around and under the material, a 240ms rise from 18px, one close control (a 36px circle, 44px
   coarse) on the handed edge. The phone sheet floats 8px from the side and bottom edges.
-- **Toast.** Glass-strong at 18px with a mono action; the stack sits above the dock.
+- **Toast.** Glass-strong at 18px with a mono action; the stack sits above the dock. A
+  refused **action** — a cell write, a record save, an upload, a bulk edit, a view or a
+  membership write — is a danger toast that stays until dismissed, so the row, panel or
+  field never grows under the pointer. Field validation, a failed read with its Retry, a
+  CSV or per-file report and the stale-revision choice stay in place, because the error
+  belongs to that control or must outlive a toast.
 
 **Every State Is Visible.** Hover, focus-visible, active, selected, disabled, loading,
 empty, error and read-only are defined once in `components/ui/controls.tsx`,

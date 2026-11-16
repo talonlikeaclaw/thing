@@ -28,6 +28,13 @@ import {
 } from "@/components/schema/display-fields";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { PromoteColumnDialog } from "@/components/schema/promote-column";
+import {
+  ValidationFields,
+  validationApplies,
+  validationDraft,
+  validationPayload,
+  type ValidationDraft,
+} from "@/components/schema/validation-fields";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
 import { FieldRow, SectionRule } from "@/components/ui/page";
 import {
@@ -94,6 +101,9 @@ export function PropertyEditorForm({
   const [name, setName] = useState(property.name);
   const [draft, setDraft] = useState<ComputedDraft>(() => computedDraft(property));
   const [display, setDisplay] = useState<DisplayDraft>(() => displayDraft(property.display));
+  const [validation, setValidation] = useState<ValidationDraft>(() =>
+    validationDraft(property.validation),
+  );
   const [options, setOptions] = useState<OptionDraft[]>(() => optionDrafts(property.options));
   const [confirmKey, setConfirmKey] = useState("");
   const [renameKey, setRenameKey] = useState("");
@@ -106,6 +116,7 @@ export function PropertyEditorForm({
       setName(update.data.name);
       setDraft(computedDraft(update.data));
       setDisplay(displayDraft(update.data.display));
+      setValidation(validationDraft(update.data.validation));
       setOptions(optionDrafts(update.data.options));
     }
   }, [update.data]);
@@ -117,11 +128,20 @@ export function PropertyEditorForm({
   // A display the reader did not touch stays out of the write, so an unrelated
   // edit cannot rewrite the block; a cleared one is sent as `null`.
   const displayChanged = !sameJson(displayValue, initialDisplay);
+  const validationValue = validationPayload(validation, property.format, property.multi);
+  const initialValidation = validationPayload(
+    validationDraft(property.validation),
+    property.format,
+    property.multi,
+  );
+  // The same rule for validation: untouched stays out, cleared sends `null`.
+  const validationChanged = !sameJson(validationValue, initialValidation);
   const payload = {
     name: name.trim(),
     ...(calculated ? computedPatch(draft) : {}),
     ...(showsOptions ? { options: optionInputs(options) } : {}),
     ...(displayChanged ? { display: displayValue } : {}),
+    ...(validationChanged ? { validation: validationValue } : {}),
   };
   const initial = {
     name: property.name,
@@ -247,6 +267,22 @@ export function PropertyEditorForm({
             disclosure={false}
           />
         </FieldRow>
+        {!calculated && validationApplies(property.format, property.multi) ? (
+          <FieldRow
+            label="Validation"
+            hint="What a value must satisfy; a value outside these rules is refused where it is written."
+          >
+            <ValidationFields
+              draft={validation}
+              onChange={setValidation}
+              format={property.format}
+              multi={property.multi}
+              disabled={!canEdit}
+              idPrefix={`property-${property.key}`}
+              disclosure={false}
+            />
+          </FieldRow>
+        ) : null}
         {calculated ? (
           <FieldRow label={computeKindLabel(property) ?? "Calculation"}>
             <ComputedFields

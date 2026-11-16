@@ -44,6 +44,9 @@ pub struct PropertyDef {
     /// How the values read, never what they store; absent means plain.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display: Option<DisplayDef>,
+    /// What the values must satisfy beyond their format; absent means nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validation: Option<ValidationDef>,
     /// Present only for `Select` and `MultiSelect`; empty otherwise.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub options: Vec<OptionDef>,
@@ -96,6 +99,34 @@ pub struct DisplayDef {
     /// `number` only: `false` drops the thousands separators.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grouping: Option<bool>,
+}
+
+/// What a property's values must satisfy beyond their format.
+///
+/// Every field is optional and a block with nothing set is written as no
+/// block, so a property with no rules carries no bytes for it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ValidationDef {
+    /// `number` and `date`: the lowest legal value, in the format's variant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min: Option<Value>,
+    /// `number` and `date`: the highest legal value, in the format's variant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<Value>,
+    /// `text`, `url` and `email`: a regular expression matched in full.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+    /// One stored value per type: a second record holding it is refused.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub unique: bool,
+}
+
+impl ValidationDef {
+    /// Whether the block says nothing and is therefore written as no block.
+    pub fn is_empty(&self) -> bool {
+        self.min.is_none() && self.max.is_none() && self.pattern.is_none() && !self.unique
+    }
 }
 
 /// How a computed property derives its value.
@@ -272,6 +303,9 @@ pub const MAX_ATTACHMENTS: usize = 200;
 
 /// The most fraction digits a `display.decimals` may ask for.
 pub const MAX_DECIMALS: u8 = 4;
+
+/// The longest `validation.pattern`, in characters.
+pub const MAX_PATTERN_LEN: usize = 200;
 
 /// The longest view name, in characters.
 pub const MAX_VIEW_NAME_LEN: usize = 80;
