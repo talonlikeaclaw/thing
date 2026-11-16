@@ -392,7 +392,9 @@ usability move ahead of search.
 - **M9 — Property depth and presentation.** **Presentation landed** as `0.9.0`, schema 8;
   the depth half is planned at `0.9.1`. Spec:
   [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md)
-  (written 2026-11-11; checkpoints 1–6 landed 2026-11-13). Two halves
+  (written 2026-11-11; checkpoints 1–6 landed 2026-11-13). The depth half's execution spec — the
+  work, tests, acceptance and gates for checkpoints 7–13 — is
+  [`docs/plan/m9.1-property-depth.md`](plan/m9.1-property-depth.md) (written 2026-11-15). Two halves
   on one schema bump. **Presentation (checkpoints 1–6):** a property gains an optional `display`
   block — `align` for every format, and `currency` (ISO 4217), `decimals` (0–4) and `grouping` for
   numbers — and a table view gains `footer` and `footer_hidden`, so the M8.1 summary band can be

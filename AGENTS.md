@@ -306,6 +306,7 @@ server. No route, format, permission or dependency changes.
 | `docs/plan/m8-computed-properties.md` | The v0.8.0 spec: schema 7 and the optional `compute` block, the `list` result format, the formula language, rollups, read-only values on every surface, filter/sort/CSV behavior, lifecycle rules and the release pass. Landed as `0.8.0`, schema 7. |
 | `docs/plan/m8.1-grid-interaction.md` | The v0.8.1 spec: the data-column and range model, Tab traversal, rectangular selection, TSV and markdown copy, the row-scoped aggregation footer, and the release pass. Landed as `0.8.1`, schema 7; no format or server change. |
 | `docs/plan/m9-property-depth-and-presentation.md` | The v0.9.0 spec at schema 8: the property `display` block (alignment, ISO currency, decimals, grouping) and a table view's `footer`/`footer_hidden` switches, then the property-depth list (validation, defaults, rollup filters, member format, relation filters, formula additions, daily type). Presentation landed as `0.9.0`, schema 8; the depth half follows at `0.9.1`. |
+| `docs/plan/m9.1-property-depth.md` | The v0.9.1 spec at schema 8: property `validation` (bounds, pattern, uniqueness), membership defaults and the Required/Default editor, rollup filters, the `member` format with its label resolution, relation `target_filter` and `one_to_one`, five formula functions, and the space `daily_type` with the daily page. Checkpoints 7–13 of M9. |
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
@@ -356,7 +357,10 @@ every read surface; formula and rollup authoring; this release pass) are landed 
 TSV and markdown copy; the aggregation footer; version, docs and release QA) are landed at
 workspace `0.8.1`, and checkpoints 1–6 of M9 (schema 8 and the `display` block; the server's
 round trip and refusals; one number grammar; the table's alignment and band; authoring; this
-release pass) are landed at workspace `0.9.0`.** M1 is
+release pass) are landed at workspace `0.9.0`, and M9's depth half (checkpoints 7–13: validation,
+defaults, rollup filters, the member format, relation filters, formula additions and the daily type)
+is specified in [`docs/plan/m9.1-property-depth.md`](docs/plan/m9.1-property-depth.md) and is
+next.** M1 is
 deployed; M2–M9 are not deployed. The
 physical-iPhone gate is still open — it is checkpoint 7's device pass in
 [`docs/plan/m4.3-touch-follow-through.md`](docs/plan/m4.3-touch-follow-through.md) §8, and it also

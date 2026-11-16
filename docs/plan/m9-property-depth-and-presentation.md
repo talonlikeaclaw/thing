@@ -2,10 +2,12 @@
 
 Target: workspace `0.9.0`, on-disk `schema: 8`. Thirteen checkpoints: **presentation** (1–6,
 decided here in full, released as `0.9.0` at checkpoint 6), then **property depth** (7–12, the
-roadmap's existing M9 list, decisions locked here, per-checkpoint work confirmed when that half
-starts) and its own release pass at `0.9.1` (checkpoint 13).
+roadmap's existing M9 list, decisions locked here, work specified in
+[`m9.1-property-depth.md`](m9.1-property-depth.md)) and its own release pass at `0.9.1`
+(checkpoint 13).
 
-**Status: checkpoints 1–6 landed at workspace `0.9.0`, schema 8; the depth half (7–12) is next.**
+**Status: checkpoints 1–6 landed at workspace `0.9.0`, schema 8; the depth half (7–13) is specified
+in [`docs/plan/m9.1-property-depth.md`](m9.1-property-depth.md) and is next.**
 The milestone opens only after M8.1's checkpoint 5 lands the `0.8.1` release. Merged 2026-11-11: table presentation was requested as its own milestone at
 `0.9.0`; the roadmap already held that version for property model depth, so both live here, on one
 schema bump, rather than renumbering M10–M14. The merge is recorded in `docs/ROADMAP.md`.
@@ -30,8 +32,10 @@ differ, and a conflict stops the turn for a question rather than a quiet choice.
 - **Schema 8 is a one-way door.** `FORMAT_VERSION` moves once, in checkpoint 1, and a file written
   by this milestone is refused by every earlier binary. The upgrade is read-only until the space's
   next write, exactly as schema 6→7 worked.
-- **No new dependency.** Currency, alignment and formatting are the platform's `Intl` plus plain
-  code. No number-formatting package, no currency table.
+- **No new dependency for the presentation half.** Currency, alignment and formatting are the
+  platform's `Intl` plus plain code. No number-formatting package, no currency table. The depth half
+  adds exactly one — `regex`, for `validation.pattern` — decided in
+  [`m9.1-property-depth.md`](m9.1-property-depth.md).
 - **Delete nothing you did not add.** Existing behaviours (paging, selection, bulk bar, widths,
   editing, the phone table, handedness, the ephemeral footer) are in scope to preserve.
 - **Changelog in the same tree.** Every checkpoint extends the open `Unreleased` entry in
@@ -370,8 +374,11 @@ prefix or ring clips at any width.
 
 ## The depth half — checkpoints 7–13
 
-Locked decisions are recorded here so the format does not move twice; each checkpoint's work list,
-tests and manual walkthrough are confirmed in its own turn, the way M9's presentation half was.
+Locked decisions are recorded here so the format does not move twice. **The per-checkpoint work
+lists, tests, acceptance and gates live in
+[`docs/plan/m9.1-property-depth.md`](m9.1-property-depth.md)**, which also revises two bullets below
+where the code disagreed: `length` already exists in the formula language, and member labels resolve
+from the space's member names rather than from `space.yml`, which holds ids and roles only.
 
 7. **Validation.** A property gains `validation: { min, max, pattern, unique }`; `min`/`max` on
    `number` and `date`, `pattern` on `text`/`url`/`email`, `unique` on any stored format. `required`
