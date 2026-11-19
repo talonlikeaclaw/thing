@@ -306,6 +306,7 @@ mod tests {
                         key: key.clone(),
                         required: false,
                         featured: false,
+                        default: None,
                     })
                     .collect(),
                 views: vec![ViewDef {

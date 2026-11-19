@@ -10,8 +10,9 @@ import {
   useRenameProperty,
   useTypes,
   useUpdateProperty,
+  useUpdateType,
 } from "@/api/queries";
-import type { PropertyDef, TypeSummary } from "@/api/types";
+import type { PropertyDef, TypeDef, TypeProperty, TypeSummary } from "@/api/types";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import {
   ComputedFields,
@@ -26,6 +27,7 @@ import {
   displayPayload,
   type DisplayDraft,
 } from "@/components/schema/display-fields";
+import { MembershipDefault } from "@/components/schema/membership-default";
 import { OptionEditor } from "@/components/schema/option-editor";
 import { PromoteColumnDialog } from "@/components/schema/promote-column";
 import {
@@ -67,6 +69,10 @@ interface PropertyEditorFormProps {
   /** The whole library, so a rollup names a relation and its target. */
   library: PropertyDef[];
   canEdit: boolean;
+  /** The type whose membership this sheet edits; absent on the space library. */
+  type?: TypeDef;
+  /** The membership to edit; present exactly when `type` is. */
+  member?: TypeProperty;
   /** The schema page's rule; a sheet already has a title and omits it. */
   headingId?: string;
   onRenamed?: (key: string) => void;
@@ -85,11 +91,14 @@ export function PropertyEditorForm({
   types,
   library,
   canEdit,
+  type,
+  member,
   headingId,
   onRenamed,
   onDeleted,
 }: PropertyEditorFormProps) {
   const update = useUpdateProperty(spaceId, property.key);
+  const typeUpdate = useUpdateType(spaceId, type?.key ?? "");
   const remove = useDeleteProperty(spaceId, property.key);
   const rename = useRenameProperty(spaceId, property.key);
   const usage = usePropertyUsage(
@@ -105,6 +114,9 @@ export function PropertyEditorForm({
     validationDraft(property.validation),
   );
   const [options, setOptions] = useState<OptionDraft[]>(() => optionDrafts(property.options));
+  const [membership, setMembership] = useState<TypeProperty | null>(member ?? null);
+  /** A half-typed default blocks the one Save, exactly as it does on a record. */
+  const [defaultInvalid, setDefaultInvalid] = useState(false);
   const [confirmKey, setConfirmKey] = useState("");
   const [renameKey, setRenameKey] = useState("");
   const [promoteOpen, setPromoteOpen] = useState(false);
@@ -120,6 +132,16 @@ export function PropertyEditorForm({
       setOptions(optionDrafts(update.data.options));
     }
   }, [update.data]);
+
+  // The type write answers with the whole definition, so a normalised default
+  // (an empty one dropped) shows without a second read.
+  useEffect(() => {
+    const saved = typeUpdate.data?.properties.find((entry) => entry.key === member?.key);
+    if (saved) {
+      setMembership(saved);
+      setDefaultInvalid(false);
+    }
+  }, [typeUpdate.data, member?.key]);
 
   const calculated = isComputed(property);
   const showsOptions = !calculated && hasOptions(property.format);
@@ -149,25 +171,45 @@ export function PropertyEditorForm({
     ...(showsOptions ? { options: optionInputs(optionDrafts(property.options)) } : {}),
   };
   const dirty = !sameJson(payload, initial);
+  const membershipDirty =
+    type !== undefined &&
+    member !== undefined &&
+    membership !== null &&
+    !sameJson(membership, member);
   const draftProblem = calculated ? computedDraftProblem(draft) : null;
   const invalid =
     !payload.name ||
     draftProblem !== null ||
+    defaultInvalid ||
     (showsOptions && options.some((option) => !option.name.trim()));
 
+  /**
+   * One Save, two writes: the definition first, then the membership, each only
+   * when it changed. A refusal stops at its stage and leaves the other draft in
+   * place, so a retry writes just the rest.
+   */
   async function saveDraft(): Promise<boolean> {
     if (!canEdit || invalid) {
       return false;
     }
     try {
-      await update.mutateAsync(payload);
+      if (dirty) {
+        await update.mutateAsync(payload);
+      }
+      if (membershipDirty && type && membership) {
+        await typeUpdate.mutateAsync({
+          properties: type.properties.map((entry) =>
+            entry.key === membership.key ? membership : entry,
+          ),
+        });
+      }
       return true;
     } catch {
       return false;
     }
   }
 
-  const guard = useDirtyGuard(dirty, saveDraft);
+  const guard = useDirtyGuard(dirty || membershipDirty, saveDraft);
 
   // The server counts trashed records; the client cannot see their values, so a
   // refused delete's details replace the read-only estimate.
@@ -214,7 +256,7 @@ export function PropertyEditorForm({
           title={property.name}
           action={
             <span className="flex flex-wrap items-baseline gap-3">
-              {!dirty && update.isSuccess ? (
+              {!dirty && !membershipDirty && (update.isSuccess || typeUpdate.isSuccess) ? (
                 <span className="label text-accent">saved</span>
               ) : null}
               <span className="font-mono text-[11px] text-faint">
@@ -333,6 +375,21 @@ export function PropertyEditorForm({
             />
           </FieldRow>
         ) : null}
+        {type && membership ? (
+          <FieldRow
+            label="On this type"
+            hint={`Required and the starting value for ${type.name}. The definition above is shared by every type that carries it.`}
+          >
+            <MembershipDefault
+              spaceId={spaceId}
+              member={membership}
+              property={property}
+              canEdit={canEdit}
+              onChange={setMembership}
+              onInvalid={setDefaultInvalid}
+            />
+          </FieldRow>
+        ) : null}
       </div>
 
       <section aria-labelledby={`property-${property.key}-used-by`} className="mt-8">
@@ -400,10 +457,18 @@ export function PropertyEditorForm({
       ) : null}
 
       {canEdit ? (
-        dirty ? (
+        dirty || membershipDirty ? (
           <StickyActionBar>
             <div className="min-w-[12rem] flex-1">
-              <FormError message={update.error ? readError(update.error) : null} />
+              <FormError
+                message={
+                  update.error
+                    ? readError(update.error)
+                    : typeUpdate.error
+                      ? readError(typeUpdate.error)
+                      : null
+                }
+              />
             </div>
             <span className="label flex items-center gap-1.5 text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
@@ -412,10 +477,14 @@ export function PropertyEditorForm({
             <Button
               type="button"
               className="min-h-9 px-3 text-[13px] pointer-coarse:min-h-11"
-              disabled={invalid || update.isPending}
+              disabled={invalid || update.isPending || typeUpdate.isPending}
               onClick={() => void saveDraft()}
             >
-              {update.isPending ? "Saving…" : "Save property"}
+              {update.isPending || typeUpdate.isPending
+                ? "Saving…"
+                : type && membership
+                  ? "Save changes"
+                  : "Save property"}
             </Button>
           </StickyActionBar>
         ) : null
@@ -446,7 +515,7 @@ export function PropertyEditorForm({
               disabled={rename.isPending}
               onChange={(event) => setRenameKey(event.target.value)}
               hint={
-                dirty
+                dirty || membershipDirty
                   ? "Save the display name first; renaming reloads this editor."
                   : "Lowercase letters, digits and underscores, starting with a letter."
               }
@@ -652,6 +721,9 @@ interface PropertyEditorSheetProps {
   spaceId: string;
   property: PropertyDef;
   canEdit: boolean;
+  /** The type whose membership is edited alongside the definition. */
+  type?: TypeDef;
+  member?: TypeProperty;
   onClose: () => void;
 }
 
@@ -660,6 +732,8 @@ export function PropertyEditorSheet({
   spaceId,
   property,
   canEdit,
+  type,
+  member,
   onClose,
 }: PropertyEditorSheetProps) {
   const types = useTypes(spaceId);
@@ -707,6 +781,8 @@ export function PropertyEditorSheet({
                 types={types.data ?? []}
                 library={properties.data ?? []}
                 canEdit={canEdit}
+                type={type}
+                member={member}
                 onRenamed={onClose}
                 onDeleted={onClose}
               />

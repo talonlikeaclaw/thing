@@ -46,6 +46,7 @@ import {
   writeCaptureType,
 } from "@/lib/capture";
 import { cn } from "@/lib/cn";
+import { withDefaults } from "@/lib/defaults";
 import { readApiProblems, readError } from "@/lib/display";
 import { isBlank, valueLabel } from "@/lib/format";
 import { formatLabel } from "@/lib/schema";
@@ -193,7 +194,16 @@ function QuickCaptureDialog({
   const type = useType(spaceId, selected ?? undefined);
   const properties = useProperties(spaceId);
   const { required, optional } = captureFields(type.data, properties.data ?? []);
-  const missing = required.filter((property) => isBlank(values[property.key]));
+  /**
+   * What the fields show and what the record will carry: the draft's own values
+   * over the type's defaults, so a field nobody touched shows the value the
+   * record starts with. A cleared field holds `null` in the draft, which wins
+   * over its default and is dropped from the write.
+   */
+  const draft = type.data
+    ? withDefaults(type.data, properties.data ?? [], values)
+    : values;
+  const missing = required.filter((property) => isBlank(draft[property.key]));
   const ready =
     selected !== null &&
     !type.isPending &&
@@ -304,7 +314,9 @@ function QuickCaptureDialog({
   }
 
   function submit(intent: SubmitIntent) {
-    if (!spaceId || !selected || create.isPending) {
+    const typeData = type.data;
+    const propertyList = properties.data;
+    if (!spaceId || !selected || !typeData || !propertyList || create.isPending) {
       return;
     }
     const trimmed = title.trim();
@@ -313,7 +325,7 @@ function QuickCaptureDialog({
     }
     const payload: Record<string, unknown> = {};
     for (const property of [...required, ...optional]) {
-      const value = values[property.key];
+      const value = draft[property.key];
       if (!isBlank(value)) {
         payload[property.key] = value;
       }
@@ -379,7 +391,8 @@ function QuickCaptureDialog({
     missing.length > 0 ||
     invalid.size > 0;
   // Anything typed that a close would throw away. A create in flight is not a
-  // draft to protect: the request already has its payload.
+  // draft to protect: the request already has its payload. The seeded defaults
+  // are not in the draft, so opening and closing a capture asks nothing.
   const dirty = title.trim() !== "" || icon.trim() !== "" || Object.keys(values).length > 0;
 
   function requestClose() {
@@ -650,8 +663,8 @@ function QuickCaptureDialog({
                           <PropertyField
                             spaceId={spaceId ?? ""}
                             property={property}
-                            value={values[property.key] ?? null}
-                            label={valueLabel(property.format, values[property.key], property)}
+                            value={draft[property.key] ?? null}
+                            label={valueLabel(property.format, draft[property.key], property)}
                             timeZone={space.data?.timezone}
                             canEdit
                             onChange={(value) =>
@@ -723,10 +736,10 @@ function QuickCaptureDialog({
                                   <PropertyField
                                     spaceId={spaceId ?? ""}
                                     property={property}
-                                    value={values[property.key] ?? null}
+                                    value={draft[property.key] ?? null}
                                     label={valueLabel(
                                       property.format,
-                                      values[property.key],
+                                      draft[property.key],
                                       property,
                                     )}
                                     timeZone={space.data?.timezone}

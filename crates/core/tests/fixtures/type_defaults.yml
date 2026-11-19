@@ -1,0 +1,33 @@
+schema: 8
+key: plant
+name: Plant
+name_plural: Plants
+icon: 🪴
+description: ''
+properties:
+- key: room
+  required: true
+  featured: true
+  default: study
+- key: price
+  required: false
+  featured: true
+  default: 0.0
+- key: status
+  required: false
+  featured: true
+  default: todo
+views:
+- key: all
+  name: All
+  kind: table
+  filter:
+    op: and
+    conditions: []
+  sorts:
+  - property: updated_at
+    direction: desc
+  columns:
+  - title
+  - room
+default_view: all

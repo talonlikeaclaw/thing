@@ -1033,11 +1033,13 @@ mod tests {
                     key: "room".to_owned(),
                     required: false,
                     featured: true,
+                    default: None,
                 },
                 TypeProperty {
                     key: "notes".to_owned(),
                     required: false,
                     featured: false,
+                    default: None,
                 },
             ],
             views: vec![
@@ -1498,6 +1500,7 @@ mod tests {
                 key: "room".to_owned(),
                 required: false,
                 featured: true,
+                default: None,
             }],
             views: vec![ViewDef {
                 key: "all".to_owned(),

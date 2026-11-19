@@ -5,7 +5,7 @@ vi.mock("@/lib/use-dirty-guard", () => ({
   useDirtyGuard: () => null,
 }));
 
-import type { PropertyDef } from "@/api/types";
+import type { PropertyDef, TypeDef, TypeProperty } from "@/api/types";
 import { PropertyEditorForm } from "@/components/schema/property-editor";
 import { jsonResponse, renderWithProviders, requestUrl, stubFetch } from "@/test/harness";
 
@@ -244,5 +244,134 @@ describe("PropertyEditorForm display", () => {
       name: "Amount",
       display: { currency: "USD" },
     });
+  });
+});
+
+describe("PropertyEditorForm membership", () => {
+  const member: TypeProperty = {
+    key: "room",
+    required: false,
+    featured: true,
+    default: "study",
+  };
+  const plant: TypeDef = {
+    key: "plant",
+    name: "Plant",
+    name_plural: "Plants",
+    description: "",
+    schedule: false,
+    properties: [member],
+    views: [
+      {
+        key: "all",
+        name: "All",
+        kind: "table",
+        sorts: [],
+        filter: { op: "and", conditions: [] },
+        columns: ["title"],
+        widths: {},
+      },
+    ],
+    default_view: "all",
+  };
+  const space = {
+    id: "s1",
+    name: "Garden",
+    icon: null,
+    accent: null,
+    timezone: "America/Toronto",
+    created_at: "2026-11-01T00:00:00Z",
+    role: "owner",
+    members: [],
+    type_count: 1,
+  };
+
+  function stubWrites() {
+    const writes: { url: string; body: unknown }[] = [];
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1")) {
+        return jsonResponse(space);
+      }
+      if ((init?.method ?? "GET") === "PATCH") {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        writes.push({ url, body });
+        if (url.endsWith("/types/plant")) {
+          return jsonResponse({ ...plant, properties: body.properties });
+        }
+        return jsonResponse({ ...room, ...body });
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+    return writes;
+  }
+
+  it("writes the membership and leaves the untouched property out", async () => {
+    const writes = stubWrites();
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={room}
+        types={[]}
+        library={[room]}
+        canEdit
+        type={plant}
+        member={member}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Required"));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.body).toEqual({
+      properties: [{ key: "room", required: true, featured: true, default: "study" }],
+    });
+  });
+
+  it("writes the property first and the membership second in one Save", async () => {
+    const writes = stubWrites();
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={room}
+        types={[]}
+        library={[room]}
+        canEdit
+        type={plant}
+        member={member}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Room name" } });
+    fireEvent.change(screen.getByLabelText("Room"), { target: { value: "attic" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(writes).toHaveLength(2));
+    expect(writes[0]?.body).toEqual({ name: "Room name" });
+    expect(writes[1]?.body).toEqual({
+      properties: [{ key: "room", required: false, featured: true, default: "attic" }],
+    });
+  });
+
+  it("leaves the membership out of an unrelated rename", async () => {
+    const writes = stubWrites();
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={room}
+        types={[]}
+        library={[room]}
+        canEdit
+        type={plant}
+        member={member}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Room name" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.body).toEqual({ name: "Room name" });
   });
 });

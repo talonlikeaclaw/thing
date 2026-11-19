@@ -157,7 +157,8 @@ pub fn validate_object(schema: &Schema, doc: &ObjectDoc) -> Result<(), Vec<CoreE
 /// The schedule keys are members implicitly while `schedule` is on; naming one
 /// in `properties` would give it a second definition. A computed member is also
 /// checked against the whole type, so a formula reference or rollup target that
-/// does not resolve is refused where the type is saved.
+/// does not resolve is refused where the type is saved. A member's `default` is
+/// checked as if it were a stored value.
 pub fn validate_members(schema: &Schema, def: &TypeDef) -> Result<(), Vec<CoreError>> {
     let mut errors = Vec::new();
     let mut seen: Vec<&str> = Vec::with_capacity(def.properties.len());
@@ -193,12 +194,58 @@ pub fn validate_members(schema: &Schema, def: &TypeDef) -> Result<(), Vec<CoreEr
         if property.is_computed() {
             errors.extend(crate::compute::validate_for_type(schema, def, property));
         }
+        if let Some(default) = &member.default
+            && let Err(error) = validate_default(schema, property, default)
+        {
+            errors.push(error);
+        }
     }
     if errors.is_empty() {
         Ok(())
     } else {
         Err(errors)
     }
+}
+
+/// Checks one membership's `default` as if it were a stored value: the format's
+/// variant, the property's options and rules, and a relation's target.
+///
+/// A calculated property stores nothing to default and a unique one would make
+/// the second create a conflict, so neither may carry a default. A relation
+/// default names a record that has to exist, because a default is a definition
+/// and a definition that names nothing is a mistake — unlike a stored value
+/// whose target was purged after it was written.
+fn validate_default(
+    schema: &Schema,
+    property: &PropertyDef,
+    value: &Value,
+) -> Result<(), CoreError> {
+    let key = property.key.as_str();
+    if property.is_computed() {
+        return Err(invalid(key, "a calculated property cannot have a default"));
+    }
+    if property
+        .validation
+        .as_ref()
+        .is_some_and(|rules| rules.unique)
+    {
+        return Err(invalid(key, "a unique property cannot have a default"));
+    }
+    validate_value(schema, property, value)?;
+    if property.format != PropertyFormat::Relation {
+        return Ok(());
+    }
+    for text in relation_ids(value) {
+        if let Ok(target) = Uuid::parse_str(text)
+            && !schema.knows_object(target)
+        {
+            return Err(invalid(
+                key,
+                format!("default target {target} does not exist"),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Checks a client-supplied or saved filter against a type.
@@ -1230,6 +1277,7 @@ mod tests {
                         key: key.to_owned(),
                         required: key == "room",
                         featured: false,
+                        default: None,
                     })
                     .collect(),
                 views: vec![ViewDef {
@@ -1528,6 +1576,7 @@ mod tests {
                     key,
                     required: false,
                     featured: false,
+                    default: None,
                 });
         }
         fixture
@@ -1558,6 +1607,137 @@ mod tests {
         assert_eq!(
             problems(validate_members(&fixture.schema(), &checked)),
             vec!["invalid days: a calculated property cannot be required"]
+        );
+    }
+
+    /// The type with one member's default set, leaving the rest as they are.
+    fn with_default(def: &TypeDef, key: &str, value: Value) -> TypeDef {
+        let mut checked = def.clone();
+        for member in &mut checked.properties {
+            if member.key == key {
+                member.default = Some(value.clone());
+            }
+        }
+        checked
+    }
+
+    #[test]
+    fn a_member_default_is_checked_as_a_stored_value() {
+        let fixture = Fixture::new();
+        let def = &fixture.types["plant"];
+        let schema = fixture.schema();
+        let plant = Uuid::from_u128(2).to_string();
+        let tree = Uuid::from_u128(3).to_string();
+        let gone = Uuid::from_u128(99).to_string();
+
+        for (key, value) in [
+            ("room", text("Kitchen")),
+            ("count", Value::Number(0.0)),
+            ("done", Value::Bool(true)),
+            ("status", text("todo")),
+            ("related", text(&plant)),
+        ] {
+            valid(validate_members(&schema, &with_default(def, key, value)));
+        }
+
+        assert_eq!(
+            problems(validate_members(
+                &schema,
+                &with_default(def, "room", Value::Number(3.0))
+            )),
+            vec!["invalid room: expected text, found a number"]
+        );
+        assert_eq!(
+            problems(validate_members(
+                &schema,
+                &with_default(def, "status", text("archived"))
+            )),
+            vec!["invalid status: unknown option archived"]
+        );
+        assert_eq!(
+            problems(validate_members(
+                &schema,
+                &with_default(def, "related", text(&tree))
+            )),
+            vec![format!(
+                "invalid related: target {tree} is a tree, not a plant"
+            )]
+        );
+        assert_eq!(
+            problems(validate_members(
+                &schema,
+                &with_default(def, "related", text(&gone))
+            )),
+            vec![format!(
+                "invalid related: default target {gone} does not exist"
+            )]
+        );
+    }
+
+    #[test]
+    fn a_default_on_a_calculated_or_unique_member_is_refused() {
+        let fixture = computed_fixture();
+        let def = &fixture.types["plant"];
+        assert_eq!(
+            problems(validate_members(
+                &fixture.schema(),
+                &with_default(def, "days", Value::Number(1.0))
+            )),
+            vec!["invalid days: a calculated property cannot have a default"]
+        );
+        // A `list` result is calculated too, so it carries no default either.
+        assert_eq!(
+            problems(validate_members(
+                &fixture.schema(),
+                &with_default(def, "titles", list(&["Fern"]))
+            )),
+            vec!["invalid titles: a calculated property cannot have a default"]
+        );
+
+        let mut properties = fixture.properties.clone();
+        properties
+            .get_mut("count")
+            .expect("count is defined")
+            .validation = Some(ValidationDef {
+            min: Some(Value::Number(0.0)),
+            ..ValidationDef::default()
+        });
+        let schema = Schema {
+            types: &fixture.types,
+            properties: &properties,
+            schedule_properties: &SCHEDULE_PROPERTIES,
+            objects: &fixture.objects,
+            trash: &fixture.trash,
+        };
+        assert_eq!(
+            problems(validate_members(
+                &schema,
+                &with_default(def, "count", Value::Number(-1.0))
+            )),
+            vec!["invalid count: must be at least 0"]
+        );
+
+        let mut properties = fixture.properties.clone();
+        properties
+            .get_mut("room")
+            .expect("room is defined")
+            .validation = Some(ValidationDef {
+            unique: true,
+            ..ValidationDef::default()
+        });
+        let schema = Schema {
+            types: &fixture.types,
+            properties: &properties,
+            schedule_properties: &SCHEDULE_PROPERTIES,
+            objects: &fixture.objects,
+            trash: &fixture.trash,
+        };
+        assert_eq!(
+            problems(validate_members(
+                &schema,
+                &with_default(def, "room", text("Kitchen"))
+            )),
+            vec!["invalid room: a unique property cannot have a default"]
         );
     }
 
@@ -1646,11 +1826,13 @@ mod tests {
                     key: "guide".to_owned(),
                     required: false,
                     featured: false,
+                    default: None,
                 },
                 TypeProperty {
                     key: "photo".to_owned(),
                     required: false,
                     featured: false,
+                    default: None,
                 },
             ],
             views: vec![ViewDef {

@@ -792,6 +792,7 @@ pub fn links(index: &SpaceIndex, plan: &PromotePlan) -> Result<PromoteLinks, Cor
             key: plan.relation.key.clone(),
             required: old.as_ref().is_some_and(|member| member.required) && plan.source.empty == 0,
             featured: old.as_ref().is_some_and(|member| member.featured),
+            default: None,
         });
     }
 
@@ -1022,6 +1023,7 @@ mod tests {
                     key: (*key).to_owned(),
                     required: false,
                     featured: true,
+                    default: None,
                 })
                 .collect(),
             views,

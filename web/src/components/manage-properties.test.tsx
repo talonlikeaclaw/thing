@@ -1,5 +1,11 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The property sheet guards unsaved changes with a router blocker, which needs
+// a data router; the sheet's own tests cover that guard.
+vi.mock("@/lib/use-dirty-guard", () => ({
+  useDirtyGuard: () => null,
+}));
 
 import type { PropertyDef, TypeDef, ViewDef } from "@/api/types";
 import { ManageProperties } from "@/components/manage-properties";
@@ -175,6 +181,46 @@ describe("ManageProperties", () => {
     expect(
       screen.queryByRole("button", { name: "Remove Due from this type" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens the property sheet with the row's membership", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1")) {
+        return jsonResponse({
+          id: "s1",
+          name: "Garden",
+          icon: null,
+          accent: null,
+          timezone: "America/Toronto",
+          created_at: "2026-11-01T00:00:00Z",
+          role: "owner",
+          members: [],
+          type_count: 1,
+        });
+      }
+      if (url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      if (url.endsWith("/api/spaces/s1/properties")) {
+        return jsonResponse([room, bedroom, size, color]);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+
+    renderWithProviders(
+      <ManageProperties
+        spaceId="s1"
+        type={album()}
+        library={[room, bedroom, size, color]}
+        canEdit
+        onClose={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Room" }));
+    expect(await screen.findByText("On this type")).toBeInTheDocument();
+    expect(screen.getByLabelText("Required")).toBeInTheDocument();
   });
 
   it("opens the add sheet and keeps the manage list behind it", async () => {

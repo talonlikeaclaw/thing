@@ -631,6 +631,7 @@ mod tests {
             key: "ghost".to_owned(),
             required: false,
             featured: false,
+            default: None,
         }];
         let errors = check_members(&schema, &def);
         assert_eq!(
@@ -730,6 +731,7 @@ mod tests {
             key: "due_date".to_owned(),
             required: false,
             featured: false,
+            default: None,
         }];
         let errors = check_members(&schema, &def);
         assert_eq!(

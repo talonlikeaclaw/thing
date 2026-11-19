@@ -979,6 +979,7 @@ mod tests {
             key: key.to_owned(),
             required: false,
             featured: false,
+            default: None,
         }
     }
 

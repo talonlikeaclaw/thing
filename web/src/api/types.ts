@@ -146,6 +146,11 @@ export interface TypeProperty {
   key: string;
   required: boolean;
   featured: boolean;
+  /**
+   * The value a new record starts with, in the property's stored shape; absent
+   * means the creation surfaces send nothing for it.
+   */
+  default?: unknown;
 }
 
 export type SortDirection = "asc" | "desc";

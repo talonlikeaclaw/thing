@@ -739,3 +739,96 @@ describe("AddPropertyDialog display", () => {
     });
   });
 });
+
+describe("AddPropertyDialog membership", () => {
+  function stubNewProperty() {
+    const calls: Call[] = [];
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      const method = init?.method ?? "GET";
+      if (url.endsWith("/api/spaces/s1")) {
+        return jsonResponse({
+          id: "s1",
+          name: "Garden",
+          icon: null,
+          accent: null,
+          timezone: "America/Toronto",
+          created_at: "2026-11-01T00:00:00Z",
+          role: "owner",
+          members: [],
+          type_count: 1,
+        });
+      }
+      if (method === "POST") {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        calls.push({ method, url, body });
+        return jsonResponse({ key: "amount", name: "Amount", format: "number" });
+      }
+      if (method === "PATCH") {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        calls.push({ method, url, body });
+        return jsonResponse(album([{ key: "amount", required: true, featured: true }]));
+      }
+      throw new Error(`unstubbed ${method} ${url}`);
+    });
+    return calls;
+  }
+
+  it("sends Required and the default in the member stage", async () => {
+    const calls = stubNewProperty();
+    renderWithProviders(
+      <AddPropertyDialog spaceId="s1" type={album()} library={[]} onClose={() => undefined} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Amount" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Number" }));
+    fireEvent.click(screen.getByLabelText("Required"));
+    fireEvent.change(screen.getByLabelText("Amount", { selector: "input[type=number]" }), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toMatchObject({
+      method: "PATCH",
+      url: "/api/spaces/s1/types/album",
+      body: {
+        properties: [{ key: "amount", required: true, featured: true, default: 0 }],
+      },
+    });
+  });
+
+  it("starts the default over when the format changes", async () => {
+    const calls = stubNewProperty();
+    renderWithProviders(
+      <AddPropertyDialog spaceId="s1" type={album()} library={[]} onClose={() => undefined} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Amount" } });
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "abc" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Number" }));
+
+    expect(screen.getByLabelText("Amount")).toHaveValue(null);
+    fireEvent.click(screen.getByRole("button", { name: "Add property" }));
+
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toMatchObject({
+      body: { properties: [{ key: "amount", required: false, featured: true }] },
+    });
+  });
+
+  it("asks for the default after a select exists", async () => {
+    stubNewProperty();
+    renderWithProviders(
+      <AddPropertyDialog spaceId="s1" type={album()} library={[]} onClose={() => undefined} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Status" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Select" }));
+
+    expect(
+      screen.getByText(/A default can be chosen once the property exists/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Default", { selector: "span" })).toBeNull();
+  });
+});

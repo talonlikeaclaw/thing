@@ -1074,6 +1074,7 @@ mod tests {
                 key: "room".to_owned(),
                 required: false,
                 featured: true,
+                default: None,
             }],
             views: vec![table_view("all", vec!["title", "room"])],
             default_view: "all".to_owned(),
@@ -1283,6 +1284,7 @@ mod tests {
             key: "photo".to_owned(),
             required: false,
             featured: false,
+            default: None,
         });
         space.store.save_type(&def, None).expect("save type");
         space
@@ -1359,6 +1361,7 @@ mod tests {
             key: "photo".to_owned(),
             required: false,
             featured: false,
+            default: None,
         });
         space.store.save_type(&def, None).expect("save type");
         space
@@ -1439,6 +1442,7 @@ mod tests {
             key: "photos".to_owned(),
             required: false,
             featured: false,
+            default: None,
         });
         space.store.save_type(&def, None).expect("save type");
         space
@@ -1683,6 +1687,7 @@ mod tests {
             key: "related".to_owned(),
             required: false,
             featured: false,
+            default: None,
         });
         space.rewrite_type(&def);
         let path = object_path("Monstera");
@@ -2184,6 +2189,7 @@ mod tests {
             key: "due_date".to_owned(),
             required: false,
             featured: true,
+            default: None,
         }];
         let errors = validate::validate_members(&schema, &def).expect_err("listed implicitly");
         assert_eq!(

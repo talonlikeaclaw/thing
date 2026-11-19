@@ -535,11 +535,13 @@ Watered today.
                     key: "room".to_owned(),
                     required: false,
                     featured: true,
+                    default: None,
                 },
                 TypeProperty {
                     key: "watered_on".to_owned(),
                     required: false,
                     featured: false,
+                    default: None,
                 },
             ],
             views: vec![ViewDef {

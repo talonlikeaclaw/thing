@@ -523,6 +523,7 @@ mod tests {
                     key: (*key).to_owned(),
                     required: false,
                     featured: false,
+                    default: None,
                 })
                 .collect(),
             views: vec![ViewDef {

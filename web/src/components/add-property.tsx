@@ -28,6 +28,10 @@ import {
   type DisplayDraft,
 } from "@/components/schema/display-fields";
 import {
+  MembershipDefault,
+  defaultPickable,
+} from "@/components/schema/membership-default";
+import {
   ValidationFields,
   emptyValidationDraft,
   validationPayload,
@@ -134,6 +138,15 @@ export function AddPropertyDialog({
   const [targetPlural, setTargetPlural] = useState("");
   const [targetIcon, setTargetIcon] = useState("");
   const [multi, setMulti] = useState(true);
+  const [required, setRequired] = useState(false);
+  const [defaultValue, setDefaultValue] = useState<unknown>(null);
+  const [defaultInvalid, setDefaultInvalid] = useState(false);
+  /** The membership fields follow the property: a switch starts them over. */
+  function resetMembership() {
+    setRequired(false);
+    setDefaultValue(null);
+    setDefaultInvalid(false);
+  }
   const [createdType, setCreatedType] = useState<TypeDef | null>(null);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [memberAdded, setMemberAdded] = useState(false);
@@ -158,6 +171,10 @@ export function AddPropertyDialog({
   const existing = available.find((property) => property.key === existingKey);
   const label = mode === "existing" ? (existing?.name ?? "") : name.trim();
   const format = draft.format;
+  const validationValue =
+    draft.kind === "stored"
+      ? validationPayload(validation, format, format === "relation" ? multi : false)
+      : null;
   const relation = mode === "new" && draft.kind === "stored" && format === "relation";
   const createsType = relation && targetType === NEW_TARGET;
   const targetTypes = useMemo(
@@ -169,12 +186,40 @@ export function AddPropertyDialog({
     : targetType === NEW_TARGET
       ? null
       : targetType;
-  const ready =
+  /**
+   * The definition the membership group edits against: the library property, or
+   * the one this form is about to create. A calculated property has none.
+   */
+  const membershipProperty: PropertyDef | undefined =
     mode === "existing"
+      ? existing
+      : draft.kind === "stored"
+        ? {
+            key: "add-property-default",
+            name: label || "Default",
+            format,
+            ...(relation && chosenTarget !== null
+              ? { target_type: chosenTarget, multi }
+              : {}),
+            ...(validationValue ? { validation: validationValue } : {}),
+          }
+        : undefined;
+  // A default belongs to the format it was typed for: switching the format or
+  // the value kind starts the membership over, so a text default can never be
+  // sent for a number.
+  useEffect(() => {
+    setRequired(false);
+    setDefaultValue(null);
+    setDefaultInvalid(false);
+  }, [format, draft.kind]);
+
+  const ready =
+    !defaultInvalid &&
+    (mode === "existing"
       ? existing !== undefined
       : label !== "" &&
         computedDraftProblem(draft) === null &&
-        (!relation || chosenTarget !== null || targetName.trim() !== "");
+        (!relation || chosenTarget !== null || targetName.trim() !== ""));
   const frozen = pending;
   /** Any stage that already wrote makes the inputs it used settled. */
   const settled =
@@ -268,14 +313,6 @@ export function AddPropertyDialog({
         setRunning("property");
         try {
           const displayValue = displayPayload(display, format);
-          const validationValue =
-            draft.kind === "stored"
-              ? validationPayload(
-                  validation,
-                  format,
-                  format === "relation" ? multi : false,
-                )
-              : null;
           const property = await createProperty.mutateAsync({
             name: label,
             ...computedPayload(draft),
@@ -305,7 +342,17 @@ export function AddPropertyDialog({
         setRunning("member");
         const members = type.properties.some((member) => member.key === key)
           ? type.properties
-          : [...type.properties, { key, required: false, featured: true }];
+          : [
+              ...type.properties,
+              {
+                key,
+                required,
+                featured: true,
+                ...(defaultValue === null || defaultValue === undefined
+                  ? {}
+                  : { default: defaultValue }),
+              },
+            ];
         try {
           await updateType.mutateAsync({ properties: members });
           setMemberAdded(true);
@@ -420,14 +467,20 @@ export function AddPropertyDialog({
                 <TabButton
                   selected={mode === "existing"}
                   disabled={frozen || settled || available.length === 0}
-                  onClick={() => setMode("existing")}
+                  onClick={() => {
+                    setMode("existing");
+                    resetMembership();
+                  }}
                 >
                   Existing
                 </TabButton>
                 <TabButton
                   selected={mode === "new"}
                   disabled={frozen || settled}
-                  onClick={() => setMode("new")}
+                  onClick={() => {
+                    setMode("new");
+                    resetMembership();
+                  }}
                 >
                   New
                 </TabButton>
@@ -445,7 +498,10 @@ export function AddPropertyDialog({
                       title="Choose a library property"
                       properties={available}
                       value={existingKey === "" ? null : existingKey}
-                      onChange={setExistingKey}
+                      onChange={(key) => {
+                        setExistingKey(key);
+                        resetMembership();
+                      }}
                       className={frozen || memberAdded || columnAdded ? "pointer-events-none opacity-60" : undefined}
                     />
                   </div>
@@ -629,6 +685,32 @@ export function AddPropertyDialog({
                   ) : null}
                 </div>
               )}
+
+              {membershipProperty ? (
+                <fieldset className="mt-4 border-t rule pt-4">
+                  <legend className="label mb-2">On this type</legend>
+                  <MembershipDefault
+                    key={`${mode}:${draft.kind}:${format}`}
+                    spaceId={spaceId}
+                    member={{
+                      key: membershipProperty.key,
+                      required,
+                      featured: true,
+                      ...(defaultValue === null || defaultValue === undefined
+                        ? {}
+                        : { default: defaultValue }),
+                    }}
+                    property={membershipProperty}
+                    canEdit={!propertyFrozen}
+                    pickable={mode === "existing" || defaultPickable(format)}
+                    onChange={(next) => {
+                      setRequired(next.required);
+                      setDefaultValue(next.default ?? null);
+                    }}
+                    onInvalid={setDefaultInvalid}
+                  />
+                </fieldset>
+              ) : null}
 
               {stages.length > 1 || error ? (
                 <ol aria-label="Progress" className="mt-4 grid gap-1 border-t rule pt-3">

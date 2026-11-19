@@ -293,6 +293,9 @@ pub struct TypeProperty {
     pub required: bool,
     #[serde(default)]
     pub featured: bool,
+    /// The value a new record starts with; absent means nothing is sent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<Value>,
 }
 
 /// The most views one type may carry.

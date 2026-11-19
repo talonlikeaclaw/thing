@@ -539,6 +539,7 @@ mod tests {
             key: key.to_owned(),
             required,
             featured: false,
+            default: None,
         }
     }
 

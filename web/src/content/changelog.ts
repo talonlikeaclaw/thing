@@ -74,6 +74,25 @@ export const CHANGELOG: ChangelogEntry[] = [
           },
         ],
       },
+      {
+        title: "A record that starts ready",
+        intro:
+          "A type can decide what a new record already holds, so the fields that are always the same stop being retyped.",
+        items: [
+          {
+            lead: "A new record starts with a value",
+            body: "A type can name the value each new record begins with, so a price opens at 0 and a room at the one you always use.",
+          },
+          {
+            lead: "A field can be required from the editor",
+            body: "Required is a switch on each property of a type, so capture asks for what a record cannot go without.",
+          },
+          {
+            lead: "A property and its place on a type are one sheet",
+            body: "The same sheet edits a property wherever it is opened from, so the definition, Required and the starting value sit together.",
+          },
+        ],
+      },
     ],
   },
   {

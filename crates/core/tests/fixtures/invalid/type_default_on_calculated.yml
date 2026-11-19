@@ -1,0 +1,23 @@
+schema: 8
+key: invoice
+name: Invoice
+name_plural: Invoices
+description: ''
+properties:
+- key: total
+  required: false
+  featured: true
+  default: 0.0
+views:
+- key: all
+  name: All
+  kind: table
+  filter:
+    op: and
+    conditions: []
+  sorts:
+  - property: updated_at
+    direction: desc
+  columns:
+  - title
+default_view: all

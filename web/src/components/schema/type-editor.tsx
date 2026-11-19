@@ -1,20 +1,13 @@
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
 import { useDeleteType, useUpdateType } from "@/api/queries";
-import type {
-  Filter,
-  PropertyDef,
-  ScheduleLabels,
-  TypeDef,
-  TypeProperty,
-} from "@/api/types";
-import { AddPropertyDialog } from "@/components/add-property";
+import type { Filter, PropertyDef, ScheduleLabels, TypeDef } from "@/api/types";
 import { ThumbRow } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
-import { SmallButton } from "@/components/schema/small-button";
+import { ManageProperties } from "@/components/manage-properties";
 import {
   Button,
   FormError,
@@ -23,26 +16,18 @@ import {
   TextField,
 } from "@/components/ui/controls";
 import { EmptyState, FieldRow, FormatChip, SectionRule } from "@/components/ui/page";
-import { PositionMenu } from "@/components/ui/position-menu";
 import { useToast } from "@/components/ui/toast";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { filterParam } from "@/lib/filter";
+import { labeledScheduleProperties, SCHEDULE_PROPERTY_DEFS } from "@/lib/schedule";
 import {
-  isScheduleKey,
-  labeledScheduleProperties,
-  SCHEDULE_PROPERTY_DEFS,
-} from "@/lib/schedule";
-import {
-  addProperty,
-  availableProperties,
   computeKindLabel,
   effectiveProperties,
   formatLabel,
-  moveProperty,
-  removeProperty,
   sameJson,
 } from "@/lib/schema";
+import { valueLabel } from "@/lib/format";
 
 interface ConflictRecord {
   id: string;
@@ -114,8 +99,7 @@ export function TypeEditor({
   const [description, setDescription] = useState(type.description);
   const [schedule, setSchedule] = useState(type.schedule);
   const [labels, setLabels] = useState<ScheduleLabels>(type.schedule_labels ?? {});
-  const [members, setMembers] = useState<TypeProperty[]>(type.properties);
-  const [addOpen, setAddOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [confirmKey, setConfirmKey] = useState("");
   const [moveRecords, setMoveRecords] = useState(false);
 
@@ -128,7 +112,6 @@ export function TypeEditor({
       setDescription(update.data.description);
       setSchedule(update.data.schedule);
       setLabels(update.data.schedule_labels ?? {});
-      setMembers(update.data.properties);
     }
   }, [update.data]);
 
@@ -142,9 +125,6 @@ export function TypeEditor({
     { ...type, schedule, implicit_properties: implicit },
     properties,
   );
-  const available = availableProperties(type, library).filter(
-    (property) => !isScheduleKey(property.key),
-  );
   const payload = {
     name: name.trim(),
     name_plural: plural.trim(),
@@ -152,7 +132,6 @@ export function TypeEditor({
     description,
     schedule,
     schedule_labels: schedule ? labels : {},
-    properties: members,
   };
   const initial = {
     name: type.name,
@@ -161,14 +140,9 @@ export function TypeEditor({
     description: type.description,
     schedule: type.schedule,
     schedule_labels: type.schedule_labels ?? {},
-    properties: type.properties,
   };
   const dirty = !sameJson(payload, initial);
   const invalid = !payload.name || !payload.name_plural;
-
-  function onRemove(key: string) {
-    setMembers(removeProperty(members, key));
-  }
 
   async function saveDraft(): Promise<boolean> {
     if (!canEdit || invalid) {
@@ -199,14 +173,15 @@ export function TypeEditor({
     ],
   };
   const liveConflictRecords = conflict?.records.filter((record) => !record.trashed) ?? [];
-  const titleProperty = (key: string) =>
-    library.find((property) => property.key === key)?.name ?? key;
+  const propertyOf = (key: string) =>
+    library.find((property) => property.key === key);
+  const titleProperty = (key: string) => propertyOf(key)?.name ?? key;
   const formatOf = (key: string) => {
-    const format = library.find((property) => property.key === key)?.format;
+    const format = propertyOf(key)?.format;
     return format ? formatLabel(format) : "unknown";
   };
   const kindOf = (key: string) => {
-    const property = library.find((entry) => entry.key === key);
+    const property = propertyOf(key);
     return property ? computeKindLabel(property) : null;
   };
 
@@ -416,51 +391,67 @@ export function TypeEditor({
       ) : null}
 
       <div className="mt-8">
-        <SectionRule level={3} title="Properties" count={members.length} />
-        {members.length === 0 ? (
-          <EmptyState sentence="This type has no properties yet. Add one below." />
+        <SectionRule level={3} title="Properties" count={type.properties.length} />
+        {type.properties.length === 0 ? (
+          <EmptyState sentence="This type has no properties yet. Manage them to add one." />
         ) : (
           <ul>
-            {members.map((member, index) => (
-              <li key={member.key} className="border-b rule">
-                <ThumbRow className="items-center gap-2 py-2">
-                  <span className="grid min-w-0 flex-1 gap-0.5">
+            {type.properties.map((member) => {
+              const property = propertyOf(member.key);
+              const rules = [
+                member.required ? "required" : null,
+                member.default === undefined || member.default === null
+                  ? null
+                  : `default ${valueLabel(property?.format ?? "text", member.default, property)}`,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <li
+                  key={member.key}
+                  className="flex flex-wrap items-baseline justify-between gap-2 border-b rule py-2"
+                >
+                  <span className="flex min-w-0 items-baseline gap-2">
                     <span className="truncate text-[15px] font-medium text-accent">
                       {titleProperty(member.key)}
                     </span>
-                    <span className="font-mono text-[11px] leading-4 text-faint">
+                    <span className="font-mono text-[11px] text-faint">
                       {member.key}
                     </span>
+                    <span className="label">{rules || "no rules"}</span>
                   </span>
                   <FormatChip className="border-accent/40 bg-accent-wash text-accent-on-wash">
                     {kindOf(member.key)
                       ? `${kindOf(member.key)} · ${formatOf(member.key)}`
                       : formatOf(member.key)}
                   </FormatChip>
-                  <SmallButton
-                    label={`Remove ${member.key}`}
-                    disabled={!canEdit}
-                    onClick={() => onRemove(member.key)}
-                  >
-                    <X aria-hidden size={15} />
-                  </SmallButton>
-                  <PositionMenu
-                    name={titleProperty(member.key)}
-                    index={index + 1}
-                    count={members.length}
-                    disabled={!canEdit}
-                    onMove={(position) =>
-                      setMembers(moveProperty(members, member.key, position - 1 - index))
-                    }
-                  />
-                </ThumbRow>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
 
+        <ThumbRow className="mt-3 flex-wrap items-center gap-3">
+          {dirty ? (
+            <span className="text-[12px] text-faint">Save the type first.</span>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-9 px-3 text-[13px]"
+            disabled={dirty}
+            title={dirty ? "Save the type before changing its properties." : undefined}
+            onClick={() => setManageOpen(true)}
+          >
+            <Plus aria-hidden size={15} />
+            Manage properties
+          </Button>
+        </ThumbRow>
+
         <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
-          Columns, grouping and calendar layout are per view on the{" "}
+          Required, the starting value and the order are edited in one sheet, the same one the
+          type page opens. The definition itself lives in the space library. Columns, grouping and
+          calendar layout are per view on the{" "}
           <Link
             to={`/s/${spaceId}/t/${type.key}`}
             className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
@@ -469,34 +460,6 @@ export function TypeEditor({
           </Link>
           .
         </p>
-
-        {canEdit && available.length > 0 ? (
-          <ThumbRow className="mt-3 flex-wrap items-center gap-3">
-            {dirty ? (
-              <span className="text-[12px] text-faint">Save the type first.</span>
-            ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-9 px-3 text-[13px]"
-              disabled={dirty}
-              title={dirty ? "Save the type before adding a property." : undefined}
-              onClick={() => setAddOpen(true)}
-            >
-              <Plus aria-hidden size={15} />
-              Add property
-            </Button>
-          </ThumbRow>
-        ) : null}
-        {library.length === 0 ? (
-          <p className="mt-2 text-[13px] text-muted">
-            No properties exist in this space yet. Create one below, then add it here.
-          </p>
-        ) : available.length === 0 ? (
-          <p className="mt-2 text-[13px] text-muted">
-            Every property in the space is already on this type.
-          </p>
-        ) : null}
       </div>
 
       {canEdit ? (
@@ -604,15 +567,13 @@ export function TypeEditor({
         </section>
       ) : null}
 
-      {addOpen ? (
-        <AddPropertyDialog
+      {manageOpen ? (
+        <ManageProperties
           spaceId={spaceId}
           type={type}
-          library={library}
-          onAdded={(property) =>
-            setMembers((current) => addProperty(current, property.key))
-          }
-          onClose={() => setAddOpen(false)}
+          library={properties}
+          canEdit={canEdit}
+          onClose={() => setManageOpen(false)}
         />
       ) : null}
 

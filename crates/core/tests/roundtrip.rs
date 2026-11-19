@@ -13,7 +13,9 @@ use thing_core::markdown::{
 };
 use thing_core::model::ObjectDoc;
 use thing_core::slug::slugify;
-use thing_core::validate::{Schema, validate_display, validate_validation, validate_views};
+use thing_core::validate::{
+    Schema, validate_display, validate_members, validate_validation, validate_views,
+};
 
 /// Reads `tests/fixtures/<name>` as UTF-8.
 fn fixture(name: &str) -> String {
@@ -154,7 +156,10 @@ fn schema_two_object_fixtures_parse_and_upgrade_on_write() {
 #[test]
 fn type_and_property_fixtures_round_trip_byte_for_byte() {
     let types = current(with_prefix("type_"));
-    assert_eq!(types, vec!["type_views.yml".to_owned()]);
+    assert_eq!(
+        types,
+        vec!["type_defaults.yml".to_owned(), "type_views.yml".to_owned()]
+    );
     for name in types {
         let text = fixture(&name);
         let def = parse_type(&text).unwrap_or_else(|err| panic!("{name}: {err}"));
@@ -186,6 +191,33 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
             "{name} is not reproduced byte for byte"
         );
     }
+}
+
+#[test]
+fn a_type_fixture_carries_membership_defaults() {
+    use thing_core::model::Value;
+
+    let def = parse_type(&fixture("type_defaults.yml")).expect("the defaults fixture parses");
+    let member = |key: &str| {
+        def.properties
+            .iter()
+            .find(|member| member.key == key)
+            .unwrap_or_else(|| panic!("{key} is a member"))
+    };
+    assert_eq!(
+        member("room").default,
+        Some(Value::Text("study".to_owned()))
+    );
+    assert!(
+        member("room").required,
+        "a default satisfies a required member"
+    );
+    assert_eq!(member("price").default, Some(Value::Number(0.0)));
+    assert_eq!(
+        member("status").default,
+        Some(Value::Text("todo".to_owned()))
+    );
+    assert_eq!(serialize_type(&def), fixture("type_defaults.yml"));
 }
 
 #[test]
@@ -321,6 +353,7 @@ fn invalid_fixtures_are_refused() {
             "property_pattern_on_number.yml".to_owned(),
             "property_pattern_unclosed.yml".to_owned(),
             "schema_9.md".to_owned(),
+            "type_default_on_calculated.yml".to_owned(),
             "type_footer_on_calendar.yml".to_owned(),
             "unknown_frontmatter_key.md".to_owned(),
         ]
@@ -382,6 +415,45 @@ fn invalid_fixtures_are_refused() {
     assert_eq!(
         messages(validate_views(&schema, &def)),
         vec!["invalid views.watering.footer: belongs to table views only".to_owned()]
+    );
+
+    // A membership default is checked against the property it belongs to, so
+    // this type is read against a schema that defines its calculated one.
+    use thing_core::model::{ComputeDef, ComputeKind, PropertyDef, PropertyFormat};
+
+    let def = parse_type(&read("type_default_on_calculated.yml"))
+        .expect("the type parses; its default is what is wrong");
+    let mut properties = BTreeMap::new();
+    properties.insert(
+        "total".to_owned(),
+        PropertyDef {
+            key: "total".to_owned(),
+            name: "Total".to_owned(),
+            format: PropertyFormat::Number,
+            display: None,
+            validation: None,
+            options: Vec::new(),
+            target_type: None,
+            multi: false,
+            compute: Some(ComputeDef {
+                kind: ComputeKind::Formula,
+                expression: Some("1 + 1".to_owned()),
+                relation: None,
+                property: None,
+                aggregate: None,
+            }),
+        },
+    );
+    let schema = Schema {
+        types: &types,
+        properties: &properties,
+        schedule_properties: &schedule_properties,
+        objects: &objects,
+        trash: &trash,
+    };
+    assert_eq!(
+        messages(validate_members(&schema, &def).expect_err("a default is refused")),
+        vec!["invalid total: a calculated property cannot have a default".to_owned()]
     );
 }
 
@@ -526,6 +598,9 @@ fn a_schema_seven_type_and_property_load_without_display_or_footer() {
         assert_eq!(view.footer, None, "{}", view.key);
         assert!(view.footer_hidden.is_empty(), "{}", view.key);
         assert!(view.footer_summary.is_empty(), "{}", view.key);
+    }
+    for member in &def.properties {
+        assert_eq!(member.default, None, "{}", member.key);
     }
     assert!(serialize_type(&def).starts_with("schema: 8\n"));
 }

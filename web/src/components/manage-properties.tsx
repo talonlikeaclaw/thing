@@ -91,7 +91,8 @@ export function ManageProperties({
             ? scoreProperty(property, needle) !== null
             : foldProperty(member.key).includes(needle),
         );
-  const editing = rows.find((row) => row.member.key === editingKey)?.property;
+  const editingRow = rows.find((row) => row.member.key === editingKey);
+  const editing = editingRow?.property;
   const writable = type.properties.length;
 
   function write(next: TypeProperty[], key: string) {
@@ -275,6 +276,8 @@ export function ManageProperties({
           spaceId={spaceId}
           property={editing}
           canEdit={canEdit}
+          type={type}
+          member={editingRow?.member}
           onClose={() => setEditingKey(null)}
         />
       ) : null}
