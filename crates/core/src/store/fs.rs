@@ -1209,6 +1209,7 @@ mod tests {
             relation: None,
             property: None,
             aggregate: None,
+            filter: None,
         });
         store.save_property(&days, None).expect("formula");
         let mut titles = room_property("room_titles");
@@ -1219,6 +1220,7 @@ mod tests {
             relation: Some("room".to_owned()),
             property: Some("room".to_owned()),
             aggregate: Some(crate::model::Aggregate::List),
+            filter: None,
         });
         store.save_property(&titles, None).expect("rollup");
         store.save_type(&plant_type(), None).expect("type");

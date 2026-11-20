@@ -12,14 +12,18 @@ services:
     working_dir: /workspaces/thing
     command: ["bash", "scripts/dev-serve.sh"]
     ports:
-      - "127.0.0.1:5173:5173"
-      - "127.0.0.1:8080:8080"
+      # Loopback by default. `THING_DEV_LISTEN_IP=0.0.0.0` publishes both ports
+      # on the LAN so phones and other machines can open :5173 directly.
+      - "${THING_DEV_LISTEN_IP:-127.0.0.1}:5173:5173"
+      - "${THING_DEV_LISTEN_IP:-127.0.0.1}:8080:8080"
     environment:
       THING_BIND: 0.0.0.0:8080
       THING_DATA_DIR: /workspaces/thing/data
-      THING_PUBLIC_URL: http://localhost:5173
+      THING_PUBLIC_URL: ${THING_DEV_PUBLIC_URL:-http://localhost:5173}
       THING_COOKIE_SECURE: "false"
       THING_LOG: info
+      # Comma-separated hostnames Vite answers besides bare IP addresses.
+      THING_DEV_ALLOWED_HOSTS: ${THING_DEV_ALLOWED_HOSTS:-}
     volumes:
       - .:/workspaces/thing
     security_opt:

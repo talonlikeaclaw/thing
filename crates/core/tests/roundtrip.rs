@@ -441,6 +441,7 @@ fn invalid_fixtures_are_refused() {
                 relation: None,
                 property: None,
                 aggregate: None,
+                filter: None,
             }),
         },
     );

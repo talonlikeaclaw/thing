@@ -93,6 +93,17 @@ export const CHANGELOG: ChangelogEntry[] = [
           },
         ],
       },
+      {
+        title: "Scoped and owned",
+        intro:
+          "A calculated column can decide which linked records it reads, so a total says what it leaves out.",
+        items: [
+          {
+            lead: "A total can count only what matches",
+            body: "A rollup takes a filter over the records its relation points at, so a sum, count or list leaves out the ones that do not belong.",
+          },
+        ],
+      },
     ],
   },
   {

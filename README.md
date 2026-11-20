@@ -217,7 +217,25 @@ The container runs both sides of the app: `cargo watch` rebuilds and restarts th
 changes, and Vite serves the SPA with hot module replacement. Open `http://localhost:5173`; Vite
 proxies `/api` (including WebSockets) to the container's `:8080`, so cookies stay same-origin.
 `./data` is bind-mounted, so accounts and spaces survive container restarts. The dev ports bind to
-`127.0.0.1` only; VS Code forwards them.
+`127.0.0.1` only; VS Code forwards them. To reach the dev server from another machine instead,
+publish it on the LAN:
+
+```sh
+THING_DEV_LISTEN_IP=0.0.0.0 \
+THING_DEV_PUBLIC_URL=http://192.168.1.50:5173 \
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Open `http://192.168.1.50:5173` with the host's own LAN address. HMR, the `/api` proxy and the SSE
+`Origin` check all follow the `Host` the browser used, so nothing else needs changing;
+`THING_DEV_PUBLIC_URL` only decides what invite links point at. Vite always accepts bare IP hosts,
+while a name such as `devbox.local` also needs `THING_DEV_ALLOWED_HOSTS=devbox.local` (comma
+separated for several). Allow `5173/tcp` from the subnet in the host firewall.
+
+Off-subnet, Tailscale Serve reaches the same server with no published ports:
+`tailscale serve --bg 5173`, then open `https://<host>.<tailnet>.ts.net`. Vite's `allowedHosts`
+already lists `devbox.tail56f1e1.ts.net` for that; other tailnet names go in
+`THING_DEV_ALLOWED_HOSTS`.
 
 The image runs as UID/GID `1000` by default. Set `THING_UID`/`THING_GID` as build args when the host
 user differs.

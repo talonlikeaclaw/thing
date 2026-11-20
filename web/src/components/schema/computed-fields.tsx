@@ -1,13 +1,15 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import { useTypeDetails } from "@/api/queries";
+import { useSpace, useTypeDetails } from "@/api/queries";
 import type {
   Aggregate,
   ComputeDef,
+  Filter,
   PropertyDef,
   PropertyFormat,
   TypeDef,
 } from "@/api/types";
+import { FilterConditions } from "@/components/filter-conditions";
 import { PropertyPicker } from "@/components/property-picker";
 import { FormError, SelectField, TextAreaField } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
@@ -29,6 +31,7 @@ import {
   TITLE_COLUMN,
   writableProperties,
 } from "@/lib/schema";
+import { todayIn } from "@/lib/timezone";
 
 /** The three things a property's value can be: written, or derived two ways. */
 export type AuthoringKind = "stored" | "formula" | "rollup";
@@ -43,6 +46,8 @@ export interface ComputedDraft {
   aggregate: Aggregate;
   /** A target property key, or `title`. */
   property: string;
+  /** Which targets a rollup aggregates; empty means every one. */
+  filter: Filter;
 }
 
 /** The server's expression limit, in characters. */
@@ -169,6 +174,7 @@ export function emptyComputedDraft(): ComputedDraft {
     relation: "",
     aggregate: "count",
     property: TITLE_COLUMN,
+    filter: { op: "and", conditions: [] },
   };
 }
 
@@ -195,6 +201,7 @@ export function computedDraft(property: PropertyDef | undefined): ComputedDraft 
       relation: compute.relation ?? "",
       aggregate: compute.aggregate ?? "count",
       property: compute.property ?? TITLE_COLUMN,
+      filter: compute.filter ?? { op: "and", conditions: [] },
     };
   }
   return { ...draft, format: property.format };
@@ -226,6 +233,7 @@ export function computedPayload(draft: ComputedDraft): {
       ...(draft.aggregate === "count"
         ? {}
         : { property: draft.property || TITLE_COLUMN }),
+      ...(draft.filter.conditions.length > 0 ? { filter: draft.filter } : {}),
     },
   };
 }
@@ -297,6 +305,8 @@ export function ComputedFields({
   problem,
 }: ComputedFieldsProps) {
   const frozen = disabled || existing;
+  const space = useSpace(spaceId);
+  const today = todayIn(space.data?.timezone ?? "UTC");
 
   const relations = useMemo(() => {
     const candidates = type
@@ -840,6 +850,25 @@ export function ComputedFields({
                         ? "number"
                         : "number, date or date-time"}{" "}
                       property to use. Add one to that type first.
+                    </p>
+                  ) : null}
+                  {targetType ? (
+                    <div className="grid gap-1.5">
+                      <span className="label">Only targets matching</span>
+                      <FilterConditions
+                        key={targetType.key}
+                        spaceId={spaceId ?? ""}
+                        type={targetType}
+                        properties={effectiveProperties(targetType, library)}
+                        filter={draft.filter}
+                        today={today}
+                        onChange={(filter) => onChange({ ...draft, filter })}
+                        empty="Every linked record counts."
+                      />
+                    </div>
+                  ) : relation && !relation.target_type ? (
+                    <p className="text-[12px] leading-4 text-muted">
+                      A filter needs a relation with a target type.
                     </p>
                   ) : null}
                 </>

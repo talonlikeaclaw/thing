@@ -1555,6 +1555,7 @@ mod tests {
             relation: None,
             property: None,
             aggregate: None,
+            filter: None,
         });
         let mut titles = property("titles", PropertyFormat::List);
         titles.compute = Some(ComputeDef {
@@ -1563,6 +1564,7 @@ mod tests {
             relation: Some("related".to_owned()),
             property: Some("title".to_owned()),
             aggregate: Some(Aggregate::List),
+            filter: None,
         });
         for def in [days, titles] {
             let key = def.key.clone();
@@ -2545,6 +2547,7 @@ mod tests {
             relation: None,
             property: None,
             aggregate: None,
+            filter: None,
         });
         computed.validation = Some(ValidationDef {
             unique: true,

@@ -2284,4 +2284,45 @@ mod tests {
             }]
         );
     }
+
+    #[test]
+    fn a_rollup_filter_naming_an_unknown_property_is_reported_while_the_space_loads() {
+        let space = Space::new().seed();
+        space.write(
+            "properties/related.yml",
+            "schema: 8\nkey: related\nname: Related\nformat: relation\ntarget_type: plant\nmulti: true\n",
+        );
+        space.write(
+            "properties/summary.yml",
+            "schema: 8\nkey: summary\nname: Summary\nformat: number\ncompute:\n  kind: rollup\n  relation: related\n  aggregate: count\n  filter:\n    op: and\n    conditions:\n    - property: ghost\n      condition: equal\n      value: x\n",
+        );
+        let mut def = plant_type();
+        def.properties.push(TypeProperty {
+            key: "related".to_owned(),
+            required: false,
+            featured: true,
+            default: None,
+        });
+        def.properties.push(TypeProperty {
+            key: "summary".to_owned(),
+            required: false,
+            featured: true,
+            default: None,
+        });
+        space.rewrite_type(&def);
+
+        let index = space.index();
+        assert!(index.type_def("plant").is_some(), "the space still loads");
+        assert!(
+            index
+                .problems()
+                .computed_problems
+                .iter()
+                .any(|problem| problem.property_key == "summary"
+                    && problem.field == "compute.filter.ghost"
+                    && problem.message.contains("not a property of type")),
+            "{:?}",
+            index.problems().computed_problems
+        );
+    }
 }

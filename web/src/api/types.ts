@@ -81,6 +81,8 @@ export interface ComputeDef {
   property?: string;
   /** The rollup's aggregate; `rollup` only. */
   aggregate?: Aggregate;
+  /** Only the targets its conditions match; `rollup` only. */
+  filter?: Filter;
 }
 
 export interface OptionDef {

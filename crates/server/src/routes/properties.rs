@@ -130,7 +130,7 @@ async fn create(
         options,
         target_type: body.target_type.clone(),
         multi,
-        compute: body.compute.clone(),
+        compute: normalize_compute(body.compute.clone()),
         display: normalize_display(body.display),
         validation: normalize_validation(body.validation),
     };
@@ -216,7 +216,7 @@ async fn update(
                     "the calculation kind is fixed once the property exists",
                 ));
             }
-            next.compute = Some(compute.clone());
+            next.compute = normalize_compute(Some(compute.clone()));
         }
         if let Some(name) = name {
             next.name = name;
@@ -562,6 +562,20 @@ fn normalize_validation(validation: Option<ValidationDef>) -> Option<ValidationD
     validation.filter(|block| !block.is_empty())
 }
 
+/// One state, one spelling: a rollup filter with no conditions is stored as no
+/// filter. Every writer (create and patch) goes through this.
+fn normalize_compute(compute: Option<ComputeDef>) -> Option<ComputeDef> {
+    let mut compute = compute?;
+    if compute
+        .filter
+        .as_ref()
+        .is_some_and(|filter| filter.conditions.is_empty())
+    {
+        compute.filter = None;
+    }
+    Some(compute)
+}
+
 /// Checks a new definition: options belong to `select` and `multi_select` and
 /// name real keys, a relation may name a type, a display carries only fields
 /// its format can honour, and nothing else takes either.
@@ -621,6 +635,49 @@ mod tests {
             assert_eq!(err.message(), format!("{key} is a generated schedule key"));
         }
         reject_schedule_key("name", "room").expect("an ordinary key");
+    }
+
+    #[test]
+    fn an_empty_rollup_filter_is_stored_as_no_filter() {
+        use thing_core::model::{Condition, Filter, FilterOp, Value};
+
+        let base = ComputeDef {
+            kind: thing_core::model::ComputeKind::Rollup,
+            expression: None,
+            relation: Some("related".to_owned()),
+            property: None,
+            aggregate: Some(thing_core::model::Aggregate::Count),
+            filter: None,
+        };
+        let empty = ComputeDef {
+            filter: Some(Filter {
+                op: FilterOp::And,
+                conditions: Vec::new(),
+            }),
+            ..base.clone()
+        };
+        assert_eq!(
+            normalize_compute(Some(empty)).expect("a computed definition"),
+            base
+        );
+
+        let filtered = Filter {
+            op: FilterOp::Or,
+            conditions: vec![Condition {
+                property: "room".to_owned(),
+                condition: thing_core::model::CondOp::Equal,
+                value: Some(Value::Text("study".to_owned())),
+            }],
+        };
+        let with_condition = ComputeDef {
+            filter: Some(filtered.clone()),
+            ..base
+        };
+        assert_eq!(
+            normalize_compute(Some(with_condition.clone())),
+            Some(with_condition)
+        );
+        assert_eq!(normalize_compute(None), None);
     }
 
     #[test]

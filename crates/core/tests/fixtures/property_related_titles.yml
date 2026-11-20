@@ -7,3 +7,9 @@ compute:
   relation: related_plant
   property: title
   aggregate: list
+  filter:
+    op: and
+    conditions:
+    - property: room
+      condition: equal
+      value: study

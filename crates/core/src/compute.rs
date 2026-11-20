@@ -13,6 +13,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::error::CoreError;
+use crate::filter;
 use crate::formula::{self, EvalContext, Expr, Reference, TypeContext, ValueType};
 use crate::index::SpaceIndex;
 use crate::model::{
@@ -37,6 +38,16 @@ fn invalid(field: &str, message: impl Into<String>) -> CoreError {
     CoreError::ValidationFailed {
         field: field.to_owned(),
         message: message.into(),
+    }
+}
+
+/// Rewrites a filter error's field under the path that carries it.
+fn rebase(error: CoreError, at: &str) -> CoreError {
+    match error {
+        CoreError::ValidationFailed { field, message } => {
+            invalid(&format!("{at}.{field}"), message)
+        }
+        other => other,
     }
 }
 
@@ -100,6 +111,9 @@ pub fn validate_definition(def: &PropertyDef) -> Vec<CoreError> {
             }
             if compute.aggregate.is_some() {
                 errors.push(invalid("compute.aggregate", "a formula takes no aggregate"));
+            }
+            if compute.filter.is_some() {
+                errors.push(invalid("compute.filter", "belongs to rollups only"));
             }
             match &compute.expression {
                 None => errors.push(invalid(
@@ -313,6 +327,26 @@ fn validate_rollup_for_type(
                 def.key
             ),
         )];
+    }
+    if let Some(filter) = &compute.filter {
+        let Some(target_type) = relation.target_type.as_deref() else {
+            return vec![invalid(
+                "compute.filter",
+                "needs a relation with a target type",
+            )];
+        };
+        let Some(target_def) = schema.type_def(target_type) else {
+            return vec![invalid(
+                "compute.relation",
+                format!("target type `{target_type}` is not in this space"),
+            )];
+        };
+        if let Err(errors) = crate::validate::validate_filter(schema, target_def, filter) {
+            return errors
+                .into_iter()
+                .map(|error| rebase(error, "compute.filter"))
+                .collect();
+        }
     }
     let aggregate = compute.aggregate.unwrap_or(Aggregate::Count);
     if aggregate == Aggregate::Count || compute.property.is_none() {
@@ -670,7 +704,15 @@ impl<'a> Evaluator<'a> {
         let Some(value) = properties.get(relation_key) else {
             return (aggregate == Aggregate::Count).then_some(Value::Number(0.0));
         };
-        let targets = self.targets(value);
+        let schema = self.index.schema();
+        let targets: Vec<&ObjectDoc> = self
+            .targets(value)
+            .into_iter()
+            .filter(|target| match &compute.filter {
+                Some(filter) => filter::row_matches(filter, &ObjectSummary::from(*target), &schema),
+                None => true,
+            })
+            .collect();
         if aggregate == Aggregate::Count {
             return Some(Value::Number(targets.len() as f64));
         }
@@ -863,7 +905,10 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::model::{Member, OptionDef, Role, SpaceMeta, TypeProperty, initial_view};
+    use crate::model::{
+        CondOp, Condition, Filter, FilterOp, Member, OptionDef, Role, SpaceMeta, TypeProperty,
+        initial_view,
+    };
     use crate::store::SpaceStore;
     use crate::store::fs::FsSpaceStore;
 
@@ -952,6 +997,7 @@ mod tests {
             relation: None,
             property: None,
             aggregate: None,
+            filter: None,
         });
         def
     }
@@ -970,6 +1016,7 @@ mod tests {
             relation: Some(relation.to_owned()),
             property: property_key.map(str::to_owned),
             aggregate: Some(aggregate),
+            filter: None,
         });
         def
     }
@@ -1319,6 +1366,114 @@ mod tests {
             "a zero count is a present value"
         );
         assert!(!empty.contains_key("linked_titles"));
+    }
+
+    #[test]
+    fn a_rollup_filter_scopes_count_and_sum_to_matching_targets() {
+        let fixture = Fixture::new();
+        let mut links = property("links", PropertyFormat::Relation);
+        links.target_type = Some("plant".to_owned());
+        links.multi = true;
+        let height = property("height", PropertyFormat::Number);
+        let status = property("status", PropertyFormat::Text);
+        let mut active_count = rollup(
+            "active_count",
+            PropertyFormat::Number,
+            "links",
+            None,
+            Aggregate::Count,
+        );
+        if let Some(compute) = active_count.compute.as_mut() {
+            compute.filter = Some(Filter {
+                op: FilterOp::And,
+                conditions: vec![Condition {
+                    property: "status".to_owned(),
+                    condition: CondOp::Equal,
+                    value: Some(Value::Text("active".to_owned())),
+                }],
+            });
+        }
+        let mut study_height = rollup(
+            "study_height",
+            PropertyFormat::Number,
+            "links",
+            Some("height"),
+            Aggregate::Sum,
+        );
+        if let Some(compute) = study_height.compute.as_mut() {
+            compute.filter = Some(Filter {
+                op: FilterOp::And,
+                conditions: vec![Condition {
+                    property: "room".to_owned(),
+                    condition: CondOp::Equal,
+                    value: Some(Value::Text("Study".to_owned())),
+                }],
+            });
+        }
+        let plant = type_def(
+            "plant",
+            &[
+                links.clone(),
+                height.clone(),
+                status.clone(),
+                active_count.clone(),
+                study_height.clone(),
+            ],
+        );
+        for def in [&links, &height, &status, &active_count, &study_height] {
+            fixture.save_property(def);
+        }
+        fixture.save_type(&plant);
+        let root = doc(
+            10,
+            "plant",
+            "Root",
+            &[(
+                "links",
+                Value::List(vec![
+                    Uuid::from_u128(20).to_string(),
+                    Uuid::from_u128(21).to_string(),
+                ]),
+            )],
+        );
+        let active = doc(
+            20,
+            "plant",
+            "Monstera",
+            &[
+                ("room", Value::Text("Hall".to_owned())),
+                ("height", Value::Number(5.0)),
+                ("status", Value::Text("active".to_owned())),
+            ],
+        );
+        let study = doc(
+            21,
+            "plant",
+            "Fern",
+            &[
+                ("room", Value::Text("Study".to_owned())),
+                ("height", Value::Number(2.5)),
+                ("status", Value::Text("archived".to_owned())),
+            ],
+        );
+        fixture.save_object("objects/plant/root.md", &root);
+        fixture.save_object("objects/plant/monstera.md", &active);
+        fixture.save_object("objects/plant/fern.md", &study);
+        let index = fixture.index();
+        assert_eq!(
+            value_of(&index, Uuid::from_u128(10), "active_count"),
+            Some(Value::Number(1.0)),
+            "count counts only the matching target"
+        );
+        assert_eq!(
+            value_of(&index, Uuid::from_u128(10), "study_height"),
+            Some(Value::Number(2.5)),
+            "sum left the non-matching target out"
+        );
+        assert_eq!(
+            value_of(&index, Uuid::from_u128(21), "active_count"),
+            Some(Value::Number(0.0))
+        );
     }
 
     #[test]
@@ -1700,6 +1855,96 @@ mod tests {
             Aggregate::Sum,
         );
         assert!(validate_for_type(&schema, def, &fine).is_empty());
+    }
+
+    #[test]
+    fn a_rollup_filter_is_checked_against_the_target_type() {
+        let fixture = Fixture::new();
+        let room = property("room", PropertyFormat::Text);
+        let mut links = property("links", PropertyFormat::Relation);
+        links.target_type = Some("plant".to_owned());
+        links.multi = true;
+        let mut untyped = property("loose", PropertyFormat::Relation);
+        untyped.multi = true;
+        let height = property("height", PropertyFormat::Number);
+        let plant = type_def(
+            "plant",
+            &[room.clone(), links.clone(), untyped.clone(), height.clone()],
+        );
+        for def in [&room, &links, &untyped, &height] {
+            fixture.save_property(def);
+        }
+        fixture.save_type(&plant);
+        let index = fixture.index();
+        let schema = index.schema();
+        let def = index.type_def("plant").expect("plant");
+
+        let mut missing = rollup(
+            "bad",
+            PropertyFormat::Number,
+            "links",
+            Some("height"),
+            Aggregate::Sum,
+        );
+        if let Some(compute) = missing.compute.as_mut() {
+            compute.filter = Some(Filter {
+                op: FilterOp::And,
+                conditions: vec![Condition {
+                    property: "ghost".to_owned(),
+                    condition: CondOp::Equal,
+                    value: Some(Value::Text("x".to_owned())),
+                }],
+            });
+        }
+        let errors = validate_for_type(&schema, def, &missing);
+        assert!(
+            errors.iter().any(|error| {
+                field(error) == "compute.filter.ghost"
+                    && error.to_string().contains("not a property of type")
+            }),
+            "{errors:?}"
+        );
+
+        let mut loose = rollup(
+            "bad",
+            PropertyFormat::Number,
+            "loose",
+            None,
+            Aggregate::Count,
+        );
+        if let Some(compute) = loose.compute.as_mut() {
+            compute.filter = Some(Filter {
+                op: FilterOp::And,
+                conditions: vec![Condition {
+                    property: "room".to_owned(),
+                    condition: CondOp::Equal,
+                    value: Some(Value::Text("Kitchen".to_owned())),
+                }],
+            });
+        }
+        let errors = validate_for_type(&schema, def, &loose);
+        assert!(
+            errors.iter().any(|error| {
+                field(error) == "compute.filter" && error.to_string().contains("target type")
+            }),
+            "{errors:?}"
+        );
+
+        let mut formula_def = formula("label", PropertyFormat::Text, r#"title + " / " + room"#);
+        if let Some(compute) = formula_def.compute.as_mut() {
+            compute.filter = Some(Filter {
+                op: FilterOp::And,
+                conditions: Vec::new(),
+            });
+        }
+        let errors = validate_definition(&formula_def);
+        assert!(
+            errors.iter().any(|error| {
+                field(error) == "compute.filter"
+                    && error.to_string().contains("belongs to rollups only")
+            }),
+            "{errors:?}"
+        );
     }
 
     #[test]

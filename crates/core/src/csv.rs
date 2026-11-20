@@ -1207,6 +1207,7 @@ mod tests {
             relation: None,
             property: None,
             aggregate: None,
+            filter: None,
         }
     }
 

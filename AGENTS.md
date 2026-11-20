@@ -421,7 +421,7 @@ out of scope.
 | `Dockerfile` | Three stages: `node:24` builds `web/dist`, `rust:1.98.1` builds the release binary over a dependency-cache layer, `debian:13-slim` runs both as the non-root `thing` user with `/data` as the volume |
 | `dev.dockerfile` | The dev image: Rust, Node and `cargo-watch` in one container, with `USER dev` |
 | `docker-compose.yml` | The production service: builds the image, binds `THING_LISTEN_IP` (loopback by default), mounts `./data`, read-only rootfs, dropped capabilities, `no-new-privileges` |
-| `docker-compose.dev.yml` | The dev service: source bind mount, `:8080` and `:5173`, `cargo-watch` plus Vite |
+| `docker-compose.dev.yml` | The dev service: source bind mount, `:8080` and `:5173` published on `THING_DEV_LISTEN_IP` (loopback by default), `cargo-watch` plus Vite |
 | `.devcontainer/devcontainer.json` | Reuses the dev compose service so VS Code opens the workspace with live server restarts and HMR |
 | `scripts/semgrep.sh` | The pinned Semgrep gate CI runs over Rust, Docker, compose, secrets and OWASP |
 | `.github/workflows/ci.yml` | Rust and web gates on every push and pull request; a `v*` tag also pushes `ghcr.io/talonlikeaclaw/thing:<tag>` and `:latest` |

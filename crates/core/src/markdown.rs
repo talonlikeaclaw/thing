@@ -745,6 +745,7 @@ Watered today.
                 relation: None,
                 property: None,
                 aggregate: None,
+                filter: None,
             },
             ComputeDef {
                 kind: ComputeKind::Rollup,
@@ -752,6 +753,7 @@ Watered today.
                 relation: Some("related_plant".to_owned()),
                 property: Some("title".to_owned()),
                 aggregate: Some(Aggregate::List),
+                filter: None,
             },
         ] {
             let def = PropertyDef {

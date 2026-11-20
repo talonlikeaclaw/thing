@@ -164,6 +164,9 @@ pub struct ComputeDef {
     pub property: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aggregate: Option<Aggregate>,
+    /// The rollup's target narrowing; `rollup` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<Filter>,
 }
 
 /// One option of a `Select` / `MultiSelect` property.

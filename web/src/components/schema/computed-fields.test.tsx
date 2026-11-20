@@ -27,6 +27,12 @@ const height: PropertyDef = {
   format: "number",
 };
 
+const room: PropertyDef = {
+  key: "room",
+  name: "Room",
+  format: "text",
+};
+
 const formula: PropertyDef = {
   key: "days_since_watered",
   name: "Days since watered",
@@ -58,6 +64,7 @@ const plant: TypeDef = {
   properties: [
     { key: "related_plant", required: false, featured: true },
     { key: "height", required: false, featured: true },
+    { key: "room", required: false, featured: true },
   ],
   views: [],
   default_view: "table",
@@ -86,6 +93,47 @@ describe("computed property authoring", () => {
     });
     expect(computedPatch(draftOf({ key: "room", name: "Room", format: "text" }))).toEqual({});
     expect(computedPayload(emptyComputedDraft())).toEqual({ format: "text" });
+  });
+
+  it("carries a rollup's target filter in the draft and the patch", () => {
+    const filtered: PropertyDef = {
+      key: "study_titles",
+      name: "Study titles",
+      format: "list",
+      compute: {
+        kind: "rollup",
+        relation: "related_plant",
+        aggregate: "list",
+        property: "title",
+        filter: {
+          op: "and",
+          conditions: [{ property: "room", condition: "equal", value: "study" }],
+        },
+      },
+    };
+
+    expect(computedDraft(filtered).filter).toEqual(filtered.compute?.filter);
+    expect(computedPayload(computedDraft(filtered))).toEqual({
+      format: "list",
+      compute: {
+        kind: "rollup",
+        relation: "related_plant",
+        aggregate: "list",
+        property: "title",
+        filter: {
+          op: "and",
+          conditions: [{ property: "room", condition: "equal", value: "study" }],
+        },
+      },
+    });
+    expect(
+      computedPayload({
+        ...emptyComputedDraft(),
+        kind: "rollup",
+        relation: "related_plant",
+        format: "number",
+      }).compute,
+    ).not.toHaveProperty("filter");
   });
 
   it("refuses an empty expression or relation on its own", () => {
@@ -182,6 +230,49 @@ describe("computed property authoring", () => {
       screen.getByText(/Summarises the records a relation points at/),
     ).toBeInTheDocument();
     expect(screen.getByText("Counts the linked records this row has.")).toBeInTheDocument();
+  });
+
+  it("keeps a rollup's target filter when the aggregate changes", async () => {
+    function Host() {
+      const [draft, setDraft] = useState<ComputedDraft>(() => ({
+        ...draftOf(undefined),
+        kind: "rollup",
+        relation: "related_plant",
+        aggregate: "count",
+        format: "number",
+        filter: {
+          op: "and",
+          conditions: [{ property: "room", condition: "equal", value: "study" }],
+        },
+      }));
+      return (
+        <>
+          <output data-testid="draft">{JSON.stringify(draft)}</output>
+          <ComputedFields
+            draft={draft}
+            onChange={setDraft}
+            library={[relation, height, room]}
+            type={plant}
+            types={[plant]}
+            idPrefix="test"
+          />
+        </>
+      );
+    }
+    renderWithProviders(<Host />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Aggregate" }));
+    const option = await screen.findByRole("option", { name: "Sum" });
+    fireEvent.pointerDown(option, { pointerType: "mouse" });
+    fireEvent.click(option);
+
+    const draft = JSON.parse(screen.getByTestId("draft").textContent ?? "{}") as ComputedDraft;
+    expect(draft.aggregate).toBe("sum");
+    expect(draft.filter).toEqual({
+      op: "and",
+      conditions: [{ property: "room", condition: "equal", value: "study" }],
+    });
+    expect(screen.getByText("Only targets matching")).toBeInTheDocument();
   });
 
   it("keeps an existing calculation's kind and result fixed", () => {
