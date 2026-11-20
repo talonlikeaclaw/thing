@@ -235,7 +235,7 @@ fn validate_default(
     if property.format != PropertyFormat::Relation {
         return Ok(());
     }
-    for text in relation_ids(value) {
+    for text in value_ids(value) {
         if let Ok(target) = Uuid::parse_str(text)
             && !schema.knows_object(target)
         {
@@ -433,6 +433,7 @@ fn is_multi_value(property: &PropertyDef) -> bool {
         | PropertyFormat::Recurrence
         | PropertyFormat::List => true,
         PropertyFormat::Relation => property.multi,
+        PropertyFormat::Member => property.multi,
         _ => false,
     }
 }
@@ -721,7 +722,7 @@ pub fn dangling_relations<'a>(schema: &Schema, doc: &'a ObjectDoc) -> Vec<(&'a s
         if schema.property(key).map(|def| def.format) != Some(PropertyFormat::Relation) {
             continue;
         }
-        for text in relation_ids(value) {
+        for text in value_ids(value) {
             match Uuid::parse_str(text) {
                 Ok(target) if !schema.knows_object(target) => dangling.push((key.as_str(), target)),
                 _ => {}
@@ -864,6 +865,7 @@ fn validate_value(schema: &Schema, property: &PropertyDef, value: &Value) -> Res
             check_options(property, options.iter().map(String::as_str))
         }
         (PropertyFormat::Relation, _) => validate_relation(schema, property, value),
+        (PropertyFormat::Member, _) => validate_member(key, value),
         (PropertyFormat::Recurrence, Value::Recurrence(recurrence)) => {
             crate::schedule::validate_recurrence(recurrence)
         }
@@ -984,6 +986,7 @@ fn takes_lists(column: Column<'_>) -> bool {
         Some(property) => match property.format {
             PropertyFormat::MultiSelect => true,
             PropertyFormat::Relation => property.multi,
+            PropertyFormat::Member => property.multi,
             _ => false,
         },
         None => false,
@@ -1048,6 +1051,8 @@ fn variant_matches(property: &PropertyDef, value: &Value) -> bool {
         }
         PropertyFormat::Relation if property.multi => matches!(value, Value::List(_)),
         PropertyFormat::Relation => matches!(value, Value::Text(_)),
+        PropertyFormat::Member if property.multi => matches!(value, Value::List(_)),
+        PropertyFormat::Member => matches!(value, Value::Text(_)),
         PropertyFormat::Recurrence => matches!(value, Value::Recurrence(_)),
     }
 }
@@ -1098,7 +1103,7 @@ fn validate_relation(
     property: &PropertyDef,
     value: &Value,
 ) -> Result<(), CoreError> {
-    for text in relation_ids(value) {
+    for text in value_ids(value) {
         let Ok(target) = Uuid::parse_str(text) else {
             return Err(invalid(
                 &property.key,
@@ -1120,8 +1125,20 @@ fn validate_relation(
     Ok(())
 }
 
-/// The strings a relation value holds, for a single or a multi relation.
-fn relation_ids(value: &Value) -> impl Iterator<Item = &str> {
+/// A member value is one account id, or several when `multi`. Membership is
+/// deliberately not checked here: a member removed from the space keeps their
+/// id and is reported by the space health read, never blocks an edit.
+fn validate_member(key: &str, value: &Value) -> Result<(), CoreError> {
+    for text in value_ids(value) {
+        if Uuid::parse_str(text).is_err() {
+            return Err(invalid(key, format!("{text:?} is not an account id")));
+        }
+    }
+    Ok(())
+}
+
+/// The strings a relation or member value holds, single or multi.
+fn value_ids(value: &Value) -> impl Iterator<Item = &str> {
     let texts: &[String] = match value {
         Value::Text(text) => std::slice::from_ref(text),
         Value::List(items) => items,
@@ -2066,6 +2083,105 @@ mod tests {
                 "invalid related: target {oak} is a tree, not a plant"
             )]
         );
+    }
+
+    /// Adds one `member` property to the plant type's library and its members.
+    fn add_member(fixture: &mut Fixture, key: &str, multi: bool) {
+        let mut def = property(key, PropertyFormat::Member);
+        def.multi = multi;
+        fixture.properties.insert(key.to_owned(), def);
+        fixture
+            .types
+            .get_mut("plant")
+            .expect("the plant type")
+            .properties
+            .push(TypeProperty {
+                key: key.to_owned(),
+                required: false,
+                featured: false,
+                default: None,
+            });
+    }
+
+    #[test]
+    fn a_member_holds_one_account_id_or_a_list() {
+        let mut fixture = Fixture::new();
+        add_member(&mut fixture, "caretaker", false);
+        add_member(&mut fixture, "helpers", true);
+        let person = Uuid::from_u128(7).to_string();
+        valid(validate_object(
+            &fixture.schema(),
+            &with(&[
+                ("room", text("Kitchen")),
+                ("caretaker", text(&person)),
+                ("helpers", list(&[person.as_str()])),
+            ]),
+        ));
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[
+                    ("room", text("Kitchen")),
+                    ("caretaker", list(&[person.as_str()])),
+                    ("helpers", text(&person)),
+                ])
+            )),
+            vec![
+                "invalid caretaker: expected an account id or a list of them, found a list",
+                "invalid helpers: expected an account id or a list of them, found text",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_member_id_must_be_an_account_id() {
+        let mut fixture = Fixture::new();
+        add_member(&mut fixture, "caretaker", false);
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("Kitchen")), ("caretaker", text("fern"))])
+            )),
+            vec!["invalid caretaker: \"fern\" is not an account id"]
+        );
+    }
+
+    #[test]
+    fn a_removed_member_keeps_their_id() {
+        // Membership is the accounts database's; a stale id must never make an
+        // unrelated edit impossible, exactly as a dangling relation does not.
+        let mut fixture = Fixture::new();
+        add_member(&mut fixture, "caretaker", false);
+        let former = Uuid::from_u128(99);
+        valid(validate_object(
+            &fixture.schema(),
+            &with(&[
+                ("room", text("Kitchen")),
+                ("caretaker", text(&former.to_string())),
+            ]),
+        ));
+    }
+
+    #[test]
+    fn a_member_default_must_be_an_account_id() {
+        let mut fixture = Fixture::new();
+        add_member(&mut fixture, "caretaker", false);
+        let mut def = fixture.types["plant"].clone();
+        let assign = |def: &mut TypeDef, default: Value| {
+            let member = def
+                .properties
+                .iter_mut()
+                .find(|member| member.key == "caretaker")
+                .expect("the member was added");
+            member.default = Some(default);
+        };
+        assign(&mut def, text("fern"));
+        assert_eq!(
+            problems(validate_members(&fixture.schema(), &def)),
+            vec!["invalid caretaker: \"fern\" is not an account id"]
+        );
+        assign(&mut def, text(&Uuid::from_u128(7).to_string()));
+        valid(validate_members(&fixture.schema(), &def));
     }
 
     #[test]

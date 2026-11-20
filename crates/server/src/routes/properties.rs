@@ -603,10 +603,10 @@ fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
                 "only a relation names a target type",
             ));
         }
-        if def.multi {
+        if def.multi && def.format != PropertyFormat::Member {
             return Err(ApiError::validation(
                 "multi",
-                "only a relation can hold more than one target",
+                "only a relation or a member can hold more than one value",
             ));
         }
         return Ok(());

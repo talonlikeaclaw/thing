@@ -1,5 +1,6 @@
 //! Space routes: the space itself, its invites and its members.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
@@ -10,10 +11,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use thing_core::accent::is_accent;
 use thing_core::error::CoreError;
-use thing_core::model::{Member, Role, SpaceMeta};
+use thing_core::model::{Member, PropertyFormat, Role, SpaceMeta, Value as CoreValue};
 use thing_core::schedule;
 use thing_core::store::SpaceStore;
 use thing_core::store::fs::FsSpaceStore;
+use thing_core::validate::Schema;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -177,7 +179,8 @@ async fn create(
 /// `GET /api/spaces/{space}/health` [viewer]
 ///
 /// What is wrong with the files: a file that will not parse, a relation whose
-/// target is gone, or two objects whose titles collide on one file name.
+/// target is gone, two objects whose titles collide on one file name, or a
+/// member id whose account is no longer in the space.
 async fn health(
     State(state): State<SharedState>,
     caller: Caller,
@@ -186,7 +189,47 @@ async fn health(
     let space = uuid_param(&space, "space")?;
     let handle = space_for(&state, &caller, space, Role::Viewer)?;
     let problems = handle.with_index(|index| index.problems());
-    Ok(Json(super::problems_json(&problems)))
+    let members: BTreeSet<Uuid> = handle
+        .meta()
+        .members
+        .iter()
+        .map(|member| member.user)
+        .collect();
+    let non_members = handle.with_index(|index| non_members(&index.schema(), &members));
+    let mut body = super::problems_json(&problems);
+    body["non_members"] = json!(non_members);
+    Ok(Json(body))
+}
+
+/// Every stored member id that is not a current member of the space, named by
+/// its property and record. The value is kept as written; this only reports it.
+fn non_members(schema: &Schema<'_>, members: &BTreeSet<Uuid>) -> Vec<Value> {
+    let mut found = Vec::new();
+    for doc in schema.objects.values() {
+        for (key, value) in &doc.properties {
+            let Some(property) = schema.property(key) else {
+                continue;
+            };
+            if property.format != PropertyFormat::Member {
+                continue;
+            }
+            let ids: Vec<&str> = match value {
+                CoreValue::Text(id) => vec![id.as_str()],
+                CoreValue::List(ids) => ids.iter().map(String::as_str).collect(),
+                _ => Vec::new(),
+            };
+            for id in ids {
+                if Uuid::parse_str(id).is_ok_and(|id| !members.contains(&id)) {
+                    found.push(json!({
+                        "property": key,
+                        "object": doc.id,
+                        "user": id,
+                    }));
+                }
+            }
+        }
+    }
+    found
 }
 
 /// `GET /api/spaces/{space}`
@@ -554,6 +597,107 @@ mod tests {
                 )
             );
         }
+    }
+
+    #[test]
+    fn health_names_a_member_id_the_space_no_longer_holds() {
+        use std::collections::BTreeMap;
+
+        use thing_core::model::{
+            Filter, FilterOp, ObjectDoc, PropertyDef, TypeDef, TypeProperty, ViewDef, ViewKind,
+        };
+
+        let known = Uuid::from_u128(1);
+        let former = Uuid::from_u128(2);
+        let property = PropertyDef {
+            key: "caretaker".to_owned(),
+            name: "Caretaker".to_owned(),
+            format: PropertyFormat::Member,
+            options: Vec::new(),
+            target_type: None,
+            multi: true,
+            compute: None,
+            display: None,
+            validation: None,
+        };
+        let def = TypeDef {
+            key: "plant".to_owned(),
+            name: "Plant".to_owned(),
+            name_plural: "Plants".to_owned(),
+            icon: None,
+            description: String::new(),
+            schedule: false,
+            schedule_labels: Default::default(),
+            properties: vec![TypeProperty {
+                key: "caretaker".to_owned(),
+                required: false,
+                featured: false,
+                default: None,
+            }],
+            views: vec![ViewDef {
+                key: "all".to_owned(),
+                name: "All".to_owned(),
+                kind: ViewKind::Table,
+                filter: Filter {
+                    op: FilterOp::And,
+                    conditions: Vec::new(),
+                },
+                sorts: Vec::new(),
+                columns: vec!["title".to_owned()],
+                widths: Default::default(),
+                group_by: None,
+                cover: None,
+                date_property: None,
+                footer: None,
+                footer_hidden: Vec::new(),
+                footer_summary: Default::default(),
+            }],
+            default_view: "all".to_owned(),
+        };
+        let record = ObjectDoc {
+            id: Uuid::from_u128(9),
+            type_key: "plant".to_owned(),
+            title: "Fern".to_owned(),
+            icon: None,
+            cover: None,
+            cover_position: None,
+            rev: 1,
+            created_at: OffsetDateTime::UNIX_EPOCH,
+            updated_at: OffsetDateTime::UNIX_EPOCH,
+            created_by: known,
+            updated_by: known,
+            trashed_at: None,
+            trashed_from: None,
+            properties: [(
+                "caretaker".to_owned(),
+                CoreValue::List(vec![known.to_string(), former.to_string()]),
+            )]
+            .into_iter()
+            .collect(),
+            body: String::new(),
+        };
+
+        let types = BTreeMap::from([("plant".to_owned(), def)]);
+        let properties = BTreeMap::from([("caretaker".to_owned(), property)]);
+        let no_schedule = BTreeMap::new();
+        let no_trash = BTreeMap::new();
+        let objects = BTreeMap::from([(record.id, record)]);
+        let schema = Schema {
+            types: &types,
+            properties: &properties,
+            schedule_properties: &no_schedule,
+            objects: &objects,
+            trash: &no_trash,
+        };
+        assert_eq!(
+            non_members(&schema, &BTreeSet::from([known])),
+            vec![json!({
+                "property": "caretaker",
+                "object": Uuid::from_u128(9),
+                "user": former.to_string(),
+            })]
+        );
+        assert!(non_members(&schema, &BTreeSet::from([known, former])).is_empty());
     }
 
     #[test]

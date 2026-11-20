@@ -2,7 +2,7 @@ import { Popover } from "@base-ui/react/popover";
 import { CalendarDays, Check, ChevronDown, Plus, X } from "lucide-react";
 import { useState } from "react";
 
-import { useRelationChoices, useTypes, useUpdateProperty } from "@/api/queries";
+import { useRelationChoices, useSpace, useTypes, useUpdateProperty } from "@/api/queries";
 import type { PropertyDef } from "@/api/types";
 import { AttachmentField } from "@/components/attachment-field";
 import { FileField } from "@/components/file-field";
@@ -113,6 +113,8 @@ export function PropertyField(props: PropertyFieldProps) {
       return <MultiSelectField {...props} />;
     case "relation":
       return <RelationField {...props} />;
+    case "member":
+      return <MemberField {...props} />;
     case "file":
     case "image":
       return (
@@ -671,6 +673,188 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
           );
         })
       )}
+    </div>
+  );
+}
+
+/**
+ * A member is a chip over the space's own people: the same single/multi shape a
+ * relation has, without a target type. An id nobody in the space holds stays as
+ * a visible chip until it is removed, so a departed member is never rewritten.
+ */
+function MemberField({ spaceId, property, value, label, onChange }: PropertyFieldProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const space = useSpace(spaceId);
+  const handedness = useThumbHandedness();
+  const multi = property.multi === true;
+  const selected = Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : typeof value === "string"
+      ? [value]
+      : [];
+  const people = space.data?.members ?? [];
+  const names = new Map(people.map((person) => [person.user, person.name]));
+  const needle = query.trim().toLowerCase();
+  const visible = people.filter(
+    (person) =>
+      !needle ||
+      person.name.toLowerCase().includes(needle) ||
+      (person.email ?? "").toLowerCase().includes(needle),
+  );
+  // A member can only be called gone once the space read has answered.
+  const absent = open && !space.isPending ? selected.filter((id) => !names.has(id)) : [];
+  const chips = relationChips(selected, label).filter((chip) => !absent.includes(chip.id));
+
+  function close() {
+    setOpen(false);
+    setQuery("");
+  }
+
+  function remove(id: string) {
+    if (!multi) {
+      onChange(null);
+      return;
+    }
+    const next = selected.filter((item) => item !== id);
+    onChange(next.length === 0 ? null : next);
+  }
+
+  function toggle(id: string) {
+    if (!multi) {
+      onChange(id);
+      close();
+      return;
+    }
+    const next = selected.includes(id)
+      ? selected.filter((item) => item !== id)
+      : [...selected, id];
+    onChange(next.length === 0 ? null : next);
+  }
+
+  return (
+    <div className="grid max-w-[30rem] gap-1.5">
+      <div className="flex flex-wrap items-center gap-1">
+        {chips.length > 0 ? (
+          <ul aria-label={`${property.name} members`} className="flex flex-wrap items-center gap-1">
+            {chips.map((chip) => (
+              <li
+                key={chip.id}
+                className="flex max-w-full items-center gap-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 py-0.5 pl-2.5 pr-0.5 text-[length:var(--text-small)]"
+              >
+                <span className="min-w-0 truncate">{chip.title}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${chip.title}`}
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-faint hover:bg-surface hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+                  onClick={() => remove(chip.id)}
+                >
+                  <X aria-hidden size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {open ? null : (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 text-[13px] text-muted hover:text-ink pointer-coarse:min-h-11"
+            onClick={() => setOpen(true)}
+          >
+            <Plus aria-hidden size={13} />
+            {selected.length === 0 ? "Add person" : multi ? "Add another" : "Change person"}
+          </button>
+        )}
+      </div>
+      {open ? (
+        <div
+          className="grid gap-1 rounded-[10px] border border-line-interactive/70 bg-raised/40 p-2"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              close();
+            }
+          }}
+        >
+          <input
+            autoFocus
+            aria-label={`Search ${property.name} members`}
+            className="h-8 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+            placeholder="Search people"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          {absent.length > 0 ? (
+            <ul aria-label="Missing members" className="grid gap-0.5 border-b rule pb-1">
+              {absent.map((id) => (
+                <li
+                  key={id}
+                  className="flex w-full items-center justify-between gap-2 px-1 py-0.5 text-[12px]"
+                >
+                  <span className="min-w-0 truncate text-warning">
+                    Missing member <span className="font-mono text-[11px]">{shortId(id)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="shrink-0 text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                    onClick={() => remove(id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="max-h-48 overflow-auto">
+            {space.isPending ? (
+              <p className="px-1 py-1 text-[12px] text-muted">Reading members…</p>
+            ) : visible.length === 0 ? (
+              <p className="px-1 py-1 text-[12px] text-muted">No matching people.</p>
+            ) : (
+              visible.map((person) => {
+                const picked = selected.includes(person.user);
+                return (
+                  <button
+                    key={person.user}
+                    type="button"
+                    aria-pressed={multi ? picked : undefined}
+                    className={cn(
+                      "flex w-full items-baseline justify-between gap-2 rounded-[8px] px-1 py-1.5 text-left text-[13px] hover:bg-raised pointer-coarse:min-h-11",
+                      picked && "text-accent",
+                    )}
+                    onClick={() => toggle(person.user)}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {picked ? <Check aria-hidden size={12} /> : null}
+                      <span className="truncate">{person.name}</span>
+                    </span>
+                    {person.email ? (
+                      <span className="shrink-0 truncate font-mono text-[11px] text-faint">
+                        {person.email}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <div
+            className={cn(
+              "flex border-t rule pt-1",
+              handedness === "left" ? "justify-start" : "justify-end",
+            )}
+          >
+            <button
+              type="button"
+              className="text-[12px] text-muted hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px]"
+              onClick={close}
+            >
+              {multi ? "Done" : "Cancel"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

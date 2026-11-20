@@ -1,7 +1,7 @@
 import { Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
-import { useRelationChoices } from "@/api/queries";
+import { useRelationChoices, useSpace } from "@/api/queries";
 import type { Condition, Filter, FilterOp, PropertyDef, TypeDef } from "@/api/types";
 import {
   ConditionRow,
@@ -324,11 +324,17 @@ function ConditionChip({
   // Called for every chip, enabled only for a relation, so the hook order is
   // stable and a plain chip costs no request.
   const { choices, loading } = useRelationChoices(spaceId, property, format === "relation");
-  const titles = new Map(choices.map((choice) => [choice.id, choice.title]));
-  // A target whose title has not arrived yet is pending, not a UUID on screen.
+  const space = useSpace(spaceId);
+  const relationTitles = new Map(choices.map((choice) => [choice.id, choice.title]));
+  const memberTitles = new Map(
+    (space.data?.members ?? []).map((person) => [person.user, person.name]),
+  );
+  const titles = format === "member" ? memberTitles : relationTitles;
+  const namesPending =
+    format === "relation" ? loading : format === "member" ? space.isPending : false;
+  // A target or member whose name has not arrived yet is pending, not a UUID.
   const pending =
-    format === "relation" &&
-    loading &&
+    namesPending &&
     (Array.isArray(condition.value)
       ? condition.value.some((id) => typeof id === "string" && !titles.has(id))
       : typeof condition.value === "string" && !titles.has(condition.value));

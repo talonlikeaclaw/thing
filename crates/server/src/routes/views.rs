@@ -20,7 +20,7 @@ use thing_core::model::{
     Filter, MAX_VIEW_NAME_LEN, Role, Sort, SummaryKind, TITLE_KEY, TypeDef, ViewDef, ViewKind,
 };
 use thing_core::slug::key_from_name;
-use thing_core::store::{SpaceStore, type_path};
+use thing_core::store::{SpaceStore, prune_view_fields, type_path};
 use uuid::Uuid;
 
 use super::types::{check_type, type_detail};
@@ -131,6 +131,7 @@ async fn create(
         };
         let mut next = def.clone();
         next.views.push(view);
+        prune_view_fields(&mut next);
         validated(index, &next)?;
         Ok(next)
     })?;
@@ -258,6 +259,9 @@ async fn update(
         }
         if let Some(widths) = body.widths {
             view.widths = widths;
+        } else {
+            // A field the request did not send may not outlive its column.
+            view.widths.retain(|key, _| view.columns.contains(key));
         }
         if let Some(group_by) = body.group_by {
             view.group_by = clean_optional_key(group_by);
@@ -273,9 +277,14 @@ async fn update(
         }
         if let Some(footer_hidden) = body.footer_hidden {
             view.footer_hidden = footer_hidden;
+        } else {
+            view.footer_hidden.retain(|key| view.columns.contains(key));
         }
         if let Some(footer_summary) = body.footer_summary {
             view.footer_summary = footer_summary;
+        } else {
+            view.footer_summary
+                .retain(|key, _| view.columns.contains(key));
         }
         validated(index, &next)?;
         Ok(next)
@@ -324,6 +333,7 @@ async fn remove(
                 .expect("a remaining view");
             next.default_view = promoted.key.clone();
         }
+        prune_view_fields(&mut next);
         validated(index, &next)?;
         Ok(next)
     })?;
@@ -360,6 +370,7 @@ async fn make_default(
             next.views.insert(0, view);
         }
         next.default_view = view_key.clone();
+        prune_view_fields(&mut next);
         validated(index, &next)?;
         Ok(next)
     })?;
@@ -418,6 +429,7 @@ async fn move_view(
         }
         let view = next.views.remove(from);
         next.views.insert(body.position, view);
+        prune_view_fields(&mut next);
         validated(index, &next)?;
         Ok(next)
     })?;

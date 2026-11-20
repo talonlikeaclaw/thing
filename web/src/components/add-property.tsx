@@ -88,6 +88,7 @@ const FORMAT_CARDS: FormatCard[] = (
     { format: "file", description: "One attachment of any kind." },
     { format: "image", description: "One picture with a preview." },
     { format: "attachments", description: "An ordered set of files and pictures." },
+    { format: "member", description: "A person in this space." },
   ] as const
 ).map((card) => ({ ...card, Icon: FORMAT_ICONS[card.format] }));
 

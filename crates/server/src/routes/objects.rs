@@ -35,7 +35,7 @@ use uuid::Uuid;
 use super::values::{Projection, object_json, space_timezone, value_columns};
 use super::{
     ApiJson, ApiQuery, clean_cover, clean_cover_position, clean_icon, clean_text, double_option,
-    space_for, uuid_param,
+    member_names, space_for, uuid_param,
 };
 use crate::auth::Caller;
 use crate::error::ApiError;
@@ -118,6 +118,7 @@ async fn list(
     let offset = query.parse::<usize>("offset")?.unwrap_or(0);
     query.finish()?;
 
+    let members = member_names(&state, &handle)?;
     let list = handle.with_index(|index| {
         let def = index
             .type_def(&type_key)
@@ -167,7 +168,7 @@ async fn list(
             .collect();
         let matched = query::apply(&filter, &sorts, &rows, &schema);
         let total = matched.len();
-        let projection = Projection::new(index);
+        let projection = Projection::new(index, &members);
         let page: Vec<Value> = matched
             .iter()
             .skip(offset)
@@ -309,11 +310,12 @@ async fn create(
     );
     tracing::info!(space = %space, user = %caller.user.id, object = %doc.id, "object created");
 
+    let members = member_names(&state, &handle)?;
     let created = handle
         .with_index(|index| {
             index
                 .object(doc.id)
-                .map(|live| json!(object_json(index, live)))
+                .map(|live| json!(object_json(index, &members, live)))
         })
         .ok_or_else(|| ApiError::internal("the object did not survive its own write"))?;
     Ok((StatusCode::CREATED, Json(created)))
@@ -398,7 +400,7 @@ async fn duplicate(
         "object duplicated"
     );
 
-    let created = object_response(&handle, next.id)?;
+    let created = object_response(&state, &handle, next.id)?;
     Ok((StatusCode::CREATED, Json(created)))
 }
 
@@ -505,7 +507,7 @@ async fn update(
         rev = rev + 1,
         "object updated"
     );
-    Ok(Json(object_response(&handle, id)?))
+    Ok(Json(object_response(&state, &handle, id)?))
 }
 
 /// `POST /api/spaces/{space}/objects/{object}/complete` [editor]
@@ -547,7 +549,7 @@ async fn complete(
     .await?;
 
     tracing::info!(space = %space, user = %caller.user.id, object = %id, "object completed");
-    Ok(Json(object_response(&handle, id)?))
+    Ok(Json(object_response(&state, &handle, id)?))
 }
 
 #[derive(Debug, Deserialize)]
@@ -603,7 +605,7 @@ async fn snooze(
         days = body.days,
         "object snoozed"
     );
-    Ok(Json(object_response(&handle, id)?))
+    Ok(Json(object_response(&state, &handle, id)?))
 }
 
 #[derive(Debug, Deserialize)]
@@ -745,9 +747,18 @@ fn broadcast_change(handle: &Arc<SpaceHandle>, action: RevisionAction, doc: &Obj
 }
 
 /// One object as a write returns it.
-fn object_response(handle: &Arc<SpaceHandle>, id: Uuid) -> Result<Value, ApiError> {
+fn object_response(
+    state: &SharedState,
+    handle: &Arc<SpaceHandle>,
+    id: Uuid,
+) -> Result<Value, ApiError> {
+    let members = member_names(state, handle)?;
     handle
-        .with_index(|index| index.object(id).map(|live| json!(object_json(index, live))))
+        .with_index(|index| {
+            index
+                .object(id)
+                .map(|live| json!(object_json(index, &members, live)))
+        })
         .ok_or_else(|| ApiError::internal("the object did not survive its own write"))
 }
 
@@ -778,8 +789,13 @@ async fn detail(
         }
     }
 
+    let members = member_names(&state, &handle)?;
     let mut body = handle
-        .with_index(|index| index.object(id).map(|doc| json!(object_json(index, doc))))
+        .with_index(|index| {
+            index
+                .object(id)
+                .map(|doc| json!(object_json(index, &members, doc)))
+        })
         .ok_or_else(|| ApiError::not_found(format!("object {id}")))?;
     if wanted.contains(&"history") {
         body["history"] = json!(history_json(&handle.store.read_revisions(id)?));
@@ -997,8 +1013,13 @@ async fn restore(
     );
     tracing::info!(space = %space, user = %caller.user.id, object = %id, path = %path.display(), "object restored");
 
+    let members = member_names(&state, &handle)?;
     let restored = handle
-        .with_index(|index| index.object(id).map(|live| json!(object_json(index, live))))
+        .with_index(|index| {
+            index
+                .object(id)
+                .map(|live| json!(object_json(index, &members, live)))
+        })
         .ok_or_else(|| ApiError::internal("the object did not survive its own restore"))?;
     Ok(Json(restored))
 }

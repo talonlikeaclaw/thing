@@ -119,6 +119,7 @@ export function PropertyCell({
     property.format === "select" ||
     property.format === "multi_select" ||
     property.format === "relation" ||
+    property.format === "member" ||
     property.format === "recurrence" ||
     property.format === "file" ||
     property.format === "image" ||

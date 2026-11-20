@@ -398,6 +398,11 @@ fn parse_cell(property: &PropertyDef, raw: &str) -> Result<Value, String> {
                 .map_err(|error| format!("expected a JSON array of object ids: {error}"))?,
         ),
         PropertyFormat::Relation => Value::Text(raw.to_owned()),
+        PropertyFormat::Member if property.multi => Value::List(
+            serde_json::from_str::<Vec<String>>(raw)
+                .map_err(|error| format!("expected a JSON array of account ids: {error}"))?,
+        ),
+        PropertyFormat::Member => Value::Text(raw.to_owned()),
         PropertyFormat::Recurrence => Value::Recurrence(
             serde_json::from_str::<Recurrence>(raw)
                 .map_err(|error| format!("expected a JSON recurrence object: {error}"))?,
@@ -836,6 +841,27 @@ mod tests {
             parse_cell(&attachments, "not json")
                 .expect_err("refused")
                 .contains("expected a JSON array of file paths")
+        );
+    }
+
+    #[test]
+    fn reads_and_writes_member_ids_as_text_or_json() {
+        let one = Uuid::from_u128(7).to_string();
+        let two = Uuid::from_u128(8).to_string();
+        let single = property("field", PropertyFormat::Member, &[], false);
+        assert_eq!(parse_cell(&single, &one), Ok(Value::Text(one.clone())));
+        assert_eq!(cell(&Value::Text(one.clone())), one);
+
+        let mut multi = property("field", PropertyFormat::Member, &[], false);
+        multi.multi = true;
+        let value = Value::List(vec![one.clone(), two.clone()]);
+        let json = format!("[\"{one}\",\"{two}\"]");
+        assert_eq!(parse_cell(&multi, &json), Ok(value.clone()));
+        assert_eq!(cell(&value), json);
+        assert!(
+            parse_cell(&multi, "not json")
+                .expect_err("refused")
+                .contains("expected a JSON array of account ids")
         );
     }
 

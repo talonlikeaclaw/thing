@@ -141,6 +141,7 @@ describe("defaultPickable", () => {
     for (const format of ["text", "number", "checkbox", "date", "datetime", "url", "email"] as const) {
       expect(defaultPickable(format)).toBe(true);
     }
+    expect(defaultPickable("member")).toBe(true);
     for (const format of ["select", "multi_select", "relation", "file", "image", "attachments"] as const) {
       expect(defaultPickable(format)).toBe(false);
     }

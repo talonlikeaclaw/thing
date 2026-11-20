@@ -17,7 +17,8 @@ export function defaultApplies(property: PropertyDef): boolean {
 /**
  * Whether a default can be chosen before the property exists: a select has no
  * options, a relation no targets and a file no bytes yet, so those ask for the
- * default once the property is created.
+ * default once the property is created. A member is pickable, because the
+ * space's people exist before the column does.
  */
 export function defaultPickable(format: PropertyFormat): boolean {
   return (
@@ -28,7 +29,8 @@ export function defaultPickable(format: PropertyFormat): boolean {
     format === "datetime" ||
     format === "url" ||
     format === "email" ||
-    format === "recurrence"
+    format === "recurrence" ||
+    format === "member"
   );
 }
 

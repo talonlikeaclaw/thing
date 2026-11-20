@@ -131,6 +131,7 @@ impl Reference {
             | PropertyFormat::MultiSelect
             | PropertyFormat::Attachments
             | PropertyFormat::Recurrence
+            | PropertyFormat::Member
             | PropertyFormat::List => Self::Multiple,
         }
     }

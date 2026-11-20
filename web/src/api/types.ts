@@ -61,6 +61,7 @@ export type PropertyFormat =
   | "file"
   | "image"
   | "attachments"
+  | "member"
   | "list";
 
 export type ComputeKind = "formula" | "rollup";

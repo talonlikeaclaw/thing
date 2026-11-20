@@ -85,13 +85,14 @@ function plain(value: unknown): string {
  * What a cell shows for a raw value, computed exactly as the server labels it.
  *
  * Used for optimistic rows between the click and the refetch; server responses
- * carry their own `label`, so the two never disagree for long.
+ * carry their own `label`, so the two never disagree for long. `namedIds` is the
+ * id-to-name map a relation or a member falls back to.
  */
 export function valueLabel(
   format: PropertyFormat,
   value: unknown,
   property: PropertyDef | undefined,
-  relationTitles?: ReadonlyMap<string, string>,
+  namedIds?: ReadonlyMap<string, string>,
 ): string {
   if (isBlank(value)) {
     return "";
@@ -105,10 +106,11 @@ export function valueLabel(
             .map((item) => (property && typeof item === "string" ? optionName(property, item) : String(item)))
             .join(", ")
         : plain(value);
-    case "relation": {
+    case "relation":
+    case "member": {
       const ids = Array.isArray(value) ? value : [value];
       return ids
-        .map((id) => (typeof id === "string" ? relationTitles?.get(id) ?? id : String(id)))
+        .map((id) => (typeof id === "string" ? namedIds?.get(id) ?? id : String(id)))
         .join(", ");
     }
     case "recurrence":

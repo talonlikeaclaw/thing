@@ -287,6 +287,7 @@ mod tests {
                 property("seen", PropertyFormat::Datetime),
                 property("link", PropertyFormat::Url),
                 property("tags", PropertyFormat::MultiSelect),
+                property("caretaker", PropertyFormat::Member),
                 status,
             ]
             .into_iter()
@@ -798,6 +799,27 @@ mod tests {
             "room",
             CondOp::NotIn,
             Some(list(&["Kitchen"]))
+        ));
+    }
+
+    #[test]
+    fn a_member_filter_matches_the_stored_id() {
+        let fixture = Fixture::new();
+        let ada = Uuid::from_u128(7).to_string();
+        let plant = row("Fern", &[("caretaker", text(&ada))]);
+        assert!(check(
+            &fixture,
+            &plant,
+            "caretaker",
+            CondOp::Equal,
+            Some(text(&ada))
+        ));
+        assert!(!check(
+            &fixture,
+            &plant,
+            "caretaker",
+            CondOp::Equal,
+            Some(text(&Uuid::from_u128(8).to_string()))
         ));
     }
 

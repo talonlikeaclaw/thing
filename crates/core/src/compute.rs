@@ -231,6 +231,7 @@ fn value_type(format: PropertyFormat) -> Option<ValueType> {
         | PropertyFormat::Relation
         | PropertyFormat::Recurrence
         | PropertyFormat::Attachments
+        | PropertyFormat::Member
         | PropertyFormat::List => None,
     }
 }
@@ -251,6 +252,7 @@ fn format_name(format: PropertyFormat) -> &'static str {
         PropertyFormat::File => "a file",
         PropertyFormat::Image => "an image",
         PropertyFormat::Attachments => "attachments",
+        PropertyFormat::Member => "a member",
         PropertyFormat::List => "a list",
     }
 }
@@ -449,6 +451,7 @@ fn validate_rollup_for_type(
                 PropertyFormat::MultiSelect
                     | PropertyFormat::Attachments
                     | PropertyFormat::Recurrence
+                    | PropertyFormat::Member
                     | PropertyFormat::List
             ) {
                 return vec![invalid(

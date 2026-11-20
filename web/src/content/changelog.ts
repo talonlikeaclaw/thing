@@ -91,6 +91,26 @@ export const CHANGELOG: ChangelogEntry[] = [
             lead: "A property and its place on a type are one sheet",
             body: "The same sheet edits a property wherever it is opened from, so the definition, Required and the starting value sit together.",
           },
+          {
+            lead: "A person can be a column",
+            body: "A member column names someone in the space, so a record can say who owns it without a second type for people.",
+          },
+          {
+            lead: "A member reads as their name",
+            body: "The table, the record and an export show the person's name while the id stays what the column stores and filters by.",
+          },
+          {
+            lead: "A member filter picks a person",
+            body: "A condition on a member column chooses someone by name and compares the id the column stores.",
+          },
+          {
+            lead: "A departed member keeps their id",
+            body: "A member whose account left the space stays on the record untouched, so no edit rewrites who it was.",
+          },
+          {
+            lead: "Health names a member the space no longer holds",
+            body: "The space's health read lists the records that still point at someone who is no longer a member.",
+          },
         ],
       },
       {
@@ -101,6 +121,10 @@ export const CHANGELOG: ChangelogEntry[] = [
           {
             lead: "A total can count only what matches",
             body: "A rollup takes a filter over the records its relation points at, so a sum, count or list leaves out the ones that do not belong.",
+          },
+          {
+            lead: "A stale column setting no longer blocks a save",
+            body: "A width or summary left behind for a column that is gone is cleared the next time the type is saved, instead of refusing the save.",
           },
         ],
       },

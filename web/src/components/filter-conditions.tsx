@@ -1,7 +1,7 @@
 import { Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useRelationChoices } from "@/api/queries";
+import { useRelationChoices, useSpace } from "@/api/queries";
 import type {
   CondOp,
   Condition,
@@ -85,6 +85,7 @@ export function ConditionRow({
     format === "select" ||
     format === "multi_select" ||
     format === "relation" ||
+    format === "member" ||
     format === "recurrence";
   const needsValue = !complete && op !== undefined && conditionTakesValue(op);
 
@@ -223,6 +224,17 @@ function ConditionValue({
       />
     );
   }
+  if (format === "member" && property) {
+    return (
+      <MemberValue
+        spaceId={spaceId}
+        property={property}
+        multiple={conditionTakesList(condition.condition)}
+        value={condition.value}
+        onChange={onChange}
+      />
+    );
+  }
   if (format === "checkbox") {
     return (
       <select
@@ -321,6 +333,37 @@ function RelationValue({
       }))}
       multiple={multiple}
       loading={loading}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/** A member condition picks a person by name and carries the id, like a cell. */
+function MemberValue({
+  spaceId,
+  property,
+  multiple,
+  value,
+  onChange,
+}: {
+  spaceId: string;
+  property: PropertyDef;
+  multiple: boolean;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const space = useSpace(spaceId);
+  return (
+    <ChoicePicker
+      label={`Filter ${property.name} value`}
+      choices={(space.data?.members ?? []).map((person) => ({
+        id: person.user,
+        label: person.name,
+        hint: person.email ?? undefined,
+      }))}
+      multiple={multiple}
+      loading={space.isPending}
       value={value}
       onChange={onChange}
     />

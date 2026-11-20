@@ -915,6 +915,7 @@ fn format_name(format: PropertyFormat) -> &'static str {
         PropertyFormat::File => "a file",
         PropertyFormat::Image => "an image",
         PropertyFormat::Attachments => "attachments",
+        PropertyFormat::Member => "a member",
         PropertyFormat::List => "a list",
     }
 }

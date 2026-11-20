@@ -57,6 +57,7 @@ export const PROPERTY_FORMATS: { value: PropertyFormat; label: string }[] = [
   { value: "file", label: "File" },
   { value: "image", label: "Image" },
   { value: "attachments", label: "Attachments" },
+  { value: "member", label: "Member" },
   { value: "list", label: "List" },
 ];
 

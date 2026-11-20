@@ -30,6 +30,8 @@ pub enum PropertyFormat {
     File,
     Image,
     Attachments,
+    /// A space member's account id, or a list of them when `multi`.
+    Member,
     /// A computed-only format: `rollup` with `aggregate: list`.
     List,
 }
@@ -53,7 +55,7 @@ pub struct PropertyDef {
     /// Present only for `Relation`; `None` means any type.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_type: Option<String>,
-    /// `Relation` only: the value is a list of target ids instead of one id.
+    /// `Relation` and `Member` only: the value is a list of ids instead of one.
     #[serde(default, skip_serializing_if = "is_false")]
     pub multi: bool,
     /// Present only for a computed property; its value is derived on every
@@ -374,7 +376,8 @@ impl SummaryKind {
             | Format::Recurrence
             | Format::File
             | Format::Image
-            | Format::Attachments => matches!(self, Kind::Filled),
+            | Format::Attachments
+            | Format::Member => matches!(self, Kind::Filled),
         }
     }
 }
@@ -524,7 +527,7 @@ pub struct Recurrence {
 
 /// A property value; the property's format decides which variant is legal.
 /// `Select` is `Text`; `MultiSelect` is `List`; `Attachments` is `List`;
-/// `Recurrence` is a mapping.
+/// `Recurrence` is a mapping; `Member` is `Text` or `List`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {

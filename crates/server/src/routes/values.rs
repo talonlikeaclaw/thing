@@ -2,8 +2,10 @@
 //!
 //! Every value leaves as `{value, label}`: `value` is what a query compares and
 //! what frontmatter stores, `label` is what a table cell shows. The client
-//! therefore never re-derives an option's name, a relation's title or a
-//! checkbox's spelling from the raw value.
+//! therefore never re-derives an option's name, a relation's title, a member's
+//! name or a checkbox's spelling from the raw value.
+
+use std::collections::BTreeMap;
 
 use serde::Serialize;
 use serde_json::{Map, Value as Json, json};
@@ -17,6 +19,10 @@ use thing_core::validate;
 use thing_core::value;
 use time::OffsetDateTime;
 use uuid::Uuid;
+
+/// Account ids to display names, resolved once per request from the accounts
+/// database: the index stays account-free and never holds one of these.
+pub type MemberNames = BTreeMap<String, String>;
 
 /// One row of a type's table.
 #[derive(Debug, Serialize)]
@@ -133,18 +139,20 @@ pub fn value_columns(view: &ViewDef) -> Vec<&str> {
 /// clock reading shared by every row it renders.
 pub struct Projection<'a> {
     index: &'a SpaceIndex,
+    members: &'a MemberNames,
     timezone: TimeZone,
     now: OffsetDateTime,
     evaluator: Evaluator<'a>,
 }
 
 impl<'a> Projection<'a> {
-    pub fn new(index: &'a SpaceIndex) -> Self {
+    pub fn new(index: &'a SpaceIndex, members: &'a MemberNames) -> Self {
         let timezone = space_timezone(index);
         let now = OffsetDateTime::now_utc();
         let evaluator = Evaluator::new(index, timezone.clone(), now);
         Self {
             index,
+            members,
             timezone,
             now,
             evaluator,
@@ -161,10 +169,12 @@ impl<'a> Projection<'a> {
         let values = value_columns(view)
             .into_iter()
             .filter_map(|key| {
-                summary
-                    .properties
-                    .get(key)
-                    .map(|value| (key.to_owned(), value_json(self.index, key, value)))
+                summary.properties.get(key).map(|value| {
+                    (
+                        key.to_owned(),
+                        value_json(self.index, self.members, key, value),
+                    )
+                })
             })
             .collect();
         SummaryJson {
@@ -211,13 +221,19 @@ impl<'a> Projection<'a> {
             .iter()
             .filter_map(|key| {
                 if computed_keys.contains(key.as_str()) {
-                    return computed
-                        .get(key)
-                        .map(|value| (key.clone(), value_json(self.index, key, value)));
+                    return computed.get(key).map(|value| {
+                        (
+                            key.clone(),
+                            value_json(self.index, self.members, key, value),
+                        )
+                    });
                 }
-                doc.properties
-                    .get(key)
-                    .map(|value| (key.clone(), value_json(self.index, key, value)))
+                doc.properties.get(key).map(|value| {
+                    (
+                        key.clone(),
+                        value_json(self.index, self.members, key, value),
+                    )
+                })
             })
             .collect();
         ObjectJson {
@@ -251,8 +267,8 @@ pub fn space_timezone(index: &SpaceIndex) -> TimeZone {
 }
 
 /// One object, whole, through a fresh projection.
-pub fn object_json(index: &SpaceIndex, doc: &ObjectDoc) -> ObjectJson {
-    Projection::new(index).object_json(doc)
+pub fn object_json(index: &SpaceIndex, members: &MemberNames, doc: &ObjectDoc) -> ObjectJson {
+    Projection::new(index, members).object_json(doc)
 }
 
 /// The object's keys: its type's properties in display order first, then any
@@ -290,7 +306,7 @@ fn missing_relations(index: &SpaceIndex, doc: &ObjectDoc) -> Vec<Uuid> {
 }
 
 /// One value with its label.
-pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
+pub fn value_json(index: &SpaceIndex, members: &MemberNames, key: &str, value: &Value) -> Json {
     let Some(def) = index.property_def(key) else {
         return json!({ "value": value::to_json(value), "label": value::plain(value) });
     };
@@ -314,6 +330,7 @@ pub fn value_json(index: &SpaceIndex, key: &str, value: &Value) -> Json {
             _ => json!({ "value": value::to_json(value), "label": value::plain(value) }),
         },
         PropertyFormat::Relation => relation_json(index, value),
+        PropertyFormat::Member => member_json(value, members),
         PropertyFormat::File | PropertyFormat::Image => match value {
             Value::Text(path) => json!({
                 "value": value::to_json(value),
@@ -374,6 +391,27 @@ fn relation_ids(value: &Value) -> impl Iterator<Item = &str> {
         _ => Vec::new(),
     };
     ids.into_iter()
+}
+
+/// A member value: the ids it stores, the names they resolve to, and whether
+/// any id is not a current member. A removed member keeps their id as the
+/// label's fallback, exactly as a dangling relation keeps its target id.
+fn member_json(value: &Value, members: &MemberNames) -> Json {
+    let mut missing = false;
+    let labels: Vec<String> = relation_ids(value)
+        .map(|id| match members.get(id) {
+            Some(name) => name.clone(),
+            None => {
+                missing = true;
+                format!("Unknown member {id}")
+            }
+        })
+        .collect();
+    json!({
+        "value": value::to_json(value),
+        "label": labels.join(", "),
+        "missing": missing,
+    })
 }
 
 /// An option's display name, or its key when the property does not define it —
@@ -444,12 +482,22 @@ mod tests {
     fn a_select_value_carries_the_option_display_name() {
         let index = index_of(&[select_property()]);
         assert_eq!(
-            value_json(&index, "status", &Value::Text("todo".to_owned())),
+            value_json(
+                &index,
+                &MemberNames::new(),
+                "status",
+                &Value::Text("todo".to_owned())
+            ),
             json!({ "value": "todo", "label": "To do" })
         );
         // An option the property does not define reads as its own key.
         assert_eq!(
-            value_json(&index, "status", &Value::Text("gone".to_owned())),
+            value_json(
+                &index,
+                &MemberNames::new(),
+                "status",
+                &Value::Text("gone".to_owned())
+            ),
             json!({ "value": "gone", "label": "gone" })
         );
     }
@@ -459,7 +507,12 @@ mod tests {
         let index = index_of(&[property("guide", PropertyFormat::File)]);
         let path = format!("files/{}/care-guide.pdf", "a".repeat(64));
         assert_eq!(
-            value_json(&index, "guide", &Value::Text(path.clone())),
+            value_json(
+                &index,
+                &MemberNames::new(),
+                "guide",
+                &Value::Text(path.clone())
+            ),
             json!({ "value": path, "label": "care-guide.pdf" })
         );
     }
@@ -470,16 +523,27 @@ mod tests {
         let one = format!("files/{}/monstera.png", "a".repeat(64));
         let two = format!("files/{}/fern.jpg", "b".repeat(64));
         assert_eq!(
-            value_json(&index, "photos", &Value::List(Vec::new())),
+            value_json(
+                &index,
+                &MemberNames::new(),
+                "photos",
+                &Value::List(Vec::new())
+            ),
             json!({ "value": [], "label": "" })
         );
         assert_eq!(
-            value_json(&index, "photos", &Value::List(vec![one.clone()])),
+            value_json(
+                &index,
+                &MemberNames::new(),
+                "photos",
+                &Value::List(vec![one.clone()])
+            ),
             json!({ "value": [one.clone()], "label": "monstera.png" })
         );
         assert_eq!(
             value_json(
                 &index,
+                &MemberNames::new(),
                 "photos",
                 &Value::List(vec![one.clone(), two.clone()])
             ),
@@ -577,8 +641,10 @@ mod tests {
             &["room", "watering"],
         );
         let view = def.default_view().expect("the default view");
-        let json = serde_json::to_value(Projection::new(&index).summary_json(&def, view, &summary))
-            .expect("json");
+        let json = serde_json::to_value(
+            Projection::new(&index, &MemberNames::new()).summary_json(&def, view, &summary),
+        )
+        .expect("json");
         assert_eq!(json["title"], "Monstera");
         assert_eq!(
             json["values"]["room"],
@@ -605,8 +671,47 @@ mod tests {
         let index = index_of(&[property("related", PropertyFormat::Relation)]);
         let target = Uuid::now_v7().to_string();
         assert_eq!(
-            value_json(&index, "related", &Value::Text(target.clone())),
+            value_json(
+                &index,
+                &MemberNames::new(),
+                "related",
+                &Value::Text(target.clone())
+            ),
             json!({ "value": target, "label": target, "missing": true })
+        );
+    }
+
+    #[test]
+    fn a_member_value_labels_the_name_and_reports_a_stranger() {
+        let mut caretaker = property("caretaker", PropertyFormat::Member);
+        caretaker.multi = true;
+        let index = index_of(&[caretaker]);
+        let known = Uuid::from_u128(7);
+        let gone = Uuid::from_u128(8);
+        let members: MemberNames = [(known.to_string(), "Ada Lovelace".to_owned())]
+            .into_iter()
+            .collect();
+        assert_eq!(
+            value_json(
+                &index,
+                &members,
+                "caretaker",
+                &Value::List(vec![known.to_string(), gone.to_string()])
+            ),
+            json!({
+                "value": [known.to_string(), gone.to_string()],
+                "label": format!("Ada Lovelace, Unknown member {gone}"),
+                "missing": true,
+            })
+        );
+        assert_eq!(
+            value_json(
+                &index,
+                &members,
+                "caretaker",
+                &Value::Text(known.to_string())
+            ),
+            json!({ "value": known.to_string(), "label": "Ada Lovelace", "missing": false })
         );
     }
 

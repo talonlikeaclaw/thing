@@ -13,6 +13,7 @@ import {
   Paperclip,
   Repeat,
   Type,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,5 +38,6 @@ export const FORMAT_ICONS: Record<PropertyFormat, LucideIcon> = {
   file: File,
   image: Image,
   attachments: Paperclip,
+  member: Users,
   list: ListChecks,
 };

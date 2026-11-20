@@ -22,7 +22,7 @@ use thing_core::model::{
 };
 use thing_core::schedule::{DUE_DATE_KEY, SCHEDULE_KEYS, is_schedule_key, schedule_property_defs};
 use thing_core::slug::key_from_name;
-use thing_core::store::{SpaceStore, remove_property_from_type, type_path};
+use thing_core::store::{SpaceStore, prune_view_fields, remove_property_from_type, type_path};
 use thing_core::validate::{self, MAX_TITLE_LEN, Schema};
 use time::OffsetDateTime;
 
@@ -387,6 +387,10 @@ async fn update(
         if !next.schedule {
             next.schedule_labels = ScheduleLabels::default();
         }
+        // A presentation field naming a column that is gone — a hand edit, or a
+        // removal an older write left behind — is repaired here rather than
+        // blocking an unrelated property or name write.
+        prune_view_fields(&mut next);
         let schema = index.schema();
         let errors = check_type(&schema, &next);
         if errors.is_empty() {

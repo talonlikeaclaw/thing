@@ -49,6 +49,12 @@ describe("cell labels", () => {
     expect(valueLabel("relation", "c", undefined, titles)).toBe("c");
   });
 
+  it("names a member id through the same map", () => {
+    const names = new Map([["p1", "Talon"]]);
+    expect(valueLabel("member", "p1", undefined, names)).toBe("Talon");
+    expect(valueLabel("member", ["p1", "p2"], undefined, names)).toBe("Talon, p2");
+  });
+
   it("labels a recurrence mapping and refuses it as text", () => {
     expect(valueLabel("recurrence", { kind: "weekly", every: 2, weekday: 1 }, undefined)).toBe(
       "Every 2 weeks on Monday",

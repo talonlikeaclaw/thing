@@ -37,11 +37,14 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
+use crate::accounts::User;
 use crate::auth::Caller;
 use crate::config::Config;
 use crate::error::ApiError;
 use crate::spaces::SpaceHandle;
 use crate::state::SharedState;
+
+use self::values::MemberNames;
 
 /// The app is a same-origin SPA with external script/style files; no inline
 /// script, no framed use, no third-party image loads. `style-src` keeps
@@ -301,6 +304,26 @@ pub fn space_for(
         ))),
         None => Err(ApiError::not_found(format!("space {space}"))),
     }
+}
+
+/// The space's members as account-id to display-name, for the `member`
+/// format's labels.
+///
+/// Built before the index is borrowed: it reads SQLite, and the index lock must
+/// not be held across that read. An account this install cannot resolve keeps
+/// the `Unknown member <uuid>` sentence the member list already uses.
+pub fn member_names(state: &SharedState, handle: &SpaceHandle) -> Result<MemberNames, ApiError> {
+    let mut names = MemberNames::new();
+    for member in &handle.meta().members {
+        let id = member.user;
+        let name: Option<User> = state.accounts.user_by_id(id)?;
+        names.insert(
+            id.to_string(),
+            name.map(|user| user.name)
+                .unwrap_or_else(|| format!("Unknown member {id}")),
+        );
+    }
+    Ok(names)
 }
 
 /// What is wrong with a space's files, as the API and `reindex` report it.
@@ -5307,6 +5330,57 @@ mod tests {
                 .await;
             assert_eq!(read.status, StatusCode::OK);
             assert_eq!(view(&read.body, "all")["footer_hidden"], json!(["ghost"]));
+        });
+    }
+
+    #[test]
+    fn a_type_write_repairs_a_stale_presentation_field_instead_of_failing() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("stale-view@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let garden = garden(&server, &cookie).await;
+
+            // The state an older removal left behind: a summary for a column
+            // that is no longer in the view.
+            let handle = server
+                .state
+                .registry
+                .get(Uuid::parse_str(&garden.space).expect("a space id"))
+                .expect("the space is loaded");
+            let mut def =
+                handle.with_index(|index| index.type_def("plant").expect("the type").clone());
+            def.views[0]
+                .footer_summary
+                .insert("ghost".to_owned(), thing_core::model::SummaryKind::Sum);
+            let path = thing_core::store::type_path(&def.key);
+            let expected = handle.with_index(|index| index.fingerprint(&path));
+            handle.store.save_type(&def, expected).expect("a hand edit");
+            handle
+                .with_index_mut(|index| index.reload_file(&handle.store, &path))
+                .expect("the index reloads");
+
+            // An unrelated type write succeeds and heals the file.
+            let written = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{}/types/plant", garden.space),
+                    Some(json!({ "description": "Repaired" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(written.status, StatusCode::OK, "{}", written.body);
+            assert!(
+                view(&written.body, "all").get("footer_summary").is_none(),
+                "the stale summary is gone"
+            );
+            assert_eq!(
+                handle.with_index(|index| index.type_def("plant").expect("the type").views[0]
+                    .footer_summary
+                    .clone()),
+                Default::default()
+            );
         });
     }
 

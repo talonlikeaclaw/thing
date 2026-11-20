@@ -501,6 +501,8 @@ pub fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
         view.footer_hidden.retain(|entry| entry != key);
         changed |= view.footer_hidden.len() != hidden;
 
+        changed |= view.footer_summary.remove(key).is_some();
+
         let sorts = view.sorts.len();
         view.sorts.retain(|sort| sort.property != key);
         changed |= view.sorts.len() != sorts;
@@ -521,6 +523,32 @@ pub fn remove_property_from_type(def: &mut TypeDef, key: &str) -> bool {
     changed
 }
 
+/// Drops the presentation fields that name no column of their view: a width, a
+/// footer denylist entry or a per-column summary whose column is gone.
+///
+/// Such an entry can be produced by a hand edit or by an older write, and it can
+/// never be shown: the column panel only offers visible columns. A type write
+/// that does not touch the views repairs them instead of failing on them, so an
+/// unrelated edit is never blocked by a stale presentation reference.
+pub fn prune_view_fields(def: &mut TypeDef) -> bool {
+    let mut changed = false;
+    for view in &mut def.views {
+        let widths = view.widths.len();
+        view.widths.retain(|key, _| view.columns.contains(key));
+        changed |= view.widths.len() != widths;
+
+        let hidden = view.footer_hidden.len();
+        view.footer_hidden.retain(|key| view.columns.contains(key));
+        changed |= view.footer_hidden.len() != hidden;
+
+        let summary = view.footer_summary.len();
+        view.footer_summary
+            .retain(|key, _| view.columns.contains(key));
+        changed |= view.footer_summary.len() != summary;
+    }
+    changed
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -529,8 +557,8 @@ mod tests {
 
     use super::*;
     use crate::model::{
-        CondOp, Condition, Direction, EmptyPlacement, Filter, FilterOp, Sort, TypeProperty, Value,
-        ViewDef, ViewKind,
+        CondOp, Condition, Direction, EmptyPlacement, Filter, FilterOp, Sort, SummaryKind,
+        TypeProperty, Value, ViewDef, ViewKind,
     };
 
     fn at() -> OffsetDateTime {
@@ -800,6 +828,9 @@ mod tests {
     fn removing_a_property_from_a_type_drops_every_reference() {
         let mut def = type_def();
         def.views[0].footer_hidden = vec!["room".to_owned(), "title".to_owned()];
+        def.views[0]
+            .footer_summary
+            .insert("room".to_owned(), SummaryKind::Sum);
         assert!(remove_property_from_type(&mut def, "room"));
         assert_eq!(
             def.properties
@@ -814,9 +845,26 @@ mod tests {
         assert_eq!(def.views[0].widths.get("room"), None);
         assert_eq!(def.views[0].widths.get("title").copied(), Some(240));
         assert_eq!(def.views[0].footer_hidden, vec!["title"]);
+        assert!(def.views[0].footer_summary.is_empty());
         assert_eq!(def.views[1].columns, vec!["title"]);
         assert_eq!(def.views[1].group_by, None);
         assert!(!remove_property_from_type(&mut def, "room"));
+    }
+
+    #[test]
+    fn a_stale_presentation_field_is_pruned_by_the_next_write() {
+        let mut def = type_def();
+        def.views[0].widths.insert("ghost".to_owned(), 120);
+        def.views[0].footer_hidden.push("ghost".to_owned());
+        def.views[0]
+            .footer_summary
+            .insert("ghost".to_owned(), SummaryKind::Sum);
+        assert!(prune_view_fields(&mut def));
+        assert_eq!(def.views[0].widths.get("ghost"), None);
+        assert_eq!(def.views[0].widths.get("title").copied(), Some(240));
+        assert!(def.views[0].footer_hidden.is_empty());
+        assert!(def.views[0].footer_summary.is_empty());
+        assert!(!prune_view_fields(&mut def));
     }
 
     #[test]

@@ -28,6 +28,7 @@ const dayFormat = new Intl.DateTimeFormat(undefined, {
 /** The formats whose footer counts filled cells rather than listing values. */
 const COUNTED_FORMATS: Partial<Record<PropertyFormat, true>> = {
   relation: true,
+  member: true,
   attachments: true,
   recurrence: true,
   file: true,

@@ -1,7 +1,7 @@
 import { Check, X } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
-import { useRelationChoices, useUpdateProperty } from "@/api/queries";
+import { useRelationChoices, useSpace, useUpdateProperty } from "@/api/queries";
 import { AttachmentField } from "@/components/attachment-field";
 import { FileField } from "@/components/file-field";
 import type { PropertyDef } from "@/api/types";
@@ -50,6 +50,8 @@ export function PropertyInput(props: PropertyInputProps) {
       return <MultiSelectInput {...props} />;
     case "relation":
       return <RelationInput {...props} />;
+    case "member":
+      return <MemberInput {...props} />;
     case "file":
     case "image":
       return (
@@ -388,6 +390,111 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
           Apply
         </Button>
       </InlineActions>
+    </div>
+  );
+}
+
+function MemberInput({ spaceId, property, value, onCommit, onCancel }: PropertyInputProps) {
+  const space = useSpace(spaceId);
+  const handedness = useThumbHandedness();
+  const initialIds = Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : typeof value === "string"
+      ? [value]
+      : [];
+  const [selected, setSelected] = useState<string[]>(initialIds);
+  const [query, setQuery] = useState("");
+  const multi = property.multi === true;
+  const people = space.data?.members ?? [];
+  const names = new Map(people.map((person) => [person.user, person.name]));
+  const needle = query.trim().toLowerCase();
+  const visible = people.filter(
+    (person) =>
+      !needle ||
+      person.name.toLowerCase().includes(needle) ||
+      (person.email ?? "").toLowerCase().includes(needle),
+  );
+
+  function choose(id: string) {
+    if (!multi) {
+      onCommit(id, names.get(id) ?? id);
+      return;
+    }
+    setSelected((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  }
+
+  return (
+    <div className="grid gap-1.5">
+      <input
+        autoFocus
+        aria-label={property.name}
+        className={field}
+        placeholder={multi ? "Filter people" : "Choose a person"}
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onCancel();
+          }
+        }}
+      />
+      <div className="max-h-52 overflow-auto">
+        {space.isPending ? (
+          <p className="px-1 py-1 text-[12px] text-muted">Reading members…</p>
+        ) : visible.length === 0 ? (
+          <p className="px-1 py-1 text-[12px] text-muted">No matching people.</p>
+        ) : (
+          visible.map((person) => (
+            <button
+              key={person.user}
+              type="button"
+              className="flex w-full items-baseline justify-between gap-2 rounded-[8px] px-1 py-1.5 text-left text-[13px] hover:bg-raised pointer-coarse:min-h-11"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => choose(person.user)}
+            >
+              <span className="flex items-center gap-1.5">
+                {multi && selected.includes(person.user) ? (
+                  <Check aria-hidden size={12} className="text-accent" />
+                ) : null}
+                <span>{person.name}</span>
+              </span>
+              <span className="font-mono text-[11px] text-faint">{person.email ?? ""}</span>
+            </button>
+          ))
+        )}
+      </div>
+      {!multi && selected.length > 0 ? (
+        <button
+          type="button"
+          className={cn(
+            "border-t rule pt-1 text-[12px] text-faint hover:text-ink pointer-coarse:min-h-11 pointer-coarse:text-[13px] max-sm:min-h-11 max-sm:text-[13px]",
+            handedness === "left" ? "text-left" : "text-right",
+          )}
+          onClick={() => onCommit(null, "")}
+        >
+          Clear member
+        </button>
+      ) : null}
+      {multi ? (
+        <InlineActions>
+          <Button type="button" variant="ghost" className={inlineAction} onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className={inlineAction}
+            onClick={() => {
+              const label = selected.map((id) => names.get(id) ?? id).join(", ");
+              onCommit(selected.length === 0 ? null : selected, label);
+            }}
+          >
+            Apply ({selected.length})
+          </Button>
+        </InlineActions>
+      ) : null}
     </div>
   );
 }

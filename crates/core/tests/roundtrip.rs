@@ -175,6 +175,7 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
         properties,
         vec![
             "property_amount.yml".to_owned(),
+            "property_caretaker.yml".to_owned(),
             "property_code.yml".to_owned(),
             "property_days_since_watered.yml".to_owned(),
             "property_photos.yml".to_owned(),

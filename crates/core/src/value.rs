@@ -59,6 +59,13 @@ pub fn parse_value(format: PropertyFormat, key: &str, raw: &Yaml) -> Result<Valu
             .as_str()
             .map(|s| Value::Text(s.to_owned()))
             .ok_or_else(|| invalid(raw)),
+        PropertyFormat::Member if raw.is_sequence() => string_list(raw)
+            .map(Value::List)
+            .ok_or_else(|| invalid(raw)),
+        PropertyFormat::Member => raw
+            .as_str()
+            .map(|s| Value::Text(s.to_owned()))
+            .ok_or_else(|| invalid(raw)),
         PropertyFormat::Recurrence => serde_yaml_ng::from_value::<Recurrence>(raw.clone())
             .map(Value::Recurrence)
             .map_err(|_| invalid(raw)),
@@ -336,6 +343,7 @@ pub(crate) fn expected(format: PropertyFormat) -> &'static str {
         PropertyFormat::File => "a file path",
         PropertyFormat::Image => "a file path",
         PropertyFormat::Attachments => "a list of file paths",
+        PropertyFormat::Member => "an account id or a list of them",
         PropertyFormat::List => "a list of values",
     }
 }
@@ -445,6 +453,24 @@ mod tests {
             parsed(PropertyFormat::Relation, "[a, b]"),
             Value::List(vec!["a".into(), "b".into()])
         );
+    }
+
+    #[test]
+    fn parses_a_member_as_an_id_or_a_list() {
+        let person = "0199f2c1-3333-7c2e-9b1d-2a4f6e8c0a1b";
+        assert_eq!(
+            parsed(PropertyFormat::Member, person),
+            Value::Text(person.into())
+        );
+        assert_eq!(
+            parsed(PropertyFormat::Member, "[a, b]"),
+            Value::List(vec!["a".into(), "b".into()])
+        );
+        assert_eq!(
+            expected(PropertyFormat::Member),
+            "an account id or a list of them"
+        );
+        assert_eq!(plain(&Value::Text(person.into())), person);
     }
 
     #[test]

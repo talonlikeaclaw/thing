@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { PropertyDef } from "@/api/types";
 import { PropertyCell } from "@/components/property-cell";
-import { renderWithProviders } from "@/test/harness";
+import { jsonResponse, renderWithProviders, requestUrl, stubFetch } from "@/test/harness";
 
 afterEach(cleanup);
 
@@ -143,6 +143,57 @@ describe("a floating editor", () => {
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /Edit Room for “Monstera”/ })).toHaveFocus(),
+    );
+  });
+});
+
+describe("a member cell", () => {
+  const person = "0199f2c1-3333-7c2e-9b1d-2a4f6e8c0a1b";
+  const caretaker: PropertyDef = { key: "caretaker", name: "Caretaker", format: "member" };
+
+  it("shows the server's name and writes the id the person stands for", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/space")) {
+        return jsonResponse({
+          id: "space",
+          name: "Garden",
+          icon: null,
+          accent: null,
+          timezone: "UTC",
+          created_at: "2026-11-20T12:00:00Z",
+          role: "editor",
+          members: [
+            { user: person, name: "Ada Lovelace", email: "ada@example.com", role: "owner" },
+          ],
+          type_count: 1,
+        });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const commits: { value: unknown; label: string }[] = [];
+    renderWithProviders(
+      <PropertyCell
+        spaceId="space"
+        property={caretaker}
+        cell={{ value: null, label: "" }}
+        schedule={undefined}
+        canEdit
+        rowTitle="Monstera"
+        onCommit={(commit) => {
+          commits.push(commit);
+          return Promise.resolve({ ok: true });
+        }}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Edit Caretaker for “Monstera”/ }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Ada Lovelace/ }));
+
+    await waitFor(() =>
+      expect(commits).toEqual([{ value: person, label: "Ada Lovelace" }]),
     );
   });
 });

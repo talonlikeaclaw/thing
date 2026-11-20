@@ -62,6 +62,7 @@ export function operatorsFor(format: PropertyFormat): CondOp[] {
     case "list":
       return ["contains", "not_contains", ...empty];
     case "relation":
+    case "member":
       return ["equal", "not_equal", ...LIST_OPS, ...empty];
     case "recurrence":
       return ["equal", "not_equal", ...empty];
