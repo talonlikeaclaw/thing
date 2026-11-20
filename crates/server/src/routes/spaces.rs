@@ -616,6 +616,8 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: true,
+            target_filter: None,
+            one_to_one: false,
             compute: None,
             display: None,
             validation: None,

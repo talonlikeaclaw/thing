@@ -1,0 +1,12 @@
+schema: 8
+key: supervisor
+name: Supervisor
+format: relation
+target_type: person
+target_filter:
+  op: and
+  conditions:
+  - property: active
+    condition: equal
+    value: true
+one_to_one: true

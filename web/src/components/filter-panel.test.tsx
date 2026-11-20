@@ -292,9 +292,9 @@ describe("FilterPanel", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Filter condition" }), {
       target: { value: "in" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Filter Artist target" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter Artist record" }));
     const search = await screen.findByRole("combobox", {
-      name: "Search filter artist target",
+      name: "Search filter artist record",
     });
     fireEvent.change(search, { target: { value: "miles" } });
     fireEvent.click(await screen.findByRole("option", { name: /Miles Davis/ }));

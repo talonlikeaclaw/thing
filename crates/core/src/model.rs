@@ -58,6 +58,13 @@ pub struct PropertyDef {
     /// `Relation` and `Member` only: the value is a list of ids instead of one.
     #[serde(default, skip_serializing_if = "is_false")]
     pub multi: bool,
+    /// `Relation` only: the targets a value may name; absent means any target
+    /// of the type. Enforced on write, not only in the picker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_filter: Option<Filter>,
+    /// `Relation` only: one live record may link a given target.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub one_to_one: bool,
     /// Present only for a computed property; its value is derived on every
     /// read and never written to an object.
     #[serde(default, skip_serializing_if = "Option::is_none")]

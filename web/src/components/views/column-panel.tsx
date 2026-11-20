@@ -71,7 +71,7 @@ function ColumnChip({
   computed?: string | null;
 }) {
   const word = formatLabel(format);
-  const ComputeGlyph = computed === "Rollup" ? Sigma : SquareFunction;
+  const ComputeGlyph = computed === "Summary" ? Sigma : SquareFunction;
   return (
     <FormatChip
       title={computed ? `${computed} · ${word}` : word}

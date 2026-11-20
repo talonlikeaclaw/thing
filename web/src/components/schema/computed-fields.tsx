@@ -138,7 +138,7 @@ const FORMULA_EXAMPLES: { expression: string; format: PropertyFormat }[] = [
 const KIND_CHOICES: { value: AuthoringKind; label: string }[] = [
   { value: "stored", label: "Stored" },
   { value: "formula", label: "Formula" },
-  { value: "rollup", label: "Rollup" },
+  { value: "rollup", label: "Summary" },
 ];
 
 /** One sentence per kind, shown under the choice so the words carry meaning. */
@@ -259,7 +259,7 @@ export function computedDraftProblem(draft: ComputedDraft): string | null {
       return "Choose a relation.";
     }
     if (draft.aggregate !== "count" && draft.property === "") {
-      return "Choose a target property.";
+      return "Choose a linked property.";
     }
   }
   return null;
@@ -773,13 +773,13 @@ export function ComputedFields({
                   This type has no relation column, so there are no linked records to summarise.
                   Add a relation property to this type first — choose{" "}
                   <span className="text-ink">Stored</span> and the Relation format — then
-                  create the rollup.
+                  create the summary.
                 </p>
               ) : (
                 <>
                   {existing ? (
                     <p className="max-w-[62ch] rounded-[12px] bg-raised/30 px-3 py-2 text-[12px] leading-5 text-muted">
-                      A rollup reads the records one relation points at and returns one value
+                      A summary reads the records one relation points at and returns one value
                       per record. It is read-only.
                     </p>
                   ) : null}
@@ -817,9 +817,9 @@ export function ComputedFields({
                     {draft.aggregate === "count" ? null : (
                       <div className="grid gap-1.5">
                         <PropertyPicker
-                          label="Target property"
-                          title="Choose a target property"
-                          placeholder="Choose a target property"
+                          label="Linked property"
+                          title="Choose a linked property"
+                          placeholder="Choose a linked property"
                           properties={[
                             ...(allowsTarget(draft.aggregate, "text")
                               ? [
@@ -854,7 +854,7 @@ export function ComputedFields({
                   ) : null}
                   {targetType ? (
                     <div className="grid gap-1.5">
-                      <span className="label">Only targets matching</span>
+                      <span className="label">Only linked records matching</span>
                       <FilterConditions
                         key={targetType.key}
                         spaceId={spaceId ?? ""}
@@ -868,7 +868,7 @@ export function ComputedFields({
                     </div>
                   ) : relation && !relation.target_type ? (
                     <p className="text-[12px] leading-4 text-muted">
-                      A filter needs a relation with a target type.
+                      A filter needs a relation that links to one type.
                     </p>
                   ) : null}
                 </>
@@ -883,7 +883,7 @@ export function ComputedFields({
                 {formatLabel(derivedFormat)}
               </p>
               <p className="text-[12px] leading-4 text-muted">
-                Follows the aggregate and its target.
+                Follows the aggregate and the linked property.
               </p>
               {formatProblem ? <FormError message={formatProblem} /> : null}
             </div>

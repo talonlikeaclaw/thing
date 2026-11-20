@@ -12,6 +12,7 @@ import type {
   CsvImportResult,
   CsvPreview,
   DuplicateObjectInput,
+  Filter,
   Invite,
   Library,
   ObjectDetail,
@@ -45,6 +46,7 @@ import type {
   ValueJson,
 } from "@/api/types";
 import { readError } from "@/lib/display";
+import { filterParam } from "@/lib/filter";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -63,7 +65,8 @@ export const queryKeys = {
   trash: (id: string) => ["space", id, "trash"] as const,
   library: (id: string) => ["library", id] as const,
   invites: (id: string) => ["space", id, "invites"] as const,
-  relation: (id: string, type: string) => ["space", id, "relation", type] as const,
+  relation: (id: string, type: string, filter = "") =>
+    ["space", id, "relation", type, filter] as const,
   graph: (id: string) => ["space", id, "graph"] as const,
   activity: (id: string) => ["space", id, "activity"] as const,
   search: (id: string, query: string, limit?: number) =>
@@ -467,6 +470,10 @@ export interface NewProperty {
   display?: PropertyDisplay;
   /** What the values must satisfy; omitted means only the format's rules. */
   validation?: PropertyValidation;
+  /** `relation` only: the targets a value may name. */
+  target_filter?: Filter;
+  /** `relation` only: one live record may link a given target. */
+  one_to_one?: boolean;
 }
 
 export interface UpdateProperty {
@@ -478,6 +485,10 @@ export interface UpdateProperty {
   display?: PropertyDisplay | null;
   /** `null` clears the block; leaving it out leaves it alone. */
   validation?: PropertyValidation | null;
+  /** `null` clears the filter; leaving it out leaves it alone. */
+  target_filter?: Filter | null;
+  /** One source per target; leaving it out leaves it alone. */
+  one_to_one?: boolean;
 }
 
 export function useCreateProperty(spaceId: string) {
@@ -1189,8 +1200,9 @@ export interface RelationChoice {
  * The objects a relation cell may point at.
  *
  * A property with a `target_type` lists that type; an open relation lists every
- * type in the space. The filter is sent empty on purpose: a relation should
- * offer every record, not only those in the type's saved view.
+ * type in the space. A relation that narrows its targets sends that filter, so
+ * the picker and the write agree; a taken target is still offered, because the
+ * refusal names its holder.
  */
 export function useRelationChoices(
   spaceId: string | undefined,
@@ -1201,13 +1213,15 @@ export function useRelationChoices(
   const targetKeys = property?.target_type
     ? [property.target_type]
     : (types.data ?? []).map((type) => type.key);
+  const filter = property?.target_filter ?? { op: "and", conditions: [] };
+  const filterKey = filterParam(filter);
   const lists = useQueries({
     queries: (spaceId ? targetKeys : []).map((key) => ({
-      queryKey: queryKeys.relation(spaceId ?? "", key),
+      queryKey: queryKeys.relation(spaceId ?? "", key, filterKey),
       queryFn: async () => {
         const params = new URLSearchParams({
           type: key,
-          filter: JSON.stringify({ op: "and", conditions: [] }),
+          filter: filterKey,
           limit: "500",
         });
         return request<ObjectList>(`/api/spaces/${spaceId}/objects?${params}`);

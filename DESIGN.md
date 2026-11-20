@@ -416,17 +416,17 @@ and never opens this overlay.
 
 **The Calculated Column.** A property the app derives is named for its
 kind, never called a generic "calculated" thing. Its chip reads `Formula · Number`
-or `Rollup · List` in the library, the type editor, the manage sheet and the columns
+or `Summary · List` in the library, the type editor, the manage sheet and the columns
 panel; the ledger's format line carries the same words, and a phone drops that second
 line and keeps its glyph pair beside the label instead — the calculated kind's glyph
 first, then the format's — with the full spelling as the tooltip.
 The value itself is plain read-only data — no input, no hover editor — and the
 definition travels with it as a caption under the record field and a tooltip on the
 cell. A `list` result prints its labels as one truncated line joined by `, `, with the whole
-label in the cell's title, so a cell's height never depends on how many targets a rollup found.
-In the forms, Stored, Formula and Rollup each carry one sentence saying what the
+label in the cell's title, so a cell's height never depends on how many linked records a summary found.
+In the forms, Stored, Formula and Summary each carry one sentence saying what the
 value is; a formula's help lists every field the type can read with its format and every
-function with its signature and one-line job, and a rollup offers only the target
+function with its signature and one-line job, and a summary offers only the linked
 formats its aggregate can read. The result type is static once an aggregate and target
 decide it, never a disabled select that looks enabled. On a wide screen the property
 create form takes the editor column, so a formula is never written in the list strip.

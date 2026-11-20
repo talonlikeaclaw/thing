@@ -15,8 +15,9 @@ use uuid::Uuid;
 use crate::error::CoreError;
 use crate::model::{
     CondOp, Condition, Filter, MAX_ATTACHMENTS, MAX_COLUMN_WIDTH, MAX_DECIMALS, MAX_PATTERN_LEN,
-    MAX_VIEW_NAME_LEN, MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, PropertyDef, PropertyFormat, Sort,
-    SummaryKind, TITLE_KEY, TypeDef, UPDATED_AT_KEY, Value, ViewDef, ViewKind, is_reserved_key,
+    MAX_VIEW_NAME_LEN, MAX_VIEWS, MIN_COLUMN_WIDTH, ObjectDoc, ObjectSummary, PropertyDef,
+    PropertyFormat, Sort, SummaryKind, TITLE_KEY, TypeDef, UPDATED_AT_KEY, Value, ViewDef,
+    ViewKind, is_reserved_key,
 };
 use crate::value;
 
@@ -239,10 +240,7 @@ fn validate_default(
         if let Ok(target) = Uuid::parse_str(text)
             && !schema.knows_object(target)
         {
-            return Err(invalid(
-                key,
-                format!("default target {target} does not exist"),
-            ));
+            return Err(invalid(key, "the default record does not exist"));
         }
     }
     Ok(())
@@ -756,7 +754,10 @@ pub enum ConflictKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conflict {
     pub property: String,
+    /// The value already held: the record's own value, or a taken target's id.
     pub value: Value,
+    /// The held value as a reader sees it; a taken target reads as its title.
+    pub value_label: String,
     pub kind: ConflictKind,
     pub holder: Uuid,
     pub holder_title: String,
@@ -768,15 +769,11 @@ impl Conflict {
         match self.kind {
             ConflictKind::Duplicate => format!(
                 "{} must be unique; {} is already on \"{}\"",
-                self.property,
-                value::plain(&self.value),
-                self.holder_title
+                self.property, self.value_label, self.holder_title
             ),
             ConflictKind::TargetTaken => format!(
                 "{}: {} is already linked by \"{}\"",
-                self.property,
-                value::plain(&self.value),
-                self.holder_title
+                self.property, self.value_label, self.holder_title
             ),
         }
     }
@@ -785,9 +782,10 @@ impl Conflict {
 /// Every cross-record rule the document would break.
 ///
 /// Structural rules live in [`validate_object`]; this is the state one file
-/// cannot answer. Only live records of the same type count, and the document
-/// itself is excluded, so trash never blocks a write and a save never collides
-/// with its own previous value.
+/// cannot answer. Only live records count and the document itself is excluded,
+/// so trash never blocks a write and a save never collides with its own
+/// previous value. A `unique` value is compared within the document's type; a
+/// `one_to_one` target is taken by any live record that links it.
 pub fn conflicts(schema: &Schema, doc: &ObjectDoc) -> Vec<Conflict> {
     let mut found = Vec::new();
     for (key, value) in &doc.properties {
@@ -812,7 +810,42 @@ pub fn conflicts(schema: &Schema, doc: &ObjectDoc) -> Vec<Conflict> {
                 found.push(Conflict {
                     property: key.clone(),
                     value: value.clone(),
+                    value_label: value::plain(value),
                     kind: ConflictKind::Duplicate,
+                    holder: other.id,
+                    holder_title: other.title.clone(),
+                });
+            }
+        }
+    }
+    for (key, value) in &doc.properties {
+        let Some(property) = schema.property(key) else {
+            continue;
+        };
+        if !property.one_to_one || property.format != PropertyFormat::Relation {
+            continue;
+        }
+        for text in value_ids(value) {
+            for other in schema.objects.values() {
+                if other.id == doc.id {
+                    continue;
+                }
+                let Some(held) = other.properties.get(key) else {
+                    continue;
+                };
+                if !value_ids(held).any(|id| id == text) {
+                    continue;
+                }
+                let value_label = Uuid::parse_str(text)
+                    .ok()
+                    .and_then(|id| schema.object(id))
+                    .map(|object| object.title.clone())
+                    .unwrap_or_else(|| text.to_owned());
+                found.push(Conflict {
+                    property: key.clone(),
+                    value: Value::Text(text.to_owned()),
+                    value_label,
+                    kind: ConflictKind::TargetTaken,
                     holder: other.id,
                     holder_title: other.title.clone(),
                 });
@@ -1118,7 +1151,20 @@ fn validate_relation(
         {
             return Err(invalid(
                 &property.key,
-                format!("target {target} is a {}, not a {wanted}", object.type_key),
+                format!("the linked record is a {}, not a {wanted}", object.type_key),
+            ));
+        }
+        // The picker narrows to the same filter, but CSV and an API client do
+        // not go through it, so the write is where it holds.
+        if let Some(filter) = &property.target_filter
+            && !crate::filter::row_matches(filter, &ObjectSummary::from(object), schema)
+        {
+            return Err(invalid(
+                &property.key,
+                format!(
+                    "linked record \"{}\" does not match this relation's filter",
+                    object.title
+                ),
             ));
         }
     }
@@ -1221,6 +1267,8 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            target_filter: None,
+            one_to_one: false,
             compute: None,
             display: None,
             validation: None,
@@ -1678,18 +1726,14 @@ mod tests {
                 &schema,
                 &with_default(def, "related", text(&tree))
             )),
-            vec![format!(
-                "invalid related: target {tree} is a tree, not a plant"
-            )]
+            vec!["invalid related: the linked record is a tree, not a plant".to_owned()]
         );
         assert_eq!(
             problems(validate_members(
                 &schema,
                 &with_default(def, "related", text(&gone))
             )),
-            vec![format!(
-                "invalid related: default target {gone} does not exist"
-            )]
+            vec!["invalid related: the default record does not exist".to_owned()]
         );
     }
 
@@ -2079,9 +2123,7 @@ mod tests {
                     ("related", text(&oak.to_string()))
                 ])
             )),
-            vec![format!(
-                "invalid related: target {oak} is a tree, not a plant"
-            )]
+            vec!["invalid related: the linked record is a tree, not a plant".to_owned()]
         );
     }
 
@@ -2750,6 +2792,89 @@ mod tests {
             )),
             vec!["invalid room: must match [A-Z]{2}-\\d{4}"]
         );
+    }
+
+    #[test]
+    fn a_relation_filter_refuses_a_target_that_does_not_match() {
+        let mut fixture = Fixture::new();
+        let mut active = doc(4, "plant", "Budding fig");
+        active.properties.insert("status".to_owned(), text("done"));
+        fixture.objects.insert(active.id, active);
+        let mut related = property("related", PropertyFormat::Relation);
+        related.target_type = Some("plant".to_owned());
+        related.target_filter = Some(Filter {
+            op: FilterOp::And,
+            conditions: vec![Condition {
+                property: "status".to_owned(),
+                condition: CondOp::Equal,
+                value: Some(text("done")),
+            }],
+        });
+        fixture.properties.insert("related".to_owned(), related);
+
+        // The Monstera carries no status, so it does not match.
+        let target = Uuid::from_u128(2).to_string();
+        assert_eq!(
+            problems(validate_object(
+                &fixture.schema(),
+                &with(&[("room", text("study")), ("related", text(&target))])
+            )),
+            vec![
+                "invalid related: linked record \"Monstera\" does not match this relation's filter"
+                    .to_owned()
+            ]
+        );
+        // A matching target is accepted, and a target that no longer exists is
+        // reported as dangling rather than refused by the filter.
+        valid(validate_object(
+            &fixture.schema(),
+            &with(&[
+                ("room", text("study")),
+                ("related", text(&Uuid::from_u128(4).to_string())),
+            ]),
+        ));
+        valid(validate_object(
+            &fixture.schema(),
+            &with(&[
+                ("room", text("study")),
+                ("related", text(&Uuid::from_u128(99).to_string())),
+            ]),
+        ));
+    }
+
+    #[test]
+    fn a_one_to_one_target_names_the_record_that_already_links_it() {
+        let mut fixture = Fixture::new();
+        let mut related = property("related", PropertyFormat::Relation);
+        related.target_type = Some("plant".to_owned());
+        related.one_to_one = true;
+        fixture.properties.insert("related".to_owned(), related);
+
+        let target = Uuid::from_u128(2).to_string();
+        let mut holder = doc(10, "plant", "North bed");
+        holder
+            .properties
+            .insert("related".to_owned(), text(&target));
+        fixture.objects.insert(holder.id, holder.clone());
+
+        let mut taken = doc(12, "plant", "South bed");
+        taken.properties.insert("related".to_owned(), text(&target));
+        let found = conflicts(&fixture.schema(), &taken);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].kind, ConflictKind::TargetTaken);
+        assert_eq!(found[0].value, text(&target));
+        assert_eq!(found[0].holder_title, "North bed");
+        assert_eq!(
+            found[0].message(),
+            "related: Monstera is already linked by \"North bed\""
+        );
+
+        // The holder keeps its own target, and a record of another type that
+        // links it still occupies it: one source per target, not per type.
+        assert!(conflicts(&fixture.schema(), &holder).is_empty());
+        let mut tree = doc(13, "tree", "Oak bed");
+        tree.properties.insert("related".to_owned(), text(&target));
+        assert_eq!(conflicts(&fixture.schema(), &tree).len(), 1);
     }
 
     #[test]

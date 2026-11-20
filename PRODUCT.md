@@ -67,14 +67,14 @@ column can be promoted to a relation to a newly created type through a previewed
 that keeps the original key and leaves every old value in history.
 
 A calculated column is a property whose value the app derives, never one it stores. Two kinds exist:
-a formula over the record's own stored properties and schedule keys, and a rollup aggregating one of
-the record's relation targets (`count`, `sum`, `min`, `max`, `list`). The property's `format` stays
+a formula over the record's own stored properties and schedule keys, and a summary aggregating the
+record's linked records (`count`, `sum`, `min`, `max`, `list`). The property's `format` stays
 the result type, so a calculated number sorts, filters, renders and exports exactly like a stored
 number, and one computed-only `list` format holds joined display labels. Both kinds are authored in
 the same property forms as stored ones; the value is read-only on every surface, a stored value on a
 calculated key is refused, and no calculated value is written to the markdown, the history, the
 search index or a CSV import. Renaming a referenced property rewrites the reference, and deleting a
-referenced property or a rollup's target type is refused while it is named.
+referenced property or a summary's linked type is refused while it is named.
 
 Durable constraints: object identity is a UUIDv7 in frontmatter so renaming, retyping or moving a
 file never breaks a link; property and type keys are lowercase slugs unique per space and are what

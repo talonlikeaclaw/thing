@@ -452,7 +452,7 @@ async fn remove(
     });
     if !rollups.is_empty() {
         return Err(ApiError::conflict(
-            format!("rollups use type {key}"),
+            format!("summaries use type {key}"),
             json!({ "reason": "computed properties use type", "properties": rollups }),
         ));
     }
@@ -945,6 +945,8 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            target_filter: None,
+            one_to_one: false,
             compute: None,
             display: None,
             validation: None,

@@ -454,7 +454,7 @@ describe("AddPropertyDialog", () => {
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Related titles" },
     });
-    fireEvent.click(screen.getByRole("radio", { name: "Rollup" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Summary" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Aggregate" }));
     const list = await screen.findByRole("option", { name: "List" });
     fireEvent.pointerDown(list, { pointerType: "mouse" });
@@ -464,7 +464,7 @@ describe("AddPropertyDialog", () => {
       screen.queryByRole("combobox", { name: "Result type" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Follows the aggregate and its target."),
+      screen.getByText("Follows the aggregate and the linked property."),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add property" }));

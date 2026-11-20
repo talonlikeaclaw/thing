@@ -525,7 +525,7 @@ export function PropertyValue({
     >
       {due ? shownDue : text}
       {missing ? (
-        <TriangleAlert aria-label="Target missing" className="ml-1 inline text-warning" size={12} />
+        <TriangleAlert aria-label="Linked record missing" className="ml-1 inline text-warning" size={12} />
       ) : null}
     </span>
   );

@@ -375,3 +375,184 @@ describe("PropertyEditorForm membership", () => {
     expect(writes[0]?.body).toEqual({ name: "Room name" });
   });
 });
+
+describe("PropertyEditorForm relation rules", () => {
+  const space = {
+    id: "s1",
+    name: "Garden",
+    icon: null,
+    accent: null,
+    timezone: "America/Toronto",
+    created_at: "2026-11-01T00:00:00Z",
+    role: "owner",
+    members: [],
+    type_count: 1,
+  };
+  const active: PropertyDef = { key: "active", name: "Active", format: "checkbox" };
+  const person: TypeDef = {
+    key: "person",
+    name: "Person",
+    name_plural: "People",
+    description: "",
+    schedule: false,
+    properties: [{ key: "active", required: false, featured: true }],
+    views: [
+      {
+        key: "all",
+        name: "All",
+        kind: "table",
+        sorts: [],
+        filter: { op: "and", conditions: [] },
+        columns: ["title"],
+        widths: {},
+      },
+    ],
+    default_view: "all",
+  };
+
+  function stubRelationWrites(property: PropertyDef) {
+    let body: Record<string, unknown> | null = null;
+    stubFetch((input, init) => {
+      const url = requestUrl(input);
+      if ((init?.method ?? "GET") === "PATCH") {
+        body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        return jsonResponse({ ...property, ...body });
+      }
+      if (url.endsWith("/api/spaces/s1/types/person")) {
+        return jsonResponse(person);
+      }
+      if (url.endsWith("/api/spaces/s1")) {
+        return jsonResponse(space);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+    return () => body;
+  }
+
+  const supervisor: PropertyDef = {
+    key: "supervisor",
+    name: "Supervisor",
+    format: "relation",
+    target_type: "person",
+  };
+
+  it("offers a target filter and writes one source per target", async () => {
+    const body = stubRelationWrites(supervisor);
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={supervisor}
+        types={[]}
+        library={[supervisor, active]}
+        canEdit
+      />,
+    );
+
+    expect(await screen.findByText("Only linked records matching")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Every record of the linked type."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByLabelText("A target is linked by one record only"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body()).not.toBeNull());
+    expect(body()).toEqual({ name: "Supervisor", one_to_one: true });
+  });
+
+  it("clears a relation filter with null when its last condition is removed", async () => {
+    const filtered: PropertyDef = {
+      ...supervisor,
+      target_filter: {
+        op: "and",
+        conditions: [{ property: "active", condition: "equal", value: true }],
+      },
+    };
+    const body = stubRelationWrites(filtered);
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={filtered}
+        types={[]}
+        library={[filtered, active]}
+        canEdit
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Remove condition" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body()).not.toBeNull());
+    expect(body()).toEqual({ name: "Supervisor", target_filter: null });
+  });
+
+  it("leaves an untouched relation's rules out of a rename", async () => {
+    const narrowed: PropertyDef = {
+      ...supervisor,
+      one_to_one: true,
+      target_filter: {
+        op: "and",
+        conditions: [{ property: "active", condition: "equal", value: true }],
+      },
+    };
+    const body = stubRelationWrites(narrowed);
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={narrowed}
+        types={[]}
+        library={[narrowed, active]}
+        canEdit
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Lead" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save property" }));
+
+    await waitFor(() => expect(body()).not.toBeNull());
+    expect(body()).toEqual({ name: "Lead" });
+  });
+
+  it("states why a relation a rollup reads cannot be narrowed", async () => {
+    const related: PropertyDef = {
+      key: "related_plant",
+      name: "Related plant",
+      format: "relation",
+      target_type: "person",
+      multi: true,
+    };
+    const titles: PropertyDef = {
+      key: "related_titles",
+      name: "Related titles",
+      format: "list",
+      compute: {
+        kind: "rollup",
+        relation: "related_plant",
+        property: "title",
+        aggregate: "list",
+      },
+    };
+    stubRelationWrites(related);
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={related}
+        types={[]}
+        library={[related, active, titles]}
+        canEdit
+      />,
+    );
+
+    expect(
+      await screen.findByText(/summarises this relation, so its links stay open/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add condition" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText("A target is linked by one record only"),
+    ).toBeDisabled();
+  });
+});

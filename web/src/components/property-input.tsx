@@ -531,7 +531,7 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
         autoFocus
         aria-label={property.name}
         className={field}
-        placeholder={multi ? "Filter targets" : "Choose a target"}
+        placeholder={multi ? "Filter records" : "Choose a record"}
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
@@ -543,7 +543,7 @@ function RelationInput({ spaceId, property, value, onCommit, onCancel }: Propert
       />
       <div className="max-h-52 overflow-auto">
         {loading ? (
-          <p className="px-1 py-1 text-[12px] text-muted">Reading targets…</p>
+          <p className="px-1 py-1 text-[12px] text-muted">Reading records…</p>
         ) : visible.length === 0 ? (
           <p className="px-1 py-1 text-[12px] text-muted">No matching records.</p>
         ) : (

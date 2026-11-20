@@ -325,7 +325,7 @@ function RelationValue({
   const { choices, loading } = useRelationChoices(spaceId, property, true);
   return (
     <ChoicePicker
-      label={`Filter ${property.name} target`}
+      label={`Filter ${property.name} record`}
       choices={choices.map((choice) => ({
         id: choice.id,
         label: choice.title,
@@ -445,7 +445,7 @@ export function FilterConditions({
         <div
           className="inline-flex w-fit items-center gap-0.5 rounded-full border border-line p-0.5"
           role="group"
-          aria-label="Match targets"
+          aria-label="Match all or any"
         >
           {(
             [

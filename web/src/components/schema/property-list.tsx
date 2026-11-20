@@ -267,7 +267,7 @@ export function PropertyCreateForm({
         {draft.kind === "stored" && draft.format === "relation" ? (
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <SelectField
-              label="Target type"
+              label="Links to"
               value={targetType}
               options={[
                 { value: "", label: "Any type" },

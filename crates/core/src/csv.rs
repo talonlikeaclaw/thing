@@ -433,15 +433,22 @@ fn unique_values(
 fn stored_conflicts(schema: &Schema, doc: &ObjectDoc, row: usize) -> Vec<CsvProblem> {
     validate::conflicts(schema, doc)
         .into_iter()
-        .map(|conflict| CsvProblem {
-            row,
-            field: conflict.property.clone(),
-            message: format!(
-                "{} {} is already on \"{}\"",
-                conflict.property,
-                value::plain(&conflict.value),
-                conflict.holder_title
-            ),
+        .map(|conflict| {
+            let message = match conflict.kind {
+                validate::ConflictKind::Duplicate => format!(
+                    "{} {} is already on \"{}\"",
+                    conflict.property, conflict.value_label, conflict.holder_title
+                ),
+                validate::ConflictKind::TargetTaken => format!(
+                    "{} {} is already linked by \"{}\"",
+                    conflict.property, conflict.value_label, conflict.holder_title
+                ),
+            };
+            CsvProblem {
+                row,
+                field: conflict.property.clone(),
+                message,
+            }
         })
         .collect()
 }
@@ -533,6 +540,8 @@ mod tests {
             options: options.iter().map(|key| option(key)).collect(),
             target_type: None,
             multi,
+            target_filter: None,
+            one_to_one: false,
             compute: None,
             display: None,
             validation: None,

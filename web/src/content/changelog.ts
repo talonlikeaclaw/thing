@@ -116,11 +116,19 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: "Scoped and owned",
         intro:
-          "A calculated column can decide which linked records it reads, so a total says what it leaves out.",
+          "A calculated column decides which linked records it reads, and a relation decides which records it may point at.",
         items: [
           {
             lead: "A total can count only what matches",
             body: "A rollup takes a filter over the records its relation points at, so a sum, count or list leaves out the ones that do not belong.",
+          },
+          {
+            lead: "A relation offers only the records that match",
+            body: "A relation can carry its own filter, so its picker offers the matching records and a value written anywhere else is refused with the reason.",
+          },
+          {
+            lead: "A record can be linked once",
+            body: "A one-to-one relation refuses a second record that links the same record, and the refusal names the first.",
           },
           {
             lead: "A stale column setting no longer blocks a save",

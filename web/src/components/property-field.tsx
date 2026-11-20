@@ -968,19 +968,19 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
         >
           <input
             autoFocus
-            aria-label={`Filter ${property.name} targets`}
+            aria-label={`Filter ${property.name} records`}
             className="h-8 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-2 text-[13px] outline-none focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
-            placeholder={multi ? "Filter targets" : "Search targets"}
+            placeholder={multi ? "Filter records" : "Search records"}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
           {absent.length > 0 ? (
-            <ul aria-label="Missing targets" className="grid gap-0.5 border-b rule pb-1">
+            <ul aria-label="Missing records" className="grid gap-0.5 border-b rule pb-1">
               {absent.map((id) => (
                 <li key={id} className="px-1 py-0.5 text-[12px]">
                   <ThumbRow className="w-full items-center justify-between gap-2">
                     <span className="min-w-0 truncate text-warning">
-                      Missing target <span className="font-mono text-[11px]">{shortId(id)}</span>
+                      Missing record <span className="font-mono text-[11px]">{shortId(id)}</span>
                     </span>
                     <button
                       type="button"
@@ -996,7 +996,7 @@ function RelationField({ spaceId, property, value, label, onChange }: PropertyFi
           ) : null}
           <div className="max-h-48 overflow-auto">
             {loading ? (
-              <p className="px-1 py-1 text-[12px] text-muted">Reading targets…</p>
+              <p className="px-1 py-1 text-[12px] text-muted">Reading records…</p>
             ) : visible.length === 0 ? (
               <p className="px-1 py-1 text-[12px] text-muted">No matching records.</p>
             ) : (

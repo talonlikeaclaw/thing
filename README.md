@@ -51,13 +51,13 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
 - **Calculated columns.** A property can hold a value the app derives instead of one you type:
   a **formula** over the record's own fields and schedule keys
   (`days(last_completed_at, today())`, `price * quantity`,
-  `if(stock > 0, "In stock", "Out")`), or a **rollup** that aggregates one of the record's relation
-  targets with `count`, `sum`, `min`, `max` or `list`. Both are created and edited in the same
+  `if(stock > 0, "In stock", "Out")`), or a **summary** that aggregates the record's linked
+  records with `count`, `sum`, `min`, `max` or `list`. Both are created and edited in the same
   property forms as stored ones, with the result type chosen beside the kind and a formula reference
   that lists the fields and functions the type can use. A calculated value is read-only, filters,
   sorts and exports like a stored one, and never reaches a file; `list` is a result type that joins
   display labels (`Monstera, Fern`). Renaming a property rewrites every reference to it, and a
-  referenced property or rollup target type cannot be deleted while it is named.
+  referenced property or a summary's linked type cannot be deleted while it is named.
 - **A column becomes a type.** Turn a text, select or multi-select column into a relation to a new
   type: preview every distinct value, link, view move and dropped filter, download a CSV backup,
   then run the migration as resumable target, link and finish stages. The column keeps its name
@@ -98,7 +98,7 @@ a Type is a table, a Property is a column, an Object is a row, a Value is a cell
   frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
   Files are written as schema 8; every schema-1…7 file still loads, and a record's icon, cover and
   cover framing are optional frontmatter keys rather than properties. A record's computed blocks —
-  a formula's expression, a rollup's relation and aggregate — are stored, but the values they
+  a formula's expression, a summary's relation and aggregate — are stored, but the values they
   produce are not: a backup of the space carries what is stored, and calculated columns are
   recomputed on read. Attachment bytes live beside the markdown in each space's `files/` tree,
   named by their content, so a copy of the space directory is the whole space.

@@ -181,6 +181,7 @@ fn type_and_property_fixtures_round_trip_byte_for_byte() {
             "property_photos.yml".to_owned(),
             "property_recurrence.yml".to_owned(),
             "property_related_titles.yml".to_owned(),
+            "property_supervisor.yml".to_owned(),
         ]
     );
     for name in properties {
@@ -436,6 +437,8 @@ fn invalid_fixtures_are_refused() {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            target_filter: None,
+            one_to_one: false,
             compute: Some(ComputeDef {
                 kind: ComputeKind::Formula,
                 expression: Some("1 + 1".to_owned()),

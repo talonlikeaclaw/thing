@@ -2607,6 +2607,383 @@ mod tests {
     }
 
     #[test]
+    fn a_relation_narrows_only_through_rules_the_space_can_honour() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("relation@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Studio").await;
+            let types = format!("/api/spaces/{space}/types");
+            let properties = format!("/api/spaces/{space}/properties");
+
+            for name in ["Person", "Garden"] {
+                let created = server
+                    .call(
+                        "POST",
+                        &types,
+                        Some(json!({ "name": name })),
+                        Some(&cookie),
+                    )
+                    .await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            }
+            // The target type carries the property a filter will name.
+            let active = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({ "name": "Active", "format": "checkbox" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(active.status, StatusCode::CREATED, "{:?}", active.body);
+            let member = server
+                .call(
+                    "PATCH",
+                    &format!("{types}/person"),
+                    Some(json!({ "properties": [{ "key": "active" }] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(member.status, StatusCode::OK, "{:?}", member.body);
+
+            let supervisor = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Supervisor",
+                        "format": "relation",
+                        "target_type": "person",
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                supervisor.status,
+                StatusCode::CREATED,
+                "{:?}",
+                supervisor.body
+            );
+            let supervisor = format!("{properties}/supervisor");
+
+            // A filter naming a property the target type does not carry is
+            // refused under the block that carries it.
+            let unknown = server
+                .call(
+                    "PATCH",
+                    &supervisor,
+                    Some(json!({
+                        "target_filter": {
+                            "op": "and",
+                            "conditions": [{ "property": "room", "condition": "equal", "value": "study" }],
+                        },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                unknown.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                unknown.body
+            );
+            assert_eq!(unknown.field(), "target_filter.room");
+
+            let matching = server
+                .call(
+                    "PATCH",
+                    &supervisor,
+                    Some(json!({
+                        "target_filter": {
+                            "op": "and",
+                            "conditions": [{ "property": "active", "condition": "equal", "value": true }],
+                        },
+                        "one_to_one": true,
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(matching.status, StatusCode::OK, "{:?}", matching.body);
+            assert_eq!(matching.body["one_to_one"], json!(true));
+            assert_eq!(
+                matching.body["target_filter"]["conditions"][0]["property"],
+                "active"
+            );
+
+            // One narrowing per relation: an empty filter is stored as none, so
+            // a name-only patch keeps the block.
+            let renamed = server
+                .call(
+                    "PATCH",
+                    &supervisor,
+                    Some(json!({ "name": "Lead" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(renamed.status, StatusCode::OK, "{:?}", renamed.body);
+            assert_eq!(renamed.body["one_to_one"], json!(true));
+
+            let mentors = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Mentors",
+                        "format": "relation",
+                        "target_type": "person",
+                        "multi": true,
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(mentors.status, StatusCode::CREATED, "{:?}", mentors.body);
+            let many = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/mentors"),
+                    Some(json!({ "one_to_one": true })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                many.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                many.body
+            );
+            assert_eq!(many.field(), "one_to_one");
+            assert_eq!(many.body["error"]["message"], "needs a single relation");
+
+            // A rollup decides which targets count, so a narrowed relation
+            // cannot feed one...
+            let load = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Load",
+                        "format": "number",
+                        "compute": { "kind": "rollup", "relation": "supervisor", "aggregate": "count" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                load.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                load.body
+            );
+            assert_eq!(load.field(), "compute.relation");
+            assert_eq!(
+                load.body["error"]["message"],
+                "`supervisor` filters its own links; a summary cannot read it"
+            );
+
+            // ...and once it does, the relation is left alone.
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &supervisor,
+                    Some(json!({ "target_filter": null, "one_to_one": false })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK, "{:?}", cleared.body);
+            let load = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Load",
+                        "format": "number",
+                        "compute": { "kind": "rollup", "relation": "supervisor", "aggregate": "count" },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(load.status, StatusCode::CREATED, "{:?}", load.body);
+            let narrowed = server
+                .call(
+                    "PATCH",
+                    &supervisor,
+                    Some(json!({ "one_to_one": true })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                narrowed.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                narrowed.body
+            );
+            assert_eq!(narrowed.field(), "one_to_one");
+            assert_eq!(
+                narrowed.body["error"]["message"],
+                "a summary reads this relation; its filter decides which records count"
+            );
+
+            // Both fields belong to a relation and nothing else.
+            let text = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({ "name": "Note", "format": "text" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(text.status, StatusCode::CREATED, "{:?}", text.body);
+            let narrowed_text = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/note"),
+                    Some(json!({
+                        "target_filter": {
+                            "op": "and",
+                            "conditions": [{ "property": "active", "condition": "equal", "value": true }],
+                        },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                narrowed_text.status,
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{:?}",
+                narrowed_text.body
+            );
+            assert_eq!(narrowed_text.field(), "target_filter");
+            assert_eq!(
+                narrowed_text.body["error"]["message"],
+                "only a relation narrows its targets"
+            );
+            let owned_text = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/note"),
+                    Some(json!({ "one_to_one": true })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(owned_text.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(owned_text.field(), "one_to_one");
+        });
+    }
+
+    #[test]
+    fn a_one_to_one_target_refuses_a_second_source_and_names_the_first() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("one_to_one@example.com", None).await;
+            let cookie = cookie_of(&owner).to_owned();
+            let space = create_space(&server, &cookie, "Studio").await;
+            let types = format!("/api/spaces/{space}/types");
+            let properties = format!("/api/spaces/{space}/properties");
+            let objects = format!("/api/spaces/{space}/objects");
+
+            for name in ["Person", "Garden"] {
+                let created = server
+                    .call("POST", &types, Some(json!({ "name": name })), Some(&cookie))
+                    .await;
+                assert_eq!(created.status, StatusCode::CREATED, "{:?}", created.body);
+            }
+            let supervisor = server
+                .call(
+                    "POST",
+                    &properties,
+                    Some(json!({
+                        "name": "Supervisor",
+                        "format": "relation",
+                        "target_type": "person",
+                        "one_to_one": true,
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(
+                supervisor.status,
+                StatusCode::CREATED,
+                "{:?}",
+                supervisor.body
+            );
+            assert_eq!(supervisor.body["one_to_one"], json!(true));
+            let narrowed = server
+                .call(
+                    "PATCH",
+                    &format!("{properties}/supervisor"),
+                    Some(json!({ "one_to_one": true })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(narrowed.status, StatusCode::OK, "{:?}", narrowed.body);
+            let member = server
+                .call(
+                    "PATCH",
+                    &format!("{types}/garden"),
+                    Some(json!({ "properties": [{ "key": "supervisor", "featured": true }] })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(member.status, StatusCode::OK, "{:?}", member.body);
+
+            let person = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({ "type": "person", "title": "Alice" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(person.status, StatusCode::CREATED, "{:?}", person.body);
+            let alice = person.body["id"].as_str().expect("the person's id");
+
+            let north = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "garden",
+                        "title": "North",
+                        "properties": { "supervisor": alice },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(north.status, StatusCode::CREATED, "{:?}", north.body);
+
+            let south = server
+                .call(
+                    "POST",
+                    &objects,
+                    Some(json!({
+                        "type": "garden",
+                        "title": "South",
+                        "properties": { "supervisor": alice },
+                    })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(south.status, StatusCode::CONFLICT, "{:?}", south.body);
+            assert_eq!(
+                south.body["error"]["message"],
+                "supervisor: Alice is already linked by \"North\""
+            );
+            assert_eq!(
+                south.body["error"]["details"]["reason"],
+                "target already linked"
+            );
+            assert_eq!(
+                south.body["error"]["details"]["target"],
+                json!({ "id": alice, "title": "Alice" })
+            );
+            assert_eq!(south.body["error"]["details"]["holder"]["title"], "North");
+        });
+    }
+
+    #[test]
     fn a_validation_block_refuses_a_bad_definition_and_a_duplicate_value() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");

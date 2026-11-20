@@ -250,7 +250,7 @@ export function PromoteColumnDialog({
                       >
                         {complete ? <Check size={10} /> : index + 1}
                       </span>
-                      {value === "target" ? "Target" : value === "preview" ? "Preview" : "Run"}
+                      {value === "target" ? "Type" : value === "preview" ? "Preview" : "Run"}
                     </li>
                   );
                 })}
@@ -320,7 +320,7 @@ export function PromoteColumnDialog({
                       value={split}
                       onChange={(event) => setSplit(event.target.value)}
                       placeholder=","
-                      hint="Optional. One cell becomes several targets; needs several targets per record."
+                      hint="Optional. One cell becomes several links; needs several links per record."
                     />
                   ) : null}
                   <FormError
@@ -337,7 +337,7 @@ export function PromoteColumnDialog({
                     <Count label="Empty" value={plan.source.empty} />
                     <Count label="Links" value={plan.links} />
                     <Count
-                      label="Target records"
+                      label="Linked records"
                       value={plan.target.create_records}
                       hint={plan.target.create ? "to create" : "to reuse"}
                     />

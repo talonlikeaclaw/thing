@@ -17,8 +17,8 @@ use thing_core::compute;
 use thing_core::error::CoreError;
 use thing_core::index::SpaceIndex;
 use thing_core::model::{
-    Align, ComputeDef, DisplayDef, ObjectDoc, OptionDef, PropertyDef, PropertyFormat, Role,
-    ValidationDef, is_reserved_key,
+    Align, ComputeDef, ComputeKind, DisplayDef, Filter, ObjectDoc, OptionDef, PropertyDef,
+    PropertyFormat, Role, ValidationDef, is_reserved_key,
 };
 use thing_core::schedule::is_schedule_key;
 use thing_core::slug::{is_valid_key, key_from_name};
@@ -100,6 +100,12 @@ struct CreatePropertyRequest {
     /// What the values must satisfy; omitted means only the format's rules.
     #[serde(default)]
     validation: Option<ValidationDef>,
+    /// Narrowing for a relation; omitted means any target of the type.
+    #[serde(default)]
+    target_filter: Option<Filter>,
+    /// One source per target; omitted means many.
+    #[serde(default)]
+    one_to_one: Option<bool>,
 }
 
 /// `POST /api/spaces/{space}/properties` [editor]
@@ -130,6 +136,8 @@ async fn create(
         options,
         target_type: body.target_type.clone(),
         multi,
+        target_filter: normalize_filter(body.target_filter),
+        one_to_one: body.one_to_one.unwrap_or(false),
         compute: normalize_compute(body.compute.clone()),
         display: normalize_display(body.display),
         validation: normalize_validation(body.validation),
@@ -170,6 +178,12 @@ struct PatchPropertyRequest {
     /// `null` clears the block; leaving it out leaves it alone.
     #[serde(default, deserialize_with = "double_option")]
     validation: Option<Option<ValidationDef>>,
+    /// `null` clears the filter; leaving it out leaves it alone.
+    #[serde(default, deserialize_with = "double_option")]
+    target_filter: Option<Option<Filter>>,
+    /// One source per target; leaving it out leaves it alone.
+    #[serde(default)]
+    one_to_one: Option<bool>,
 }
 
 /// `PATCH /api/spaces/{space}/properties/{key}` [editor]
@@ -189,6 +203,8 @@ async fn update(
         && body.compute.is_none()
         && body.display.is_none()
         && body.validation.is_none()
+        && body.target_filter.is_none()
+        && body.one_to_one.is_none()
     {
         return Err(ApiError::validation("body", "nothing to change"));
     }
@@ -226,6 +242,12 @@ async fn update(
         }
         if let Some(validation) = body.validation {
             next.validation = normalize_validation(validation);
+        }
+        if let Some(target_filter) = body.target_filter {
+            next.target_filter = normalize_filter(target_filter);
+        }
+        if let Some(one_to_one) = body.one_to_one {
+            next.one_to_one = one_to_one;
         }
         if let Some(options) = &body.options {
             let read = read_options(options, Some(&next.options))?;
@@ -562,6 +584,12 @@ fn normalize_validation(validation: Option<ValidationDef>) -> Option<ValidationD
     validation.filter(|block| !block.is_empty())
 }
 
+/// One state, one spelling: a relation filter with no conditions is stored as
+/// no filter, exactly as a rollup's is.
+fn normalize_filter(filter: Option<Filter>) -> Option<Filter> {
+    filter.filter(|filter| !filter.conditions.is_empty())
+}
+
 /// One state, one spelling: a rollup filter with no conditions is stored as no
 /// filter. Every writer (create and patch) goes through this.
 fn normalize_compute(compute: Option<ComputeDef>) -> Option<ComputeDef> {
@@ -586,6 +614,25 @@ fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
     if !definition_errors.is_empty() {
         return Err(ApiError::validation_all(definition_errors));
     }
+    // A rollup created before its type carries it has no cross-type check yet,
+    // so the one-narrowing rule is answered here as well: a relation that
+    // narrows its own targets cannot feed a rollup.
+    if let Some(compute) = &def.compute
+        && compute.kind == ComputeKind::Rollup
+        && let Some(relation) = compute
+            .relation
+            .as_deref()
+            .and_then(|key| index.property_def(key))
+        && (relation.target_filter.is_some() || relation.one_to_one)
+    {
+        return Err(ApiError::validation(
+            "compute.relation",
+            format!(
+                "`{}` filters its own links; a summary cannot read it",
+                relation.key
+            ),
+        ));
+    }
     let selects = matches!(
         def.format,
         PropertyFormat::Select | PropertyFormat::MultiSelect
@@ -601,6 +648,18 @@ fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
             return Err(ApiError::validation(
                 "target_type",
                 "only a relation names a target type",
+            ));
+        }
+        if def.target_filter.is_some() {
+            return Err(ApiError::validation(
+                "target_filter",
+                "only a relation narrows its targets",
+            ));
+        }
+        if def.one_to_one {
+            return Err(ApiError::validation(
+                "one_to_one",
+                "only a relation is one-to-one",
             ));
         }
         if def.multi && def.format != PropertyFormat::Member {
@@ -619,7 +678,56 @@ fn check_shape(index: &SpaceIndex, def: &PropertyDef) -> Result<(), ApiError> {
             format!("{target} is not a type in this space"),
         ));
     }
+    if def.one_to_one && def.multi {
+        return Err(ApiError::validation(
+            "one_to_one",
+            "needs a single relation",
+        ));
+    }
+    // One narrowing per relation: a rollup's own filter is the only thing that
+    // decides which targets it aggregates, so the relation it reads carries no
+    // filter of its own and is never one-to-one.
+    if (def.target_filter.is_some() || def.one_to_one)
+        && !compute::relations_read_by_rollups(&index.schema(), &def.key).is_empty()
+    {
+        return Err(ApiError::validation(
+            if def.target_filter.is_some() {
+                "target_filter"
+            } else {
+                "one_to_one"
+            },
+            "a summary reads this relation; its filter decides which records count",
+        ));
+    }
+    if let Some(filter) = &def.target_filter {
+        let Some(target) = def.target_type.as_deref() else {
+            return Err(ApiError::validation("target_filter", "needs a target type"));
+        };
+        let target_def = index.type_def(target).ok_or_else(|| {
+            ApiError::validation(
+                "target_type",
+                format!("{target} is not a type in this space"),
+            )
+        })?;
+        if let Err(errors) = validate::validate_filter(&index.schema(), target_def, filter) {
+            return Err(ApiError::validation_all(rebase_filter(errors)));
+        }
+    }
     Ok(())
+}
+
+/// Rewrites a filter error's field under the definition key that carries it.
+fn rebase_filter(errors: Vec<CoreError>) -> Vec<CoreError> {
+    errors
+        .into_iter()
+        .map(|error| match error {
+            CoreError::ValidationFailed { field, message } => CoreError::ValidationFailed {
+                field: format!("target_filter.{field}"),
+                message,
+            },
+            other => other,
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -792,6 +900,8 @@ mod tests {
             }],
             target_type: None,
             multi: false,
+            target_filter: None,
+            one_to_one: false,
             compute: None,
             display: None,
             validation: None,

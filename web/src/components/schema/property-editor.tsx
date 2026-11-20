@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
@@ -8,12 +8,15 @@ import {
   useProperties,
   usePropertyUsage,
   useRenameProperty,
+  useSpace,
+  useTypeDetails,
   useTypes,
   useUpdateProperty,
   useUpdateType,
 } from "@/api/queries";
-import type { PropertyDef, TypeDef, TypeProperty, TypeSummary } from "@/api/types";
+import type { Filter, PropertyDef, TypeDef, TypeProperty, TypeSummary } from "@/api/types";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import { FilterConditions } from "@/components/filter-conditions";
 import {
   ComputedFields,
   computedDraft,
@@ -53,6 +56,7 @@ import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { promotionBlocker } from "@/lib/promotion";
 import {
   computeKindLabel,
+  effectiveProperties,
   formatLabel,
   hasOptions,
   isComputed,
@@ -61,6 +65,7 @@ import {
   type OptionDraft,
   sameJson,
 } from "@/lib/schema";
+import { todayIn } from "@/lib/timezone";
 
 interface PropertyEditorFormProps {
   spaceId: string;
@@ -106,6 +111,28 @@ export function PropertyEditorForm({
     property.key,
     types.map((type) => type.key),
   );
+  const space = useSpace(spaceId);
+  const today = todayIn(space.data?.timezone ?? "UTC");
+  // A relation's filter is edited against the target type, whose properties the
+  // summary list does not carry.
+  const targetDetails = useTypeDetails(
+    spaceId,
+    property.target_type ? [property.target_type] : [],
+    property.format === "relation",
+  );
+  const targetType: TypeDef | undefined = targetDetails.details[0];
+  // A relation any rollup reads stays open: that rollup's filter is the one
+  // narrowing for it, so the controls below would always be refused.
+  const rollupReaders = useMemo(
+    () =>
+      library.filter(
+        (candidate) =>
+          candidate.compute?.kind === "rollup" &&
+          candidate.compute.relation === property.key,
+      ),
+    [library, property.key],
+  );
+  const readByRollups = rollupReaders.length > 0;
   const toast = useToast();
   const [name, setName] = useState(property.name);
   const [draft, setDraft] = useState<ComputedDraft>(() => computedDraft(property));
@@ -114,6 +141,11 @@ export function PropertyEditorForm({
     validationDraft(property.validation),
   );
   const [options, setOptions] = useState<OptionDraft[]>(() => optionDrafts(property.options));
+  /** A relation's narrowing, and whether one record may link a target. */
+  const [targetFilter, setTargetFilter] = useState<Filter>(
+    () => property.target_filter ?? { op: "and", conditions: [] },
+  );
+  const [oneToOne, setOneToOne] = useState(() => property.one_to_one ?? false);
   const [membership, setMembership] = useState<TypeProperty | null>(member ?? null);
   /** A half-typed default blocks the one Save, exactly as it does on a record. */
   const [defaultInvalid, setDefaultInvalid] = useState(false);
@@ -130,6 +162,8 @@ export function PropertyEditorForm({
       setDisplay(displayDraft(update.data.display));
       setValidation(validationDraft(update.data.validation));
       setOptions(optionDrafts(update.data.options));
+      setTargetFilter(update.data.target_filter ?? { op: "and", conditions: [] });
+      setOneToOne(update.data.one_to_one ?? false);
     }
   }, [update.data]);
 
@@ -158,12 +192,19 @@ export function PropertyEditorForm({
   );
   // The same rule for validation: untouched stays out, cleared sends `null`.
   const validationChanged = !sameJson(validationValue, initialValidation);
+  // A relation's rules follow the same tri-state: untouched stays out, an empty
+  // filter is sent as `null`, one-to-one only when it moved.
+  const filterValue = targetFilter.conditions.length > 0 ? targetFilter : null;
+  const filterChanged = !sameJson(filterValue, property.target_filter ?? null);
+  const oneToOneChanged = oneToOne !== (property.one_to_one ?? false);
   const payload = {
     name: name.trim(),
     ...(calculated ? computedPatch(draft) : {}),
     ...(showsOptions ? { options: optionInputs(options) } : {}),
     ...(displayChanged ? { display: displayValue } : {}),
     ...(validationChanged ? { validation: validationValue } : {}),
+    ...(filterChanged ? { target_filter: filterValue } : {}),
+    ...(oneToOneChanged ? { one_to_one: oneToOne } : {}),
   };
   const initial = {
     name: property.name,
@@ -341,18 +382,68 @@ export function PropertyEditorForm({
         ) : null}
         {property.format === "relation" ? (
           <>
-            <FieldRow label="Target">
+            <FieldRow label="Links to">
               <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
                 {property.target_type ?? "any type"}
               </p>
             </FieldRow>
             <FieldRow
               label="Holds"
-              hint="Target and target count are fixed when the property is created."
+              hint="What it links to, and how many records, are fixed when the property is created."
             >
               <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
-                {property.multi ? "several targets" : "one target"}
+                {property.multi ? "several records" : "one record"}
               </p>
+            </FieldRow>
+            <FieldRow
+              label="Only linked records matching"
+              hint={
+                readByRollups
+                  ? "A summary decides which linked records it counts, so its filter lives there."
+                  : "The picker offers these records, and a value written anywhere else is refused."
+              }
+            >
+              {readByRollups ? (
+                <p className="flex min-h-10 items-center text-[12px] leading-4 text-muted">
+                  {rollupReaders.map((reader) => reader.name).join(", ")}{" "}
+                  {rollupReaders.length === 1 ? "summarises" : "summarise"} this relation, so its
+                  links stay open. Filter the summary instead.
+                </p>
+              ) : targetType ? (
+                <FilterConditions
+                  key={targetType.key}
+                  spaceId={spaceId}
+                  type={targetType}
+                  properties={effectiveProperties(targetType, library)}
+                  filter={targetFilter}
+                  today={today}
+                  onChange={setTargetFilter}
+                  empty="Every record of the linked type."
+                />
+              ) : property.target_type ? (
+                <p className="flex min-h-10 items-center text-[12px] text-muted">
+                  Reading the target type…
+                </p>
+              ) : (
+                <p className="flex min-h-10 items-center text-[12px] text-muted">
+                  A filter needs a relation with a target type.
+                </p>
+              )}
+            </FieldRow>
+            <FieldRow
+              label="Linked once"
+              hint="A second record naming the same record is refused, and the message names the first."
+            >
+              <label className="flex min-h-9 items-center gap-2 text-[13px] text-ink pointer-coarse:min-h-11">
+                <input
+                  type="checkbox"
+                  checked={oneToOne}
+                  disabled={!canEdit || property.multi || readByRollups}
+                  className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
+                  onChange={(event) => setOneToOne(event.target.checked)}
+                />
+                A target is linked by one record only
+              </label>
             </FieldRow>
           </>
         ) : null}

@@ -88,12 +88,12 @@ export function isComputed(property: PropertyDef): boolean {
  * The one word a calculated property is called by, or `null` for a stored one.
  * Every chip, caption and menu uses this so the two kinds never drift.
  */
-export function computeKindLabel(property: PropertyDef): "Formula" | "Rollup" | null {
+export function computeKindLabel(property: PropertyDef): "Formula" | "Summary" | null {
   switch (property.compute?.kind) {
     case "formula":
       return "Formula";
     case "rollup":
-      return "Rollup";
+      return "Summary";
     default:
       return null;
   }
@@ -158,20 +158,20 @@ export function computeDescription(
   const relation = nameOf(compute.relation, properties);
   switch (compute.aggregate) {
     case "count":
-      return `Rollup: count of ${relation || "related records"}`;
+      return `Summary: count of ${relation || "related records"}`;
     case "sum":
     case "min":
     case "max": {
       const target = nameOf(compute.property, properties);
       const verb = compute.aggregate;
-      return `Rollup: ${verb} of ${target || "a value"} in ${relation || "related records"}`;
+      return `Summary: ${verb} of ${target || "a value"} in ${relation || "related records"}`;
     }
     case "list": {
       const target = nameOf(compute.property, properties);
-      return `Rollup: list of ${target || "values"} in ${relation || "related records"}`;
+      return `Summary: list of ${target || "values"} in ${relation || "related records"}`;
     }
     default:
-      return `Rollup from ${relation || "related records"}`;
+      return `Summary of ${relation || "related records"}`;
   }
 }
 

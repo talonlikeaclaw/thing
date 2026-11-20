@@ -1594,7 +1594,7 @@ function ColumnResizer({
 /** The words a header's format reads: the calculated kind first, then the format. */
 function headerFormatText(format: PropertyFormat, calculated?: ComputeKind): string {
   return calculated
-    ? `${calculated === "rollup" ? "Rollup" : "Formula"} · ${formatLabel(format)}`
+    ? `${calculated === "rollup" ? "Summary" : "Formula"} · ${formatLabel(format)}`
     : formatLabel(format);
 }
 
@@ -1627,7 +1627,7 @@ function HeaderSort({
   const named = label;
   const calculatedNote = calculated
     ? calculated === "rollup"
-      ? ", rollup"
+      ? ", summary"
       : ", formula"
     : "";
   const formatText = format ? headerFormatText(format, calculated) : null;

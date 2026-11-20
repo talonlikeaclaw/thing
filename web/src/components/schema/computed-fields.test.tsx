@@ -171,7 +171,7 @@ describe("computed property authoring", () => {
     }
     renderWithProviders(<Host />);
 
-    fireEvent.click(screen.getByRole("radio", { name: "Rollup" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Summary" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Aggregate" }));
     const option = await screen.findByRole("option", { name: "List" });
     fireEvent.pointerDown(option, { pointerType: "mouse" });
@@ -184,7 +184,7 @@ describe("computed property authoring", () => {
       screen.queryByRole("combobox", { name: "Result type" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("Follows the aggregate and its target."),
+      screen.getByText("Follows the aggregate and the linked property."),
     ).toBeInTheDocument();
   });
 
@@ -272,7 +272,7 @@ describe("computed property authoring", () => {
       op: "and",
       conditions: [{ property: "room", condition: "equal", value: "study" }],
     });
-    expect(screen.getByText("Only targets matching")).toBeInTheDocument();
+    expect(screen.getByText("Only linked records matching")).toBeInTheDocument();
   });
 
   it("keeps an existing calculation's kind and result fixed", () => {

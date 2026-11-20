@@ -621,7 +621,7 @@ export function AddPropertyDialog({
                   {relation ? (
                     <div className="grid gap-3">
                       <SelectField
-                        label="Target type"
+                        label="Links to"
                         id="add-property-target"
                         value={targetType}
                         disabled={frozen || createdType !== null}
@@ -680,7 +680,7 @@ export function AddPropertyDialog({
                           disabled={propertyFrozen}
                           onChange={(event) => setMulti(event.target.checked)}
                         />
-                        Several targets
+                        Links to several records
                       </label>
                     </div>
                   ) : null}

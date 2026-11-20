@@ -113,7 +113,7 @@ pub fn validate_definition(def: &PropertyDef) -> Vec<CoreError> {
                 errors.push(invalid("compute.aggregate", "a formula takes no aggregate"));
             }
             if compute.filter.is_some() {
-                errors.push(invalid("compute.filter", "belongs to rollups only"));
+                errors.push(invalid("compute.filter", "belongs to summaries only"));
             }
             match &compute.expression {
                 None => errors.push(invalid(
@@ -137,16 +137,16 @@ pub fn validate_definition(def: &PropertyDef) -> Vec<CoreError> {
             if compute.expression.is_some() {
                 errors.push(invalid(
                     "compute.expression",
-                    "a rollup takes no expression",
+                    "a summary takes no expression",
                 ));
             }
             if compute.relation.is_none() {
-                errors.push(invalid("compute.relation", "a rollup requires a relation"));
+                errors.push(invalid("compute.relation", "a summary requires a relation"));
             }
             match compute.aggregate {
                 None => errors.push(invalid(
                     "compute.aggregate",
-                    "a rollup requires an aggregate",
+                    "a summary requires an aggregate",
                 )),
                 Some(aggregate) => {
                     match aggregate {
@@ -171,7 +171,7 @@ pub fn validate_definition(def: &PropertyDef) -> Vec<CoreError> {
                         errors.push(invalid(
                             "format",
                             format!(
-                                "a {} rollup produces {}",
+                                "a {} summary produces {}",
                                 aggregate_name(aggregate),
                                 aggregate_format_name(aggregate)
                             ),
@@ -330,6 +330,15 @@ fn validate_rollup_for_type(
             ),
         )];
     }
+    // One narrowing per relation. The property route refuses to narrow a
+    // relation a rollup reads; this is the same rule from the other side, so the
+    // order a reader creates them in cannot produce two overlapping filters.
+    if relation.target_filter.is_some() || relation.one_to_one {
+        return vec![invalid(
+            "compute.relation",
+            format!("`{relation_key}` filters its own links; a summary cannot read it"),
+        )];
+    }
     if let Some(filter) = &compute.filter {
         let Some(target_type) = relation.target_type.as_deref() else {
             return vec![invalid(
@@ -360,7 +369,7 @@ fn validate_rollup_for_type(
         return vec![invalid(
             "compute.relation",
             format!(
-                "a {} rollup needs a relation with a target type",
+                "a {} summary needs a relation that links to one type",
                 aggregate_name(aggregate)
             ),
         )];
@@ -381,7 +390,7 @@ fn validate_rollup_for_type(
             return vec![invalid(
                 "compute.property",
                 format!(
-                    "a {} rollup needs a number, date or date-time property",
+                    "a {} summary needs a number, date or date-time property",
                     aggregate_name(aggregate)
                 ),
             )];
@@ -560,6 +569,26 @@ pub fn rollup_targets<'a>(
                 .is_some_and(|target| target == target_type)
         })
         .collect()
+}
+
+/// Every rollup that reads `relation` as its source, in key order.
+///
+/// One narrowing per relation: a relation a rollup reads carries no
+/// `target_filter` and no `one_to_one`, because the rollup's own filter is the
+/// only thing that decides which targets it aggregates.
+pub fn relations_read_by_rollups(schema: &Schema, relation: &str) -> Vec<String> {
+    let mut readers: Vec<String> = schema
+        .properties
+        .values()
+        .filter(|property| {
+            property.compute.as_ref().is_some_and(|compute| {
+                compute.kind == ComputeKind::Rollup && compute.relation.as_deref() == Some(relation)
+            })
+        })
+        .map(|property| property.key.clone())
+        .collect();
+    readers.sort_unstable();
+    readers
 }
 
 /// One request's evaluator. It owns the space's zone and the request's single
@@ -986,6 +1015,8 @@ mod tests {
             options: Vec::new(),
             target_type: None,
             multi: false,
+            target_filter: None,
+            one_to_one: false,
             compute: None,
             display: None,
             validation: None,
@@ -1680,7 +1711,7 @@ mod tests {
         assert!(
             validate_definition(&wrong_min)
                 .iter()
-                .any(|error| error.to_string().contains("a min rollup produces"))
+                .any(|error| error.to_string().contains("a min summary produces"))
         );
 
         assert!(
@@ -1834,7 +1865,7 @@ mod tests {
         assert!(
             validate_for_type(&schema, def, &untyped_sum)
                 .iter()
-                .any(|error| error.to_string().contains("target type"))
+                .any(|error| error.to_string().contains("links to one type"))
         );
 
         let min_wrong_result = rollup(
@@ -1944,8 +1975,56 @@ mod tests {
         assert!(
             errors.iter().any(|error| {
                 field(error) == "compute.filter"
-                    && error.to_string().contains("belongs to rollups only")
+                    && error.to_string().contains("belongs to summaries only")
             }),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn a_narrowed_relation_cannot_feed_a_rollup() {
+        let mut links = property("links", PropertyFormat::Relation);
+        links.target_type = Some("plant".to_owned());
+        links.target_filter = Some(Filter {
+            op: FilterOp::And,
+            conditions: vec![Condition {
+                property: "room".to_owned(),
+                condition: CondOp::Equal,
+                value: Some(Value::Text("study".to_owned())),
+            }],
+        });
+        let count = rollup(
+            "count",
+            PropertyFormat::Number,
+            "links",
+            None,
+            Aggregate::Count,
+        );
+        let plant = type_def("plant", &[links.clone(), count.clone()]);
+        let mut property_map = BTreeMap::new();
+        property_map.insert("room".to_owned(), property("room", PropertyFormat::Text));
+        property_map.insert("links".to_owned(), links);
+        property_map.insert("count".to_owned(), count.clone());
+        let mut type_map = BTreeMap::new();
+        type_map.insert("plant".to_owned(), plant.clone());
+        let empty_schedule = BTreeMap::new();
+        let empty_objects = BTreeMap::new();
+        let empty_trash = BTreeMap::new();
+        let schema = Schema {
+            types: &type_map,
+            properties: &property_map,
+            schedule_properties: &empty_schedule,
+            objects: &empty_objects,
+            trash: &empty_trash,
+        };
+
+        let errors = validate_for_type(&schema, &plant, &count);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(field(&errors[0]), "compute.relation");
+        assert!(
+            errors[0]
+                .to_string()
+                .contains("filters its own links; a summary cannot read it"),
             "{errors:?}"
         );
     }
@@ -1983,6 +2062,9 @@ mod tests {
         let target = rollup_targets(&schema, schema.properties.values(), "plant");
         assert_eq!(target.len(), 1);
         assert_eq!(target[0].key, "count");
+        // A relation is narrowed by one owner only: the rollup that reads it.
+        assert_eq!(relations_read_by_rollups(&schema, "links"), vec!["count"]);
+        assert!(relations_read_by_rollups(&schema, "room").is_empty());
         let keys = referenced_keys(schema.properties.values());
         assert!(keys.contains("room"));
         assert!(keys.contains("links"));

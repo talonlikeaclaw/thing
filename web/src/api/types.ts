@@ -140,6 +140,10 @@ export interface PropertyDef {
   target_type?: string | null;
   /** `relation` only: the value holds several target ids. */
   multi?: boolean;
+  /** `relation` only: the targets a value may name; absent means any. */
+  target_filter?: Filter | null;
+  /** `relation` only: one live record may link a given target. */
+  one_to_one?: boolean;
   /** Present when the app derives this property's value; the server never stores it. */
   compute?: ComputeDef;
 }
