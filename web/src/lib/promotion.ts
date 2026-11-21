@@ -24,13 +24,13 @@ export function promotionBlocker(property: PropertyDef, owners: number): string 
     property.format !== "select" &&
     property.format !== "multi_select"
   ) {
-    return "Only text, select and multi-select columns can be turned into a type.";
+    return "Only text, select and multi-select columns can become relations.";
   }
   if (owners === 0) {
     return "No type carries this property.";
   }
   if (owners > 1) {
-    return `This property is used by ${owners} types.`;
+    return `It belongs to ${owners} types; a relation needs one.`;
   }
   return null;
 }

@@ -431,10 +431,17 @@ formats its aggregate can read. The result type is static once an aggregate and 
 decide it, never a disabled select that looks enabled. On a wide screen the property
 create form takes the editor column, so a formula is never written in the list strip.
 
-**The Ledger Table.** A type page is one glass panel above one matte ledger. The type
-masthead, the saved views and the search/Columns/Sort/Filter tools float together as the
-page's chrome; it scrolls with the page and never parks over the ledger's own column
-labels. The table itself lives in a 20px matte card with one border. It has two fills and
+**The Ledger Table.** A type page is two glass cards above one matte ledger, and each card
+opens with a mono folio that names its scope. The first is the type's: `TYPE` over the
+card, then the identity — icon, name, key, record count, description — with the type's own
+actions at its trailing edge and the primary create button outermost; a phone puts the
+actions on their own line, still ending at the thumb edge. The second is the view's:
+`VIEW` on the left, `View settings` and `Filter` flush right, the reserved `Save view`
+and `Reset` slots leading that cluster so they appear without moving `Filter` off its own
+panel, then the search as a full-width field, then the saved views. The two cards scroll with the page and never park
+over the ledger's own column labels. Every one of those actions prints its word at every
+width: no type-page control shrinks to a bare icon, because an icon a first-time reader has
+to guess is a control they do not use. The table itself lives in a 20px matte card with one border. It has two fills and
 no third: a raised band for the whole header row — Title and the checkbox cell included —
 and the card's surface for every body cell, the checkbox column and both action rails
 included. A pinned column keeps its rule and never changes fill to prove it is pinned.
@@ -456,8 +463,9 @@ every width, so a setting is one tab from the view instead of a chain of popover
 sheet names what it edits before it offers a control: the view kind's glyph in a neutral
 tile, the view's name in the display voice, and a mono folio of its kind and counts
 (`TABLE VIEW · 10 COLUMNS · 1 SORT`). Below it, a recessed segmented strip holds the tabs —
-the daily tools first, a rule before `Save as view` because that one creates rather than
-edits, Data last. The strip is one scrolling row at every width and hugs its tabs; a phone
+General first, because the sheet is the view's page before it is its toolbox, then Columns
+and Sort, a rule before `Save as view` because that one creates rather than edits, Data
+last; the sheet opens where the strip starts. The strip is one scrolling row at every width and hugs its tabs; a phone
 feathers its ends rather than wrapping a second ragged line, and the selected tab is
 scrolled into view. Each tab's body opens with its own heading and one sentence of purpose,
 so a panel reached sideways still says where it is. The three panels that edit write as they
@@ -547,6 +555,19 @@ faint mono. In a property row the title leads and the pill trails, the same as t
 sheet's other fields; a ledger column header stacks the pill under its label because the
 column is narrow, and on a phone the ledger drops the pill entirely. The capture sheet's
 icon trigger takes the same accent frame, and its `Type` label is accent.
+
+**The Property Sheet Rule.** The sheet that edits a property opens on its identity: the
+accent name over the mono key, the two facts that name the file and the column. Below it
+the body reads in chapters, each a mono label and, where it earns one, a single sentence:
+`Definition` (name, format, options, the calculation), `On this type` (Required and the
+starting value), `Display`, `Value rules`, and `Relation` (what it links to, which of those
+records count, one-to-one). Rows pair a label with its control in one gutter; groups whose
+controls name themselves — a segment, a checkbox, the membership pair — sit flush with
+their chapter label, so no group shows an empty column. A group explains itself once: the row's hint never restates the sentence inside the
+control. Only the settings that change in use sit in the list; renaming the key and
+turning the column into a relation wait under one `More tools` disclosure, and the
+delete section stands apart behind an Ember rule with its own consequence and confirm.
+The same rule holds inline on the schema page and in the manage sheet.
 
 **The Property Picker.** Every surface that chooses a property asks one searchable list:
 a glass-strong popover under its trigger on a fine pointer, the shared sheet on a phone.

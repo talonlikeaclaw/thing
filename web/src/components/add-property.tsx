@@ -603,6 +603,7 @@ export function AddPropertyDialog({
                     draft={display}
                     onChange={setDisplay}
                     format={format}
+                    aggregate={draft.kind === "rollup" ? draft.aggregate : undefined}
                     disabled={propertyFrozen}
                     idPrefix="add-property"
                   />

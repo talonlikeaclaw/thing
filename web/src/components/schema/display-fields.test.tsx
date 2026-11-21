@@ -43,6 +43,40 @@ describe("DisplayFields", () => {
     expect(screen.getByLabelText("Thousands separators")).toBeInTheDocument();
   });
 
+  it("keeps the currency off a count summary", () => {
+    renderWithProviders(
+      <DisplayFields
+        draft={emptyDisplayDraft()}
+        onChange={() => undefined}
+        format="number"
+        aggregate="count"
+        idPrefix="property-related_plants"
+        initialOpen
+      />,
+    );
+
+    expect(screen.getByRole("radiogroup", { name: "Alignment" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Currency")).toBeNull();
+    expect(screen.queryByLabelText("Decimals")).toBeNull();
+    expect(screen.queryByText("Thousands separators")).toBeNull();
+  });
+
+  it("keeps the currency on a sum of linked numbers", () => {
+    renderWithProviders(
+      <DisplayFields
+        draft={emptyDisplayDraft()}
+        onChange={() => undefined}
+        format="number"
+        aggregate="sum"
+        idPrefix="property-total"
+        initialOpen
+      />,
+    );
+
+    expect(screen.getByLabelText("Currency")).toBeInTheDocument();
+    expect(screen.getByLabelText("Decimals")).toBeInTheDocument();
+  });
+
   it("keeps its disclosure closed until the reader opens it", () => {
     renderWithProviders(
       <DisplayFields

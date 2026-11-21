@@ -2,16 +2,18 @@ import { fireEvent, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import { ViewSheet, type ViewSheetPanel } from "@/components/views/view-sheet";
+import {
+  ViewSheet,
+  viewSheetPanels,
+  type ViewSheetPanel,
+} from "@/components/views/view-sheet";
 import { renderWithProviders } from "@/test/harness";
 
 /** The sheet over one panel the host owns, like the type page. */
 function Host({ canEdit = true }: { canEdit?: boolean } = {}) {
+  const available = viewSheetPanels(canEdit, "table");
   const [open, setOpen] = useState(true);
-  const [panel, setPanel] = useState<ViewSheetPanel>("columns");
-  const available: ViewSheetPanel[] = canEdit
-    ? ["columns", "sort", "settings", "save", "data"]
-    : ["sort", "data"];
+  const [panel, setPanel] = useState<ViewSheetPanel>(available[0] ?? "columns");
   return (
     <div>
       <output data-testid="panel">{panel}</output>
@@ -48,7 +50,19 @@ describe("ViewSheet", () => {
     // The sheet names the view it edits and says what the view holds.
     expect(screen.getByText("All")).toBeInTheDocument();
     expect(screen.getByText("table view · 7 columns · 2 sorts")).toBeInTheDocument();
-    expect(screen.getByText("Columns body")).toBeInTheDocument();
+    expect(screen.getByText("Settings body")).toBeInTheDocument();
+  });
+
+  it("leads the strip with the view's own page", () => {
+    expect(viewSheetPanels(true, "table")).toEqual([
+      "settings",
+      "columns",
+      "sort",
+      "save",
+      "data",
+    ]);
+    expect(viewSheetPanels(true, "calendar")).toEqual(["settings", "save", "data"]);
+    expect(viewSheetPanels(false, "table")).toEqual(["sort", "data"]);
   });
 
   it("swaps the body in place without a menu or a Back step", () => {
@@ -77,15 +91,15 @@ describe("ViewSheet", () => {
   it("moves between panels with the arrow keys", () => {
     renderWithProviders(<Host />);
 
-    const columns = screen.getByRole("tab", { name: "Columns, 7" });
-    expect(columns).toHaveAttribute("tabindex", "0");
+    const general = screen.getByRole("tab", { name: "General" });
+    expect(general).toHaveAttribute("tabindex", "0");
 
-    fireEvent.keyDown(columns, { key: "ArrowRight" });
-    expect(screen.getByTestId("panel")).toHaveTextContent("sort");
-    expect(screen.getByRole("tab", { name: "Sort, 2" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Columns, 7" })).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(general, { key: "ArrowRight" });
+    expect(screen.getByTestId("panel")).toHaveTextContent("columns");
+    expect(screen.getByRole("tab", { name: "Columns, 7" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute("tabindex", "-1");
 
-    fireEvent.keyDown(screen.getByRole("tab", { name: "Sort, 2" }), { key: "End" });
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Columns, 7" }), { key: "End" });
     expect(screen.getByTestId("panel")).toHaveTextContent("data");
   });
 

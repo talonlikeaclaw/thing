@@ -482,6 +482,47 @@ describe("AddPropertyDialog", () => {
     });
   });
 
+  it("offers a currency for a sum but never for a count", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse([]);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+
+    renderWithProviders(
+      <AddPropertyDialog
+        spaceId="s1"
+        type={album([{ key: "related_plant", required: false, featured: true }])}
+        library={[
+          {
+            key: "related_plant",
+            name: "Related plant",
+            format: "relation",
+            target_type: "artist",
+          },
+          { key: "height", name: "Height", format: "number" },
+        ]}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "New" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Summary" }));
+    fireEvent.click(screen.getByText("Display"));
+    expect(screen.queryByLabelText("Currency")).toBeNull();
+    expect(screen.queryByLabelText("Decimals")).toBeNull();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Aggregate" }));
+    const sum = await screen.findByRole("option", { name: "Sum" });
+    fireEvent.pointerDown(sum, { pointerType: "mouse" });
+    fireEvent.click(sum);
+
+    expect(await screen.findByLabelText("Currency")).toBeInTheDocument();
+    expect(screen.getByLabelText("Decimals")).toBeInTheDocument();
+  });
+
   it("shows a server refusal at the member stage", async () => {
     stubFetch((input, init) => {
       const url = requestUrl(input);

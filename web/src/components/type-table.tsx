@@ -1,7 +1,6 @@
 import { ListFilter, ListTree, Pencil, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,7 +53,11 @@ import { ColumnPanel } from "@/components/views/column-panel";
 import { DataPanel } from "@/components/views/data-panel";
 import { GalleryView } from "@/components/views/gallery-view";
 import { TableView } from "@/components/views/table-view";
-import { ViewSheet, type ViewSheetPanel } from "@/components/views/view-sheet";
+import {
+  ViewSheet,
+  viewSheetPanels,
+  type ViewSheetPanel,
+} from "@/components/views/view-sheet";
 import { ViewSettings } from "@/components/views/view-settings";
 import { ViewTabs } from "@/components/views/view-tabs";
 import { cn } from "@/lib/cn";
@@ -150,12 +153,7 @@ export function TypeTable({
   const [pendingRows, setPendingRows] = useState<ReadonlySet<string>>(new Set());
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
   const [saveAsName, setSaveAsName] = useState("");
-  const [searchExpanded, setSearchExpanded] = useState(
-    () => (params.get("q") ?? "").trim() !== "",
-  );
-  const [viewPanel, setViewPanel] = useState<ViewSheetPanel>(
-    settingsQuery ? "settings" : "columns",
-  );
+  const [viewPanel, setViewPanel] = useState<ViewSheetPanel>("settings");
   const handedness = useThumbHandedness();
 
   const tableShortcuts = useMemo(
@@ -712,7 +710,6 @@ export function TypeTable({
   const verb = completeLabel(type.schedule_labels);
 
   function focusSearch() {
-    setSearchExpanded(true);
     searchRef.current?.focus();
   }
 
@@ -756,12 +753,12 @@ export function TypeTable({
       to={`/s/${spaceId}/schema?type=${encodeURIComponent(type.key)}#type-editor`}
       title={`Edit ${type.name} type`}
       className={cn(
-        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0",
+        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11",
         focusRing,
       )}
     >
       <Pencil aria-hidden size={14} />
-      <span className="max-sm:sr-only">Edit type</span>
+      <span>Edit type</span>
     </Link>
   ) : null;
   // Properties sit beside the type they belong to: both edit the schema, so
@@ -772,13 +769,13 @@ export function TypeTable({
       aria-label={`Manage ${type.name} properties`}
       title={`Manage ${type.name} properties`}
       className={cn(
-        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:px-0",
+        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11",
         focusRing,
       )}
       onClick={() => setManageOpen(true)}
     >
       <ListTree aria-hidden size={14} />
-      <span className="max-sm:sr-only">Properties</span>
+      <span>Properties</span>
     </button>
   ) : null;
   // The title leads. On a phone the action pair takes its own full-width line,
@@ -803,45 +800,33 @@ export function TypeTable({
   // farthest. Keys stay stable across the reversal, so React moves nodes
   // instead of remounting them.
   const searchNode = (
-    <SearchBox
-      key="search"
-      value={q}
-      inputRef={searchRef}
-      onSubmit={submitSearch}
-      compact={compact}
-      expanded={searchExpanded}
-      onExpandedChange={setSearchExpanded}
-    />
+    <SearchBox key="search" value={q} inputRef={searchRef} onSubmit={submitSearch} />
   );
   const toolbarTools: ReactNode[] = [];
   // One View button replaces the old Columns, Sort and kebab cluster: every
   // column, sort, summary and view action lives in one tabbed sheet, so a
   // setting is one tap from the view instead of a popover chain.
-  toolbarTools.push(
+  const queryTools: ReactNode[] = [
     <Button
       key="view"
       type="button"
       variant="ghost"
-      aria-label="View"
+      aria-label="View settings"
       aria-expanded={viewOpen}
-      className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
+      className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11"
       onClick={() =>
         openView(
-          canEdit && view.kind !== "calendar"
-            ? "columns"
+          canEdit
+            ? "settings"
             : view.kind !== "calendar"
               ? "sort"
-              : canEdit
-                ? "settings"
-                : "data",
+              : "data",
         )
       }
     >
       <SlidersHorizontal aria-hidden size={14} />
-      <span className="max-sm:hidden">View</span>
+      <span>View settings</span>
     </Button>,
-  );
-  toolbarTools.push(
     <Button
       key="filter"
       type="button"
@@ -855,11 +840,11 @@ export function TypeTable({
       }
       ref={filterButtonRef}
       aria-expanded={filterOpen}
-      className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11 max-sm:w-11 max-sm:justify-center max-sm:px-0 max-sm:gap-1"
+      className="min-h-8 shrink-0 px-2.5 text-[12px] aria-expanded:border-accent/60 aria-expanded:bg-accent-wash aria-expanded:text-accent-on-wash pointer-coarse:min-h-11 max-sm:min-h-11"
       onClick={toggleFilter}
     >
       <ListFilter aria-hidden size={14} />
-      <span className="max-sm:hidden">Filter</span>
+      <span>Filter</span>
       {/* On a wide toolbar the badge keeps its slot at zero: the panel is
           anchored to this button, so a width change would move the panel out
           from under it. A phone's square button has no such slot to keep. */}
@@ -875,12 +860,12 @@ export function TypeTable({
         </span>
       )}
     </Button>,
-  );
+  ];
   /*
    * Save and Reset keep their slot whether or not they apply: the first filter
-   * makes the query dirty, and a button appearing mid-session shifts every
-   * tool before it, dragging an open panel off its own anchor. The reserved
-   * slot is the panel's stability, so the tools never move while it is open.
+   * makes the query dirty, and a button appearing mid-session drags the tools
+   * beside it. They lead the cluster, so the reserved slot pads its left edge
+   * and Filter stays flush with the card's right edge, under its own panel.
    */
   if (!compact && canEdit) {
     toolbarTools.push(
@@ -922,31 +907,11 @@ export function TypeTable({
       </Button>,
     );
   }
-  // The tabs this reader may use: a viewer keeps Sort and Data.
-  const viewPanels: ViewSheetPanel[] = [
-    ...(canEdit && view.kind !== "calendar"
-      ? (["columns"] as ViewSheetPanel[])
-      : []),
-    ...(view.kind !== "calendar" ? (["sort"] as ViewSheetPanel[]) : []),
-    ...(canEdit ? (["settings", "save"] as ViewSheetPanel[]) : []),
-    "data",
-  ];
+  toolbarTools.push(...queryTools);
+  const viewPanels = viewSheetPanels(canEdit, view.kind);
   const activeViewPanel = viewPanels.includes(viewPanel)
     ? viewPanel
     : (viewPanels[0] ?? "data");
-
-  const toolbarRow: ReactNode[] = [searchNode, ...toolbarTools];
-  // Right-handed: settings starts at the far left and search ends at the right
-  // edge. Left-handed: search starts at the left edge. Desktop keeps its
-  // established left-to-right reading order.
-  const orderedToolbar =
-    compact && handedness === "right" ? [...toolbarRow].reverse() : toolbarRow;
-
-  useEffect(() => {
-    if (q !== "") {
-      setSearchExpanded(true);
-    }
-  }, [q]);
 
   const compactStatus =
     compact && (dirty || hasOverrides) ? (
@@ -1002,36 +967,33 @@ export function TypeTable({
         moved.
       */}
       <header>
-        <div className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4">
-          <div
-            className={cn(
-              "flex items-start justify-between gap-x-4",
-              compact ? "flex-wrap gap-y-2" : "flex-nowrap",
-            )}
-          >
-            {pageTitle}
-            {recordActions}
-          </div>
+        {/*
+          The type's own card: its folio names the scope, the actions sit on the
+          folio row, and the identity leads below. A phone reads the name first
+          and gets its actions on their own line, so the primary button still
+          reaches the thumb edge.
+        */}
+        <div className="glass rounded-[22px] px-4 pt-3 pb-4 sm:px-5">
+          <span className="label">Type</span>
+          {compact ? (
+            <>
+              <div className="mt-1">{pageTitle}</div>
+              <div className="mt-3">{recordActions}</div>
+            </>
+          ) : (
+            <div className="mt-1 flex flex-nowrap items-start justify-between gap-x-4">
+              {pageTitle}
+              {recordActions}
+            </div>
+          )}
         </div>
 
-        <div className="glass mt-2 rounded-[22px] px-3 py-3 sm:px-4">
-          <div
-            className={cn(
-              "flex items-center",
-              compact && searchExpanded
-                ? "gap-1.5"
-                : cn(
-                    "flex-wrap gap-1.5 max-sm:gap-1",
-                    compact
-                      ? handedness === "left"
-                        ? "justify-start"
-                        : "justify-end"
-                      : "justify-center",
-                  ),
-            )}
-          >
-            {compact && searchExpanded ? searchNode : orderedToolbar}
+        <div className="glass mt-2 rounded-[22px] px-3 pt-3 pb-3 sm:px-4">
+          <div className="flex items-center justify-between gap-2">
+            <span className="label">View</span>
+            <ThumbRow className="items-center gap-1.5">{toolbarTools}</ThumbRow>
           </div>
+          <div className="mt-2">{searchNode}</div>
 
           {/*
             The saved views close the panel: the strip sits on the container's
@@ -1427,19 +1389,11 @@ function SearchBox({
   value,
   inputRef,
   onSubmit,
-  compact,
-  expanded,
-  onExpandedChange,
 }: {
   value: string;
   inputRef?: RefObject<HTMLInputElement | null>;
   onSubmit: (value: string) => void;
-  /** Below 640 px the field is a 44 px icon until it is tapped. */
-  compact: boolean;
-  expanded: boolean;
-  onExpandedChange: (expanded: boolean) => void;
 }) {
-  const handedness = useThumbHandedness();
   const [text, setText] = useState(value);
   const committed = useRef(value);
   const submitRef = useRef(onSubmit);
@@ -1474,35 +1428,8 @@ function SearchBox({
     submitRef.current("");
   }
 
-  // Expanding mounts the field, so the caret belongs in it now, not after paint.
-  useLayoutEffect(() => {
-    if (compact && expanded) {
-      inputRef?.current?.focus({ preventScroll: true });
-    }
-  }, [compact, expanded, inputRef]);
-
-  if (compact && !expanded) {
-    return (
-      <button
-        type="button"
-        aria-label="Search titles and bodies"
-        aria-expanded={false}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line-interactive/70 bg-raised/40 text-muted transition-colors hover:border-line-strong hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-accent"
-        onClick={() => onExpandedChange(true)}
-      >
-        <Search aria-hidden size={15} />
-      </button>
-    );
-  }
-
   return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center gap-1.5",
-        compact ? "flex-1" : "min-w-[12rem] flex-1",
-        compact && handedness === "left" && "flex-row-reverse",
-      )}
-    >
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
     <form
       role="search"
       className="relative min-w-0 flex-1"
@@ -1535,18 +1462,6 @@ function SearchBox({
         </button>
       ) : null}
     </form>
-    {compact ? (
-      <button
-        type="button"
-        className="label inline-flex min-h-11 shrink-0 items-center px-1 text-muted transition-colors hover:text-ink"
-        onClick={() => {
-          clear();
-          onExpandedChange(false);
-        }}
-      >
-        Cancel
-      </button>
-    ) : null}
     </div>
   );
 }

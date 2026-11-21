@@ -220,8 +220,7 @@ export function ValidationFields({
       ) : null}
 
       <p className="text-[12px] leading-[1.5] text-muted">
-        A value outside these rules is refused where it is written, in the cell and on
-        the record.
+        A value that breaks these rules is refused where it is written.
       </p>
     </div>
   );

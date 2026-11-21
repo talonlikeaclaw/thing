@@ -22,6 +22,21 @@ import { cn } from "@/lib/cn";
 /** Every surface the one View sheet can show. */
 export type ViewSheetPanel = "columns" | "sort" | "settings" | "save" | "data";
 
+/**
+ * The panels this reader may open, in the strip's reading order: the view's own
+ * page first, then the two that shape it, then the two that create or move data.
+ * A calendar has no columns to order, and a viewer keeps Sort and Data.
+ */
+export function viewSheetPanels(canEdit: boolean, kind: ViewKind): ViewSheetPanel[] {
+  return [
+    ...(canEdit ? (["settings"] as const) : []),
+    ...(canEdit && kind !== "calendar" ? (["columns"] as const) : []),
+    ...(kind !== "calendar" ? (["sort"] as const) : []),
+    ...(canEdit ? (["save"] as const) : []),
+    "data",
+  ];
+}
+
 interface ViewSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;

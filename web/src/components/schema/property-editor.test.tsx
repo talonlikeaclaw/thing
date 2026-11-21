@@ -141,6 +141,32 @@ describe("PropertyEditorForm validation", () => {
     expect(body).toEqual({ name: "Amount", validation: { min: 0 } });
   });
 
+  it("keeps the key tools behind one disclosure", () => {
+    const amount: PropertyDef = { key: "amount", name: "Amount", format: "number" };
+    stubFetch((input) => {
+      throw new Error(`unstubbed ${requestUrl(input)}`);
+    });
+
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={amount}
+        types={[]}
+        library={[amount]}
+        canEdit
+      />,
+    );
+
+    const tools = screen.getByText("More tools").closest("details");
+    expect(tools?.open).toBe(false);
+    fireEvent.click(screen.getByText("More tools", { selector: "summary" }));
+    expect(tools?.open).toBe(true);
+    expect(screen.getByLabelText("New key")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Turn into a relation…" }),
+    ).toBeInTheDocument();
+  });
+
   it("leaves an untouched block out of an unrelated rename", async () => {
     const amount: PropertyDef = {
       key: "amount",
@@ -306,6 +332,32 @@ describe("PropertyEditorForm membership", () => {
     return writes;
   }
 
+  it("hides membership on a calculation, which captures nothing", () => {
+    stubFetch((input) => {
+      throw new Error(`unstubbed ${requestUrl(input)}`);
+    });
+    const computed: TypeProperty = {
+      key: "days_since_watered",
+      required: false,
+      featured: true,
+    };
+    renderWithProviders(
+      <PropertyEditorForm
+        spaceId="s1"
+        property={formula}
+        types={[]}
+        library={[formula]}
+        canEdit
+        type={{ ...plant, properties: [computed] }}
+        member={computed}
+      />,
+    );
+
+    expect(screen.getByText("Definition")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Required")).not.toBeInTheDocument();
+    expect(screen.queryByText("On this type")).not.toBeInTheDocument();
+  });
+
   it("writes the membership and leaves the untouched property out", async () => {
     const writes = stubWrites();
     renderWithProviders(
@@ -454,7 +506,7 @@ describe("PropertyEditorForm relation rules", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByLabelText("A target is linked by one record only"),
+      screen.getByLabelText("A record can be linked only once"),
     );
     fireEvent.click(screen.getByRole("button", { name: "Save property" }));
 
@@ -546,13 +598,13 @@ describe("PropertyEditorForm relation rules", () => {
     );
 
     expect(
-      await screen.findByText(/summarises this relation, so its links stay open/),
+      await screen.findByText(/decides which linked records count, so this relation stays open/),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add condition" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText("A target is linked by one record only"),
+      screen.getByLabelText("A record can be linked only once"),
     ).toBeDisabled();
   });
 });

@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
@@ -59,6 +59,7 @@ import {
   effectiveProperties,
   formatLabel,
   hasOptions,
+  keyFromName,
   isComputed,
   optionDrafts,
   optionInputs,
@@ -66,6 +67,41 @@ import {
   sameJson,
 } from "@/lib/schema";
 import { todayIn } from "@/lib/timezone";
+
+/**
+ * One named group of the property sheet: the reader's decision first, then the
+ * controls that answer it. The rule above each group is the only separator, so
+ * the body reads as chapters rather than one flat list.
+ */
+function Group({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pt-4 pb-1">
+      <h3 className="label">{title}</h3>
+      {hint ? (
+        <p className="mt-1 max-w-[52ch] text-[12px] leading-[1.5] text-muted">{hint}</p>
+      ) : null}
+      <div className="mt-1 grid">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * A group's controls that name themselves — a segment, a checkbox, the
+ * membership pair. They sit flush with the section's eyebrow: a label gutter
+ * with nothing in it reads as a hole, and these controls already carry their
+ * own labels.
+ */
+function GroupControl({ children }: { children: ReactNode }) {
+  return <div className="py-3">{children}</div>;
+}
 
 interface PropertyEditorFormProps {
   spaceId: string;
@@ -314,100 +350,138 @@ export function PropertyEditorForm({
           headingId ? "mt-2" : undefined,
         )}
       >
-        <FieldRow label="Name" htmlFor={`property-${property.key}-name`}>
-          <TextField
-            id={`property-${property.key}-name`}
-            name={`property-${property.key}-name`}
-            required
-            maxLength={200}
-            value={name}
-            disabled={!canEdit}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </FieldRow>
-        <FieldRow
-          label="Format"
-          hint={
-            calculated
-              ? "The result type; fixed once the property exists."
-              : "Fixed once values exist."
-          }
-        >
-          <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
-            {formatLabel(property.format)}
-          </p>
-        </FieldRow>
-        <FieldRow
-          label="Display"
-          hint="How the values read in every table; the stored value never changes."
-        >
-          <DisplayFields
-            draft={display}
-            onChange={setDisplay}
-            format={property.format}
-            disabled={!canEdit}
-            idPrefix={`property-${property.key}`}
-            disclosure={false}
-          />
-        </FieldRow>
-        {!calculated && validationApplies(property.format, property.multi) ? (
+        <Group title="Definition">
+          <FieldRow label="Name" htmlFor={`property-${property.key}-name`}>
+            <TextField
+              id={`property-${property.key}-name`}
+              name={`property-${property.key}-name`}
+              required
+              maxLength={200}
+              value={name}
+              disabled={!canEdit}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </FieldRow>
           <FieldRow
-            label="Validation"
-            hint="What a value must satisfy; a value outside these rules is refused where it is written."
+            label="Format"
+            hint={
+              calculated
+                ? "The result type; fixed once the property exists."
+                : "Fixed once values exist."
+            }
           >
-            <ValidationFields
-              draft={validation}
-              onChange={setValidation}
+            <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
+              {formatLabel(property.format)}
+            </p>
+          </FieldRow>
+          {showsOptions ? (
+            <FieldRow
+              label={
+                <>
+                  Options{" "}
+                  <span className="font-mono text-[length:var(--text-label)] tnum text-faint">
+                    {options.length}
+                  </span>
+                </>
+              }
+            >
+              <OptionEditor
+                drafts={options}
+                onChange={setOptions}
+                canEdit={canEdit}
+                idPrefix={property.key}
+              />
+            </FieldRow>
+          ) : null}
+          {calculated ? (
+            <FieldRow label={computeKindLabel(property) ?? "Calculation"}>
+              <ComputedFields
+                draft={draft}
+                onChange={setDraft}
+                library={library}
+                spaceId={spaceId}
+                existing
+                disabled={!canEdit}
+                idPrefix={`property-${property.key}`}
+                problem={readApiProblems(update.error)[0] ?? null}
+              />
+            </FieldRow>
+          ) : null}
+        </Group>
+
+        {/* A calculated value needs no membership: nothing is captured for it. */}
+        {type && membership && !calculated ? (
+          <Group
+            title="On this type"
+            hint={`Applies to new ${type.name} records; any record can clear it.`}
+          >
+            <GroupControl>
+              <MembershipDefault
+                spaceId={spaceId}
+                member={membership}
+                property={property}
+                canEdit={canEdit}
+                onChange={setMembership}
+                onInvalid={setDefaultInvalid}
+              />
+            </GroupControl>
+          </Group>
+        ) : null}
+
+        <Group title="Display">
+          <GroupControl>
+            <DisplayFields
+              draft={display}
+              onChange={setDisplay}
               format={property.format}
-              multi={property.multi}
+              aggregate={
+                property.compute?.kind === "rollup" ? property.compute.aggregate : undefined
+              }
               disabled={!canEdit}
               idPrefix={`property-${property.key}`}
               disclosure={false}
             />
-          </FieldRow>
+          </GroupControl>
+        </Group>
+
+        {!calculated && validationApplies(property.format, property.multi) ? (
+          <Group title="Value rules">
+            <GroupControl>
+              <ValidationFields
+                draft={validation}
+                onChange={setValidation}
+                format={property.format}
+                multi={property.multi}
+                disabled={!canEdit}
+                idPrefix={`property-${property.key}`}
+                disclosure={false}
+              />
+            </GroupControl>
+          </Group>
         ) : null}
-        {calculated ? (
-          <FieldRow label={computeKindLabel(property) ?? "Calculation"}>
-            <ComputedFields
-              draft={draft}
-              onChange={setDraft}
-              library={library}
-              spaceId={spaceId}
-              existing
-              disabled={!canEdit}
-              idPrefix={`property-${property.key}`}
-              problem={readApiProblems(update.error)[0] ?? null}
-            />
-          </FieldRow>
-        ) : null}
+
         {property.format === "relation" ? (
-          <>
+          <Group title="Relation">
             <FieldRow label="Links to">
-              <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
-                {property.target_type ?? "any type"}
+              <p className="flex min-h-10 flex-wrap items-center gap-[var(--space-2)] font-mono text-[12px] text-muted">
+                <span>{property.target_type ?? "any type"}</span>
+                <span aria-hidden className="text-faint">·</span>
+                <span>{property.multi ? "several records" : "one record"}</span>
               </p>
             </FieldRow>
             <FieldRow
-              label="Holds"
-              hint="What it links to, and how many records, are fixed when the property is created."
-            >
-              <p className="flex min-h-10 items-center font-mono text-[12px] text-muted">
-                {property.multi ? "several records" : "one record"}
-              </p>
-            </FieldRow>
-            <FieldRow
-              label="Only linked records matching"
+              label={readByRollups ? "Which records count" : "Only linked records matching"}
               hint={
                 readByRollups
-                  ? "A summary decides which linked records it counts, so its filter lives there."
-                  : "The picker offers these records, and a value written anywhere else is refused."
+                  ? undefined
+                  : "The picker offers these records; anything else is refused."
               }
             >
               {readByRollups ? (
                 <p className="flex min-h-10 items-center text-[12px] leading-4 text-muted">
                   {rollupReaders.map((reader) => reader.name).join(", ")}{" "}
-                  {rollupReaders.length === 1 ? "summarises" : "summarise"} this relation, so its
-                  links stay open. Filter the summary instead.
+                  {rollupReaders.length === 1 ? "decides" : "decide"} which linked
+                  records count, so this relation stays open.
                 </p>
               ) : targetType ? (
                 <FilterConditions
@@ -422,17 +496,17 @@ export function PropertyEditorForm({
                 />
               ) : property.target_type ? (
                 <p className="flex min-h-10 items-center text-[12px] text-muted">
-                  Reading the target type…
+                  Reading the linked type…
                 </p>
               ) : (
                 <p className="flex min-h-10 items-center text-[12px] text-muted">
-                  A filter needs a relation with a target type.
+                  A filter needs a relation that links to one type.
                 </p>
               )}
             </FieldRow>
             <FieldRow
               label="Linked once"
-              hint="A second record naming the same record is refused, and the message names the first."
+              hint="A second record that names the same one is refused."
             >
               <label className="flex min-h-9 items-center gap-2 text-[13px] text-ink pointer-coarse:min-h-11">
                 <input
@@ -442,44 +516,10 @@ export function PropertyEditorForm({
                   className="h-4 w-4 accent-[var(--color-accent)] pointer-coarse:h-5 pointer-coarse:w-5"
                   onChange={(event) => setOneToOne(event.target.checked)}
                 />
-                A target is linked by one record only
+                A record can be linked only once
               </label>
             </FieldRow>
-          </>
-        ) : null}
-        {showsOptions ? (
-          <FieldRow
-            label={
-              <>
-                Options{" "}
-                <span className="font-mono text-[length:var(--text-label)] tnum text-faint">
-                  {options.length}
-                </span>
-              </>
-            }
-          >
-            <OptionEditor
-              drafts={options}
-              onChange={setOptions}
-              canEdit={canEdit}
-              idPrefix={property.key}
-            />
-          </FieldRow>
-        ) : null}
-        {type && membership ? (
-          <FieldRow
-            label="On this type"
-            hint={`Required and the starting value for ${type.name}. The definition above is shared by every type that carries it.`}
-          >
-            <MembershipDefault
-              spaceId={spaceId}
-              member={membership}
-              property={property}
-              canEdit={canEdit}
-              onChange={setMembership}
-              onInvalid={setDefaultInvalid}
-            />
-          </FieldRow>
+          </Group>
         ) : null}
       </div>
 
@@ -500,7 +540,12 @@ export function PropertyEditorForm({
             {usage.types.map((owner) => (
               <li key={owner.key} className="flex items-baseline gap-2 text-[13px]">
                 <span className="text-accent">{owner.name}</span>
-                <span className="font-mono text-[11px] text-faint">{owner.key}</span>
+                {owner.key !== keyFromName(owner.name) ? (
+                  <>
+                    <span aria-hidden className="text-faint">·</span>
+                    <span className="font-mono text-[11px] text-faint">{owner.key}</span>
+                  </>
+                ) : null}
               </li>
             ))}
             <li className="text-[13px] text-muted">
@@ -510,33 +555,6 @@ export function PropertyEditorForm({
           </ul>
         )}
       </section>
-
-      {!calculated ? (
-        <section aria-labelledby={`property-${property.key}-convert`} className="mt-8">
-          <SectionRule
-            id={`property-${property.key}-convert`}
-            level={3}
-            title="Convert"
-          />
-          <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
-            A text, select or multi-select column carried by one type can become a relation whose
-            targets are the values it already holds.
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            className="mt-2 min-h-9 px-3 text-[13px]"
-            disabled={!convertible || !canEdit}
-            title={convertBlocker ?? undefined}
-            onClick={() => setPromoteOpen(true)}
-          >
-            Turn into a relation…
-          </Button>
-          {convertBlocker && canEdit ? (
-            <p className="mt-1 text-[12px] text-faint">{convertBlocker}</p>
-          ) : null}
-        </section>
-      ) : null}
 
       {promoteOpen && convertOwner ? (
         <PromoteColumnDialog
@@ -586,54 +604,77 @@ export function PropertyEditorForm({
       )}
 
       {canEdit ? (
-        <section
-          aria-labelledby={`property-${property.key}-key`}
-          className="mt-10 border-t rule pt-4"
-        >
-          <SectionRule id={`property-${property.key}-key`} level={3} title="Key" />
-          <p className="mt-3 max-w-[62ch] text-[13px] text-muted">
-            The current key is <span className="font-mono">{property.key}</span>. Renaming it
-            rewrites every file that names it; keys appear in file paths and CSV headers.
-          </p>
-          <div className="mt-3 grid max-w-[34rem] gap-3">
-            <TextField
-              label="New key"
-              name={`property-${property.key}-new-key`}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              value={renameKey}
-              disabled={rename.isPending}
-              onChange={(event) => setRenameKey(event.target.value)}
-              hint={
-                dirty || membershipDirty
-                  ? "Save the display name first; renaming reloads this editor."
-                  : "Lowercase letters, digits and underscores, starting with a letter."
-              }
-            />
-            <FormError message={rename.error ? readError(rename.error) : null} />
-            <ThumbRow>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-fit min-h-9 px-3 text-[13px]"
-                disabled={!renameReady}
-                onClick={async () => {
-                  try {
-                    const next = await rename.mutateAsync(nextKey);
-                    onRenamed?.(next.key);
-                    setRenameKey("");
-                    toast.showToast(`Key renamed to ${next.key}.`);
-                  } catch {
-                    // The mutation's error state names the refusal next to the key.
-                  }
-                }}
-              >
-                {rename.isPending ? "Renaming…" : "Rename key"}
-              </Button>
-            </ThumbRow>
+        <details className="mt-10 rounded-[12px] border border-line/70 bg-raised/30 px-3 py-2">
+          <summary className="label cursor-pointer py-1 select-none pointer-coarse:min-h-11">
+            More tools
+          </summary>
+          <div className="grid gap-6 pt-3 pb-2">
+            {!calculated ? (
+              <div className="grid justify-start gap-2">
+                {convertible ? (
+                  <p className="max-w-[62ch] text-[13px] text-muted">
+                    Turn this column's values into records of a new type.
+                  </p>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-9 w-fit px-3 text-[13px]"
+                  disabled={!convertible}
+                  title={convertBlocker ?? undefined}
+                  onClick={() => setPromoteOpen(true)}
+                >
+                  Turn into a relation…
+                </Button>
+                {convertBlocker ? (
+                  <p className="text-[12px] text-faint">{convertBlocker}</p>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="grid max-w-[34rem] gap-3">
+              <p className="max-w-[62ch] text-[13px] text-muted">
+                Renaming rewrites every file that names it. The key appears in file paths, CSV
+                headers and links.
+              </p>
+              <TextField
+                label="New key"
+                name={`property-${property.key}-new-key`}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                value={renameKey}
+                disabled={rename.isPending}
+                onChange={(event) => setRenameKey(event.target.value)}
+                hint={
+                  dirty || membershipDirty
+                    ? "Save the display name first; renaming reloads this editor."
+                    : "Lowercase letters, digits and underscores, starting with a letter."
+                }
+              />
+              <FormError message={rename.error ? readError(rename.error) : null} />
+              <ThumbRow>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-fit min-h-9 px-3 text-[13px]"
+                  disabled={!renameReady}
+                  onClick={async () => {
+                    try {
+                      const next = await rename.mutateAsync(nextKey);
+                      onRenamed?.(next.key);
+                      setRenameKey("");
+                      toast.showToast(`Key renamed to ${next.key}.`);
+                    } catch {
+                      // The mutation's error state names the refusal next to the key.
+                    }
+                  }}
+                >
+                  {rename.isPending ? "Renaming…" : "Rename key"}
+                </Button>
+              </ThumbRow>
+            </div>
           </div>
-        </section>
+        </details>
       ) : null}
 
       {canEdit ? (
@@ -716,7 +757,7 @@ export function PropertyEditorForm({
               {!usage.isPending && inUse ? (
                 <>
                   <p className="text-[13px] text-muted">
-                    Deleting removes this value from every record and records the drop in each
+                    The value is removed from every record; each removal is recorded in that
                     record's history.
                   </p>
                   <TextField
@@ -830,6 +871,13 @@ export function PropertyEditorSheet({
   const types = useTypes(spaceId);
   const properties = useProperties(spaceId);
   const handedness = useThumbHandedness();
+  /** The property identity: accent name and the key its files carry. */
+  const identity = (
+    <div className="min-w-0 flex-1">
+      <SheetTitle className="truncate text-accent">{property.name}</SheetTitle>
+      <p className="mt-0.5 truncate font-mono text-[11px] text-faint">{property.key}</p>
+    </div>
+  );
   return (
     <Dialog.Root
       open
@@ -852,15 +900,11 @@ export function PropertyEditorSheet({
               {handedness === "left" ? (
                 <>
                   <SheetCloseButton label="Close property editor" />
-                  <SheetTitle className="min-w-0 flex-1 truncate">
-                    Edit {property.name}
-                  </SheetTitle>
+                  {identity}
                 </>
               ) : (
                 <>
-                  <SheetTitle className="min-w-0 flex-1 truncate">
-                    Edit {property.name}
-                  </SheetTitle>
+                  {identity}
                   <SheetCloseButton label="Close property editor" />
                 </>
               )}

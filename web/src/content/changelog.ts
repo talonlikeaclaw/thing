@@ -92,6 +92,10 @@ export const CHANGELOG: ChangelogEntry[] = [
             body: "The same sheet edits a property wherever it is opened from, so the definition, Required and the starting value sit together.",
           },
           {
+            lead: "A property sheet explains itself once",
+            body: "Each group carries one sentence and the header names the property and its key; renaming the key or turning the column into a relation waits under one tools disclosure.",
+          },
+          {
             lead: "A person can be a column",
             body: "A member column names someone in the space, so a record can say who owns it without a second type for people.",
           },
@@ -114,6 +118,29 @@ export const CHANGELOG: ChangelogEntry[] = [
         ],
       },
       {
+        title: "A page that says what it is",
+        intro:
+          "The type page names its two cards, and every tool keeps its word at the width where it matters most.",
+        items: [
+          {
+            lead: "A type page names its two cards",
+            body: "The type card carries the identity and the type's actions behind one label; the view card carries the view tools, the search and the saved views behind another.",
+          },
+          {
+            lead: "A view opens on General",
+            body: "The view sheet's strip leads with General, then Columns, Sort, Save as view and Data, and the sheet opens where the strip starts.",
+          },
+          {
+            lead: "A phone keeps every button's word",
+            body: "Edit type, Properties, View settings and Filter print their labels at every width instead of shrinking to an icon, and the search is a field rather than a button that reveals one.",
+          },
+          {
+            lead: "A property sheet reads in chapters",
+            body: "Definition, On this type, Display, Value rules and Relation group the controls, so the setting a reader wants is found by name rather than by scrolling.",
+          },
+        ],
+      },
+      {
         title: "Scoped and owned",
         intro:
           "A calculated column decides which linked records it reads, and a relation decides which records it may point at.",
@@ -129,6 +156,10 @@ export const CHANGELOG: ChangelogEntry[] = [
           {
             lead: "A record can be linked once",
             body: "A one-to-one relation refuses a second record that links the same record, and the refusal names the first.",
+          },
+          {
+            lead: "A count carries no currency",
+            body: "A summary that counts records offers only alignment, because a tally is never money; a sum, a minimum or a maximum keeps the number formatting.",
           },
           {
             lead: "A stale column setting no longer blocks a save",

@@ -116,9 +116,6 @@ export function MembershipDefault({
             onChange={(value) => set({ default: value })}
             onInvalid={onInvalid}
           />
-          <p className="text-[12px] leading-[1.5] text-muted">
-            A new record starts with this value; any record can clear it.
-          </p>
         </div>
       ) : null}
       {!applies ? (

@@ -178,7 +178,7 @@ describe("ColumnPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "More actions for Room" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit property" }));
 
-    expect(await screen.findByRole("dialog", { name: "Edit Room" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Room" })).toBeInTheDocument();
   });
 
   it("opens the property editor from a hidden row's pencil", async () => {
@@ -196,7 +196,7 @@ describe("ColumnPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Size property" }));
 
-    expect(await screen.findByRole("dialog", { name: "Edit Size" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Size" })).toBeInTheDocument();
   });
 
   it("sends a generated schedule column to the type's scheduling block", () => {

@@ -13,14 +13,14 @@ describe("promotionBlocker", () => {
     expect(promotionBlocker(property("select"), 1)).toBeNull();
     expect(promotionBlocker(property("multi_select"), 1)).toBeNull();
     expect(promotionBlocker(property("number"), 1)).toBe(
-      "Only text, select and multi-select columns can be turned into a type.",
+      "Only text, select and multi-select columns can become relations.",
     );
     expect(promotionBlocker(property("relation"), 1)).not.toBeNull();
   });
 
   it("refuses a property no type or several types carry", () => {
     expect(promotionBlocker(property("text"), 0)).toBe("No type carries this property.");
-    expect(promotionBlocker(property("text"), 2)).toBe("This property is used by 2 types.");
+    expect(promotionBlocker(property("text"), 2)).toBe("It belongs to 2 types; a relation needs one.");
   });
 });
 

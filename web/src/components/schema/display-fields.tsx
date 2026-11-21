@@ -2,7 +2,7 @@ import { Combobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 
-import type { Align, PropertyDisplay, PropertyFormat } from "@/api/types";
+import type { Aggregate, Align, PropertyDisplay, PropertyFormat } from "@/api/types";
 import { SelectField, fieldFrame } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
 import { currencyCodes } from "@/lib/presentation";
@@ -85,6 +85,8 @@ interface DisplayFieldsProps {
   onChange: (draft: DisplayDraft) => void;
   /** The result format: only a number carries currency, decimals or grouping. */
   format: PropertyFormat;
+  /** A calculated number's aggregate: a count is a tally, never money. */
+  aggregate?: Aggregate;
   disabled?: boolean;
   idPrefix: string;
   /** Open the disclosure on a property that already says something. */
@@ -99,12 +101,13 @@ interface DisplayFieldsProps {
 /**
  * The one authoring form for a property's display. It is a disclosure because
  * most properties read plainly; the align choice is offered for every format,
- * the number grammar only for a number.
+ * the number grammar only for a number that can hold a measured value.
  */
 export function DisplayFields({
   draft,
   onChange,
   format,
+  aggregate,
   disabled,
   idPrefix,
   initialOpen = false,
@@ -113,7 +116,8 @@ export function DisplayFields({
   const base = useId();
   const controlsId = `${idPrefix}-display-${base}`;
   const [open, setOpen] = useState(initialOpen);
-  const numeric = format === "number";
+  // A count summary is a whole-number tally: no currency and no fraction.
+  const numeric = format === "number" && aggregate !== "count";
 
   function set<K extends keyof DisplayDraft>(key: K, value: DisplayDraft[K]) {
     onChange({ ...draft, [key]: value });
@@ -122,7 +126,8 @@ export function DisplayFields({
   const body = (
     <div id={controlsId} className={cn("grid gap-4", disclosure && "mt-2")}>
         <div>
-          <span className="label mb-2 block">Alignment</span>
+          {/* Under a FieldRow the row names the group; a disclosure names itself. */}
+          {disclosure ? <span className="label mb-2 block">Alignment</span> : null}
           <div
             role="radiogroup"
             aria-label="Alignment"
@@ -151,7 +156,7 @@ export function DisplayFields({
             })}
           </div>
           <p className="mt-1.5 text-[12px] text-muted">
-            Auto puts a number at the right edge and every other format at the left.
+            Auto aligns numbers right, everything else left.
           </p>
         </div>
 
@@ -246,8 +251,7 @@ export function DisplayFields({
           </>
         ) : null}
         <p className="text-[12px] leading-[1.5] text-muted">
-          These settings read in every view. A table view chooses its own summary
-          measure in the view&apos;s General panel.
+          These settings read in every view.
         </p>
     </div>
   );
