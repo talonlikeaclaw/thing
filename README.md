@@ -211,4 +211,7 @@ command and the account CLI.
 versioned, an unknown schema is refused rather than guessed at, and CI runs the Rust and web gates
 plus Semgrep on every push.
 
+## License
 
+`thing` is licensed under the GNU Affero General Public License, version 3 only
+(AGPL-3.0-only). See [`LICENSE`](LICENSE).
