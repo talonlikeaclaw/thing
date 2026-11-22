@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover";
 import { AlarmClock } from "lucide-react";
 import { useState } from "react";
 
-import { useThumbHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import {
   SheetCloseButton,
   SheetHeader,
@@ -137,7 +137,6 @@ export function SnoozeMenu({
 
 /** The presets and the bounded field, shared by the popover and the sheet. */
 function SnoozeBody({ onSnooze }: { onSnooze: (days: number) => void }) {
-  const handedness = useThumbHandedness();
   const [text, setText] = useState("2");
   const days = parseSnoozeDays(text);
 
@@ -153,10 +152,6 @@ function SnoozeBody({ onSnooze }: { onSnooze: (days: number) => void }) {
         ))}
       </ul>
       <form
-        className={cn(
-          "mt-1 flex items-center gap-2 border-t rule pt-2",
-          handedness === "left" && "flex-row-reverse",
-        )}
         onSubmit={(event) => {
           event.preventDefault();
           if (days !== undefined) {
@@ -164,20 +159,22 @@ function SnoozeBody({ onSnooze }: { onSnooze: (days: number) => void }) {
           }
         }}
       >
-        <label className="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-muted">
-          Days
-          <input
-            inputMode="numeric"
-            autoComplete="off"
-            aria-label="Days to snooze"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            className="min-h-8 w-16 rounded-field border border-line bg-transparent px-2 text-right font-mono text-[13px] tnum text-ink outline-none focus:border-line-strong pointer-coarse:min-h-11 pointer-coarse:text-base"
-          />
-        </label>
-        <button type="submit" className={SUBMIT} disabled={days === undefined}>
-          Snooze
-        </button>
+        <ThumbRow className="mt-1 items-center gap-2 border-t rule pt-2">
+          <label className="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-muted">
+            Days
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Days to snooze"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              className="min-h-8 w-16 rounded-field border border-line bg-transparent px-2 text-right font-mono text-[13px] tnum text-ink outline-none focus:border-line-strong pointer-coarse:min-h-11 pointer-coarse:text-base"
+            />
+          </label>
+          <button type="submit" className={SUBMIT} disabled={days === undefined}>
+            Snooze
+          </button>
+        </ThumbRow>
       </form>
       <p className="mt-1 font-mono text-[11px] text-faint">
         Between 1 and {MAX_SNOOZE_DAYS} days.

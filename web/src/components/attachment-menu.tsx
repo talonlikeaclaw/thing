@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { focusRing } from "@/components/ui/controls";
 import { cardMenuItem } from "@/components/views/card-actions";
+import { useThumbHandedness } from "@/components/handedness";
 import { cn } from "@/lib/cn";
 
 interface AttachmentMenuProps {
@@ -32,6 +33,7 @@ export function AttachmentMenu({
   onRemove,
   className,
 }: AttachmentMenuProps) {
+  const handedness = useThumbHandedness();
   const [open, setOpen] = useState(false);
   const name = `Actions for ${label}`;
 
@@ -51,7 +53,12 @@ export function AttachmentMenu({
         <MoreHorizontal aria-hidden size={16} strokeWidth={2.4} />
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Positioner sideOffset={4} collisionPadding={8} className="z-50">
+        <Popover.Positioner
+          sideOffset={4}
+          collisionPadding={8}
+          align={handedness === "left" ? "start" : "end"}
+          className="z-50"
+        >
           <Popover.Popup
             aria-label={name}
             className="card-menu min-w-[10rem] rounded-card p-1.5 text-[13px]"

@@ -263,10 +263,8 @@ export function SchemaPage() {
               {compact && selectedTypeParam ? (
                 <BackButton label="Back to types" onClick={() => back("types")} />
               ) : null}
-              <div
-                id="type-editor"
-                className="scroll-mt-6 rounded-[22px] border border-line bg-surface p-5"
-              >
+              {/* The record page and the columns panel deep-link to this id. */}
+              <div id="type-editor" className="scroll-mt-[calc(var(--shell-header-h)+1rem)] rounded-[22px] border border-line bg-surface p-5">
                 {type.isPending && selectedTypeKey ? (
                   <p className="text-[13px] text-muted">Reading the type…</p>
                 ) : type.isError ? (

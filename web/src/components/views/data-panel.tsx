@@ -218,7 +218,22 @@ export function DataPanel({ spaceId, type, canEdit, onImported }: DataPanelProps
               disabled={pending}
               onChange={(event) => choose(event.target.files?.[0] ?? null)}
             />
-            <div className="flex items-center gap-2">
+            <ThumbRow className="items-center gap-2">
+              {file !== null ? (
+                <SmallButton
+                  label="Clear the chosen file"
+                  disabled={pending}
+                  onClick={clearFile}
+                >
+                  <X aria-hidden size={15} />
+                </SmallButton>
+              ) : null}
+              <span
+                className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted"
+                title={file?.name}
+              >
+                {file?.name ?? "No file chosen"}
+              </span>
               <Button
                 type="button"
                 variant="ghost"
@@ -230,22 +245,7 @@ export function DataPanel({ spaceId, type, canEdit, onImported }: DataPanelProps
                 <Upload aria-hidden size={14} />
                 {file === null ? "Choose a CSV file" : "Choose another file"}
               </Button>
-              <span
-                className="min-w-0 flex-1 truncate font-mono text-[12px] text-muted"
-                title={file?.name}
-              >
-                {file?.name ?? "No file chosen"}
-              </span>
-              {file !== null ? (
-                <SmallButton
-                  label="Clear the chosen file"
-                  disabled={pending}
-                  onClick={clearFile}
-                >
-                  <X aria-hidden size={15} />
-                </SmallButton>
-              ) : null}
-            </div>
+            </ThumbRow>
             <span id={`csv-file-hint-${type.key}`} className="text-[12px] text-faint">
               A .csv file up to 5 MiB. Broken rows are refused by row and column before
               anything is written.

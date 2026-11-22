@@ -80,23 +80,25 @@ export function SortBar({ columns, sorts, onChange, id }: SortBarProps) {
                   <span aria-hidden className="tnum w-3 shrink-0 font-mono text-[11px] text-faint">
                     {index + 1}
                   </span>
-                  <PropertyPicker
-                    properties={properties}
-                    carried={carried}
-                    value={sort.property}
-                    onChange={(key) => rename(sort.property, key)}
-                    title="Sort column"
-                    className="min-w-0 flex-1"
-                  />
-                  <button
-                    type="button"
-                    aria-label={`Remove ${name} sort`}
-                    title={`Remove ${name} sort`}
-                    className={ROW_BUTTON}
-                    onClick={() => onChange(removeSort(sorts, sort.property))}
-                  >
-                    <X aria-hidden size={14} />
-                  </button>
+                  <ThumbRow className="min-w-0 flex-1 items-center gap-2">
+                    <PropertyPicker
+                      properties={properties}
+                      carried={carried}
+                      value={sort.property}
+                      onChange={(key) => rename(sort.property, key)}
+                      title="Sort column"
+                      className="min-w-0 flex-1"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove ${name} sort`}
+                      title={`Remove ${name} sort`}
+                      className={ROW_BUTTON}
+                      onClick={() => onChange(removeSort(sorts, sort.property))}
+                    >
+                      <X aria-hidden size={14} />
+                    </button>
+                  </ThumbRow>
                 </div>
                 <ThumbRow className="flex-wrap items-center gap-1">
                   <button

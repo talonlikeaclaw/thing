@@ -3,7 +3,7 @@ import { Popover } from "@base-ui/react/popover";
 import { Smile, SmilePlus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { useThumbHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { EMOJI_GROUPS, searchEmoji, type EmojiEntry } from "@/lib/emoji";
@@ -353,12 +353,7 @@ function EmojiPanel({
 
   const footer = (
     <>
-      <div
-        className={cn(
-          "flex items-center gap-2",
-          handedness === "left" && "flex-row-reverse",
-        )}
-      >
+      <ThumbRow className="items-center gap-2">
         <input
           value={custom}
           onChange={(event) => setCustom(event.target.value)}
@@ -383,7 +378,7 @@ function EmojiPanel({
         >
           Use
         </button>
-      </div>
+      </ThumbRow>
       <button
         type="button"
         onClick={() => onChoose("")}

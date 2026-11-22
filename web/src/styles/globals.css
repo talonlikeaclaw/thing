@@ -820,6 +820,28 @@
   }
 
   /*
+   * Inside a sheet the save row answers to the sheet, not to the page's dock.
+   * It becomes the panel's footer: one opaque strip at the bottom edge, never
+   * a second glass card floating over the form the reader is editing.
+   */
+  .sheet-popup .record-save-bar {
+    bottom: 0;
+    border: 0;
+    border-top: 1px solid var(--color-line);
+    border-radius: 0;
+    background: var(--color-surface);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    margin-inline: calc(-1 * var(--space-4));
+    padding-inline: var(--space-4);
+  }
+
+  :root[data-keyboard="on"] .sheet-popup .record-save-bar {
+    bottom: 0;
+  }
+
+  /*
    * Writing on a touch device is its own surface: the page, its navigation and
    * its save row step aside while this fixed sheet has the viewport. Save lives
    * in the writing toolbar, so there is never a second bar over the textarea.
@@ -998,9 +1020,14 @@
   bottom: calc(var(--kb-height, 0px) + 0.5rem);
 }
 
-:root[data-hand="left"] .toast-stack {
-  right: auto;
-  left: max(1rem, env(safe-area-inset-left));
+/* The attribute is a thumb-zone marker: from `lg` every React surface keeps the
+ * canonical layout, so the one CSS consumer must stop at the same width or a
+ * desktop toast would be the only mirrored thing on the screen. */
+@media (max-width: 63.99rem) {
+  :root[data-hand="left"] .toast-stack {
+    right: auto;
+    left: max(1rem, env(safe-area-inset-left));
+  }
 }
 
 /* Row actions stay quiet on a fine pointer and are always present on touch. */

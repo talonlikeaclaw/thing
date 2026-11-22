@@ -124,7 +124,16 @@ function isCoarse(): boolean {
   return typeof window !== "undefined" && (window.matchMedia?.("(pointer: coarse)").matches ?? false);
 }
 
-function initialMode(value: string): BodyMode {
+/**
+ * A coarse pointer never lands in the writing surface on arrival: Write is
+ * raised by a tap on the switch or on the preview, never by opening a record.
+ * A fine pointer keeps the inline pane, where an empty body starts in Write so
+ * the first keystroke is one click away.
+ */
+function initialMode(value: string, coarse: boolean): BodyMode {
+  if (coarse) {
+    return "preview";
+  }
   return value.trim() === "" ? "write" : "preview";
 }
 
@@ -148,7 +157,8 @@ export function MarkdownEditor({
   saving = false,
   error = null,
 }: MarkdownEditorProps) {
-  const [mode, setMode] = useState<BodyMode>(() => initialMode(value));
+  const coarse = useCoarsePointer();
+  const [mode, setMode] = useState<BodyMode>(() => initialMode(value, coarse));
   const [menu, setMenu] = useState<CaretMenu | null>(null);
   const [active, setActive] = useState(0);
   const [placement, setPlacement] = useState<{
@@ -174,7 +184,6 @@ export function MarkdownEditor({
   const listId = useId();
   menuRef.current = menu;
 
-  const coarse = useCoarsePointer();
   const compact = useCompactWidth();
   const handedness = useThumbHandedness();
   const immersed = coarse && mode === "write";
@@ -232,9 +241,11 @@ export function MarkdownEditor({
   const highlighted = rows.length === 0 ? -1 : Math.min(active, rows.length - 1);
   rowCount.current = rows.length;
 
-  /* The record panel replaces the draft from the server; the editor follows. */
+  /* The record panel replaces the draft from the server; the editor follows.
+     `coarse` is read here so a phone never re-enters the writer on a reset,
+     but a pointer change alone must not reset the mode. */
   useEffect(() => {
-    setMode(initialMode(value));
+    setMode(initialMode(value, coarse));
     setMenu(null);
     requestFocus.current = false;
     enteredWrite.current = false;
@@ -917,18 +928,7 @@ export function MarkdownEditor({
           immersed && "flex min-h-0 flex-1 flex-col",
         )}
       >
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-1",
-            mode === "write"
-              ? handedness === "left"
-                ? "flex-row-reverse"
-                : "flex-row"
-              : handedness === "left"
-                ? "justify-start"
-                : "justify-end",
-          )}
-        >
+        <ThumbRow className="flex-wrap items-center gap-1">
           {mode === "write" ? (
             <div
               role="toolbar"
@@ -997,20 +997,14 @@ export function MarkdownEditor({
               </div>
             </div>
           ) : null}
-          <div
-            className={cn(
-              "flex shrink-0 items-center",
-              mode === "preview" &&
-                (handedness === "left" ? "justify-start" : "justify-end"),
-            )}
-          >
+          <div className="flex shrink-0 items-center">
             <BodyModeSwitch
               mode={mode}
               onChange={changeMode}
               tight={compact}
             />
           </div>
-        </div>
+        </ThumbRow>
 
         {immersed && error ? (
           <p

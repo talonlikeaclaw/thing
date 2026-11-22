@@ -1,11 +1,12 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { ApiError } from "@/api/client";
-import { useDeleteType, useUpdateType } from "@/api/queries";
+import { useDeleteType, useTypes, useUpdateType } from "@/api/queries";
 import type { Filter, PropertyDef, ScheduleLabels, TypeDef } from "@/api/types";
-import { ThumbRow } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { ManageProperties } from "@/components/manage-properties";
 import {
@@ -15,8 +16,23 @@ import {
   TextAreaField,
   TextField,
 } from "@/components/ui/controls";
-import { EmptyState, FieldRow, FormatChip, SectionRule } from "@/components/ui/page";
+import {
+  EmptyState,
+  FieldRow,
+  FormatChip,
+  Group,
+  GroupControl,
+  SectionRule,
+} from "@/components/ui/page";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import { readError } from "@/lib/display";
 import { useDirtyGuard } from "@/lib/use-dirty-guard";
 import { filterParam } from "@/lib/filter";
@@ -74,24 +90,35 @@ function disableConflict(error: unknown): DisableConflict | null {
   return { count, records };
 }
 
-interface TypeEditorProps {
+interface TypeEditorFormProps {
   spaceId: string;
   type: TypeDef;
+  /** The whole space library, so a member's format and kind resolve. */
   properties: PropertyDef[];
   recordCount: number;
   canEdit: boolean;
+  /** The schema page's rule; a sheet already has a title and omits it. */
+  headingId?: string;
+  /** Where the reader goes once the type and its records are gone. */
+  onDeleted: () => void;
 }
 
-export function TypeEditor({
+/**
+ * The type form every surface shares: the schema page renders it inline, the
+ * type page renders it inside the shared overlay. Its chapters mirror the
+ * property sheet, so both sides of the schema read the same way.
+ */
+export function TypeEditorForm({
   spaceId,
   type,
   properties,
   recordCount,
   canEdit,
-}: TypeEditorProps) {
+  headingId,
+  onDeleted,
+}: TypeEditorFormProps) {
   const update = useUpdateType(spaceId, type.key);
   const remove = useDeleteType(spaceId, type.key);
-  const navigate = useNavigate();
   const toast = useToast();
   const [name, setName] = useState(type.name);
   const [plural, setPlural] = useState(type.name_plural);
@@ -185,155 +212,201 @@ export function TypeEditor({
     return property ? computeKindLabel(property) : null;
   };
 
-  return (
-    <section aria-labelledby="type-editor" className="settle">
-      <SectionRule
-        id="type-editor"
-        title={type.name}
-        action={
-          <span className="flex flex-wrap items-baseline gap-3">
-            {!dirty && update.isSuccess ? <span className="label text-accent">saved</span> : null}
-            <span className="font-mono text-[11px] text-faint">types/{type.key}.yml</span>
-          </span>
-        }
-      />
-
-      <div className="mt-2 grid divide-y divide-line border-b rule">
-        <FieldRow label="Icon" htmlFor={`type-${type.key}-icon`}>
-          <div>
-            <IconPicker
-              variant="glyph"
-              label="Icon"
-              id={`type-${type.key}-icon`}
-              value={icon}
-              onChange={setIcon}
-              disabled={!canEdit}
-            />
-          </div>
-        </FieldRow>
-        <FieldRow label="Name" htmlFor={`type-${type.key}-name`}>
-          <TextField
-            id={`type-${type.key}-name`}
-            name={`type-${type.key}-name`}
-            required
-            maxLength={200}
-            value={name}
-            disabled={!canEdit}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="Plural" htmlFor={`type-${type.key}-plural`}>
-          <TextField
-            id={`type-${type.key}-plural`}
-            name={`type-${type.key}-plural`}
-            required
-            maxLength={200}
-            value={plural}
-            disabled={!canEdit}
-            onChange={(event) => setPlural(event.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="Description" htmlFor={`type-${type.key}-description`}>
-          <TextAreaField
-            id={`type-${type.key}-description`}
-            name={`type-${type.key}-description`}
-            rows={2}
-            maxLength={500}
-            value={description}
-            disabled={!canEdit}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </FieldRow>
-        <FieldRow label="Scheduling" htmlFor={`type-${type.key}-schedule`}>
-          <label className="flex min-h-10 cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
-            <input
-              id={`type-${type.key}-schedule`}
-              type="checkbox"
-              checked={schedule}
-              disabled={!canEdit}
-              onChange={(event) => setSchedule(event.target.checked)}
-            />
-            <span className="text-[14px]">Due dates, repeats and Complete</span>
-          </label>
-          <p className="max-w-[62ch] text-[13px] text-muted">
-            Values live on each record. Complete writes the last completion and advances a
-            recurring due date.
-          </p>
-        </FieldRow>
-      </div>
-
-      {schedule ? (
-        <div id="type-schedule" className="mt-6 scroll-mt-6">
-          <SectionRule level={3} title="From scheduling" count="generated" />
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <TextField
-              label="Complete button"
-              name={`type-${type.key}-complete-label`}
-              maxLength={80}
-              placeholder="Complete"
-              value={labels.complete ?? ""}
-              disabled={!canEdit}
-              onChange={(event) =>
-                setLabels((current) => ({ ...current, complete: event.target.value }))
-              }
-            />
-            <TextField
-              label="Due label"
-              name={`type-${type.key}-due-label`}
-              maxLength={80}
-              placeholder="Due"
-              value={labels.due ?? ""}
-              disabled={!canEdit}
-              onChange={(event) =>
-                setLabels((current) => ({ ...current, due: event.target.value }))
-              }
-            />
-            <TextField
-              label="Repeats label"
-              name={`type-${type.key}-recurrence-label`}
-              maxLength={80}
-              placeholder="Repeats"
-              value={labels.recurrence ?? ""}
-              disabled={!canEdit}
-              onChange={(event) =>
-                setLabels((current) => ({ ...current, recurrence: event.target.value }))
-              }
-            />
-            <TextField
-              label="Last completed label"
-              name={`type-${type.key}-last-completed-label`}
-              maxLength={80}
-              placeholder="Last completed"
-              value={labels.last_completed ?? ""}
-              disabled={!canEdit}
-              onChange={(event) =>
-                setLabels((current) => ({ ...current, last_completed: event.target.value }))
-              }
-            />
-          </div>
-          <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
-            Display names only. The file keys stay <span className="font-mono">due_date</span>,{" "}
-            <span className="font-mono">recurrence</span> and{" "}
-            <span className="font-mono">last_completed_at</span>. Add Repeats to a view's
-            columns on the type page to edit the cadence inline.
-          </p>
-          <ul className="mt-1">
-            {implicit.map((property) => (
-              <li
-                key={property.key}
-                className="flex flex-wrap items-baseline justify-between gap-2 border-b rule py-2"
-              >
-                <span className="flex min-w-0 items-baseline gap-2">
-                  <span className="font-mono text-[11px] text-faint">{property.key}</span>
-                  <span className="truncate text-[15px]">{property.name}</span>
-                  <span className="label">{formatLabel(property.format)}</span>
-                </span>
-                <span className="label">read only</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+  const content = (
+    <>
+      {headingId ? (
+        <SectionRule
+          id={headingId}
+          title={type.name}
+          className="scroll-mt-[calc(var(--shell-header-h)+1rem)]"
+          action={
+            <span className="flex flex-wrap items-baseline gap-3">
+              {!dirty && update.isSuccess ? (
+                <span className="label text-accent">saved</span>
+              ) : null}
+              <span className="font-mono text-[11px] text-faint">
+                types/{type.key}.yml
+              </span>
+            </span>
+          }
+        />
       ) : null}
+
+      <div
+        className={cn(
+          "grid divide-y divide-line border-b rule",
+          headingId ? "mt-2" : undefined,
+        )}
+      >
+        <Group title="Definition">
+          <FieldRow label="Icon" htmlFor={`type-${type.key}-icon`}>
+            <div>
+              <IconPicker
+                variant="glyph"
+                label="Icon"
+                id={`type-${type.key}-icon`}
+                value={icon}
+                onChange={setIcon}
+                disabled={!canEdit}
+              />
+            </div>
+          </FieldRow>
+          <FieldRow label="Name" htmlFor={`type-${type.key}-name`}>
+            <TextField
+              id={`type-${type.key}-name`}
+              name={`type-${type.key}-name`}
+              required
+              maxLength={200}
+              value={name}
+              disabled={!canEdit}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </FieldRow>
+          <FieldRow label="Plural" htmlFor={`type-${type.key}-plural`}>
+            <TextField
+              id={`type-${type.key}-plural`}
+              name={`type-${type.key}-plural`}
+              required
+              maxLength={200}
+              value={plural}
+              disabled={!canEdit}
+              onChange={(event) => setPlural(event.target.value)}
+            />
+          </FieldRow>
+          <FieldRow label="Description" htmlFor={`type-${type.key}-description`}>
+            <TextAreaField
+              id={`type-${type.key}-description`}
+              name={`type-${type.key}-description`}
+              rows={2}
+              maxLength={500}
+              value={description}
+              disabled={!canEdit}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </FieldRow>
+        </Group>
+
+        <Group
+          id="type-schedule"
+          className="scroll-mt-[calc(var(--shell-header-h)+1rem)]"
+          title="Scheduling"
+          hint="Values live on each record. Complete writes the last completion and advances a recurring due date."
+        >
+          <GroupControl>
+            <label className="flex min-h-10 cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
+              <input
+                id={`type-${type.key}-schedule`}
+                type="checkbox"
+                checked={schedule}
+                disabled={!canEdit}
+                onChange={(event) => setSchedule(event.target.checked)}
+              />
+              <span className="text-[14px]">Due dates, repeats and Complete</span>
+            </label>
+          </GroupControl>
+        </Group>
+
+        {schedule ? (
+          <Group
+            title="Scheduling words"
+            hint={
+              <>
+                Display names only. The file keys stay{" "}
+                <span className="font-mono">due_date</span>,{" "}
+                <span className="font-mono">recurrence</span> and{" "}
+                <span className="font-mono">last_completed_at</span>.
+              </>
+            }
+          >
+            <GroupControl>
+              <div className="grid gap-[var(--space-3)] sm:grid-cols-2">
+                <TextField
+                  label="Complete button"
+                  name={`type-${type.key}-complete-label`}
+                  maxLength={80}
+                  placeholder="Complete"
+                  value={labels.complete ?? ""}
+                  disabled={!canEdit}
+                  onChange={(event) =>
+                    setLabels((current) => ({ ...current, complete: event.target.value }))
+                  }
+                />
+                <TextField
+                  label="Due label"
+                  name={`type-${type.key}-due-label`}
+                  maxLength={80}
+                  placeholder="Due"
+                  value={labels.due ?? ""}
+                  disabled={!canEdit}
+                  onChange={(event) =>
+                    setLabels((current) => ({ ...current, due: event.target.value }))
+                  }
+                />
+                <TextField
+                  label="Repeats label"
+                  name={`type-${type.key}-recurrence-label`}
+                  maxLength={80}
+                  placeholder="Repeats"
+                  value={labels.recurrence ?? ""}
+                  disabled={!canEdit}
+                  onChange={(event) =>
+                    setLabels((current) => ({ ...current, recurrence: event.target.value }))
+                  }
+                />
+                <TextField
+                  label="Last completed label"
+                  name={`type-${type.key}-last-completed-label`}
+                  maxLength={80}
+                  placeholder="Last completed"
+                  value={labels.last_completed ?? ""}
+                  disabled={!canEdit}
+                  onChange={(event) =>
+                    setLabels((current) => ({
+                      ...current,
+                      last_completed: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="mt-[var(--space-4)]">
+                <div className="flex items-baseline justify-between gap-[var(--space-3)]">
+                  <h4 className="label">Generated</h4>
+                  <span className="label tnum">{implicit.length}</span>
+                </div>
+                <ul className="mt-1">
+                  {implicit.map((property) => (
+                    <li
+                      key={property.key}
+                      className="flex flex-wrap items-baseline justify-between gap-2 border-b rule py-2"
+                    >
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="truncate text-[15px]">{property.name}</span>
+                        <span className="font-mono text-[11px] text-faint">
+                          {property.key}
+                        </span>
+                      </span>
+                      <span className="flex flex-wrap items-baseline gap-2">
+                        <span className="label">generated · read only</span>
+                        <FormatChip>{formatLabel(property.format)}</FormatChip>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 max-w-[52ch] text-[12px] leading-[1.5] text-muted">
+                  Add Repeats to a view's columns on the{" "}
+                  <Link
+                    to={`/s/${spaceId}/t/${type.key}`}
+                    className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
+                  >
+                    type page
+                  </Link>{" "}
+                  to edit the cadence inline.
+                </p>
+              </div>
+            </GroupControl>
+          </Group>
+        ) : null}
+      </div>
 
       {conflict ? (
         <div
@@ -449,9 +522,9 @@ export function TypeEditor({
         </ThumbRow>
 
         <p className="mt-2 max-w-[62ch] text-[13px] text-muted">
-          Required, the starting value and the order are edited in one sheet, the same one the
-          type page opens. The definition itself lives in the space library. Columns, grouping and
-          calendar layout are per view on the{" "}
+          Required, the starting value and the order are edited in the same property sheet.
+          The definition itself lives in the space library. Columns, grouping and calendar
+          layout are per view on the{" "}
           <Link
             to={`/s/${spaceId}/t/${type.key}`}
             className="text-ink underline decoration-line-strong hover:decoration-accent pointer-coarse:py-3.5"
@@ -465,11 +538,12 @@ export function TypeEditor({
       {canEdit ? (
         dirty ? (
           <StickyActionBar>
-            <div className="min-w-[12rem] flex-1">
-              <FormError
-                message={update.error && !conflict ? readError(update.error) : null}
-              />
-            </div>
+            {update.error && !conflict ? (
+              <div className="basis-full">
+                <FormError message={readError(update.error)} />
+              </div>
+            ) : null}
+            <div className="flex-1" aria-hidden />
             <span className="label flex items-center gap-1.5 text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
               Unsaved changes
@@ -554,7 +628,7 @@ export function TypeEditor({
                         ? `Deleted “${type.name}”; ${recordCount} ${recordCount === 1 ? "record was" : "records were"} moved to Trash.`
                         : `Deleted “${type.name}”.`,
                     );
-                    navigate(`/s/${spaceId}/schema`, { replace: true });
+                    onDeleted();
                   } catch {
                     // The error state below names the server's refusal.
                   }
@@ -578,6 +652,129 @@ export function TypeEditor({
       ) : null}
 
       {guard}
+    </>
+  );
+
+  // A page anchors its deep links on the wrapper it already paints; the form
+  // only names itself for the surface that owns the rule above it.
+  return headingId ? (
+    <section aria-labelledby={headingId} className="settle">
+      {content}
     </section>
+  ) : (
+    content
+  );
+}
+
+interface TypeEditorProps {
+  spaceId: string;
+  type: TypeDef;
+  properties: PropertyDef[];
+  recordCount: number;
+  canEdit: boolean;
+}
+
+/** The schema page's inline editor: the shared form under its file rule. */
+export function TypeEditor({
+  spaceId,
+  type,
+  properties,
+  recordCount,
+  canEdit,
+}: TypeEditorProps) {
+  const navigate = useNavigate();
+  return (
+    <TypeEditorForm
+      spaceId={spaceId}
+      type={type}
+      properties={properties}
+      recordCount={recordCount}
+      canEdit={canEdit}
+      headingId="type-editor-heading"
+      onDeleted={() => navigate(`/s/${spaceId}/schema`, { replace: true })}
+    />
+  );
+}
+
+interface TypeEditorSheetProps {
+  spaceId: string;
+  type: TypeDef;
+  /** The whole space library; the form resolves members and generated keys. */
+  properties: PropertyDef[];
+  canEdit: boolean;
+  onClose: () => void;
+}
+
+/** The same form inside the shared sheet, for the type page's Edit action. */
+export function TypeEditorSheet({
+  spaceId,
+  type,
+  properties,
+  canEdit,
+  onClose,
+}: TypeEditorSheetProps) {
+  const navigate = useNavigate();
+  const types = useTypes(spaceId);
+  const handedness = useThumbHandedness();
+  // Deleting moves live records to Trash, so the count must be the server's.
+  const recordCount =
+    types.data?.find((summary) => summary.key === type.key)?.object_count ?? 0;
+  /** The type identity: accent name and the file its definition lives in. */
+  const identity = (
+    <div className="min-w-0 flex-1">
+      <SheetTitle className="truncate text-accent">{type.name}</SheetTitle>
+      <p className="mt-0.5 truncate font-mono text-[11px] text-faint">
+        types/{type.key}.yml
+      </p>
+    </div>
+  );
+  return (
+    <Dialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open) {
+          onClose();
+        }
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+        <SheetViewport>
+          <SheetPopup className="sm:w-[38rem]">
+            <SheetHeader
+              className={cn(
+                "gap-[var(--space-3)]",
+                handedness === "left" ? "justify-start" : "justify-between",
+              )}
+            >
+              {handedness === "left" ? (
+                <>
+                  <SheetCloseButton label="Close type editor" />
+                  {identity}
+                </>
+              ) : (
+                <>
+                  {identity}
+                  <SheetCloseButton label="Close type editor" />
+                </>
+              )}
+            </SheetHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)] pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <TypeEditorForm
+                spaceId={spaceId}
+                type={type}
+                properties={properties}
+                recordCount={recordCount}
+                canEdit={canEdit}
+                onDeleted={() => {
+                  onClose();
+                  navigate(`/s/${spaceId}/schema`, { replace: true });
+                }}
+              />
+            </div>
+          </SheetPopup>
+        </SheetViewport>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

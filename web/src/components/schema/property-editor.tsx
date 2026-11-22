@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { ApiError } from "@/api/client";
@@ -41,7 +41,7 @@ import {
   type ValidationDraft,
 } from "@/components/schema/validation-fields";
 import { Button, FormError, StickyActionBar, TextField } from "@/components/ui/controls";
-import { FieldRow, SectionRule } from "@/components/ui/page";
+import { FieldRow, Group, GroupControl, SectionRule } from "@/components/ui/page";
 import {
   SheetCloseButton,
   SheetHeader,
@@ -67,41 +67,6 @@ import {
   sameJson,
 } from "@/lib/schema";
 import { todayIn } from "@/lib/timezone";
-
-/**
- * One named group of the property sheet: the reader's decision first, then the
- * controls that answer it. The rule above each group is the only separator, so
- * the body reads as chapters rather than one flat list.
- */
-function Group({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="pt-4 pb-1">
-      <h3 className="label">{title}</h3>
-      {hint ? (
-        <p className="mt-1 max-w-[52ch] text-[12px] leading-[1.5] text-muted">{hint}</p>
-      ) : null}
-      <div className="mt-1 grid">{children}</div>
-    </section>
-  );
-}
-
-/**
- * A group's controls that name themselves — a segment, a checkbox, the
- * membership pair. They sit flush with the section's eyebrow: a label gutter
- * with nothing in it reads as a hole, and these controls already carry their
- * own labels.
- */
-function GroupControl({ children }: { children: ReactNode }) {
-  return <div className="py-3">{children}</div>;
-}
 
 interface PropertyEditorFormProps {
   spaceId: string;
@@ -568,17 +533,18 @@ export function PropertyEditorForm({
       {canEdit ? (
         dirty || membershipDirty ? (
           <StickyActionBar>
-            <div className="min-w-[12rem] flex-1">
-              <FormError
-                message={
-                  update.error
-                    ? readError(update.error)
-                    : typeUpdate.error
-                      ? readError(typeUpdate.error)
-                      : null
-                }
-              />
-            </div>
+            {update.error || typeUpdate.error ? (
+              <div className="basis-full">
+                <FormError
+                  message={
+                    update.error
+                      ? readError(update.error)
+                      : readError(typeUpdate.error)
+                  }
+                />
+              </div>
+            ) : null}
+            <div className="flex-1" aria-hidden />
             <span className="label flex items-center gap-1.5 text-accent">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
               Unsaved changes

@@ -138,6 +138,14 @@ export const CHANGELOG: ChangelogEntry[] = [
             lead: "A property sheet reads in chapters",
             body: "Definition, On this type, Display, Value rules and Relation group the controls, so the setting a reader wants is found by name rather than by scrolling.",
           },
+          {
+            lead: "Edit type opens over the table",
+            body: "The type page edits its own type in a sheet instead of leaving for the schema page, and the sheet is the same form the schema page shows, with the type's name and file at its top.",
+          },
+          {
+            lead: "The type form reads in chapters",
+            body: "Definition, Scheduling and Scheduling words group the type's controls the way the property sheet already does, and the generated schedule keys stay listed read only beneath the names they display.",
+          },
         ],
       },
       {

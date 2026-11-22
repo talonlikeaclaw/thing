@@ -164,6 +164,16 @@ export function MonthGrid<T>({
   const byDate = groupByDate(items, dateOf);
   const weeks = monthGrid(Number(month.slice(0, 4)), Number(month.slice(5, 7)));
   const label = monthLabel(month);
+  const dayClose = (
+    <button
+      type="button"
+      aria-label="Close day"
+      className="inline-flex h-9 w-9 items-center justify-center text-faint hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
+      onClick={() => setDayOpen(null)}
+    >
+      <X aria-hidden size={13} />
+    </button>
+  );
 
   return (
     /*
@@ -178,12 +188,9 @@ export function MonthGrid<T>({
         className,
       )}
     >
-      <div
-        className={cn(
-          "flex flex-wrap items-baseline justify-between gap-2",
-          handedness === "left" && "flex-row-reverse",
-        )}
-      >
+      {/* The month and its controls are navigation, not thumb actions: the
+          label leads, the prev/Today/next pair trails, in both modes. */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-heading font-medium">{label}</h2>
         <div className="flex items-center gap-1">
           <button
@@ -336,21 +343,10 @@ export function MonthGrid<T>({
                 }
               }}
             >
-              <div
-                className={cn(
-                  "flex shrink-0 items-baseline justify-between gap-2",
-                  handedness === "left" && "flex-row-reverse",
-                )}
-              >
+              <div className="flex shrink-0 items-baseline justify-between gap-2">
+                {handedness === "left" ? dayClose : null}
                 <span className="label">{formatDay(dayOpen.date)}</span>
-                <button
-                  type="button"
-                  aria-label="Close day"
-                  className="inline-flex h-9 w-9 items-center justify-center text-faint hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
-                  onClick={() => setDayOpen(null)}
-                >
-                  <X aria-hidden size={13} />
-                </button>
+                {handedness === "left" ? null : dayClose}
               </div>
               {(byDate.get(dayOpen.date) ?? []).length === 0 ? (
                 <p className="px-1 py-1 text-[12px] text-faint">No records on this day.</p>

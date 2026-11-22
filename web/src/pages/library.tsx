@@ -344,7 +344,7 @@ function LibraryCard({
             </span>
           ) : null}
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <ThumbRow className="items-center justify-between gap-2">
           <span className="font-mono text-[11px] text-faint">{formatBytes(item.size)}</span>
           {image ? null : (
             <a
@@ -357,7 +357,7 @@ function LibraryCard({
               Download
             </a>
           )}
-        </div>
+        </ThumbRow>
         {item.records.length > 0 ? (
           <RecordChips spaceId={spaceId} records={item.records} />
         ) : null}
@@ -375,7 +375,7 @@ function RecordChips({
   records: LibraryRecord[];
 }) {
   return (
-    <ThumbRow className="flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       {records.map((record) =>
         record.trashed ? (
           <span
@@ -398,7 +398,7 @@ function RecordChips({
           </Link>
         ),
       )}
-    </ThumbRow>
+    </div>
   );
 }
 

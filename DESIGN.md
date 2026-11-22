@@ -698,7 +698,10 @@ sheets 28px. A single control never mixes corners.
 - **Sheet and dialog.** One glass-strong panel at 28px, a 20px blur, and a scrim that only
   blurs 5px and dims to 55% (80% in light) — no colour fill, so the page stays
   recognisable around and under the material, a 240ms rise from 18px, one close control (a 36px circle, 44px
-  coarse) on the handed edge. The phone sheet floats 8px from the side and bottom edges.
+  coarse) on the handed edge. The phone sheet floats 8px from the side and bottom edges. The
+  identity line names what is being edited — its accent name over its file key — and a form
+  that saves from a sheet puts its action row in the panel's footer: one opaque strip with a
+  top hairline, never a second glass card floating over the form.
 - **Toast.** Glass-strong at 18px with a mono action; the stack sits above the dock. A
   refused **action** — a cell write, a record save, an upload, a bulk edit, a view or a
   membership write — is a danger toast that stays until dismissed, so the row, panel or

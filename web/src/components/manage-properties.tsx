@@ -160,7 +160,7 @@ export function ManageProperties({
               </SheetHeader>
 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)] pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <div className="flex items-center gap-2">
+                <ThumbRow className="items-center gap-2">
                   <div className="flex min-w-0 flex-1 items-center gap-2 border-b rule px-1 pb-2">
                     <Search aria-hidden size={13} className="shrink-0 text-faint" />
                     <input
@@ -187,7 +187,7 @@ export function ManageProperties({
                       Add property
                     </Button>
                   ) : null}
-                </div>
+                </ThumbRow>
 
                 <p className="mt-2 text-[13px] text-muted">
                   {type.name} carries {rows.length}{" "}

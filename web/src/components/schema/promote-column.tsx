@@ -13,6 +13,7 @@ import type {
   PromoteStage,
   PropertyDef,
 } from "@/api/types";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { IconPicker } from "@/components/icon-picker";
 import { Button, FormError, TextField } from "@/components/ui/controls";
 import {
@@ -192,6 +193,14 @@ export function PromoteColumnDialog({
     void execute("targets");
   }
 
+  const handedness = useThumbHandedness();
+  const close = (
+    <SheetCloseButton
+      label="Close conversion"
+      disabled={locked}
+      className="pointer-coarse:min-h-11"
+    />
+  );
   const title =
     step === "target"
       ? `Turn ${property.name} into a relation`
@@ -212,13 +221,23 @@ export function PromoteColumnDialog({
         <Dialog.Backdrop className="fixed inset-0 z-[55] scrim" />
         <SheetViewport className="z-[60]">
           <SheetPopup className="sm:w-[42rem]">
-            <SheetHeader>
-              <SheetTitle className="min-w-0 flex-1 truncate">{title}</SheetTitle>
-              <SheetCloseButton
-                label="Close conversion"
-                disabled={locked}
-                className="pointer-coarse:min-h-11"
-              />
+            <SheetHeader
+              className={cn(
+                "gap-[var(--space-3)]",
+                handedness === "left" ? "justify-start" : "justify-between",
+              )}
+            >
+              {handedness === "left" ? (
+                <>
+                  {close}
+                  <SheetTitle className="min-w-0 flex-1 truncate">{title}</SheetTitle>
+                </>
+              ) : (
+                <>
+                  <SheetTitle className="min-w-0 flex-1 truncate">{title}</SheetTitle>
+                  {close}
+                </>
+              )}
             </SheetHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)]">
@@ -553,56 +572,49 @@ export function PromoteColumnDialog({
               ) : null}
             </div>
 
-            <SheetFooter className="flex flex-wrap items-center gap-2">
-              {step === "target" ? (
-                <>
-                  <Button
-                    type="button"
-                    disabled={!ready || promote.plan.isPending}
-                    onClick={() => void preview()}
-                  >
-                    {promote.plan.isPending ? "Planning…" : "Preview migration"}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={onClose}>
-                    Cancel
-                  </Button>
-                </>
-              ) : null}
-              {step === "preview" ? (
-                <>
-                  <Button
-                    type="button"
-                    disabled={!canCreate || locked}
-                    onClick={run}
-                  >
-                    Create {plan?.target.name}
-                  </Button>
-                  <Button type="button" variant="ghost" onClick={() => setStep("target")}>
-                    Back
-                  </Button>
-                </>
-              ) : null}
-              {step === "run" ? (
-                <>
-                  {failure ? (
+            <SheetFooter>
+              <ThumbRow className="flex-wrap items-center gap-2">
+                {step === "target" ? (
+                  <>
+                    <Button type="button" variant="ghost" onClick={onClose}>
+                      Cancel
+                    </Button>
                     <Button
                       type="button"
-                      disabled={locked}
-                      onClick={() => void execute(failure.stage)}
+                      disabled={!ready || promote.plan.isPending}
+                      onClick={() => void preview()}
                     >
-                      {locked ? "Retrying…" : "Retry"}
+                      {promote.plan.isPending ? "Planning…" : "Preview migration"}
                     </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={locked}
-                    onClick={onClose}
-                  >
-                    {failure ? "Close and resume later" : "Close"}
-                  </Button>
-                </>
-              ) : null}
+                  </>
+                ) : null}
+                {step === "preview" ? (
+                  <>
+                    <Button type="button" variant="ghost" onClick={() => setStep("target")}>
+                      Back
+                    </Button>
+                    <Button type="button" disabled={!canCreate || locked} onClick={run}>
+                      Create {plan?.target.name}
+                    </Button>
+                  </>
+                ) : null}
+                {step === "run" ? (
+                  <>
+                    <Button type="button" variant="ghost" disabled={locked} onClick={onClose}>
+                      {failure ? "Close and resume later" : "Close"}
+                    </Button>
+                    {failure ? (
+                      <Button
+                        type="button"
+                        disabled={locked}
+                        onClick={() => void execute(failure.stage)}
+                      >
+                        {locked ? "Retrying…" : "Retry"}
+                      </Button>
+                    ) : null}
+                  </>
+                ) : null}
+              </ThumbRow>
             </SheetFooter>
           </SheetPopup>
         </SheetViewport>

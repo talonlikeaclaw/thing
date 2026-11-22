@@ -150,6 +150,43 @@ export function FieldRow({ label, htmlFor, hint, children, className }: FieldRow
   );
 }
 
+interface GroupProps {
+  /** The chapter's eyebrow; the controls answer it. */
+  title: string;
+  hint?: ReactNode;
+  /** An anchor a deep link can scroll to. */
+  id?: string;
+  children: ReactNode;
+  className?: string;
+}
+
+/**
+ * One named group of a long schema form: the reader's decision first, then the
+ * controls that answer it. A form stacks these under one hairline each, so the
+ * body reads as chapters rather than one flat list.
+ */
+export function Group({ title, hint, id, children, className }: GroupProps) {
+  return (
+    <section id={id} className={cn("pt-4 pb-1", className)}>
+      <h3 className="label">{title}</h3>
+      {hint ? (
+        <p className="mt-1 max-w-[52ch] text-[12px] leading-[1.5] text-muted">{hint}</p>
+      ) : null}
+      <div className="mt-1 grid">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * A group's controls that name themselves — a segment, a checkbox, a grid of
+ * labelled fields. They sit flush with the section's eyebrow: a label gutter
+ * with nothing in it reads as a hole, and these controls already carry their
+ * own labels.
+ */
+export function GroupControl({ children }: { children: ReactNode }) {
+  return <div className="py-3">{children}</div>;
+}
+
 /**
  * A property format or role marker: mono and pill-shaped. Quiet by default;
  * a caller tints it with the accent wash when it sits beside an accent property

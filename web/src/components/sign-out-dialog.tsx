@@ -68,11 +68,11 @@ export function SignOutDialog({
               </div>
             ) : null}
             <ThumbRow className="mt-4 flex-wrap items-center gap-2 border-t rule pt-3">
-              <Button variant="ghost" disabled={logout.isPending} onClick={() => changeOpen(false)}>
-                Cancel
-              </Button>
               <Button disabled={logout.isPending} onClick={signOut}>
                 {logout.isPending ? "Signing out…" : error ? "Retry" : "Sign out"}
+              </Button>
+              <Button variant="ghost" disabled={logout.isPending} onClick={() => changeOpen(false)}>
+                Cancel
               </Button>
             </ThumbRow>
           </SheetPopup>

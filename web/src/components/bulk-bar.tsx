@@ -8,7 +8,7 @@ import {
   type BulkResult,
 } from "@/api/queries";
 import type { ObjectSummary, PropertyDef, Uuid } from "@/api/types";
-import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { PropertyInput } from "@/components/property-input";
 import { Button, FormError } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -59,7 +59,6 @@ export function BulkBar({
   onUndoTrash,
   onUndoDuplicate,
 }: BulkBarProps) {
-  const handedness = useThumbHandedness();
   const toast = useToast();
   const update = useBulkUpdateObjects(spaceId);
   const duplicate = useBulkDuplicateObjects(spaceId);
@@ -314,12 +313,7 @@ export function BulkBar({
           aria-labelledby="bulk-property-title"
           className="mt-2 border-t rule pt-2"
         >
-          <div
-            className={cn(
-              "flex flex-wrap items-start justify-between gap-x-4 gap-y-2",
-              handedness === "left" && "flex-row-reverse",
-            )}
-          >
+          <ThumbRow className="flex-wrap items-start justify-between gap-x-4 gap-y-2">
             <div className="min-w-[16rem] flex-1">
               <p id="bulk-property-title" className="text-[12px] font-medium text-ink">
                 Set a property on {count} {plural(count)}
@@ -363,7 +357,7 @@ export function BulkBar({
                 {update.isPending ? "Applying…" : `Apply to ${count} ${plural(count)}`}
               </Button>
             </ThumbRow>
-          </div>
+          </ThumbRow>
           <div className="mt-2 flex flex-wrap items-start gap-2">
             <label className="grid gap-1">
               <span className="label">1 · Property</span>

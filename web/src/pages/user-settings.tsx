@@ -81,8 +81,8 @@ export function UserSettingsPage() {
             })}
           </div>
           <p className="mt-2 text-[13px] text-muted">
-            Moves the bottom bar, action rows, menus and toasts to your thumb. Saved in this
-            browser only.
+            Moves the bottom bar, action rows, menus and toasts to your thumb on a phone.
+            Saved in this browser only.
           </p>
         </fieldset>
       </section>

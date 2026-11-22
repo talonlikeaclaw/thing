@@ -788,20 +788,19 @@ function MemberField({ spaceId, property, value, label, onChange }: PropertyFiel
           {absent.length > 0 ? (
             <ul aria-label="Missing members" className="grid gap-0.5 border-b rule pb-1">
               {absent.map((id) => (
-                <li
-                  key={id}
-                  className="flex w-full items-center justify-between gap-2 px-1 py-0.5 text-[12px]"
-                >
-                  <span className="min-w-0 truncate text-warning">
-                    Missing member <span className="font-mono text-[11px]">{shortId(id)}</span>
-                  </span>
-                  <button
-                    type="button"
-                    className="shrink-0 text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
-                    onClick={() => remove(id)}
-                  >
-                    Remove
-                  </button>
+                <li key={id}>
+                  <ThumbRow className="w-full items-center justify-between gap-2 px-1 py-0.5 text-[12px]">
+                    <span className="min-w-0 truncate text-warning">
+                      Missing member <span className="font-mono text-[11px]">{shortId(id)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-[11px] text-muted underline decoration-line-strong hover:text-ink pointer-coarse:min-h-11"
+                      onClick={() => remove(id)}
+                    >
+                      Remove
+                    </button>
+                  </ThumbRow>
                 </li>
               ))}
             </ul>

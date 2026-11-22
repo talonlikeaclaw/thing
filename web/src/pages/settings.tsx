@@ -241,14 +241,18 @@ export function SettingsPage() {
               <FormError message={update.error ? readError(update.error) : null} />
               <ThumbRow className="mt-2 flex-wrap items-baseline gap-3">
                 {dirty ? (
-                  <>
-                    <span className="label">unsaved changes</span>
-                    <Button type="submit" disabled={invalid || update.isPending}>
-                      {update.isPending ? "Saving…" : "Save changes"}
-                    </Button>
-                  </>
+                  <span key="status" className="label">
+                    unsaved changes
+                  </span>
                 ) : update.isSuccess ? (
-                  <span className="label text-accent">saved</span>
+                  <span key="status" className="label text-accent">
+                    saved
+                  </span>
+                ) : null}
+                {dirty ? (
+                  <Button key="save" type="submit" disabled={invalid || update.isPending}>
+                    {update.isPending ? "Saving…" : "Save changes"}
+                  </Button>
                 ) : null}
               </ThumbRow>
             </div>
@@ -376,6 +380,9 @@ export function StorageSection({ spaceId, owner }: { spaceId: string; owner: boo
           <FormError message={collect.error ? readError(collect.error) : null} />
           {owner ? (
             <ThumbRow className="mt-4 flex-wrap items-center gap-3">
+              <span className="text-[12px] text-faint">
+                Removes only the bytes no record, cover or body names.
+              </span>
               <Button
                 variant="ghost"
                 className="min-h-9 px-3 text-[12px] pointer-coarse:min-h-11"
@@ -384,9 +391,6 @@ export function StorageSection({ spaceId, owner }: { spaceId: string; owner: boo
               >
                 {collect.isPending ? "Collecting…" : "Collect unused"}
               </Button>
-              <span className="text-[12px] text-faint">
-                Removes only the bytes no record, cover or body names.
-              </span>
             </ThumbRow>
           ) : (
             <p className="mt-3 text-[13px] text-muted">

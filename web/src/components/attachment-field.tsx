@@ -271,33 +271,29 @@ export function AttachmentField({
       {files.length > 0 ? (
         <ul className="grid gap-1">
           {files.map((path) => (
-            <li
-              key={path}
-              className={cn(
-                "flex items-center gap-2",
-                handedness === "left" && "flex-row-reverse",
-              )}
-            >
-              <span className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-ground text-muted">
-                  <FileText aria-hidden size={16} />
+            <li key={path}>
+              <ThumbRow className="items-center gap-2">
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-[8px] bg-ground text-muted">
+                    <FileText aria-hidden size={16} />
+                  </span>
+                  <a
+                    href={fileUrl(spaceId, path)}
+                    download={fileName(path)}
+                    className={cn(
+                      "min-w-0 flex-1 text-[13px] text-ink underline decoration-line-strong hover:decoration-ink pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center",
+                      focusRing,
+                    )}
+                  >
+                    <span className="truncate">{fileName(path)}</span>
+                  </a>
                 </span>
-                <a
-                  href={fileUrl(spaceId, path)}
-                  download={fileName(path)}
-                  className={cn(
-                    "min-w-0 flex-1 text-[13px] text-ink underline decoration-line-strong hover:decoration-ink pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center",
-                    focusRing,
-                  )}
-                >
-                  <span className="truncate">{fileName(path)}</span>
-                </a>
-              </span>
-              <AttachmentMenu
-                label={fileName(path)}
-                disabled={busy}
-                onRemove={() => setRemoving(path)}
-              />
+                <AttachmentMenu
+                  label={fileName(path)}
+                  disabled={busy}
+                  onRemove={() => setRemoving(path)}
+                />
+              </ThumbRow>
             </li>
           ))}
         </ul>

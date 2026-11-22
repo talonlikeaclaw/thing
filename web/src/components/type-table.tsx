@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -37,10 +37,11 @@ import type {
 } from "@/api/types";
 import { ApiError } from "@/api/client";
 import { AddPropertyDialog } from "@/components/add-property";
-import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import { ThumbRow } from "@/components/handedness";
 import { BulkBar } from "@/components/bulk-bar";
 import { FilterChips, FilterPanel } from "@/components/filter-panel";
 import { ManageProperties } from "@/components/manage-properties";
+import { TypeEditorSheet } from "@/components/schema/type-editor";
 import { SortBar } from "@/components/sort-bar";
 import { ThingIcon } from "@/components/thing-icon";
 import { useQuickCapture } from "@/components/quick-capture";
@@ -145,6 +146,7 @@ export function TypeTable({
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [typeOpen, setTypeOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const settingsQuery = params.get("settings") === "1";
   const [viewOpen, setViewOpen] = useState(settingsQuery);
@@ -154,7 +156,6 @@ export function TypeTable({
   const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
   const [saveAsName, setSaveAsName] = useState("");
   const [viewPanel, setViewPanel] = useState<ViewSheetPanel>("settings");
-  const handedness = useThumbHandedness();
 
   const tableShortcuts = useMemo(
     () => (isTable ? (canEdit ? TABLE_SHORTCUTS : TABLE_VIEWER_SHORTCUTS) : NO_SHORTCUTS),
@@ -748,18 +749,20 @@ export function TypeTable({
       New {type.name.toLowerCase()}
     </Button>
   ) : null;
-  const editTypeLink = canEdit ? (
-    <Link
-      to={`/s/${spaceId}/schema?type=${encodeURIComponent(type.key)}#type-editor`}
+  const editTypeButton = canEdit ? (
+    <button
+      type="button"
+      aria-haspopup="dialog"
       title={`Edit ${type.name} type`}
       className={cn(
         "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11",
         focusRing,
       )}
+      onClick={() => setTypeOpen(true)}
     >
       <Pencil aria-hidden size={14} />
       <span>Edit type</span>
-    </Link>
+    </button>
   ) : null;
   // Properties sit beside the type they belong to: both edit the schema, so
   // they share the header's action cluster instead of hiding in a menu.
@@ -783,13 +786,13 @@ export function TypeTable({
   // header's trailing cluster.
   const recordActions = compact ? (
     <ThumbRow className="w-full items-center gap-3">
-      {editTypeLink}
+      {editTypeButton}
       {manageButton}
       {newRecordButton}
     </ThumbRow>
   ) : (
     <div className="flex shrink-0 items-center gap-3">
-      {editTypeLink}
+      {editTypeButton}
       {manageButton}
       {newRecordButton}
     </div>
@@ -915,22 +918,12 @@ export function TypeTable({
 
   const compactStatus =
     compact && (dirty || hasOverrides) ? (
-      <div
-        className={cn(
-          "flex min-w-0 items-center justify-between gap-2",
-          handedness === "left" && "flex-row-reverse",
-        )}
-      >
+      <ThumbRow className="min-w-0 items-center justify-between gap-2">
         <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
           {dirty ? "View changed" : "Search applied"}
         </span>
-        <span
-          className={cn(
-            "flex shrink-0 items-center gap-1",
-            handedness === "left" && "flex-row-reverse",
-          )}
-        >
+        <ThumbRow className="shrink-0 items-center gap-1">
           {hasOverrides ? (
             <Button
               type="button"
@@ -953,8 +946,8 @@ export function TypeTable({
               {updateView.isPending ? "Saving…" : "Save"}
             </Button>
           ) : null}
-        </span>
-      </div>
+        </ThumbRow>
+      </ThumbRow>
     ) : undefined;
 
   return (
@@ -989,10 +982,10 @@ export function TypeTable({
         </div>
 
         <div className="glass mt-2 rounded-[22px] px-3 pt-3 pb-3 sm:px-4">
-          <div className="flex items-center justify-between gap-2">
+          <ThumbRow className="items-center justify-between gap-2">
             <span className="label">View</span>
             <ThumbRow className="items-center gap-1.5">{toolbarTools}</ThumbRow>
-          </div>
+          </ThumbRow>
           <div className="mt-2">{searchNode}</div>
 
           {/*
@@ -1041,6 +1034,16 @@ export function TypeTable({
           canEdit={canEdit}
           view={view}
           onClose={() => setManageOpen(false)}
+        />
+      ) : null}
+
+      {canEdit && typeOpen ? (
+        <TypeEditorSheet
+          spaceId={spaceId}
+          type={type}
+          properties={library}
+          canEdit={canEdit}
+          onClose={() => setTypeOpen(false)}
         />
       ) : null}
 
@@ -1323,21 +1326,11 @@ export function TypeTable({
         )}
 
         {objects.data && isTable && (total > PAGE_SIZE || page > 1) ? (
-          <div
-            className={cn(
-              "mt-3 flex flex-wrap items-center justify-between gap-2 border-t rule pt-3",
-              handedness === "left" && "flex-row-reverse",
-            )}
-          >
+          <ThumbRow className="mt-3 flex-wrap items-center justify-between gap-2 border-t rule pt-3">
             <span className="font-mono text-[11px] tnum text-muted">
               {range.first === 0 ? "0" : `${range.first}–${range.last}`} of {total}
             </span>
-            <div
-              className={cn(
-                "flex items-center gap-1",
-                handedness === "left" && "flex-row-reverse",
-              )}
-            >
+            <ThumbRow className="items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
@@ -1358,8 +1351,8 @@ export function TypeTable({
               >
                 Next
               </Button>
-            </div>
-          </div>
+            </ThumbRow>
+          </ThumbRow>
         ) : null}
         {objects.data && !isTable && total > rows.length ? (
           <p className="mt-2 font-mono text-[11px] text-muted">

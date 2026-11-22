@@ -56,10 +56,9 @@ export function FileField({
   const [preview, setPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
-  const handedness = useThumbHandedness();
-  const left = handedness === "left";
   const path = typeof value === "string" && value.trim() !== "" ? value.trim() : null;
   const image = format === "image";
+  const left = useThumbHandedness() === "left";
   const noun = image ? "image" : "file";
   const busy = upload.isPending || disabled;
 
@@ -140,13 +139,8 @@ export function FileField({
       />
 
       {path ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            className={cn(
-              "flex min-w-0 flex-1 items-center gap-2",
-              left && "order-2",
-            )}
-          >
+        <ThumbRow className="flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
           {image ? (
             <button
               type="button"
@@ -202,13 +196,9 @@ export function FileField({
           </div>
           </div>
           {/* The destructive action sits furthest from the thumb edge, so a
-              reach never lands on it by mistake: reversed DOM order in left mode. */}
-          <div
-            className={cn(
-              "flex shrink-0 items-center gap-1",
-              left && "order-1 flex-row-reverse",
-            )}
-          >
+              reach never lands on it by mistake: the cluster reverses in the
+              DOM with the rest of the row in left mode. */}
+          <ThumbRow className="shrink-0 items-center gap-1">
             <AttachmentMenu
               label={noun}
               canSetCover={image && onSetCover !== undefined && path !== coverPath}
@@ -230,8 +220,8 @@ export function FileField({
             >
               Replace
             </Button>
-          </div>
-        </div>
+          </ThumbRow>
+        </ThumbRow>
       ) : (
         <button
           type="button"

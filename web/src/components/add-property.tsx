@@ -11,7 +11,7 @@ import {
   useUpdateView,
 } from "@/api/queries";
 import type { PropertyDef, PropertyFormat, TypeDef, ViewDef } from "@/api/types";
-import { useThumbHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { FORMAT_ICONS } from "@/components/format-icon";
 import { IconPicker } from "@/components/icon-picker";
 import {
@@ -804,23 +804,23 @@ export function AddPropertyDialog({
 
               </div>
 
-              <SheetFooter className="flex flex-wrap items-center gap-2">
-                <Button type="submit" disabled={pending || !ready}>
-                  {actionLabel}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={pending}
-                  onClick={onClose}
-                >
-                  Cancel
-                </Button>
-                {mode === "existing" && existing ? (
-                  <span className="ml-auto flex items-center gap-2">
+              <SheetFooter>
+                <ThumbRow className="flex-wrap items-center gap-2">
+                  {mode === "existing" && existing ? (
                     <FormatChip>{formatLabel(existing.format)}</FormatChip>
-                  </span>
-                ) : null}
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={pending || !ready}>
+                    {actionLabel}
+                  </Button>
+                </ThumbRow>
               </SheetFooter>
             </form>
           </SheetPopup>

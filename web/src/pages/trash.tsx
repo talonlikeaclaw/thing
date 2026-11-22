@@ -312,7 +312,7 @@ function TrashList({
                 </label>
                 <span className="label tnum">{selectedIds.length} selected</span>
               </span>
-              <div className="flex flex-wrap items-center gap-2">
+              <ThumbRow className="flex-wrap items-center gap-2">
                 <Button
                   variant="destructive"
                   className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -329,7 +329,7 @@ function TrashList({
                 >
                   {bulkRestore.isPending ? "Restoring…" : "Restore"}
                 </Button>
-              </div>
+              </ThumbRow>
             </ThumbRow>
           ) : null}
 
@@ -456,7 +456,7 @@ function TrashList({
                     </div>
 
                     {canEdit && !isConfirming ? (
-                      <ThumbRow className="flex-wrap items-center gap-2 md:justify-end">
+                      <ThumbRow className="flex-wrap items-center gap-2">
                         <button
                           type="button"
                           className="text-[13px] text-danger underline decoration-danger/40 underline-offset-2 hover:decoration-danger pointer-coarse:min-h-11"

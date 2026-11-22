@@ -476,6 +476,32 @@ describe("MarkdownEditor", () => {
 });
 
 describe("MarkdownEditor on a coarse pointer", () => {
+  it("opens an empty body in Preview instead of the writing surface", () => {
+    const media = vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === "(pointer: coarse)",
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+    stubEditor();
+    renderWithProviders(<EditorHost initial="" />);
+
+    expect(screen.getByRole("button", { name: "preview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(document.documentElement.dataset.writing).toBeUndefined();
+
+    media.mockRestore();
+  });
+
   it("marks the page as writing in Write and clears the mark in Preview", async () => {
     const media = vi.spyOn(window, "matchMedia").mockImplementation(
       (query: string) =>

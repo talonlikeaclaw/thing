@@ -12,8 +12,8 @@ import {
 } from "@/api/queries";
 import type { Invite, Member, Role, SpaceDetail } from "@/api/types";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { ErrorState } from "@/components/error-state";
+import { ThumbRow } from "@/components/handedness";
 import { Button, FormError, SelectField, fieldFrame } from "@/components/ui/controls";
 import { EmptyState, PageHeader, SectionRule } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
@@ -121,7 +121,6 @@ function MemberList({
   owner: boolean;
   currentUser: string | undefined;
 }) {
-  const handedness = useThumbHandedness();
   const setMember = useSetMember(spaceId);
   const removeMember = useRemoveMember(spaceId);
   const navigate = useNavigate();
@@ -181,12 +180,7 @@ function MemberList({
                     </span>
                   </span>
                 </span>
-                <span
-                  className={cn(
-                    "flex items-center gap-2",
-                    handedness === "left" && "order-first",
-                  )}
-                >
+                <span className="flex items-center gap-2">
                   {saving ? <span className="label">saving</span> : null}
                   {owner ? (
                     <select
@@ -432,7 +426,7 @@ function InviteRow({
 
   return (
     <li className="grid gap-2 border-b rule py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <ThumbRow className="flex-wrap items-center justify-between gap-2">
         <span className="flex items-baseline gap-2">
           <span className="label">{invite.role}</span>
           <span className="font-mono text-[11px] text-faint">
@@ -442,14 +436,7 @@ function InviteRow({
           </span>
         </span>
         {onRevoke ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
-              onClick={() => void copy()}
-            >
-              Copy link
-            </Button>
+          <ThumbRow className="items-center gap-2">
             <Button
               variant="ghost"
               className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
@@ -458,9 +445,16 @@ function InviteRow({
             >
               {revoking ? "Revoking…" : "Revoke"}
             </Button>
-          </div>
+            <Button
+              variant="ghost"
+              className="min-h-8 px-3 text-[13px] pointer-coarse:min-h-11"
+              onClick={() => void copy()}
+            >
+              Copy link
+            </Button>
+          </ThumbRow>
         ) : null}
-      </div>
+      </ThumbRow>
       <input
         ref={input}
         readOnly

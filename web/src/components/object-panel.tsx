@@ -343,7 +343,6 @@ export function ObjectPanel({
   onClearHighlight,
   children,
 }: ObjectPanelProps) {
-  const handedness = useThumbHandedness();
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
   const [draft, setDraft] = useState<Draft>(() => draftOf(object));
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
@@ -1186,24 +1185,14 @@ export function ObjectPanel({
       ) : null}
       <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
       <div className="border-b rule pb-3 xl:col-span-8 xl:col-start-1">
-        <div
-          className={cn(
-            "flex flex-wrap items-center justify-between gap-x-2 gap-y-1",
-            handedness === "left" && "flex-row-reverse",
-          )}
-        >
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <span className="flex min-w-0 items-center gap-2">
             {/* A type without an icon renders no slot at all: the stand-in box
                 reads as a broken image beside the record's own icon control. */}
             {type?.icon ? <ThingIcon icon={type.icon} size="md" /> : null}
             <span className="label truncate">{type?.name ?? object.type}</span>
           </span>
-          <span
-            className={cn(
-              "flex min-w-0 items-center gap-3",
-              handedness === "left" && "flex-row-reverse",
-            )}
-          >
+          <span className="flex min-w-0 items-center gap-3">
           <RecordIdentity
             objectId={object.id}
             rev={baseline.rev}
@@ -1525,12 +1514,7 @@ export function ObjectPanel({
       </fieldset>
 
       <section aria-label="Body" className="mt-10 xl:col-span-8 xl:col-start-1 xl:mt-8">
-        <div
-          className={cn(
-            "mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2",
-            handedness === "left" && "flex-row-reverse",
-          )}
-        >
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">
           <div className="min-w-0">
             <h2 className="label flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
