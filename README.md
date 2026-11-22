@@ -1,288 +1,214 @@
 # thing
 
-An Anytype-inspired knowledge and tracking app: you define your own **types** and
-**properties**, create **records**, track them over time, and share a **space** with other
-people who see changes live.
+A self-hosted app for tracking things with your own schema. You define types and properties,
+create records, and track them over time, alone or with other people in a shared space. Changes
+reach other open clients in the space over a WebSocket without a reload. Each record and its schema
+are stored as files on disk.
 
-The model is deliberately Excel-shaped, because that is the model most people already understand:
-a Type is a table, a Property is a column, an Object is a row, a Value is a cell. The point of
-`thing` is to make that model powerful instead of restrictive.
+`thing` uses a spreadsheet model: **type = table, property = column, record = row, value = cell**.
+You define the schema, and a property can also be a relation, formula or summary.
 
-- **Scheduled types.** A type can track a due date and repeat every N days, weeks or months.
-  Complete records the completion, advances the cadence and appends a revision. Due, overdue and
-  today are calendar days in the space's own IANA timezone, never elapsed hours.
-- **In-app reminders.** An overdue badge in the space rail and a Schedule page with Overdue, Today
-  and upcoming sections. No email, push notification or background job.
-- **Named views.** Each type carries its own saved views: a table with per-view columns and
-  widths, a board grouped by a select property, a gallery with a property as its cover, and a
-  calendar on a date property such as a schedule's due date. Column layout saves as you edit
-  it; filters and sorts save when you press **Save view**, and the selected view is in the URL.
-- **Editable spaces.** Rename a space, change its timezone, choose a shared highlight accent, or
-  delete it by typing its name. Icons are picked from a searchable emoji grid rather than pasted in;
-  the same picker serves types and records, leads with the emoji you used recently, and opens as a
-  sheet on a phone. The timezone field filters as you type and offers this
-  device's zone; timestamps render in the space's zone.
-- **Capture from anywhere.** `C` opens a minimal capture sheet for the current page's type's
-  required properties, with Create and Create-and-open; switching type keeps what you already
-  typed, and the last type is remembered in the browser.
-  `Cmd/Ctrl+K` opens a palette over spaces, types, records and actions, and `?` lists every
-  shortcut on a keyboard-capable screen.
-- **A table that behaves.** Paging, multi-select and bulk property edits, inline duplicate and
-  move-to-trash with Undo, header sorting, a pinned title and dimmed stale rows. **Columns** sits
-  beside Filter and Sort with a live count, and **Add property** in the trailing header or that
-  panel adds an existing or new property to the type and the current view without leaving the
-  table. Select and Multi-select columns sort by their option order. Tab walks the data cells one
-  at a time, Shift with an arrow marks a rectangle that copies as a spreadsheet block or a markdown
-  table, and a band under the table totals the rows on screen and says whether more rows exist. A
-  number column can carry a currency and fixed decimals, numbers sit against their digits' right
-  edge, a column can be pinned left, and the band can be switched off or blanked per column. On a
-  phone the row actions
-  fold into one menu so property columns stay reachable, and the bottom bar carries the space
-  drawer, Capture and Search within thumb reach.
-- **A query you can see.** Filter, Sort and Columns open as glass popovers over the ledger on a wide
-  screen and as one View sheet on a phone, so the records never move under an open panel. Every
-  complete condition is a removable chip under the toolbar, and a scheduled type offers Overdue,
-  Due today, Next 7 days and No due date as one tap each.
-- **Schema where the data is.** A record's Properties header adds or manages fields and searches
-  the list once it grows past eight; a property is chosen by typing its name, not scrolling a
-  native select. The schema page is Types and Properties tabs with search and a phone master-detail
-  flow, and a column can be turned into a type. Property formats are text, number, checkbox, date,
-  date-time, select, multi-select, relation, recurrence, URL, email, file, image and attachments.
-- **Calculated columns.** A property can hold a value the app derives instead of one you type:
-  a **formula** over the record's own fields and schedule keys
-  (`days(last_completed_at, today())`, `price * quantity`,
-  `if(stock > 0, "In stock", "Out")`), or a **summary** that aggregates the record's linked
-  records with `count`, `sum`, `min`, `max` or `list`. Both are created and edited in the same
-  property forms as stored ones, with the result type chosen beside the kind and a formula reference
-  that lists the fields and functions the type can use. A calculated value is read-only, filters,
-  sorts and exports like a stored one, and never reaches a file; `list` is a result type that joins
-  display labels (`Monstera, Fern`). Renaming a property rewrites every reference to it, and a
-  referenced property or a summary's linked type cannot be deleted while it is named.
-- **A column becomes a type.** Turn a text, select or multi-select column into a relation to a new
-  type: preview every distinct value, link, view move and dropped filter, download a CSV backup,
-  then run the migration as resumable target, link and finish stages. The column keeps its name
-  and key, and every old value stays in the record's history.
-- **CSV in and out.** Export every live record of a type, download a header-only template, and
-  import a reviewed file with a dry run that names a broken row before anything is written.
-- **A shared accent.** An owner chooses one of six contrast-tested highlight palettes for the
-  space, and every member's open client changes live without a reload. It marks focus, selection
-  and the primary action; an editor or viewer sees it but cannot change it.
-- **Left- and right-handed mode.** A browser-local preference in Account settings moves the phone
-  bottom bar, action rows, save buttons, row menus and toasts to the chosen thumb, in the DOM so
-  paint, Tab and screen-reader order agree. It never mirrors text, icons, columns or reading order.
-- **Record icons.** Give a record an emoji from its header or at capture; it then appears in the
-  table's title cell, home recents, the command palette, board cards, gallery tiles and Trash. A
-  record without one keeps its previous layout.
-- **Files and images.** Attach a file or an image to a record; the bytes live in the space's own
-  `files/` tree, named by their content, so one copy of the directory is still the whole space. A
-  record can also hold a set of files and photos in one property, read as a grid of thumbnails and
-  edited as one draft: upload, paste or drop, remove, and set any photo as the cover. An image
-  property can fill the gallery tiles, a record can carry a 16:9 cover whose focal point is stored
-  with it, and any image opens in a lightbox that steps through the whole set and closes with
-  Escape. Pasting or dropping an image into a record's body stores it and renders it there. A
-  missing file is reported by the space's health read and never blocks the record, and bytes a body
-  still renders are never collected as unused.
-- **A library of everything stored.** `/s/<space>/library` lists every file and photo in the space
-  with the records that use each one, filtered by kind, type and name and sorted by recent, name or
-  size. Space settings show the space's attachment weight and let an owner collect the bytes no
-  record names.
-- **Made for a phone.** Search, capture and every menu rise from the bottom and stay above the
-  on-screen keyboard; the page uses the whole screen on a notched phone. A toast clears the keyboard
-  and the bottom bar, and the emoji picker opens in front of the form it belongs to. The type
-  toolbar is Search, Filter and View, with Sort and Columns inside the View sheet. Column widths
-  are literal, so a drag moves the column under the finger, and phones hide the resize handles
-  entirely. A phone table pins the record's name while it swipes sideways, and every control is at
-  least 44 × 44 with fields at 16 px so focusing one does not zoom the page.
+[![CI](https://github.com/talonlikeaclaw/thing/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/talonlikeaclaw/thing/actions/workflows/ci.yml)
 
-- **Markdown files on disk are the canonical store.** One object is one `.md` file with YAML
-  frontmatter; the server keeps a rebuildable in-memory index. No database holds your content.
-  Files are written as schema 8; every schema-1…7 file still loads, and a record's icon, cover and
-  cover framing are optional frontmatter keys rather than properties. A record's computed blocks —
-  a formula's expression, a summary's relation and aggregate — are stored, but the values they
-  produce are not: a backup of the space carries what is stored, and calculated columns are
-  recomputed on read. Attachment bytes live beside the markdown in each space's `files/` tree,
-  named by their content, so a copy of the space directory is the whole space.
-- **One Rust core, reused.** `thing-core` holds the domain model, validation, query engine and
-  file format. `thing-server` is the I/O shell, and later binaries (CLI, Tauri desktop, MCP
-  server) link the same core.
-- **Web first.** An Axum server serves a React 19 single-page app; a Tauri desktop shell wraps
-  the same bundle in a later milestone.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/table-dark.webp">
+  <img src="docs/assets/table-light.webp" alt="The Plants table in thing: property columns, calculated columns, saved views, and a totals band">
+</picture>
 
-## Layout
+<p align="center"><em>The Plants type in the Garden demo space, with property columns, two calculated columns and five saved views.</em></p>
 
-```
-crates/core/     thing-core — domain model, format, validation, query, store
-crates/server/   thing-server — axum HTTP shell
-web/             Vite + React 19 SPA
+## Summary
+
+- **Markdown storage.** One record is one `.md` file with YAML frontmatter. Attachment bytes are
+  stored beside it. You can back up a space with `rsync`, search it with `grep`, version it with
+  `git`, or edit its files in another editor.
+- **User-defined schema.** Types and properties are created and changed in the app. Adding a
+  property does not require a migration step, and a text column can be converted into a relation
+  to a new type.
+- **Saved views.** The same records can be shown as a table, a board, a gallery or a calendar,
+  with saved columns, filters and sorts.
+- **Self-hosted and shared.** One container serves the app. Accounts are stored in SQLite; space
+  content stays in files. Spaces have owner, editor and viewer roles.
+
+## Quick start
+
+Docker and git are the only prerequisites.
+
+```sh
+git clone https://github.com/talonlikeaclaw/thing.git
+cd thing
+
+# On plain-HTTP localhost the session cookie must not be Secure.
+echo 'THING_COOKIE_SECURE=false' > .env
+
+docker compose up --build
 ```
 
-A space on disk:
+Open **http://127.0.0.1:8080** and register. The first account on a fresh install becomes the
+owner; later accounts join through a space invite link. `./data` holds all application state,
+including the accounts database, markdown files and attachments, so back it up. Behind HTTPS,
+leave `THING_COOKIE_SECURE` at its `true` default.
+
+The image is also published as `ghcr.io/talonlikeaclaw/thing:latest`; the
+[development guide](docs/DEVELOPMENT.md#production-container) covers the `docker run` security
+settings, reverse proxies and every environment variable.
+
+## The model
+
+| Concept | Excel | Where it lives |
+|---|---|---|
+| **Type** | A table | `types/<key>.yml` — properties, schedule configuration and saved views |
+| **Property** | A column | `properties/<key>.yml` — format, options, formula or summary |
+| **Record** | A row | `objects/<type>/<slug>.md` — frontmatter plus one markdown body |
+| **Value** | A cell | A frontmatter key; an unset value is an absent key, never `null` |
+| **View** | A saved query | A block in the type's `.yml`; the selected view is in the URL |
+
+A record on disk — `spaces/<uuid>/objects/plant/monstera-in-the-study.md`:
 
 ```
-space.yml
-types/            one <key>.yml per type
-properties/       one <key>.yml per property
-objects/<type>/   one <slug>.md per live record
-trash/            one <uuid>.md per trashed record
-history/          one <uuid>.ndjson per record
-files/<sha256>/   attachment bytes, named by their content
-files/.thumbs/    derived thumbnails; safe to exclude from a backup
+---
+schema: 8
+id: 01a1fff5-cf5d-73bd-8f81-f2e993ef20c0
+type: plant
+title: Monstera in the study
+icon: 🪴
+properties:
+  room: kitchen
+  price: 18.0
+  recurrence: { kind: days, every: 7 }
+  tags: [easy, indoors]
+---
+
+Watered this week, new leaf unfurling at the top. Sits beside the
+[[plant/Fiddle-leaf fig]].
 ```
+
+The UUID is the identity, so renaming or moving the file does not break a link. Property and type
+keys are stable slugs; display names can be changed. If you edit a file in another editor, the
+running app notices the change.
+
+<p align="center">
+  <img src="docs/assets/record-dark.webp" alt="A record with structured properties, a formula, a summary, links and a markdown body">
+</p>
+
+## Features
+
+### Types and properties
+
+- Types and properties are edited on the record or on the schema page, and both can be searched.
+- Formats are text, number, checkbox, date, date-time, select, multi-select, relation, recurrence,
+  URL, email, file, image and attachments. `list` is computed-only.
+- A calculated property is a **formula** over the record (`days(last_completed_at, today())`,
+  `price * quantity`) or a **summary** over linked records (`count`, `sum`, `min`, `max`, `list`).
+- Calculated properties use the same form as stored properties, are read-only, and are recomputed
+  on read.
+- Renaming a property updates every reference to it, and a referenced property cannot be deleted
+  while it is named.
+
+### Views
+
+- Each type has named views: a table, a board grouped by a select property, a gallery with a
+  property as its cover, and a calendar on a date property.
+- Each view stores its columns, widths, filters and sorts. The selected view is in the URL.
+- The table supports paging, multi-select, bulk edits, duplicate, move to trash with Undo, column
+  pinning and a totals row.
+- Tab moves through cells. Shift with an arrow selects a rectangle that can be copied as a
+  spreadsheet block or a markdown table.
+
+### Schedules
+
+- A scheduled type has a due date and a repeat interval.
+- Completing a record stores the completion date, moves the due date forward and appends a
+  revision.
+- Due and overdue are calculated as calendar days in the space's timezone.
+- The space navigation shows an overdue count, and the Schedule page lists overdue, today and
+  upcoming records.
+- Reminders are in the app only; there are no emails, push notifications or background jobs.
+
+### Writing and search
+
+- A record has one markdown body. The editor has a toolbar, shortcuts, `/` commands, `[[`
+  autocomplete and a split preview.
+- `[[Type/Title]]` links resolve against live record titles. The Links panel and space graph show
+  outgoing links, relation targets and mentions.
+- `Cmd/Ctrl+K` searches titles and bodies and lists types, spaces and actions.
+- `C` opens quick capture for the current type. `?` lists the shortcuts.
+
+<p align="center">
+  <img src="docs/assets/mobile-capture-light.webp" width="300" alt="The quick-capture sheet on a phone">
+</p>
+
+### Files and spaces
+
+- Files and images can be attached to a record or stored as a set in one property. Bytes live
+  under the space's `files/` tree, named by SHA-256.
+- Images have thumbnails, covers with a stored focal point, a lightbox, and a space library that
+  lists the records using each file.
+- An owner can rename or delete a space, change its timezone, choose one of six accent colors, and
+  collect unused attachment bytes.
+- CSV export, templates and dry-run import are included.
+
+The complete feature list is in [`docs/FEATURES.md`](docs/FEATURES.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+  browser["React 19 SPA<br/>Vite · TanStack Query"]
+  server["thing-server<br/>Axum · HTTP + WebSocket"]
+  core["thing-core<br/>model · validation · query · formulas"]
+  disk[("space directory<br/>markdown + YAML + files/")]
+  accounts[("accounts.sqlite<br/>users · sessions · invites")]
+  browser <-->|same-origin API and live changes| server
+  server --> core
+  core <--> disk
+  server <--> accounts
+```
+
+`thing-core` contains the domain model, file format, validation, query engine, schedule arithmetic
+and formula evaluator. `thing-server` is the HTTP shell; a CLI, a Tauri desktop shell (wrapping
+the same SPA bundle) and an MCP server can link the same core. The server builds an in-memory index
+from the markdown files and can rebuild it, so the files remain canonical and the database holds
+only accounts.
 
 ## Development
 
-### API and core
+Rust `1.98.1` and Node 24.
 
 ```sh
-cargo build --workspace
-cargo test --workspace
-cargo test -p thing-core
+THING_DATA_DIR=./data cargo run -p thing-server   # API on 127.0.0.1:8080
 
-# Run the API on 127.0.0.1:8080, storing spaces under ./data
-THING_DATA_DIR=./data cargo run -p thing-server
+cd web && npm ci && npm run dev                   # SPA on localhost:5173, proxying /api
 
-# The whole Rust gate: format, lints, tests
+# With the server running, build the Garden demo space through the HTTP API.
+THING_DATA_DIR=./data THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
+
+# Gates
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-
-# Set a password for an existing account (reads the password from stdin)
-cargo run -p thing-server -- set-password --email you@example.com
-
-# Print a space's file problems: unparseable files, dangling relations and
-# attachments whose bytes are missing
-cargo run -p thing-server -- reindex --space <space-uuid>
+cd web && npm run test:run && npm run lint && npm run typecheck && npm run build
 ```
 
-The first registered account needs no invite and becomes the owner. Every later account joins
-through a space invite link.
+`docs/DEVELOPMENT.md` covers the dev container, LAN and Tailscale access, the production image's
+security settings and environment variables, CSV through `curl`, the Semgrep scan, the reindex
+command and the account CLI.
 
-With the server running, `scripts/seed.sh` builds the Garden demo space through the HTTP API. It
-signs in as `THING_SEED_EMAIL` (default `a@b.c`), registers that account if the install has no such
-user, and names it with `THING_SEED_NAME` (default `Talon`). On an empty install that first account
-becomes the owner. There is no default password: set `THING_SEED_PASSWORD` and use the same value on
-later runs. The demo space is `America/Toronto`, both types are scheduled, and the records place
-work in the past, today and the coming weeks so the due surfaces have content immediately. Plant's
-`Nursery` text column (two values, three links, one empty) and the `Nurseries` view exercise column
-promotion; `Room` is shared by both types, which the same action reports as blocking.
+## Documentation
 
-```sh
-THING_DATA_DIR=./data THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
+| Document | What it covers |
+|---|---|
+| [`docs/FEATURES.md`](docs/FEATURES.md) | Every shipped feature in detail |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Build, seed, test, containers, CSV, security |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Milestones and what is landed |
+| [`PRODUCT.md`](PRODUCT.md) | Users, positioning, principles, durable constraints |
+| [`DESIGN.md`](DESIGN.md) | The Night Glass visual direction |
+| [`AGENTS.md`](AGENTS.md) | Repository rules for agents working in the tree |
 
-# Optional: choose the demo account instead of a@b.c / Talon.
-THING_SEED_EMAIL=you@example.com THING_SEED_NAME=Talon \
-  THING_SEED_PASSWORD=choose-a-real-one scripts/seed.sh
-```
+## Status
 
-### CSV
+`0.9.0`, schema 8. Every schema-1…7 file still loads. `thing` is pre-1.0: the file format is
+versioned, an unknown schema is refused rather than guessed at, and CI runs the Rust and web gates
+plus Semgrep on every push.
 
-Export a type, fetch its template, then dry-run and commit an import. `-b` carries the session
-cookie from a signed-in `curl`; `?dry_run=true` writes nothing.
 
-```sh
-SPACE=<space-uuid>
-TYPE=plant
-curl -b cookies.txt "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/export" -o "$TYPE.csv"
-curl -b cookies.txt "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/export?template=true" -o template.csv
-curl -b cookies.txt -H 'content-type: text/csv' --data-binary @"$TYPE.csv" \
-  "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/import?dry_run=true"
-curl -b cookies.txt -H 'content-type: text/csv' --data-binary @"$TYPE.csv" \
-  "http://localhost:8080/api/spaces/$SPACE/types/$TYPE/import?dry_run=false"
-```
-
-The header is `title`, the type's property keys in order, and `_body`; lists, relations,
-recurrences and booleans are JSON, and an empty cell means the property is absent. Import is
-create-only and all-or-nothing at validation.
-
-### Security scan
-
-CI runs Semgrep over the Rust, Docker, compose, YAML and web sources with the registry's `rust`,
-`dockerfile`, `docker-compose`, `secrets` and `owasp-top-ten` packs. The same pinned scan runs
-locally:
-
-```sh
-scripts/semgrep.sh
-```
-
-### Dev container
-
-The repository ships a Dev Containers definition. Open the folder in VS Code and choose **Reopen
-in Container**, or run the same compose file by hand:
-
-```sh
-docker compose -f docker-compose.dev.yml up --build
-```
-
-The container runs both sides of the app: `cargo watch` rebuilds and restarts the API on Rust
-changes, and Vite serves the SPA with hot module replacement. Open `http://localhost:5173`; Vite
-proxies `/api` (including WebSockets) to the container's `:8080`, so cookies stay same-origin.
-`./data` is bind-mounted, so accounts and spaces survive container restarts. The dev ports bind to
-`127.0.0.1` only; VS Code forwards them. To reach the dev server from another machine instead,
-publish it on the LAN:
-
-```sh
-THING_DEV_LISTEN_IP=0.0.0.0 \
-THING_DEV_PUBLIC_URL=http://192.168.1.50:5173 \
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Open `http://192.168.1.50:5173` with the host's own LAN address. HMR, the `/api` proxy and the SSE
-`Origin` check all follow the `Host` the browser used, so nothing else needs changing;
-`THING_DEV_PUBLIC_URL` only decides what invite links point at. Vite always accepts bare IP hosts,
-while a name such as `devbox.local` also needs `THING_DEV_ALLOWED_HOSTS=devbox.local` (comma
-separated for several). Allow `5173/tcp` from the subnet in the host firewall.
-
-Off-subnet, Tailscale Serve reaches the same server with no published ports:
-`tailscale serve --bg 5173`, then open `https://<host>.<tailnet>.ts.net`. Vite's `allowedHosts`
-already lists `devbox.tail56f1e1.ts.net` for that; other tailnet names go in
-`THING_DEV_ALLOWED_HOSTS`.
-
-The image runs as UID/GID `1000` by default. Set `THING_UID`/`THING_GID` as build args when the host
-user differs.
-
-### Production container
-
-`docker compose up --build` builds the SPA and the release binary into one image and serves it on
-`http://127.0.0.1:8080`, with the space store bind-mounted at `./data`. The image is a three-stage
-build (`node:24` → `rust:1.98` → `debian:13-slim`); the build output is also what a tagged CI run
-pushes to `ghcr.io/talonlikeaclaw/thing:<tag>` and `:latest`.
-
-```sh
-docker compose up --build
-docker compose down
-```
-
-The runtime is hardened: a non-root `thing` user (UID/GID `1000`, overridable with
-`THING_UID`/`THING_GID` build args), a read-only root filesystem with a writable `/tmp` tmpfs, all
-capabilities dropped, `no-new-privileges`, and a healthcheck against `/api/health`. Base images are
-pinned by digest and the build runs `cargo build --locked`. The published port defaults to
-`127.0.0.1`; set `THING_LISTEN_IP=0.0.0.0` (or the host's LAN address) when a reverse proxy on
-another host must reach it.
-
-`THING_COOKIE_SECURE` defaults to `true`; set it to `false` (or use the dev compose file) when
-testing over plain HTTP on localhost. Set `THING_PUBLIC_URL` in the environment (or a `.env` file
-beside `docker-compose.yml`) to the URL people actually open. `./data` is the entire application
-state: the markdown files, the attachment bytes under each space's `files/` tree, revision history
-and the accounts database. Back it up; there is no other copy. A space's `files/.thumbs/` directory
-holds derived thumbnails: exclude it to keep the backup smaller, and the next view of each image
-rebuilds it. Its files must be writable by the container's UID/GID, and the server creates them
-owner-only.
-
-### SPA
-
-Start the server first; Vite proxies `/api` (including WebSockets) to `127.0.0.1:8080`, so cookies
-and same-origin requests work unchanged.
-
-```sh
-cd web
-npm install                      # or `npm ci` for the committed lockfile
-npm run dev                      # http://localhost:5173
-
-# The whole web gate
-npm run test:run                 # Vitest, one run
-npm run lint
-npm run typecheck
-npm run build                    # tsc -b && vite build
-```
-
-`npm run test` starts Vitest in watch mode. `npm run preview` serves the built bundle.
