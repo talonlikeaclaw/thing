@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -273,6 +273,78 @@ describe("computed property authoring", () => {
       conditions: [{ property: "room", condition: "equal", value: "study" }],
     });
     expect(screen.getByText("Only linked records matching")).toBeInTheDocument();
+  });
+
+  it("opens the insert catalog on its fields and keeps the language folded", () => {
+    renderWithProviders(
+      <ComputedFields
+        draft={{ ...emptyComputedDraft(), kind: "formula", format: "number" }}
+        onChange={() => undefined}
+        library={[relation, height]}
+        type={plant}
+        types={[plant]}
+        idPrefix="test"
+      />,
+    );
+    const tabs = screen.getByRole("tablist", { name: "Insert categories" });
+    expect(within(tabs).getByRole("tab", { name: /^Fields/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const panel = screen.getByRole("tabpanel");
+    expect(panel).toHaveTextContent("height");
+    expect(panel).toHaveTextContent("Number");
+    expect(panel).not.toHaveTextContent("round(number, digits)");
+    expect(screen.queryByLabelText("Formula suggestions")).not.toBeInTheDocument();
+    expect(screen.getByText("Examples")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "price * quantity" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(tabs).getByRole("tab", { name: /^Numbers/ }));
+    expect(screen.getByRole("tabpanel")).toHaveTextContent("round(number, digits)");
+  });
+
+  it("inserts a function and an operator from their folds", () => {
+    function Host() {
+      const [draft, setDraft] = useState<ComputedDraft>(() => ({
+        ...draftOf(undefined),
+        kind: "formula",
+        format: "number",
+        expression: "height",
+      }));
+      return (
+        <>
+          <output data-testid="draft">{JSON.stringify(draft)}</output>
+          <ComputedFields
+            draft={draft}
+            onChange={setDraft}
+            library={[relation, height, room]}
+            type={plant}
+            types={[plant]}
+            idPrefix="test"
+          />
+        </>
+      );
+    }
+    renderWithProviders(<Host />);
+
+    const tabs = screen.getByRole("tablist", { name: "Insert categories" });
+    fireEvent.click(within(tabs).getByRole("tab", { name: /^Dates/ }));
+    fireEvent.click(
+      within(screen.getByRole("tabpanel")).getByRole("button", {
+        name: /^format_date/,
+      }),
+    );
+    let draft = JSON.parse(screen.getByTestId("draft").textContent ?? "{}") as ComputedDraft;
+    expect(draft.expression).toBe("format_date(");
+
+    fireEvent.click(within(tabs).getByRole("tab", { name: /^Values & operators/ }));
+    fireEvent.click(
+      within(screen.getByRole("tabpanel")).getByRole("button", { name: "*" }),
+    );
+    draft = JSON.parse(screen.getByTestId("draft").textContent ?? "{}") as ComputedDraft;
+    expect(draft.expression).toBe("format_date(*");
   });
 
   it("keeps an existing calculation's kind and result fixed", () => {

@@ -224,6 +224,7 @@ mod tests {
             icon: None,
             accent: None,
             timezone: "UTC".to_owned(),
+            daily_type: None,
             created_at: datetime!(2026-10-17 12:00:00 UTC),
             members: vec![Member {
                 user: Uuid::now_v7(),

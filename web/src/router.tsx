@@ -13,6 +13,9 @@ const AgendaPage = lazy(() =>
 const ChangelogPage = lazy(() =>
   import("@/pages/changelog").then((module) => ({ default: module.ChangelogPage })),
 );
+const DailyPage = lazy(() =>
+  import("@/pages/daily").then((module) => ({ default: module.DailyPage })),
+);
 const JoinPage = lazy(() =>
   import("@/pages/join").then((module) => ({ default: module.JoinPage })),
 );
@@ -90,6 +93,7 @@ export const router = createBrowserRouter([
               { index: true, element: page(<SpacePage />) },
               { path: "t/:typeKey", element: page(<TypeTablePage />) },
               { path: "agenda", element: page(<AgendaPage />) },
+              { path: "daily", element: page(<DailyPage />) },
               { path: "library", element: page(<LibraryPage />) },
               { path: "o/:objectId", element: page(<ObjectPage />) },
               { path: "schema", element: page(<SchemaPage />) },

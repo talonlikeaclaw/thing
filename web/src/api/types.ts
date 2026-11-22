@@ -35,6 +35,8 @@ export interface SpaceDetail {
   /** One of the six preset ids; null means Lichen. */
   accent: string | null;
   timezone: string;
+  /** The type today's note belongs to; absent means no daily page. */
+  daily_type?: string | null;
   created_at: IsoDate;
   role: Role;
   members: Member[];

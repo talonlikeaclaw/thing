@@ -482,6 +482,7 @@ Watered today.
             icon: Some("🪴".to_owned()),
             accent: None,
             timezone: "Europe/Berlin".to_owned(),
+            daily_type: None,
             created_at: at(),
             members: vec![
                 Member {
@@ -509,6 +510,7 @@ Watered today.
             icon: None,
             accent: None,
             timezone: "UTC".to_owned(),
+            daily_type: None,
             created_at: at(),
             members: vec![Member {
                 user: id(2),

@@ -974,6 +974,7 @@ mod tests {
                 icon: None,
                 accent: None,
                 timezone: "UTC".to_owned(),
+                daily_type: None,
                 created_at: at(),
                 members: vec![Member {
                     user: Uuid::from_u128(2),

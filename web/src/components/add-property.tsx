@@ -463,7 +463,7 @@ export function AddPropertyDialog({
                 void submit();
               }}
             >
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div role="tablist" aria-label="Property source" className="flex gap-1 border-b rule pb-2">
                 <TabButton
                   selected={mode === "existing"}
@@ -715,7 +715,7 @@ export function AddPropertyDialog({
               ) : null}
 
               {stages.length > 1 || error ? (
-                <ol aria-label="Progress" className="mt-4 grid gap-1 border-t rule pt-3">
+                <ol aria-label="Progress" className="mt-4 grid gap-1 border-t rule pt-3 pb-3">
                   {stages.map((stage) => {
                     const failed = error?.stage === stage;
                     const complete = done(stage);

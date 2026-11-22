@@ -954,6 +954,7 @@ mod tests {
             icon: None,
             accent: None,
             timezone: "UTC".to_owned(),
+            daily_type: None,
             created_at: at(0),
             members: vec![Member {
                 user: me(),

@@ -7,6 +7,7 @@ import {
   useDeleteSpace,
   useLibrary,
   useSpace,
+  useTypes,
   useUpdateSpace,
 } from "@/api/queries";
 import { AccentPicker } from "@/components/accent-picker";
@@ -34,6 +35,7 @@ import { timezoneNames } from "@/lib/timezone";
 export function SettingsPage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
+  const types = useTypes(spaceId);
   const update = useUpdateSpace(spaceId ?? "");
   const accentUpdate = useUpdateSpace(spaceId ?? "");
   const remove = useDeleteSpace(spaceId ?? "");
@@ -42,6 +44,7 @@ export function SettingsPage() {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [zone, setZone] = useState("UTC");
+  const [daily, setDaily] = useState("");
   const [confirm, setConfirm] = useState("");
 
   useEffect(() => {
@@ -51,6 +54,7 @@ export function SettingsPage() {
     setName(space.data.name);
     setIcon(space.data.icon ?? "");
     setZone(space.data.timezone);
+    setDaily(space.data.daily_type ?? "");
   }, [space.data]);
 
   useRouteMeta("Space settings");
@@ -105,6 +109,9 @@ export function SettingsPage() {
   if (zone !== detail.timezone) {
     changes.timezone = zone;
   }
+  if ((detail.daily_type ?? "") !== daily) {
+    changes.daily_type = daily || null;
+  }
   const dirty = Object.keys(changes).length > 0;
   const invalid = trimmedName === "";
 
@@ -156,7 +163,7 @@ export function SettingsPage() {
 
       <PageHeader
         title="Space settings"
-        sentence="The space's name, icon, timezone and shared highlight are written to the space file."
+        sentence="The space's name, icon, timezone, daily note and shared highlight are written to the space file."
         meta={detail.role}
       />
 
@@ -207,6 +214,29 @@ export function SettingsPage() {
                 disabled={update.isPending}
               />
             </FieldRow>
+            <FieldRow
+              label="Daily note"
+              htmlFor="space-daily"
+              hint="Today's note is this type's record for the current day."
+            >
+              <select
+                id="space-daily"
+                className="h-9 w-full rounded-[10px] border border-line-interactive/70 bg-raised/40 px-3 text-[14px] text-ink transition-colors hover:border-line-strong focus:border-accent pointer-coarse:h-11 pointer-coarse:text-[16px]"
+                value={daily}
+                disabled={update.isPending}
+                onChange={(event) => setDaily(event.target.value)}
+              >
+                <option value="">None</option>
+                {(types.data ?? []).map((type) => (
+                  <option key={type.key} value={type.key}>
+                    {type.name}
+                  </option>
+                ))}
+                {daily && !(types.data ?? []).some((type) => type.key === daily) ? (
+                  <option value={daily}>{daily} (missing)</option>
+                ) : null}
+              </select>
+            </FieldRow>
             <div className="py-3">
               <FormError message={update.error ? readError(update.error) : null} />
               <ThumbRow className="mt-2 flex-wrap items-baseline gap-3">
@@ -231,7 +261,7 @@ export function SettingsPage() {
             </div>
             <p className="font-mono text-[12px] text-muted">{detail.timezone}</p>
             <p className="text-[13px] text-muted">
-              Only an owner can change the name, icon, timezone or delete this space.
+              Only an owner can change the name, icon, timezone, daily note or delete this space.
             </p>
           </div>
         )}

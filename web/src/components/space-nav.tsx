@@ -15,6 +15,7 @@ import {
   Search,
   Settings,
   Shapes,
+  Sun,
   Table2,
   Trash2,
   Users,
@@ -399,6 +400,9 @@ export function SpaceNav({
                 <div className="mt-4">
                   <AllSpacesLink onNavigate={close} />
                   <OverviewLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
+                  {space.data?.daily_type ? (
+                    <TodayLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
+                  ) : null}
                   <UtilityLinks
                     spaceId={spaceId}
                     pathname={pathname}
@@ -508,6 +512,9 @@ export function SpaceNav({
         <div className={cn("flex flex-col", folded ? "mt-2 gap-1" : "mt-4")}>
           <AllSpacesLink folded={folded} />
           <OverviewLink spaceId={spaceId} pathname={pathname} folded={folded} />
+          {space.data?.daily_type ? (
+            <TodayLink spaceId={spaceId} pathname={pathname} folded={folded} />
+          ) : null}
           <UtilityLinks
             spaceId={spaceId}
             pathname={pathname}
@@ -787,6 +794,36 @@ function OverviewLink({
       >
         <House aria-hidden size={14} className={cn("shrink-0", active ? "text-accent" : "text-faint")} />
         <span className={folded ? "sr-only" : undefined}>Overview</span>
+      </Link>
+    </div>
+  );
+}
+
+/** Today's note, offered only while the space names a `daily_type`. */
+function TodayLink({
+  spaceId,
+  pathname,
+  folded = false,
+  onNavigate,
+}: {
+  spaceId: string;
+  pathname: string;
+  folded?: boolean;
+  onNavigate?: () => void;
+}) {
+  const to = `/s/${spaceId}/daily`;
+  const active = pathname === to;
+  return (
+    <div className={cn(folded && "flex justify-center")}>
+      <Link
+        to={to}
+        aria-current={active ? "page" : undefined}
+        title={folded ? "Today" : undefined}
+        onClick={onNavigate}
+        className={cn(railItem(active, folded), folded && "mx-auto")}
+      >
+        <Sun aria-hidden size={14} className={cn("shrink-0", active ? "text-accent" : "text-faint")} />
+        <span className={folded ? "sr-only" : undefined}>Today</span>
       </Link>
     </div>
   );

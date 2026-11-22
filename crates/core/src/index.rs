@@ -150,6 +150,8 @@ pub struct Problems {
     pub duplicate_slugs: Vec<DuplicateSlug>,
     /// The space timezone when it does not resolve; the space then reads as UTC.
     pub invalid_timezone: Option<String>,
+    /// `daily_type` when it names no type in the space.
+    pub daily_type: Option<String>,
     /// Declared property keys that collide with a generated schedule key.
     pub schedule_key_conflicts: Vec<String>,
     /// References to attachment bytes the space does not hold.
@@ -257,6 +259,11 @@ impl SpaceIndex {
             invalid_timezone: schedule::resolve_timezone(&self.meta.timezone)
                 .err()
                 .map(|_| self.meta.timezone.clone()),
+            daily_type: self
+                .meta
+                .daily_type
+                .clone()
+                .filter(|key| !self.types.contains_key(key)),
             schedule_key_conflicts: self
                 .properties
                 .keys()
@@ -1018,6 +1025,7 @@ mod tests {
             icon: None,
             accent: None,
             timezone: "Europe/Berlin".to_owned(),
+            daily_type: None,
             created_at: at(0),
             members: vec![Member {
                 user: me(),
@@ -2248,6 +2256,29 @@ mod tests {
             problems.invalid_timezone.as_deref(),
             Some("Mars/Olympus_Mons")
         );
+    }
+
+    #[test]
+    fn a_daily_type_that_names_no_type_is_reported_and_never_blocks_the_space() {
+        let space = Space::new().seed();
+        let (mut meta, fingerprint) = space.store.load_space().expect("space");
+        meta.daily_type = Some("journal".to_owned());
+        space
+            .store
+            .save_space(&meta, Some(fingerprint))
+            .expect("rewrite space");
+
+        let index = space.index();
+        assert_eq!(index.problems().daily_type.as_deref(), Some("journal"));
+        assert!(index.type_def("plant").is_some(), "the space still loads");
+
+        let (mut meta, fingerprint) = space.store.load_space().expect("space");
+        meta.daily_type = Some("plant".to_owned());
+        space
+            .store
+            .save_space(&meta, Some(fingerprint))
+            .expect("rewrite space");
+        assert_eq!(space.index().problems().daily_type, None);
     }
 
     #[test]

@@ -1813,6 +1813,7 @@ mod tests {
             icon: None,
             accent: None,
             timezone: "UTC".to_owned(),
+            daily_type: None,
             created_at: OffsetDateTime::now_utc(),
             members: Vec::new(),
         };

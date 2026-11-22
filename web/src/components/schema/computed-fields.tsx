@@ -16,8 +16,13 @@ import { cn } from "@/lib/cn";
 import type { ApiProblem } from "@/lib/display";
 import { radioTargetIndex } from "@/lib/radio-keys";
 import {
-  FORMULA_FUNCTIONS,
+  FORMULA_FUNCTION_GROUPS,
+  FORMULA_LITERALS,
+  FORMULA_SYMBOL_OPERATORS,
+  FORMULA_WORD_OPERATORS,
   formulaHints,
+  type FormulaFunction,
+  type FormulaFunctionGroupKey,
   type FormulaHint,
   insertHint,
 } from "@/lib/formula-hints";
@@ -55,6 +60,19 @@ export const MAX_FORMULA_LEN = 500;
 
 /** Every result a formula may produce; `list` is a rollup's shape alone. */
 const FORMULA_RESULTS = RESULT_FORMATS.filter((format) => format !== "list");
+
+/** The folds of the formula insert catalog. */
+type InsertFold = "fields" | FormulaFunctionGroupKey | "values";
+
+/** The catalog's tabs, in the order a formula is written. */
+const INSERT_TABS: { key: InsertFold; label: string }[] = [
+  { key: "fields", label: "Fields" },
+  { key: "logic", label: "Logic" },
+  { key: "numbers", label: "Numbers" },
+  { key: "text", label: "Text" },
+  { key: "dates", label: "Dates" },
+  { key: "values", label: "Values & operators" },
+];
 
 /** Whether a format may be stored; `list` is a calculated result alone. */
 function isStoredFormat(format: PropertyFormat): boolean {
@@ -150,7 +168,7 @@ const KIND_STORY: Record<AuthoringKind, string> = {
 
 /** The signature and the job of every function the language offers. */
 const FUNCTION_HELP: Record<
-  (typeof FORMULA_FUNCTIONS)[number],
+  FormulaFunction,
   { signature: string; story: string }
 > = {
   if: { signature: "if(condition, a, b)", story: "One value when true, another when false." },
@@ -163,6 +181,26 @@ const FUNCTION_HELP: Record<
   upper: { signature: "upper(text)", story: "The same text in uppercase." },
   days: { signature: "days(from, to)", story: "Whole calendar days between two dates." },
   today: { signature: "today()", story: "This record's current calendar day." },
+  coalesce: {
+    signature: "coalesce(a, b, …)",
+    story: "The first value that is not empty.",
+  },
+  contains: {
+    signature: "contains(text, needle)",
+    story: "Whether the text holds the needle.",
+  },
+  replace: {
+    signature: "replace(text, from, to)",
+    story: "The text with every match written over.",
+  },
+  date_add: {
+    signature: "date_add(date, days)",
+    story: "The day this many days later, or earlier.",
+  },
+  format_date: {
+    signature: "format_date(date, pattern)",
+    story: "The date written with YYYY, MM and DD.",
+  },
 };
 
 /** A draft with no derivation: the starting point for a new property. */
@@ -394,6 +432,9 @@ export function ComputedFields({
   // Start at the end of a saved expression, so the suggestions describe the
   // next token the reader would type rather than the first one already there.
   const [caret, setCaret] = useState(() => draft.expression.length);
+  // A formula starts by naming a field, so the catalog opens there and follows
+  // the reader's own choice afterwards.
+  const [fold, setFold] = useState<InsertFold | null>(null);
   const hints =
     draft.kind === "formula"
       ? formulaHints(references, draft.expression, caret)
@@ -413,6 +454,24 @@ export function ComputedFields({
     draft.kind === "rollup"
       ? rollupResultFormat(draft.aggregate, targetFormat)
       : undefined;
+
+  // A formula starts by naming a field; every other fold is one click away.
+  const activeFold = fold ?? "fields";
+  const activeGroup = FORMULA_FUNCTION_GROUPS.find(
+    (group) => group.key === activeFold,
+  );
+  const foldCounts = new Map<InsertFold, number>(
+    FORMULA_FUNCTION_GROUPS.map(
+      (group) => [group.key, group.names.length] as const,
+    ),
+  );
+  foldCounts.set("fields", references.length);
+  foldCounts.set(
+    "values",
+    FORMULA_LITERALS.length +
+      FORMULA_SYMBOL_OPERATORS.length +
+      FORMULA_WORD_OPERATORS.length,
+  );
 
   // A rollup's result follows its aggregate and target: a count and a sum are
   // numbers, a list is a list, and a minimum or maximum keeps the target's type.
@@ -634,7 +693,6 @@ export function ComputedFields({
                   disabled={disabled}
                   ref={expressionRef}
                   value={draft.expression}
-                  placeholder="days(last_completed_at, today())"
                   error={expressionProblem ?? undefined}
                   hint={`${draft.expression.length} of ${MAX_FORMULA_LEN} characters.`}
                   onChange={(event) => {
@@ -678,93 +736,171 @@ export function ComputedFields({
                   ))}
                 </div>
               ) : null}
-              <details className="rounded-[12px] border border-line/80 bg-raised/30 px-3 py-2 text-[12px]">
-                <summary className="cursor-pointer text-muted pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center">
-                  Formula help
-                </summary>
-                <p className="mt-2 max-w-[62ch] text-[12px] leading-5 text-muted">
-                  Name a field by its key, or write a number, quoted text,{" "}
-                  <span className="font-mono">true</span> or{" "}
-                  <span className="font-mono">false</span>. Operators:{" "}
-                  <span className="font-mono">+ - * / %</span>,{" "}
-                  <span className="font-mono">= != &lt; &lt;= &gt; &gt;=</span>,{" "}
-                  <span className="font-mono">and</span>,{" "}
-                  <span className="font-mono">or</span>,{" "}
-                  <span className="font-mono">not</span>.
-                </p>
-                <p className="mt-3 label text-faint">Fields this type can read</p>
-                <ul className="mt-1 flex flex-wrap gap-1.5">
-                  {references.map((reference) => (
-                    <li key={reference.key}>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        title={`Insert ${reference.name} (${reference.key})`}
-                        className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-interactive/70 px-2 py-1 text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
-                        onClick={() =>
-                          applyHint({
-                            value: reference.key,
-                            label: reference.name,
-                            kind: "property",
-                          })
-                        }
-                      >
-                        <span className="font-mono text-ink">{reference.key}</span>
-                        <span className="text-faint">
-                          {formatLabel(reference.format)}
-                        </span>
-                      </button>
-                    </li>
+              <div className="rounded-[12px] border border-line/80 bg-raised/30 px-3 py-2 text-[12px]">
+                <div
+                  role="tablist"
+                  aria-label="Insert categories"
+                  className="flex flex-wrap gap-1"
+                >
+                  {INSERT_TABS.map((tab) => (
+                    <button
+                      key={tab.key}
+                      id={`${idPrefix}-insert-${tab.key}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeFold === tab.key}
+                      aria-controls={`${idPrefix}-insert-panel`}
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] transition-colors pointer-coarse:min-h-11",
+                        activeFold === tab.key
+                          ? "bg-accent-wash text-accent-on-wash"
+                          : "text-muted hover:bg-raised/60 hover:text-ink",
+                      )}
+                      onClick={() => setFold(tab.key)}
+                    >
+                      <span>{tab.label}</span>
+                      <span className="tnum font-mono text-[11px] text-faint">
+                        {foldCounts.get(tab.key) ?? 0}
+                      </span>
+                    </button>
                   ))}
-                </ul>
-                <p className="mt-3 label text-faint">Functions</p>
-                <ul className="mt-1 grid gap-0.5">
-                  {FORMULA_FUNCTIONS.map((name) => {
-                    const help = FUNCTION_HELP[name];
-                    return (
-                      <li key={name}>
+                </div>
+
+                <div
+                  id={`${idPrefix}-insert-panel`}
+                  role="tabpanel"
+                  aria-labelledby={`${idPrefix}-insert-${activeFold}`}
+                  className="mt-1"
+                >
+                  {activeFold === "fields" ? (
+                    <ul className="flex flex-wrap gap-1.5">
+                      {references.map((reference) => (
+                        <li key={reference.key}>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            title={`Insert ${reference.name} (${reference.key})`}
+                            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-interactive/70 px-2 py-1 text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
+                            onClick={() =>
+                              applyHint({
+                                value: reference.key,
+                                label: reference.name,
+                                kind: "property",
+                              })
+                            }
+                          >
+                            <span className="font-mono text-ink">{reference.key}</span>
+                            <span className="text-faint">
+                              {formatLabel(reference.format)}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : activeFold === "values" ? (
+                    <div className="grid gap-2">
+                      <div>
+                        <p className="label text-faint">Values</p>
+                        <ul className="mt-1 flex flex-wrap gap-1.5">
+                          {FORMULA_LITERALS.map((literal) => (
+                            <li key={literal}>
+                              <button
+                                type="button"
+                                disabled={disabled}
+                                title={`Insert ${literal}`}
+                                className="rounded-full border border-line-interactive/70 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
+                                onClick={() =>
+                                  applyHint({ value: literal, label: literal, kind: "keyword" })
+                                }
+                              >
+                                {literal}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="label text-faint">Operators</p>
+                        <ul className="mt-1 flex flex-wrap gap-1.5">
+                          {[...FORMULA_SYMBOL_OPERATORS, ...FORMULA_WORD_OPERATORS].map(
+                            (operator) => (
+                              <li key={operator}>
+                                <button
+                                  type="button"
+                                  disabled={disabled}
+                                  title={`Insert ${operator}`}
+                                  className="rounded-full border border-line-interactive/70 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
+                                  onClick={() =>
+                                    applyHint({
+                                      value: operator,
+                                      label: operator,
+                                      kind: "operator",
+                                    })
+                                  }
+                                >
+                                  {operator}
+                                </button>
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : (
+                    <ul className="grid gap-0.5">
+                      {(activeGroup?.names ?? []).map((name) => {
+                        const help = FUNCTION_HELP[name];
+                        return (
+                          <li key={name}>
+                            <button
+                              type="button"
+                              disabled={disabled}
+                              title={`Insert ${help.signature}`}
+                              className="flex w-full flex-col gap-0.5 rounded-[8px] px-1 py-1 text-left text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
+                              onClick={() =>
+                                applyHint({
+                                  value: name,
+                                  label: name,
+                                  kind: "function",
+                                })
+                              }
+                            >
+                              <span className="font-mono text-[11px] text-ink">
+                                {help.signature}
+                              </span>
+                              <span className="text-[11px] leading-4">{help.story}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="mt-2 border-t rule pt-2">
+                  <p className="label text-faint">Examples</p>
+                  <ul className="mt-1 flex flex-wrap gap-1.5">
+                    {FORMULA_EXAMPLES.map((example) => (
+                      <li key={example.expression}>
                         <button
                           type="button"
                           disabled={disabled}
-                          title={`Insert ${help.signature}`}
-                          className="flex w-full flex-wrap items-baseline gap-x-2 rounded-[8px] px-1 py-1 text-left text-[12px] text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11"
+                          className="rounded-full border border-line-interactive/70 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
                           onClick={() =>
-                            applyHint({
-                              value: name,
-                              label: name,
-                              kind: "function",
+                            onChange({
+                              ...draft,
+                              expression: example.expression,
+                              format: example.format,
                             })
                           }
                         >
-                          <span className="font-mono text-ink">{help.signature}</span>
-                          <span>{help.story}</span>
+                          {example.expression}
                         </button>
                       </li>
-                    );
-                  })}
-                </ul>
-                <p className="mt-3 label text-faint">Examples</p>
-                <ul className="mt-1 flex flex-wrap gap-1.5">
-                  {FORMULA_EXAMPLES.map((example) => (
-                    <li key={example.expression}>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        className="rounded-full border border-line-interactive/70 px-2 py-1 font-mono text-[11px] text-muted transition-colors hover:border-line-strong hover:text-ink pointer-coarse:min-h-11"
-                        onClick={() =>
-                          onChange({
-                            ...draft,
-                            expression: example.expression,
-                            format: example.format,
-                          })
-                        }
-                      >
-                        {example.expression}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </details>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </>
           ) : (
             <>

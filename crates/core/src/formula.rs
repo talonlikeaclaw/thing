@@ -10,6 +10,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
+use jiff::Span;
 use jiff::civil::Date;
 
 use crate::error::CoreError;
@@ -645,7 +646,7 @@ pub fn infer(expr: &Expr, context: &TypeContext<'_>) -> Result<ValueType, CoreEr
                 .iter()
                 .map(|arg| infer(arg, context))
                 .collect::<Result<Vec<_>, _>>()?;
-            infer_call(name, &types)
+            infer_call(name, args, &types)
         }
     }
 }
@@ -728,7 +729,7 @@ fn check_arity(name: &str, found: usize, min: usize, max: Option<usize>) -> Resu
     )))
 }
 
-fn infer_call(name: &str, types: &[ValueType]) -> Result<ValueType, CoreError> {
+fn infer_call(name: &str, args: &[Expr], types: &[ValueType]) -> Result<ValueType, CoreError> {
     match name {
         "if" => {
             check_arity(name, types.len(), 3, Some(3))?;
@@ -787,8 +788,108 @@ fn infer_call(name: &str, types: &[ValueType]) -> Result<ValueType, CoreError> {
             check_arity(name, types.len(), 0, Some(0))?;
             Ok(ValueType::Date)
         }
+        "coalesce" => {
+            check_arity(name, types.len(), 2, Some(8))?;
+            let first = types[0];
+            for type_ in types {
+                if *type_ != first {
+                    return Err(invalid(format!(
+                        "`coalesce` arguments must have the same type, found {} and {}",
+                        first.name(),
+                        type_.name()
+                    )));
+                }
+            }
+            Ok(first)
+        }
+        "contains" => {
+            check_arity(name, types.len(), 2, Some(2))?;
+            expect(types[0], ValueType::Text, name)?;
+            expect(types[1], ValueType::Text, name)?;
+            Ok(ValueType::Checkbox)
+        }
+        "replace" => {
+            check_arity(name, types.len(), 3, Some(3))?;
+            for type_ in types {
+                expect(*type_, ValueType::Text, name)?;
+            }
+            Ok(ValueType::Text)
+        }
+        "date_add" => {
+            check_arity(name, types.len(), 2, Some(2))?;
+            expect(types[0], ValueType::Date, name)?;
+            expect(types[1], ValueType::Number, name)?;
+            Ok(ValueType::Date)
+        }
+        "format_date" => {
+            check_arity(name, types.len(), 2, Some(2))?;
+            expect(types[0], ValueType::Date, name)?;
+            let Some(Expr::Text(pattern)) = args.get(1) else {
+                return Err(invalid("`format_date` expects a literal pattern"));
+            };
+            date_pattern_tokens(pattern)?;
+            Ok(ValueType::Text)
+        }
         other => Err(invalid(format!("unknown function `{other}`"))),
     }
+}
+
+/// Splits a `format_date` pattern into its literal characters and its three
+/// tokens, refusing any other letter run by name.
+fn date_pattern_tokens(pattern: &str) -> Result<Vec<DateToken>, CoreError> {
+    let mut tokens = Vec::new();
+    let mut rest = pattern;
+    while !rest.is_empty() {
+        let letters = rest
+            .char_indices()
+            .take_while(|(_, character)| character.is_ascii_alphabetic())
+            .map(|(index, _)| index)
+            .last()
+            .map_or(0, |index| index + 1);
+        if letters > 0 {
+            let token = &rest[..letters];
+            let known = match token {
+                "YYYY" => DateToken::Year,
+                "MM" => DateToken::Month,
+                "DD" => DateToken::Day,
+                other => {
+                    return Err(invalid(format!(
+                        "`format_date` does not know the token `{other}`; use YYYY, MM or DD"
+                    )));
+                }
+            };
+            tokens.push(known);
+            rest = &rest[letters..];
+            continue;
+        }
+        let character = rest.chars().next().expect("a non-empty tail");
+        tokens.push(DateToken::Literal(character));
+        rest = &rest[character.len_utf8()..];
+    }
+    Ok(tokens)
+}
+
+/// One piece of a `format_date` pattern.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DateToken {
+    Year,
+    Month,
+    Day,
+    Literal(char),
+}
+
+/// Renders a date through a validated pattern.
+fn format_with_pattern(date: Date, pattern: &str) -> Option<String> {
+    let mut output = String::with_capacity(pattern.len() + 8);
+    for token in date_pattern_tokens(pattern).ok()? {
+        match token {
+            DateToken::Year => output.push_str(&format!("{:04}", date.year())),
+            DateToken::Month => output.push_str(&format!("{:02}", date.month())),
+            DateToken::Day => output.push_str(&format!("{:02}", date.day())),
+            DateToken::Literal(character) => output.push(character),
+        }
+    }
+    Some(output)
 }
 
 // ── evaluation ─────────────────────────────────────────────────────────────
@@ -1062,7 +1163,70 @@ fn eval_call(name: &str, args: &[Expr], context: &EvalContext<'_>) -> Option<Eva
             Some(Eval::Number(days as f64))
         }
         "today" if args.is_empty() => Some(Eval::Date(context.today.to_string())),
+        "coalesce" if args.len() >= 2 => args
+            .iter()
+            .map(|arg| eval_typed(arg, context))
+            .find(|value| value.as_ref().is_some_and(|value| !is_empty(value)))
+            .flatten(),
+        "contains" if args.len() == 2 => {
+            let text = text_operand(&args[0], context);
+            let needle = text_operand(&args[1], context);
+            Some(Eval::Bool(text.contains(&needle)))
+        }
+        "replace" if args.len() == 3 => {
+            let text = text_operand(&args[0], context);
+            let from = text_operand(&args[1], context);
+            let to = text_operand(&args[2], context);
+            let replaced = if from.is_empty() {
+                text
+            } else {
+                text.replace(&from, &to)
+            };
+            Some(Eval::Text(replaced))
+        }
+        "date_add" if args.len() == 2 => {
+            let Some(Eval::Date(text)) = eval_typed(&args[0], context) else {
+                return None;
+            };
+            let date: Date = text.parse().ok()?;
+            let Some(Eval::Number(days)) = eval_typed(&args[1], context) else {
+                return None;
+            };
+            if !days.is_finite() || days.fract() != 0.0 {
+                return None;
+            }
+            let shifted = date.checked_add(Span::new().days(days as i64)).ok()?;
+            Some(Eval::Date(format!(
+                "{:04}-{:02}-{:02}",
+                shifted.year(),
+                shifted.month(),
+                shifted.day()
+            )))
+        }
+        "format_date" if args.len() == 2 => {
+            let Some(Eval::Date(text)) = eval_typed(&args[0], context) else {
+                return None;
+            };
+            let date: Date = text.parse().ok()?;
+            let Expr::Text(pattern) = &args[1] else {
+                return None;
+            };
+            format_with_pattern(date, pattern).map(Eval::Text)
+        }
         _ => None,
+    }
+}
+
+/// Whether a coalesce argument counts as empty: an unset reference or `""`.
+fn is_empty(value: &Eval) -> bool {
+    matches!(value, Eval::Text(text) if text.is_empty())
+}
+
+/// A text operand, with an unset one read as the empty string.
+fn text_operand(expr: &Expr, context: &EvalContext<'_>) -> String {
+    match eval_typed(expr, context) {
+        Some(Eval::Text(text)) => text,
+        _ => String::new(),
     }
 }
 
@@ -1390,6 +1554,228 @@ mod tests {
                 ],
             ),
             number(3.0)
+        );
+    }
+
+    #[test]
+    fn coalesce_takes_the_first_value_that_is_not_empty() {
+        assert_eq!(
+            run(
+                r#"coalesce(room, "unassigned")"#,
+                &[],
+                &[("room", PropertyFormat::Text)],
+            ),
+            text("unassigned"),
+            "an unset reference is empty"
+        );
+        assert_eq!(
+            run(
+                r#"coalesce(room, "unassigned")"#,
+                &[("room", Value::Text(String::new()))],
+                &[("room", PropertyFormat::Text)],
+            ),
+            text("unassigned"),
+            "an empty string is empty"
+        );
+        assert_eq!(
+            run(
+                r#"coalesce(room, "unassigned")"#,
+                &[("room", Value::Text("Study".to_owned()))],
+                &[("room", PropertyFormat::Text)],
+            ),
+            text("Study")
+        );
+        assert_eq!(
+            run(
+                "coalesce(count, 0)",
+                &[],
+                &[("count", PropertyFormat::Number)],
+            ),
+            number(0.0),
+            "zero is a value, and an unset number is empty"
+        );
+        assert_eq!(
+            run(
+                "coalesce(count, 1 / 0)",
+                &[],
+                &[("count", PropertyFormat::Number)]
+            ),
+            None,
+            "every argument is empty, so the cell is empty"
+        );
+        assert_eq!(
+            run(
+                "coalesce(room, 1 / 0)",
+                &[("room", Value::Text("Study".to_owned()))],
+                &[("room", PropertyFormat::Text)],
+            ),
+            text("Study"),
+            "coalesce is lazy: the fallback is never evaluated"
+        );
+        assert_eq!(
+            run("coalesce(false, true)", &[], &[]),
+            Some(Value::Bool(false)),
+            "false is a value, not an empty one"
+        );
+    }
+
+    #[test]
+    fn contains_and_replace_work_over_text() {
+        assert_eq!(
+            run(
+                r#"contains(room, "dy")"#,
+                &[("room", Value::Text("Study".to_owned()))],
+                &[("room", PropertyFormat::Text)]
+            ),
+            Some(Value::Bool(true))
+        );
+        assert_eq!(
+            run(
+                r#"contains(room, "dy")"#,
+                &[],
+                &[("room", PropertyFormat::Text)]
+            ),
+            Some(Value::Bool(false)),
+            "an unset operand is empty, and an empty text contains nothing"
+        );
+        assert_eq!(
+            run(
+                r#"contains(room, "")"#,
+                &[("room", Value::Text("Study".to_owned()))],
+                &[("room", PropertyFormat::Text)]
+            ),
+            Some(Value::Bool(true)),
+            "the empty needle is contained by every text"
+        );
+
+        assert_eq!(
+            run(
+                r#"replace(code, "-", "/")"#,
+                &[("code", Value::Text("a-b-c".to_owned()))],
+                &[("code", PropertyFormat::Text)]
+            ),
+            text("a/b/c"),
+            "every occurrence is replaced"
+        );
+        assert_eq!(
+            run(
+                r#"replace(code, "A", "B")"#,
+                &[("code", Value::Text("aa".to_owned()))],
+                &[("code", PropertyFormat::Text)]
+            ),
+            text("aa"),
+            "the match is case-sensitive"
+        );
+        assert_eq!(
+            run(
+                r#"replace(code, "", "x")"#,
+                &[("code", Value::Text("ab".to_owned()))],
+                &[("code", PropertyFormat::Text)]
+            ),
+            text("ab"),
+            "an empty needle leaves the text unchanged"
+        );
+        assert_eq!(
+            run(
+                r#"replace(code, "x", "y")"#,
+                &[],
+                &[("code", PropertyFormat::Text)]
+            ),
+            text(""),
+            "an unset operand is empty"
+        );
+    }
+
+    #[test]
+    fn date_arithmetic_and_formatting_stay_on_calendar_days() {
+        let due = [("due", Value::Text("2026-11-09".to_owned()))];
+        let due_format = [("due", PropertyFormat::Date)];
+        assert_eq!(
+            run("date_add(due, 7)", &due, &due_format),
+            text("2026-11-16")
+        );
+        assert_eq!(
+            run("date_add(due, -9)", &due, &due_format),
+            text("2026-10-31"),
+            "a negative count moves back across the month boundary"
+        );
+        assert_eq!(
+            run("date_add(due, 1.5)", &due, &due_format),
+            None,
+            "a fractional count is an empty cell"
+        );
+        assert_eq!(
+            run("date_add(due, 7)", &[], &due_format),
+            None,
+            "an unset date is an empty cell"
+        );
+        assert_eq!(
+            run(r#"format_date(due, "DD/MM/YYYY")"#, &due, &due_format),
+            text("09/11/2026")
+        );
+        assert_eq!(
+            run(r#"format_date(due, "YYYY-MM-DD")"#, &due, &due_format),
+            text("2026-11-09")
+        );
+        assert_eq!(
+            run(r#"format_date(due, "DD.MM.")"#, &due, &due_format),
+            text("09.11."),
+            "every other character is copied"
+        );
+        assert_eq!(
+            infer_with(
+                r#"format_date(due, "on DD.MM")"#,
+                &[("due", Reference::Single(ValueType::Date))],
+            )
+            .expect_err("a letter run that is not a token")
+            .to_string(),
+            "invalid compute.expression: `format_date` does not know the token `on`; use YYYY, MM or DD"
+        );
+        assert_eq!(
+            run(r#"format_date(due, "DD/MM/YYYY")"#, &[], &due_format),
+            None,
+            "an unset date is an empty cell"
+        );
+    }
+
+    #[test]
+    fn the_new_functions_refuse_what_they_cannot_mean() {
+        for (expression, fragment) in [
+            ("coalesce(1)", "takes 2 to 8"),
+            (r#"coalesce(1, "x")"#, "same type"),
+            (r#"contains("a", 1)"#, "expects text"),
+            ("replace(1, \"a\", \"b\")", "expects text"),
+            ("date_add(today(), today())", "expects a number"),
+            ("date_add(1, 2)", "expects a date"),
+            (r#"format_date("x", "YYYY")"#, "expects a date"),
+            (
+                r#"format_date(due, "YYYY/QQ")"#,
+                "does not know the token `QQ`",
+            ),
+            ("format_date(due, pattern)", "expects a literal pattern"),
+        ] {
+            let error = infer_with(
+                expression,
+                &[
+                    ("due", Reference::Single(ValueType::Date)),
+                    ("pattern", Reference::Single(ValueType::Text)),
+                ],
+            )
+            .expect_err(expression);
+            assert!(
+                error.to_string().contains(fragment),
+                "{expression}: {error}"
+            );
+        }
+
+        assert!(
+            infer_with(
+                r#"date_add(seen, 1)"#,
+                &[("seen", Reference::Single(ValueType::DateTime))],
+            )
+            .expect_err("a datetime is refused statically")
+            .to_string()
+            .contains("expects a date")
         );
     }
 

@@ -174,9 +174,11 @@ export interface UpdateSpace {
   /** A preset id, or `null` for Lichen; omitted leaves it alone. */
   accent?: string | null;
   timezone?: string;
+  /** A type key, or `null` to withdraw the daily page; omitted leaves it alone. */
+  daily_type?: string | null;
 }
 
-/** Space settings: name, icon, the shared accent and the calendar-day zone. */
+/** Space settings: name, icon, the shared accent, the calendar-day zone and the daily type. */
 export function useUpdateSpace(spaceId: string) {
   const client = useQueryClient();
   return useMutation({

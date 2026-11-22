@@ -816,6 +816,7 @@ mod tests {
             icon: Some("🪴".to_owned()),
             accent: None,
             timezone: "Europe/Berlin".to_owned(),
+            daily_type: None,
             created_at: at(1_760_000_000),
             members: vec![Member {
                 user: id(2),

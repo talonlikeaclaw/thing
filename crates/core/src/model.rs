@@ -597,6 +597,10 @@ pub struct SpaceMeta {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accent: Option<String>,
     pub timezone: String,
+    /// The type today's note belongs to; absent means the daily page is not
+    /// offered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub daily_type: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
     pub members: Vec<Member>,
@@ -854,6 +858,7 @@ mod tests {
             icon: None,
             accent: None,
             timezone: "UTC".to_owned(),
+            daily_type: None,
             created_at: OffsetDateTime::UNIX_EPOCH,
             members: Vec::new(),
         }

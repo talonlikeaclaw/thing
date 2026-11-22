@@ -167,6 +167,37 @@ export const CHANGELOG: ChangelogEntry[] = [
           },
         ],
       },
+      {
+        title: "Words and days",
+        intro:
+          "A formula reaches the text and the dates a reader actually works with, and a space can offer the page it is opened for every morning.",
+        items: [
+          {
+            lead: "A formula fills an empty cell",
+            body: "coalesce takes the first value that is not empty, so a room column can read \"unassigned\" without a second column.",
+          },
+          {
+            lead: "A formula reads and rewrites text",
+            body: "contains tests for a word and replace swaps every match for another, both over the text a column stores.",
+          },
+          {
+            lead: "A formula moves and writes a date",
+            body: "date_add shifts a date by whole days, and format_date writes it with YYYY, MM and DD, so a due date can read 15/11/2026.",
+          },
+          {
+            lead: "A formula's insert list folds by job",
+            body: "The list under an expression opens on Fields — the columns this record can read — folds the language into Logic, Numbers, Text, Dates and Values & operators, keeps three worked examples beneath the tabs, and shows completions only once a name is under way.",
+          },
+          {
+            lead: "A space opens today's note",
+            body: "A space can name the type its daily note belongs to; Today opens the record titled with the day, and creates it once for an editor.",
+          },
+          {
+            lead: "Today is the space's day",
+            body: "The daily note's title is the current date in the space's timezone, so a reader in another zone still opens the same note.",
+          },
+        ],
+      },
     ],
   },
   {

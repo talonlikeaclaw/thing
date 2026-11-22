@@ -1,5 +1,5 @@
 /** One completion the formula field offers under the caret. */
-export type FormulaHintKind = "property" | "function" | "keyword";
+export type FormulaHintKind = "property" | "function" | "keyword" | "operator";
 
 export interface FormulaHint {
   /** The token inserted into the expression. */
@@ -9,22 +9,64 @@ export interface FormulaHint {
   kind: FormulaHintKind;
 }
 
-/** The formula language's function names, in the order the help lists them. */
-export const FORMULA_FUNCTIONS = [
-  "if",
-  "round",
-  "abs",
-  "min",
-  "max",
-  "length",
-  "lower",
-  "upper",
-  "days",
-  "today",
+/**
+ * The formula language's functions, grouped by the job they do. The flat
+ * `FORMULA_FUNCTIONS` list and the catalog read this order, so the help and the
+ * completions cannot disagree.
+ */
+export const FORMULA_FUNCTION_GROUPS = [
+  { key: "logic", title: "Logic", names: ["if", "coalesce"] },
+  { key: "numbers", title: "Numbers", names: ["round", "abs", "min", "max"] },
+  {
+    key: "text",
+    title: "Text",
+    names: ["length", "lower", "upper", "contains", "replace"],
+  },
+  {
+    key: "dates",
+    title: "Dates",
+    names: ["days", "today", "date_add", "format_date"],
+  },
 ] as const;
 
+/** The semantic group a function belongs to. */
+export type FormulaFunctionGroupKey =
+  (typeof FORMULA_FUNCTION_GROUPS)[number]["key"];
+
+/** One function name, as the language spells it. */
+export type FormulaFunction =
+  (typeof FORMULA_FUNCTION_GROUPS)[number]["names"][number];
+
+/** Every function name, in the order the help lists them. */
+export const FORMULA_FUNCTIONS: readonly FormulaFunction[] =
+  FORMULA_FUNCTION_GROUPS.flatMap((group) => group.names);
+
+/** The literals the lexer reads as words. */
+export const FORMULA_LITERALS = ["true", "false"] as const;
+
+/** The word operators. */
+export const FORMULA_WORD_OPERATORS = ["and", "or", "not"] as const;
+
 /** The literals and operators the lexer reads as words. */
-export const FORMULA_KEYWORDS = ["and", "or", "not", "true", "false"] as const;
+export const FORMULA_KEYWORDS = [
+  ...FORMULA_WORD_OPERATORS,
+  ...FORMULA_LITERALS,
+] as const;
+
+/** The symbol operators, as the parser reads them. */
+export const FORMULA_SYMBOL_OPERATORS = [
+  "+",
+  "-",
+  "*",
+  "/",
+  "%",
+  "=",
+  "!=",
+  "<",
+  "<=",
+  ">",
+  ">=",
+] as const;
 
 const HINT_LIMIT = 8;
 
@@ -76,7 +118,9 @@ export function formulaToken(
 /**
  * The completions for the token under the caret: the type's stored properties
  * first, then functions and keywords. A name a function or keyword owns is not
- * offered as a property, matching the lexer's shadowing rule.
+ * offered as a property, matching the lexer's shadowing rule. An empty token is
+ * not a completion: the catalog above teaches the language, and the chips
+ * appear only once a name is under way.
  */
 export function formulaHints(
   references: readonly FormulaReference[],
@@ -87,6 +131,9 @@ export function formulaHints(
     return [];
   }
   const { token } = formulaToken(expression, caret);
+  if (token === "") {
+    return [];
+  }
   const needle = token.toLowerCase();
   const reserved = new Set<string>([...FORMULA_FUNCTIONS, ...FORMULA_KEYWORDS]);
   const hints: FormulaHint[] = [];
@@ -113,7 +160,8 @@ export function formulaHints(
 
 /**
  * Inserts one completion over the token under the caret. A function opens its
- * parenthesis and leaves the caret inside; a property replaces the token as-is.
+ * parenthesis and leaves the caret inside; a property replaces the token as-is;
+ * an operator is written between spaces so the expression stays readable.
  */
 export function insertHint(
   expression: string,
@@ -121,6 +169,21 @@ export function insertHint(
   hint: FormulaHint,
 ): { expression: string; caret: number } {
   const { start, end } = formulaToken(expression, caret);
+  if (hint.kind === "operator") {
+    // An operator is written where the caret sits, never over the identifier
+    // it follows, because it is not part of that identifier.
+    const at = Math.min(Math.max(caret, 0), expression.length);
+    // Spaces separate operands; punctuation already separates them.
+    const before = expression.slice(Math.max(0, at - 1), at);
+    const after = expression.slice(at, at + 1);
+    const lead = before && !/[\s(),]/.test(before) ? " " : "";
+    const trail = after && !/[\s(),]/.test(after) ? " " : "";
+    const inserted = `${lead}${hint.value}${trail}`;
+    return {
+      expression: `${expression.slice(0, at)}${inserted}${expression.slice(at)}`,
+      caret: at + inserted.length,
+    };
+  }
   const needsParen =
     hint.kind === "function" && expression[end] !== "(";
   const inserted = needsParen ? `${hint.value}(` : hint.value;

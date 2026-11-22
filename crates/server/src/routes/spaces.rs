@@ -104,6 +104,8 @@ pub struct SpaceDetail {
     pub icon: Option<String>,
     pub accent: Option<String>,
     pub timezone: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub daily_type: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
     pub role: Role,
@@ -160,6 +162,7 @@ async fn create(
         icon: clean_icon(body.icon),
         accent: None,
         timezone: clean_timezone(body.timezone.as_deref().unwrap_or(DEFAULT_TIMEZONE))?,
+        daily_type: None,
         created_at: OffsetDateTime::now_utc(),
         members: vec![Member {
             user: caller.user.id,
@@ -256,6 +259,9 @@ struct PatchSpaceRequest {
     accent: Option<Option<String>>,
     #[serde(default)]
     timezone: Option<String>,
+    /// `null` clears the daily note's type; leaving it out leaves it alone.
+    #[serde(default, deserialize_with = "double_option")]
+    daily_type: Option<Option<String>>,
 }
 
 /// `PATCH /api/spaces/{space}` [owner]
@@ -271,6 +277,7 @@ async fn update(
         && body.icon.is_none()
         && body.accent.is_none()
         && body.timezone.is_none()
+        && body.daily_type.is_none()
     {
         return Err(ApiError::validation("body", "nothing to change"));
     }
@@ -283,6 +290,15 @@ async fn update(
     let timezone = body.timezone.as_deref().map(clean_timezone).transpose()?;
 
     let _guard = handle.write.lock().await;
+    if let Some(Some(key)) = &body.daily_type {
+        let known = handle.with_index(|index| index.type_def(key).is_some());
+        if !known {
+            return Err(ApiError::validation(
+                "daily_type",
+                format!("names no type: {key}"),
+            ));
+        }
+    }
     handle.update_meta_locked(|meta| {
         if let Some(name) = name {
             meta.name = name;
@@ -295,6 +311,9 @@ async fn update(
         }
         if let Some(timezone) = &timezone {
             meta.timezone = timezone.clone();
+        }
+        if let Some(daily_type) = body.daily_type {
+            meta.daily_type = daily_type;
         }
     })?;
     handle.broadcast("space.updated", json!({}));
@@ -501,6 +520,7 @@ fn detail_of(
         icon: meta.icon,
         accent: meta.accent,
         timezone: meta.timezone,
+        daily_type: meta.daily_type,
         created_at: meta.created_at,
         role,
         members,
@@ -706,6 +726,7 @@ mod tests {
     fn health_json_carries_the_schedule_problems() {
         let problems = Problems {
             invalid_timezone: Some("Mars/Olympus_Mons".to_owned()),
+            daily_type: Some("journal".to_owned()),
             schedule_key_conflicts: vec!["due_date".to_owned()],
             view_problems: vec![ViewProblem {
                 type_key: "chore".to_owned(),
@@ -723,6 +744,7 @@ mod tests {
         };
         let body = super::super::problems_json(&problems);
         assert_eq!(body["invalid_timezone"], "Mars/Olympus_Mons");
+        assert_eq!(body["daily_type"], "journal");
         assert_eq!(body["schedule_key_conflicts"], json!(["due_date"]));
         assert_eq!(
             body["view_problems"],

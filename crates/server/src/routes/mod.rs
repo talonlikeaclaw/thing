@@ -354,6 +354,7 @@ pub fn problems_json(problems: &Problems) -> Value {
             }))
             .collect::<Vec<_>>(),
         "invalid_timezone": problems.invalid_timezone,
+        "daily_type": problems.daily_type,
         "schedule_key_conflicts": problems.schedule_key_conflicts,
         "missing_files": problems
             .missing_files
@@ -932,6 +933,90 @@ mod tests {
                 .await;
             assert_eq!(forbidden.status, StatusCode::FORBIDDEN);
             assert_eq!(forbidden.code(), "forbidden");
+        });
+    }
+
+    #[test]
+    fn an_owner_sets_the_daily_type_and_health_reports_a_stale_one() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let owner = server.register("owner@example.com", None).await;
+            let owner_cookie = cookie_of(&owner).to_owned();
+            let garden = create_space(&server, &owner_cookie, "Garden").await;
+            let journal = server
+                .call(
+                    "POST",
+                    &format!("/api/spaces/{garden}/types"),
+                    Some(json!({ "name": "Journal" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(journal.status, StatusCode::CREATED, "{:?}", journal.body);
+
+            let set = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "daily_type": "journal" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(set.status, StatusCode::OK, "{:?}", set.body);
+            assert_eq!(set.body["daily_type"], "journal");
+
+            let read = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{garden}"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(read.body["daily_type"], "journal");
+
+            let unknown = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "daily_type": "ghost" })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unknown.field(), "daily_type");
+
+            // A hand-edited key that no longer resolves is reported, and the
+            // space still opens.
+            let handle = server
+                .state
+                .registry
+                .get(garden.parse().expect("a space id"))
+                .expect("the space is loaded");
+            handle
+                .update_meta_locked(|meta| meta.daily_type = Some("ghost".to_owned()))
+                .expect("hand-edited space");
+            let health = server
+                .call(
+                    "GET",
+                    &format!("/api/spaces/{garden}/health"),
+                    None,
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(health.status, StatusCode::OK);
+            assert_eq!(health.body["daily_type"], "ghost");
+
+            let cleared = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{garden}"),
+                    Some(json!({ "daily_type": null })),
+                    Some(&owner_cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK);
+            assert_eq!(cleared.body["daily_type"], Value::Null);
         });
     }
 
