@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Builds the "Garden" demo space through the API: two scheduled types, eight
-# shared properties (three of them calculated), eight records and five Plant
-# views (the default table, a room board, a gallery, a watering calendar and a
-# nurseries table). Dates are relative to Montreal's calendar day so the
-# Schedule page starts with real overdue and upcoming work.
+# Builds the "Garden" demo space through the API: three types, ten shared
+# properties (three of them calculated), eight records and five Plant views (the
+# default table, a room board, a gallery, a watering calendar and a nurseries
+# table). Dates are relative to Montreal's calendar day so the Schedule page
+# starts with real overdue and upcoming work.
 #
 # The Nursery text column is the promotion fixture: two distinct values, three
 # links, one empty value, a column move, a sort, a moved is_not_empty filter and
 # a dropped value-bearing filter. Room is shared by Plant and Chore, so the same
-# action reports it as blocked. Price is the display fixture: a number column
-# that reads in US dollars with two decimals.
+# action reports it as blocked. Price is the display and rules fixture:
+# a number column that reads in US dollars with two decimals and refuses a
+# negative. Related plants counts only the study's plants, Replacement is a
+# relation whose picker offers only those same plants, and the Journal type is
+# the space's daily note.
 #
 #   THING_DATA_DIR=./data cargo run -p thing-server &
 #   scripts/seed.sh
@@ -149,6 +152,10 @@ request POST "/api/spaces/$space/types" '{
         "last_completed":"Last done",
         "complete":"Done"
     }}' >/dev/null
+# The daily note's type: one text column, and the space names it below.
+request POST "/api/spaces/$space/types" '{
+    "name":"Journal","icon":"📔",
+    "description":"A page for each day"}' >/dev/null
 
 # --- the properties --------------------------------------------------------
 
@@ -166,8 +173,27 @@ request POST "/api/spaces/$space/properties" \
 request POST "/api/spaces/$space/properties" \
     '{"name":"Nursery","format":"text"}' >/dev/null
 request POST "/api/spaces/$space/properties" \
+    '{"name":"Notes","format":"text"}' >/dev/null
+request POST "/api/spaces/$space/properties" \
     '{"name":"Price","format":"number",
-      "display":{"currency":"USD","decimals":2}}' >/dev/null
+      "display":{"currency":"USD","decimals":2},
+      "validation":{"min":0}}' >/dev/null
+# A filter is validated against the target type's members, so the Plant's own
+# columns exist before the filtered rollup and relation below are defined.
+request PATCH "/api/spaces/$space/types/plant" '{
+    "properties": [
+        {"key":"room","featured":true},
+        {"key":"tags"},
+        {"key":"related_plant"},
+        {"key":"nursery"},
+        {"key":"price","featured":true}
+    ]}' >/dev/null
+# The same plants as the rollup's filter below, but on a relation no rollup
+# reads: narrowing a relation a rollup counts would change what it counts.
+request POST "/api/spaces/$space/properties" \
+    '{"name":"Replacement","format":"relation","target_type":"plant",
+      "target_filter":{"op":"and","conditions":[
+        {"property":"room","condition":"equal","value":"study"}]}}' >/dev/null
 # Two ways to derive a value from what the row already has: a formula over its
 # own schedule keys, and a rollup over the records its relation links to.
 request POST "/api/spaces/$space/properties" \
@@ -175,11 +201,13 @@ request POST "/api/spaces/$space/properties" \
       "compute":{"kind":"formula","expression":"days(last_completed_at, today())"}}' >/dev/null
 request POST "/api/spaces/$space/properties" \
     '{"name":"Related plants","format":"number",
-      "compute":{"kind":"rollup","relation":"related_plant","aggregate":"count"}}' >/dev/null
+      "compute":{"kind":"rollup","relation":"related_plant","aggregate":"count",
+        "filter":{"op":"and","conditions":[
+          {"property":"room","condition":"equal","value":"study"}]}}}' >/dev/null
 request POST "/api/spaces/$space/properties" \
     '{"name":"Related titles","format":"list",
       "compute":{"kind":"rollup","relation":"related_plant","property":"title","aggregate":"list"}}' >/dev/null
-echo "seed: properties room, tags, related_plant, nursery, price, days_since_watered, related_plants, related_titles"
+echo "seed: properties room, tags, related_plant, replacement, nursery, notes, price, days_since_watered, related_plants, related_titles"
 
 # --- what each type shows --------------------------------------------------
 
@@ -188,6 +216,7 @@ request PATCH "/api/spaces/$space/types/plant" '{
         {"key":"room","featured":true},
         {"key":"tags"},
         {"key":"related_plant"},
+        {"key":"replacement"},
         {"key":"nursery"},
         {"key":"price","featured":true},
         {"key":"days_since_watered","featured":true},
@@ -234,7 +263,13 @@ request PATCH "/api/spaces/$space/types/chore/views/all" '{
     "sorts": [{"property":"updated_at","direction":"desc"}],
     "filter": {"op":"and","conditions":[]}
 }' >/dev/null
-echo "seed: type views set"
+request PATCH "/api/spaces/$space/types/journal" '{
+    "properties": [
+        {"key":"notes","featured":true}
+    ]}' >/dev/null
+# Today opens the Journal record titled with the space's own day.
+request PATCH "/api/spaces/$space" '{"daily_type":"journal"}' >/dev/null
+echo "seed: type views set; daily note is the journal type"
 
 # --- the records -----------------------------------------------------------
 #

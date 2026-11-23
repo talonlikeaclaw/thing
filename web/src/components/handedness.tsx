@@ -1,4 +1,4 @@
-import { Children, createContext, use, type ReactNode } from "react";
+import { Children, createContext, use, type ReactNode, type Ref } from "react";
 
 import { cn } from "@/lib/cn";
 import { DEFAULT_HANDEDNESS, type Handedness } from "@/lib/handedness";
@@ -55,14 +55,18 @@ export function useThumbHandedness(): Handedness {
 export function ThumbRow({
   children,
   className,
+  ref,
 }: {
   children: ReactNode;
   className?: string;
+  /** The row itself, for a caller that has to measure what it holds. */
+  ref?: Ref<HTMLDivElement>;
 }) {
   const handedness = useThumbHandedness();
   const items = Children.toArray(children);
   return (
     <div
+      ref={ref}
       className={cn(
         "flex",
         handedness === "left" ? "justify-start" : "justify-end",

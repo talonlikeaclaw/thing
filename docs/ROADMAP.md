@@ -114,8 +114,8 @@ both halves on one schema bump: presentation first (the `display` block, the vie
 switches), then the property-depth list unchanged. M10 keeps view depth and loses only "persisted
 aggregations", which the band's switches now own. Spec:
 [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md).
-M9's presentation half landed as `0.9.0` at schema 8: checkpoints 1–6 are committed, and the depth
-half (checkpoints 7–12) follows at `0.9.1`.
+M9's presentation half landed as `0.9.0` at schema 8, and the depth half (checkpoints 7–12) as
+`0.9.1`, with the `m9.2` one-property-sheet patch folded in before its release.
 
 **Revised 2026-11-11:** milestone numbers now equal the workspace minor: computed properties is
 **M8** (`0.8.0`), the inserted patches are M8.1–M8.5, property model depth is M9 (`0.9.0`), view
@@ -389,23 +389,27 @@ usability move ahead of search.
   - **M8.5 — Time and habit.** `0.8.5`, no format change. An ICS feed per scheduled type, completion
     stats and streaks derived from revisions, a since-last-visit summary, and a daily-note route
     with a browser-local daily type.
-- **M9 — Property depth and presentation.** **Presentation landed** as `0.9.0`, schema 8;
-  the depth half is planned at `0.9.1`. Spec:
+- **M9 — Property depth and presentation.** **Landed** at `0.9.1`, schema 8: presentation as
+  `0.9.0` and the property depth as `0.9.1`, with the `0.9.1` patch
+  [`m9.2-one-property-sheet.md`](plan/m9.2-one-property-sheet.md) folded in before the release.
+  Specs:
   [`docs/plan/m9-property-depth-and-presentation.md`](plan/m9-property-depth-and-presentation.md)
-  (written 2026-11-11; checkpoints 1–6 landed 2026-11-13). The depth half's execution spec — the
-  work, tests, acceptance and gates for checkpoints 7–13 — is
-  [`docs/plan/m9.1-property-depth.md`](plan/m9.1-property-depth.md) (written 2026-11-15). Two halves
-  on one schema bump. **Presentation (checkpoints 1–6):** a property gains an optional `display`
+  (written 2026-11-11; checkpoints 1–6 landed 2026-11-13) and the depth half's execution spec —
+  the work, tests, acceptance and gates for checkpoints 7–13 —
+  [`docs/plan/m9.1-property-depth.md`](plan/m9.1-property-depth.md) (written 2026-11-15;
+  checkpoints 7–13 landed 2026-11-22). Two halves on one schema bump. **Presentation
+  (checkpoints 1–6):** a property gains an optional `display`
   block — `align` for every format, and `currency` (ISO 4217), `decimals` (0–4) and `grouping` for
   numbers — and a table view gains `footer` and `footer_hidden`, so the M8.1 summary band can be
   switched off for a view or blanked per column and its amounts read in the property's currency. The
   web owns one number grammar (`lib/presentation.ts`); a stored value, a sort, a filter and a CSV
   cell stay raw, and the server's `label` stays plain. `align: auto` right-aligns numbers, a visible
-  change named in the release notes. **Depth (checkpoints 7–12):** validation (`min`/`max`/`pattern`/
-  `unique`, with `required` staying on the membership), create-time defaults, rollup filters, a
-  member/assignee format, relation target filters and a one-to-one constraint, the
-  `coalesce`/`contains`/`length`/`replace`/`date_add`/`format_date` formula additions, and the
-  shared daily type. It fixes property semantics before views and agents are built on them.
+  change named in the release notes. **Depth (checkpoints 7–12, landed 2026-11-22):** validation
+  (`min`/`max`/`pattern`/`unique`, with `required` staying on the membership), create-time defaults,
+  rollup filters, a member/assignee format, relation target filters and a one-to-one constraint, the
+  `coalesce`/`contains`/`replace`/`date_add`/`format_date` formula additions, and the shared daily
+  type, with the property sheet of `m9.2` carrying the definition and the membership together. It
+  fixed property semantics before views and agents are built on them.
 - **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
   workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
   and list; conditional formatting as saved view rules; row height and pinned columns; record

@@ -1614,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "thing-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "csv",
@@ -1631,7 +1631,7 @@ dependencies = [
 
 [[package]]
 name = "thing-server"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "argon2",

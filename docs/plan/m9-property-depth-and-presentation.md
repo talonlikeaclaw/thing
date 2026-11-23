@@ -6,8 +6,9 @@ roadmap's existing M9 list, decisions locked here, work specified in
 [`m9.1-property-depth.md`](m9.1-property-depth.md)) and its own release pass at `0.9.1`
 (checkpoint 13).
 
-**Status: checkpoints 1–6 landed at workspace `0.9.0`, schema 8; the depth half (7–13) is specified
-in [`docs/plan/m9.1-property-depth.md`](m9.1-property-depth.md) and is next.**
+**Status: landed.** Checkpoints 1–6 at workspace `0.9.0`, schema 8; the depth half (7–13) at
+`0.9.1`, with [`m9.2-one-property-sheet.md`](m9.2-one-property-sheet.md) folded in before that
+release. Work lists live in [`docs/plan/m9.1-property-depth.md`](m9.1-property-depth.md).
 The milestone opens only after M8.1's checkpoint 5 lands the `0.8.1` release. Merged 2026-11-11: table presentation was requested as its own milestone at
 `0.9.0`; the roadmap already held that version for property model depth, so both live here, on one
 schema bump, rather than renumbering M10–M14. The merge is recorded in `docs/ROADMAP.md`.

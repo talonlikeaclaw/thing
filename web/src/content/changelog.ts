@@ -37,9 +37,9 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.9.1",
     title: "A model with rules",
-    upcoming: true,
+    date: "2026-11-22",
     summary:
       "A property can now say what a value must be, so a column refuses what does not belong in it instead of storing it quietly.",
     sections: [
@@ -135,6 +135,10 @@ export const CHANGELOG: ChangelogEntry[] = [
             body: "Edit type, Properties, View settings and Filter print their labels at every width instead of shrinking to an icon, and the search is a field rather than a button that reveals one.",
           },
           {
+            lead: "The type page's actions break where they need to",
+            body: "A long type name moves the create button to its own line instead of shortening the name or pushing the edit and properties actions off the card.",
+          },
+          {
             lead: "A property sheet reads in chapters",
             body: "Definition, On this type, Display, Value rules and Relation group the controls, so the setting a reader wants is found by name rather than by scrolling.",
           },
@@ -203,6 +207,21 @@ export const CHANGELOG: ChangelogEntry[] = [
           {
             lead: "Today is the space's day",
             body: "The daily note's title is the current date in the space's timezone, so a reader in another zone still opens the same note.",
+          },
+        ],
+      },
+      {
+        title: "The type page on a phone",
+        intro:
+          "The two cards above a type's ledger give their controls room instead of squeezing a label to fit.",
+        items: [
+          {
+            lead: "The create button gets the whole line",
+            body: "Edit type and Properties move up beside the card's TYPE folio, so New chore or New plant log takes a full-width line of its own and is cut only when the name outruns that entire line — never squeezed to a few letters by the buttons beside it. The whole name stays in the button's tooltip.",
+          },
+          {
+            lead: "The saved views read as one control",
+            body: "Reorder, the view selector and New view sit together in the middle of the card instead of pinning the two circles to opposite edges, so adding a view is one tap beside the views it adds to.",
           },
         ],
       },

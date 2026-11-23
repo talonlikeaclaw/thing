@@ -434,14 +434,21 @@ create form takes the editor column, so a formula is never written in the list s
 **The Ledger Table.** A type page is two glass cards above one matte ledger, and each card
 opens with a mono folio that names its scope. The first is the type's: `TYPE` over the
 card, then the identity — icon, name, key, record count, description — with the type's own
-actions at its trailing edge and the primary create button outermost; a phone puts the
-actions on their own line, still ending at the thumb edge. The second is the view's:
+actions at its trailing edge and the primary create button outermost. A phone gives the
+identity the full width instead: the schema pair rides the folio row, level with `TYPE`, and
+the create button takes a line of its own beneath the identity, so its label is only ever
+elided by the whole line, never by the buttons beside it. A name wider than that line
+ellipsizes there, with the full name in its tooltip; no action leaves the card's edge to
+make room for it.
+The second is
+the view's:
 `VIEW` on the left, `View settings` and `Filter` flush right, the reserved `Save view`
 and `Reset` slots leading that cluster so they appear without moving `Filter` off its own
 panel, then the search as a full-width field, then the saved views. The two cards scroll with the page and never park
 over the ledger's own column labels. Every one of those actions prints its word at every
 width: no type-page control shrinks to a bare icon, because an icon a first-time reader has
-to guess is a control they do not use. The table itself lives in a 20px matte card with one border. It has two fills and
+to guess is a control they do not use. A phone buys that word back with a line rather than
+with a glyph. The table itself lives in a 20px matte card with one border. It has two fills and
 no third: a raised band for the whole header row — Title and the checkbox cell included —
 and the card's surface for every body cell, the checkbox column and both action rails
 included. A pinned column keeps its rule and never changes fill to prove it is pinned.
@@ -505,8 +512,9 @@ are a recessed segmented track with the active
 segment on the accent wash. The strip closes the panel, sitting below the search and tools on the
 container's bottom edge, so a view is chosen where the views meet the records. Its two
 edge actions are 36 px circles (44 px coarse) on the accent wash: Reorder on the
-non-dominant edge, New view on the dominant one, with the selector centred between them;
-`ThumbRow` swaps the edges for left-handed mode while the selector stays in the middle. A
+non-dominant side and New view on the dominant one, both hugging the selector's track rather
+than the card's edges, so the three remain one cluster at any width; `ThumbRow` swaps the
+circles for left-handed mode while the selector stays in the middle. A
 tool's trigger carries the accent wash while its panel is open. A filter panel names what it
 matched, offers the schedule's own questions as one-tap conditions and says a chip for each
 of them; nothing about it is stored beyond the URL's ordinary filter.
@@ -713,6 +721,21 @@ sheets 28px. A single control never mixes corners.
 empty, error and read-only are defined once in `components/ui/controls.tsx`,
 `components/ui/sheet.tsx` and `components/ui/toast.tsx`. No page defines its own button
 or input. A control with no focus-visible replacement is a defect.
+
+### Rules on a value
+
+A property states its rules once — a bound, a pattern, uniqueness, one link per target — and
+every surface that writes a value holds to them without changing its shape. A refused value
+keeps the cell's editor open on what was typed and says the rule in a danger toast
+(`must be at least 0`, `must match …`, `code must be unique; A-1042 is already on
+"Fiddle-leaf fig"`), so a row, a panel or a record never grows under the pointer. A
+one-to-one relation names the record that already links the target.
+
+A membership's default is a value the capture field already holds, with Clear beside its
+label, rather than a hint that looks empty. A member reads as the person's name in one chip
+while the id stays what the column stores; someone who left the space is listed under
+**Missing member** by their id and is never rewritten. Under a table, the footer's scope
+sentence says when its summaries cover only the rows on screen.
 
 ## Motion
 

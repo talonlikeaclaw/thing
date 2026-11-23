@@ -24,7 +24,8 @@ You define the schema, and a property can also be a relation, formula or summary
   `git`, or edit its files in another editor.
 - **User-defined schema.** Types and properties are created and changed in the app. Adding a
   property does not require a migration step, and a text column can be converted into a relation
-  to a new type.
+  to a new type. A property can state the rules its values must hold, a type can require or
+  prefill one, and a column can name a person in the space.
 - **Saved views.** The same records can be shown as a table, a board, a gallery or a calendar,
   with saved columns, filters and sorts.
 - **Self-hosted and shared.** One container serves the app. Accounts are stored in SQLite; space
@@ -207,7 +208,7 @@ command and the account CLI.
 
 ## Status
 
-`0.9.0`, schema 8. Every schema-1…7 file still loads. `thing` is pre-1.0: the file format is
+`0.9.1`, schema 8. Every schema-1…7 file still loads. `thing` is pre-1.0: the file format is
 versioned, an unknown schema is refused rather than guessed at, and CI runs the Rust and web gates
 plus Semgrep on every push.
 

@@ -740,24 +740,36 @@ export function TypeTable({
       ) : null}
     </div>
   );
+  const createTitle = `New ${type.name.toLowerCase()}`;
+  /*
+   * The create label is the type's own name. On a phone the button owns a whole
+   * line and the schema pair rides the folio row above the title, so the label
+   * only ellipsizes once it is wider than that entire line; the full name stays
+   * in the native tooltip. It is never squeezed beside the schema actions, which
+   * is what used to cut it down to a few letters.
+   */
+  const createLabel = <span className="min-w-0 truncate">{createTitle}</span>;
   const newRecordButton = canEdit ? (
     <Button
       type="button"
-      className="shrink-0 px-3 pointer-coarse:min-h-[var(--control-coarse)] max-sm:min-h-[var(--control-coarse)]"
+      data-action="create"
+      title={createTitle}
+      className="px-3 pointer-coarse:min-h-[var(--control-coarse)] max-sm:min-h-[var(--control-coarse)] max-sm:w-full"
       onClick={() => capture.open(type.key)}
     >
-      New {type.name.toLowerCase()}
+      {createLabel}
     </Button>
   ) : null;
+  const schemaAction = cn(
+    "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11",
+    focusRing,
+  );
   const editTypeButton = canEdit ? (
     <button
       type="button"
       aria-haspopup="dialog"
       title={`Edit ${type.name} type`}
-      className={cn(
-        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11",
-        focusRing,
-      )}
+      className={schemaAction}
       onClick={() => setTypeOpen(true)}
     >
       <Pencil aria-hidden size={14} />
@@ -771,31 +783,35 @@ export function TypeTable({
       type="button"
       aria-label={`Manage ${type.name} properties`}
       title={`Manage ${type.name} properties`}
-      className={cn(
-        "inline-flex min-h-[var(--control-standard)] shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-interactive/70 bg-raised/40 px-3 text-[13px] text-muted transition-colors hover:border-line-strong hover:bg-raised hover:text-ink pointer-coarse:min-h-11 max-sm:min-h-11",
-        focusRing,
-      )}
+      className={schemaAction}
       onClick={() => setManageOpen(true)}
     >
       <ListTree aria-hidden size={14} />
       <span>Properties</span>
     </button>
   ) : null;
-  // The title leads. On a phone the action pair takes its own full-width line,
-  // so the primary New action reaches the thumb edge; on desktop it stays the
-  // header's trailing cluster.
+  // The title leads. On a phone the schema pair moves up to the folio row and
+  // the primary New action gets a line of its own, so it always reaches the
+  // thumb edge with its full name; on desktop all three stay the header's
+  // trailing cluster.
   const recordActions = compact ? (
-    <ThumbRow className="w-full items-center gap-3">
-      {editTypeButton}
-      {manageButton}
-      {newRecordButton}
-    </ThumbRow>
+    canEdit ? <div className="mt-3">{newRecordButton}</div> : null
   ) : (
     <div className="flex shrink-0 items-center gap-3">
       {editTypeButton}
       {manageButton}
       {newRecordButton}
     </div>
+  );
+  /**
+   * Both schema actions edit the type, so on a phone they sit together on the
+   * card's folio row rather than taking a row of their own below the title.
+   */
+  const folioActions = (
+    <ThumbRow className="items-center gap-2">
+      {editTypeButton}
+      {manageButton}
+    </ThumbRow>
   );
 
   // The canonical order runs outward from the thumb: search is the most
@@ -961,23 +977,29 @@ export function TypeTable({
       */}
       <header>
         {/*
-          The type's own card: its folio names the scope, the actions sit on the
-          folio row, and the identity leads below. A phone reads the name first
-          and gets its actions on their own line, so the primary button still
-          reaches the thumb edge.
+          The type's own card: its folio names the scope, the schema actions sit
+          on the folio row, and the identity leads below. A phone keeps that
+          split and drops the primary create button onto a line of its own, so
+          it spans the card and never has to shorten its name.
         */}
         <div className="glass rounded-[22px] px-4 pt-3 pb-4 sm:px-5">
-          <span className="label">Type</span>
           {compact ? (
             <>
-              <div className="mt-1">{pageTitle}</div>
-              <div className="mt-3">{recordActions}</div>
+              <ThumbRow className="w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <span className="label shrink-0">Type</span>
+                {folioActions}
+              </ThumbRow>
+              <div className="mt-2">{pageTitle}</div>
+              {recordActions}
             </>
           ) : (
-            <div className="mt-1 flex flex-nowrap items-start justify-between gap-x-4">
-              {pageTitle}
-              {recordActions}
-            </div>
+            <>
+              <span className="label">Type</span>
+              <div className="mt-1 flex flex-nowrap items-start justify-between gap-x-4">
+                {pageTitle}
+                {recordActions}
+              </div>
+            </>
           )}
         </div>
 
@@ -1187,7 +1209,7 @@ export function TypeTable({
                 ) : null}
               </ThumbRow>
             ) : canEdit ? (
-              <ThumbRow className="flex-wrap items-center gap-2">
+              <ThumbRow className="min-w-0 flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1208,10 +1230,11 @@ export function TypeTable({
                 ) : null}
                 <Button
                   type="button"
-                  className="min-h-9 w-fit px-3 text-[13px] pointer-coarse:min-h-11"
+                  title={createTitle}
+                  className="min-h-9 w-fit max-w-full shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
                   onClick={() => capture.open(type.key)}
                 >
-                  New {type.name.toLowerCase()}
+                  {createLabel}
                 </Button>
               </ThumbRow>
             ) : null}
