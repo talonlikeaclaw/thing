@@ -25,8 +25,6 @@ import {
   agendaStorageKey,
   agendaTypeLabel,
   defaultAgendaState,
-  gridWindow,
-  isMonth,
   normalizeAgendaTypes,
   readAgendaState,
   writeAgendaState,
@@ -38,6 +36,7 @@ import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
 import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
+import { gridRange, isMonth } from "@/lib/views";
 
 /** `/s/:spaceId/agenda` — every scheduled row, as a List or a Calendar. */
 export function AgendaPage() {
@@ -99,7 +98,7 @@ export function AgendaPage() {
   const typeFilter = effectiveTypes.length > 0 ? { types: effectiveTypes } : {};
   const query: AgendaQuery =
     state.view === "calendar" && isMonth(state.month)
-      ? { ...gridWindow(state.month), ...typeFilter }
+      ? { ...gridRange(state.month), ...typeFilter }
       : { days: state.horizon, ...typeFilter };
   // The first read waits for the URL and the type list to settle, so a bare
   // link makes one request rather than a default one it immediately replaces,

@@ -10,6 +10,7 @@ import type {
 } from "@/api/types";
 import { parseCellText } from "@/lib/format";
 import { effectiveMembers } from "@/lib/schema";
+import { shiftDay } from "@/lib/timezone";
 
 /** Stable labels for every condition the engine understands. */
 export const CONDITION_LABELS: Record<CondOp, string> = {
@@ -360,13 +361,6 @@ export function filterParam(filter: Filter): string {
 /** Sorts as the URL carries them; an empty list is an explicit "no sort". */
 export function sortsParam(sorts: Sort[]): string {
   return JSON.stringify(sorts);
-}
-
-/** A `YYYY-MM-DD` day shifted by whole days, built in UTC so no zone moves it. */
-export function shiftDay(day: string, days: number): string {
-  const at = new Date(`${day}T00:00:00Z`);
-  at.setUTCDate(at.getUTCDate() + days);
-  return at.toISOString().slice(0, 10);
 }
 
 /** The day's position in a Monday-first week, 0–6. */

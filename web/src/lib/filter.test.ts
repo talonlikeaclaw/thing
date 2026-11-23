@@ -19,7 +19,6 @@ import {
   operatorsFor,
   parseConditionText,
   quickFilters,
-  shiftDay,
   sortsFromParams,
   sortsParam,
   withConditionOp,
@@ -257,14 +256,7 @@ describe("header sorting", () => {
   });
 });
 
-describe("day arithmetic and presets", () => {
-  it("shifts a calendar day across a month and a year", () => {
-    expect(shiftDay("2026-11-08", 1)).toBe("2026-11-09");
-    expect(shiftDay("2026-11-30", 1)).toBe("2026-12-01");
-    expect(shiftDay("2026-01-01", -1)).toBe("2025-12-31");
-    expect(shiftDay("2026-11-08", 0)).toBe("2026-11-08");
-  });
-
+describe("date presets", () => {
   it("asks the schedule's questions as due_date conditions in the space zone", () => {
     const shorts = quickFilters("2026-11-08");
     expect(shorts.map((short) => short.label)).toEqual([

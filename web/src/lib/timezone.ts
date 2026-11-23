@@ -38,6 +38,13 @@ export function defaultSpaceTimezone(): string {
   return named && SUPPORTED.includes(named) ? named : "UTC";
 }
 
+/** A `YYYY-MM-DD` day shifted by whole days, built in UTC so no zone moves it. */
+export function shiftDay(day: string, days: number): string {
+  const at = new Date(`${day}T00:00:00Z`);
+  at.setUTCDate(at.getUTCDate() + days);
+  return at.toISOString().slice(0, 10);
+}
+
 /**
  * The calendar date `now` falls on in a zone, as `YYYY-MM-DD`.
  *

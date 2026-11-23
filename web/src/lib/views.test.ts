@@ -8,6 +8,8 @@ import {
   effectiveQuery,
   groupByDate,
   groupRows,
+  gridRange,
+  isMonth,
   monthGrid,
   monthOf,
   movedViewSlot,
@@ -305,5 +307,20 @@ describe("calendar dates", () => {
     expect(addMonths("2026-12", 1)).toBe("2027-01");
     expect(addMonths("2026-01", -1)).toBe("2025-12");
     expect(addMonths("2026-10", 2)).toBe("2026-12");
+  });
+
+  it("covers the whole painted grid in one inclusive range", () => {
+    expect(gridRange("2026-10")).toEqual({ from: "2026-09-28", to: "2026-11-01" });
+    expect(gridRange("2026-02")).toEqual({ from: "2026-01-26", to: "2026-03-01" });
+    expect(gridRange("not a month")).toEqual({ from: "", to: "" });
+  });
+
+  it("accepts only a real YYYY-MM month", () => {
+    expect(isMonth("2026-10")).toBe(true);
+    expect(isMonth("2026-00")).toBe(false);
+    expect(isMonth("2026-13")).toBe(false);
+    expect(isMonth("2026-1")).toBe(false);
+    expect(isMonth("2026-10-22")).toBe(false);
+    expect(isMonth(" 2026-10")).toBe(false);
   });
 });

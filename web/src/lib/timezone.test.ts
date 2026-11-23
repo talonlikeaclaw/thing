@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultSpaceTimezone, timezoneNames, todayIn } from "@/lib/timezone";
+import { defaultSpaceTimezone, shiftDay, timezoneNames, todayIn } from "@/lib/timezone";
 
 describe("timezone picker", () => {
   it("sorts known zones and always offers UTC", () => {
@@ -30,5 +30,20 @@ describe("today in a zone", () => {
 
   it("pads month and day", () => {
     expect(todayIn("UTC", new Date("2026-01-05T12:00:00Z"))).toBe("2026-01-05");
+  });
+});
+
+describe("day arithmetic", () => {
+  it("shifts a calendar day across a month and a year", () => {
+    expect(shiftDay("2026-11-08", 1)).toBe("2026-11-09");
+    expect(shiftDay("2026-11-30", 1)).toBe("2026-12-01");
+    expect(shiftDay("2026-01-01", -1)).toBe("2025-12-31");
+    expect(shiftDay("2026-11-08", 0)).toBe("2026-11-08");
+  });
+
+  it("keeps leap days and month ends exact", () => {
+    expect(shiftDay("2028-02-28", 1)).toBe("2028-02-29");
+    expect(shiftDay("2028-03-01", -1)).toBe("2028-02-29");
+    expect(shiftDay("2026-03-01", -1)).toBe("2026-02-28");
   });
 });

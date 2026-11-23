@@ -9,7 +9,6 @@ import {
   agendaStorageKey,
   agendaTypeLabel,
   defaultAgendaState,
-  gridWindow,
   normalizeAgendaTypes,
   readAgendaState,
   writeAgendaState,
@@ -224,10 +223,5 @@ describe("agenda page state", () => {
     expect(agendaTypeLabel([])).toBe("");
     expect(agendaTypeLabel(["Chore"])).toBe("Chore");
     expect(agendaTypeLabel(["Chore", "Plant"])).toBe("Chore and Plant");
-  });
-
-  it("computes the inclusive grid window for a month", () => {
-    expect(gridWindow("2026-10")).toEqual({ from: "2026-09-28", to: "2026-11-01" });
-    expect(gridWindow("2026-02")).toEqual({ from: "2026-01-26", to: "2026-03-01" });
   });
 });

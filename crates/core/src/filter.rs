@@ -874,4 +874,54 @@ mod tests {
             assert!(row_matches(&filter, &plant, &fixture.schema()), "{op:?}");
         }
     }
+
+    /// The daily calendar reads a month as one `title` window, so ISO day
+    /// titles must order chronologically through the virtual `title` column's
+    /// text comparison — including across a month and a year boundary.
+    #[test]
+    fn titles_order_as_the_daily_calendar_reads_them() {
+        let fixture = Fixture::new();
+        let day = |title: &str| row(title, &[]);
+        let (first, last) = ("2026-10-26", "2026-12-06");
+        let window = Filter {
+            op: FilterOp::And,
+            conditions: vec![
+                Condition {
+                    property: TITLE_KEY.to_owned(),
+                    condition: CondOp::GreaterOrEqual,
+                    value: Some(text(first)),
+                },
+                Condition {
+                    property: TITLE_KEY.to_owned(),
+                    condition: CondOp::LessOrEqual,
+                    value: Some(text(last)),
+                },
+            ],
+        };
+        let in_window = |title: &str| row_matches(&window, &day(title), &fixture.schema());
+
+        for written in [first, "2026-10-31", "2026-11-01", "2026-11-30", last] {
+            assert!(in_window(written), "{written}");
+        }
+        for outside in ["2026-09-27", "2026-10-25", "2026-12-07", "2027-01-01"] {
+            assert!(!in_window(outside), "{outside}");
+        }
+
+        // `greater_or_equal` is the window's whole lower edge: the first cell
+        // itself is inside, and the day before it is not.
+        assert!(check(
+            &fixture,
+            &day("2026-10-26"),
+            TITLE_KEY,
+            CondOp::GreaterOrEqual,
+            Some(text(first))
+        ));
+        assert!(!check(
+            &fixture,
+            &day("2026-10-25"),
+            TITLE_KEY,
+            CondOp::GreaterOrEqual,
+            Some(text(first))
+        ));
+    }
 }

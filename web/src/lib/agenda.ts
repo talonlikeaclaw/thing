@@ -1,5 +1,5 @@
 import type { AgendaRow } from "@/api/types";
-import { monthGrid, monthOf } from "@/lib/views";
+import { isMonth, monthOf } from "@/lib/views";
 
 /** The three List buckets, in display order. */
 export interface AgendaBuckets {
@@ -51,13 +51,6 @@ export interface AgendaState {
 export interface AgendaStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
-}
-
-const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-/** Whether `value` is a `YYYY-MM` month the calendar helpers can read. */
-export function isMonth(value: string): boolean {
-  return MONTH.test(value);
 }
 
 function isHorizon(value: unknown): value is AgendaHorizon {
@@ -174,13 +167,4 @@ export function writeAgendaState(storage: AgendaStorage, key: string, state: Age
   } catch {
     // Storage is a convenience; the URL still carries the state.
   }
-}
-
-/**
- * The inclusive date range one month grid needs: its first cell through its
- * last, so the adjacent-month days are filled.
- */
-export function gridWindow(month: string): { from: string; to: string } {
-  const cells = monthGrid(Number(month.slice(0, 4)), Number(month.slice(5, 7))).flat();
-  return { from: cells[0]?.date ?? "", to: cells[cells.length - 1]?.date ?? "" };
 }

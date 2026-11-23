@@ -354,9 +354,25 @@ export function monthGrid(year: number, month: number): MonthCell[][] {
   );
 }
 
+/**
+ * The inclusive date range one month grid paints: its first cell through its
+ * last, so the adjacent-month days are filled by the same read.
+ */
+export function gridRange(month: string): { from: string; to: string } {
+  const cells = monthGrid(Number(month.slice(0, 4)), Number(month.slice(5, 7))).flat();
+  return { from: cells[0]?.date ?? "", to: cells[cells.length - 1]?.date ?? "" };
+}
+
 /** The month a date string belongs to. */
 export function monthOf(date: string): string {
   return date.slice(0, 7);
+}
+
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** Whether `value` is a `YYYY-MM` month the calendar helpers can read. */
+export function isMonth(value: string): boolean {
+  return MONTH.test(value);
 }
 
 /** A `YYYY-MM` month as `October 2026`, formatted in UTC so no day shifts. */
