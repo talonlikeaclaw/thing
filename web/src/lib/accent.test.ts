@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ACCENTS,
@@ -10,26 +10,9 @@ import {
   readStoredAccent,
   resetAccent,
   storedAccentKey,
+  syncThemeColor,
   type AccentStorage,
 } from "@/lib/accent";
-
-/** The surfaces the palettes are measured against (see `globals.css`). */
-const DARK_GROUND = "#0a0e0b";
-const DARK_SURFACE = "#151a16";
-const DARK_RAISED = "#1d231e";
-const DARK_INSET = "#070a08";
-const LIGHT_GROUND = "#f1efe7";
-const LIGHT_SURFACE = "#fbfaf5";
-const LIGHT_RAISED = "#efede4";
-const LIGHT_INSET = "#e7e4da";
-const DARK_INK = "#edf1e8";
-const LIGHT_INK = "#1b1d19";
-const DARK_MUTED = "#a2ab9f";
-const LIGHT_MUTED = "#5f665c";
-/* Chrome composites over the lightest point of the ground gradient, which is
-   where glass body text is at its weakest. */
-const DARK_GLASS_OVER_LIFT = "#1a221c";
-const LIGHT_GLASS_OVER_LIFT = "#fcfbf5";
 
 function memoryStorage(values: Record<string, string> = {}): AccentStorage & {
   values: Map<string, string>;
@@ -47,44 +30,9 @@ function memoryStorage(values: Record<string, string> = {}): AccentStorage & {
   };
 }
 
-function channels(hex: string): [number, number, number] {
-  const value = hex.replace("#", "");
-  return [0, 2, 4].map((offset) => parseInt(value.slice(offset, offset + 2), 16) / 255) as [
-    number,
-    number,
-    number,
-  ];
-}
-
 function alpha(hex: string): number {
   const value = hex.replace("#", "");
   return value.length === 8 ? parseInt(value.slice(6, 8), 16) / 255 : 1;
-}
-
-/** Composite a translucent wash over an opaque ground. */
-function washOver(wash: string, ground: string): string {
-  const a = alpha(wash);
-  const [wr, wg, wb] = channels(wash);
-  const [gr, gg, gb] = channels(ground);
-  const mix = (w: number, g: number) => Math.round((w * a + g * (1 - a)) * 255);
-  return `#${[mix(wr, gr), mix(wg, gg), mix(wb, gb)]
-    .map((channel) => channel.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-function luminance(hex: string): number {
-  const [r, g, b] = channels(hex).map((channel) =>
-    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
-  ) as [number, number, number];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrast(a: string, b: string): number {
-  const [high, low] = [luminance(a), luminance(b)].sort((left, right) => right - left) as [
-    number,
-    number,
-  ];
-  return (high + 0.05) / (low + 0.05);
 }
 
 const key = storedAccentKey("user-1", "space-1");
@@ -102,39 +50,7 @@ describe("ACCENTS", () => {
     expect(DEFAULT_ACCENT).toBe("lichen");
   });
 
-  // The contrast floor is a contract: editing a colour below 4.5:1 fails here.
-  it.each(ACCENTS)("keeps $id readable in both schemes", ({ dark, light }) => {
-    expect(contrast(dark.accent, DARK_GROUND)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(dark.ink, dark.accent)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(light.accent, LIGHT_GROUND)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(light.ink, light.accent)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it.each(ACCENTS)("keeps $id on-wash text readable on its wash", ({ dark, light }) => {
-    for (const ground of [DARK_GROUND, DARK_SURFACE, DARK_RAISED, DARK_INSET]) {
-      expect(contrast(dark.onWash, washOver(dark.wash, ground))).toBeGreaterThanOrEqual(4.5);
-    }
-    for (const ground of [LIGHT_GROUND, LIGHT_SURFACE, LIGHT_RAISED, LIGHT_INSET]) {
-      expect(contrast(light.onWash, washOver(light.wash, ground))).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-
-  it.each(ACCENTS)("keeps $id body ink readable on its wash", ({ dark, light }) => {
-    for (const ground of [DARK_GROUND, DARK_SURFACE, DARK_RAISED, DARK_INSET]) {
-      expect(contrast(DARK_INK, washOver(dark.wash, ground))).toBeGreaterThanOrEqual(4.5);
-    }
-    for (const ground of [LIGHT_GROUND, LIGHT_SURFACE, LIGHT_RAISED, LIGHT_INSET]) {
-      expect(contrast(LIGHT_INK, washOver(light.wash, ground))).toBeGreaterThanOrEqual(4.5);
-    }
-  });
-
-  it("keeps body and metadata text readable on the glass chrome", () => {
-    expect(contrast(DARK_INK, DARK_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(DARK_MUTED, DARK_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(LIGHT_INK, LIGHT_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(LIGHT_MUTED, LIGHT_GLASS_OVER_LIFT)).toBeGreaterThanOrEqual(4.5);
-  });
-
+  // Contrast is measured against the themed room in `styles/theme.test.ts`.
   it.each(ACCENTS)("keeps $id wash tinted by its accent at the 12% ceiling", ({ dark, light }) => {
     for (const { accent, wash } of [dark, light]) {
       expect(wash.slice(0, 7)).toBe(accent);
@@ -207,5 +123,37 @@ describe("applyAccent", () => {
     expect(root.dataset.accent).toBe("yellow");
     resetAccent(root);
     expect(root.dataset.accent).toBeUndefined();
+  });
+});
+
+describe("syncThemeColor", () => {
+  it("writes the room ground to the current scheme's meta only", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query.includes("prefers-color-scheme: dark"),
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => false,
+        }) as MediaQueryList,
+    );
+    document.head.innerHTML =
+      '<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />' +
+      '<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />';
+    const root = document.createElement("html");
+    root.style.setProperty("--color-ground", "oklch(0.2 0.01 200)");
+
+    syncThemeColor(root);
+
+    const [dark, light] = [
+      ...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'),
+    ];
+    expect(dark?.content).toBe("oklch(0.2 0.01 200)");
+    expect(light?.content).toBe("#ffffff");
+    vi.restoreAllMocks();
   });
 });

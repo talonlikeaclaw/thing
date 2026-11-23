@@ -39,6 +39,7 @@ import type {
   TypeDef,
   TypeProperty,
   TypeSummary,
+  UpdateMe,
   UpdateView,
   UploadedFile,
   User,
@@ -89,6 +90,43 @@ export function useMe() {
     },
     retry: false,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Updates the reader's own theme; the response replaces the cached account.
+ *
+ * The cache takes the change before the request, because the room is painted
+ * from `me`: a profile theme must recolor the page on the click, not one round
+ * trip later. A refusal restores the account the reader saw.
+ */
+export function useUpdateMe() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateMe) =>
+      request<User>("/api/auth/me", { method: "PATCH", body: input }),
+    onMutate: async (input) => {
+      await client.cancelQueries({ queryKey: queryKeys.me });
+      const previous = client.getQueryData<User | null>(queryKeys.me);
+      if (previous) {
+        client.setQueryData<User>(queryKeys.me, {
+          ...previous,
+          ...(input.accent !== undefined ? { accent: input.accent } : {}),
+          ...(input.accent_override !== undefined
+            ? { accent_override: input.accent_override }
+            : {}),
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) {
+        client.setQueryData(queryKeys.me, context.previous);
+      }
+    },
+    onSuccess: (user) => {
+      client.setQueryData(queryKeys.me, user);
+    },
   });
 }
 

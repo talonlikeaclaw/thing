@@ -278,9 +278,9 @@ export function SettingsPage() {
           action={accentReset}
         />
         <p className="mt-4 text-[13px] text-muted">
-          The highlight is shared with everyone in this space and marks focus, selection and the
-          primary action.{" "}
-          {owner ? "Choose one and every open client follows." : "Only an owner can change it."}
+          Sets the space&apos;s accent and the tint of its Night Glass. It marks focus, selection
+          and the primary action.{" "}
+          {owner ? "Every open client follows." : "Only an owner can change it."}
         </p>
         <AccentPicker
           value={accent}

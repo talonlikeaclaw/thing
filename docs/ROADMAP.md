@@ -108,12 +108,13 @@ its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properti
 grid-interaction patch landed as `0.8.1`, also at schema 7, with no format, route or dependency
 change; its spec is at [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md).
 
-**Revised 2026-11-23 (M9.3 added):** one more `0.9.x` lands before M10: Night Glass themes. The
-neutral ladder — ground, matte surfaces, lines, text, glass fills — currently ships as one green
-literal set, so the accent a space chose only tints selection. M9.3 rotates the whole ladder to the
+**Revised 2026-11-23 (M9.3 landed):** the last `0.9.x` before M10 is Night Glass themes. The
+neutral ladder — ground, matte surfaces, lines, text, glass fills — used to ship as one green
+literal set, so the accent a space chose only tinted selection. M9.3 rotates the whole ladder to the
 space's accent hue at fixed lightness, so the room and its frosted chrome take the space's light; six
-curated hues, Lichen pinned to today's green-black so the default space does not move. Workspace
-`0.9.2`, schema 8 unchanged, web and docs only. Spec:
+curated hues, Lichen pinned to today's green-black so the default space does not move. Account
+settings also gain a profile theme with a switch for using it in every space. Workspace `0.9.2`,
+space schema 8 unchanged, web, accounts and docs. Spec:
 [`docs/plan/m9.3-night-glass-themes.md`](plan/m9.3-night-glass-themes.md).
 
 **Revised 2026-11-11 (M9 merged):** table presentation was requested as its own `0.9.0` milestone,
@@ -418,8 +419,9 @@ usability move ahead of search.
   `coalesce`/`contains`/`replace`/`date_add`/`format_date` formula additions, and the shared daily
   type, with the property sheet of `m9.2` carrying the definition and the membership together. It
   fixed property semantics before views and agents are built on them.
-- **M9.3 — Night Glass themes.** **Planned** (workspace `0.9.2`, schema 8 unchanged, web and docs
-  only; no route, permission or dependency change); spec:
+- **M9.3 — Night Glass themes.** **Landed** (workspace `0.9.2`, space schema 8 unchanged, web,
+  accounts and docs; one account preference pair and `PATCH /api/auth/me`; no space route,
+  permission or dependency change; checkpoints 1–5 implemented); spec:
   [`docs/plan/m9.3-night-glass-themes.md`](plan/m9.3-night-glass-themes.md). The neutral ladder —
   ground, lift, inset, matte surfaces, lines, text, glass fills, chrome text, the no-blur fallback —
   is one green literal set today, so a space's accent only tints selection. The patch re-expresses

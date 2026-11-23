@@ -8,6 +8,17 @@ describe("ChangelogPage", () => {
   it("groups the newest release under headings with context", () => {
     renderWithProviders(<ChangelogPage />, { route: "/changelog" });
 
+    const newest = document.getElementById("v-0.9.2");
+    expect(newest).not.toBeNull();
+    expect(
+      within(newest as HTMLElement).getByRole("heading", { name: "Accent-tinted palette" }).closest(
+        "details",
+      ),
+    ).not.toBeNull();
+    expect(
+      within(newest as HTMLElement).getByRole("heading", { name: "Profile theme" }),
+    ).toBeInTheDocument();
+
     const first = screen.getByRole("heading", { name: "Add, edit and find properties" });
     expect(first).toBeInTheDocument();
     expect(first.closest("details")).not.toBeNull();

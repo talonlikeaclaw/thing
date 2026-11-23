@@ -2,21 +2,21 @@
 name: thing
 description: A self-hosted, markdown-backed tracker whose schema you own.
 colors:
-  ground: "#0a0e0b"
-  ground-lift: "#141c16"
-  inset: "#070a08"
-  surface: "#151a16"
-  raised: "#1d231e"
-  line: "#293029"
-  line-strong: "#3a423a"
-  line-interactive: "#6a746a"
-  ink: "#edf1e8"
-  muted: "#a2ab9f"
-  faint: "#8b948b"
-  glass: "rgba(30,38,32,0.78)"
-  glass-strong: "rgba(36,44,38,0.84)"
+  ground: "oklch(0.158 0.015 150)"
+  ground-lift: "oklch(0.216 0.022 150)"
+  inset: "oklch(0.14 0.012 150)"
+  surface: "oklch(0.211 0.017 150)"
+  raised: "oklch(0.248 0.02 150)"
+  line: "oklch(0.3 0.022 150)"
+  line-strong: "oklch(0.369 0.026 150)"
+  line-interactive: "oklch(0.547 0.03 150)"
+  ink: "oklch(0.953 0.01 150)"
+  muted: "oklch(0.731 0.018 150)"
+  faint: "oklch(0.656 0.016 150)"
+  glass: "oklch(0.2586 0.035 150 / 0.78)"
+  glass-strong: "oklch(0.2832 0.035 150 / 0.84)"
   glass-edge: "rgba(255,255,255,0.12)"
-  pane-wash: "rgba(10,14,11,0.62)"
+  pane-wash: "oklch(0.158 0 0 / 0.62)"
   pane-glass: "color-mix(in srgb, {colors.accent} 10%, {colors.glass})"
   accent: "#c8d96b"
   accent-ink: "#14180f"
@@ -139,9 +139,10 @@ components:
 **Creative North Star: "Night Glass"**
 
 thing is a field guide read through a lit instrument. The room is dark and the
-instrument is on: a green-black ground under a soft top light, with the system's own
-chrome — the header, the rail, the phone dock, sheets, menus, the command palette, the
-save state — floating above the page as frosted glass. The user's data never floats.
+instrument is on: a ground tinted by the space's own accent under a soft top light, with
+the system's own chrome — the header, the rail, the phone dock, sheets, menus, the
+command palette, the save state — floating above the page as frosted glass. The user's
+data never floats.
 Tables, ledgers, record bodies, forms and property grids sit on matte, opaque stock so
 they stay still and readable while the chrome moves over them.
 
@@ -158,13 +159,15 @@ ambient shadow. What does not transfer is its travel content: no photographic co
 no mascots, no playful colour, no card grid of trip tiles.
 
 **Key Characteristics:**
-- A top-lit green-black ground: `#141c16` at the top edge falling to `#0a0e0b` and
-  `#070a08` at the bottom.
+- A top-lit ground in the space's accent hue: Ground Lift at the top edge, Ground in the
+  middle, Inset at the bottom. Lichen, the default, is `#080f09` ground; Cyan is
+  `#060f10` and Pink `#120a0d`.
 - Frosted glass for chrome only: 78% fill at rest and 84% for sheets in dark, 82% white
   in light, 18–24px blur, 150–160% saturation, one lit 1px edge, one wide ambient shadow.
-  Chrome text has its own muted/faint step that stays at 4.5:1 even over a bright photo.
-- Matte, opaque surfaces for data: cards at `#151a16` (bone `#fbfaf5` in light) with a
-  single hairline border and no blur.
+  The fill carries more of the space's hue than the matte ladder. Chrome text has its own
+  muted/faint step that stays at 4.5:1 even over a bright photo.
+- Matte, opaque surfaces for data: cards at Surface (Lichen dark `#131b14`; `#fafaf7` in
+  light) with a single hairline border and no blur.
 - Pills for actions and segments, circles for icon actions, 12/18/28px corners for
   fields, cards and sheets. The capture action is the one saturated circle.
 - Maple Mono for display, page titles, record titles, keys, counts and labels; IBM Plex
@@ -178,6 +181,50 @@ no mascots, no playful colour, no card grid of trip tiles.
 
 The palette is functional. The ground carries the light; the glass carries the chrome;
 the accent carries state. No colour appears without a job.
+
+### The room takes the space's hue
+Every neutral token is a lightness step with the hue supplied by the space's accent:
+`oklch(L C var(--theme-hue))`. Hue moves; lightness — and therefore the contrast budget —
+does not. The matte ladder stays a tinted black; the glass fill carries more chroma, so a
+Cyan header is a teal pane and a Pink header a plum one.
+
+| Role | dark L | dark C | light L | light C |
+|---|---|---|---|---|
+| `ground` | 0.158 | 0.015 | 0.951 | 0.012 |
+| `ground-lift` | 0.216 | 0.022 | 0.984 | 0.005 |
+| `inset` | 0.140 | 0.012 | 0.918 | 0.016 |
+| `surface` | 0.211 | 0.017 | 0.984 | 0.004 |
+| `raised` | 0.248 | 0.020 | 0.945 | 0.014 |
+| `line` | 0.300 | 0.022 | 0.882 | 0.020 |
+| `line-strong` | 0.369 | 0.026 | 0.813 | 0.022 |
+| `line-interactive` | 0.547 | 0.030 | 0.629 | 0.024 |
+| `ink` | 0.953 | 0.010 | 0.227 | 0.010 |
+| `muted` | 0.731 | 0.018 | 0.501 | 0.018 |
+| `faint` | 0.656 | 0.016 | 0.502 | 0.016 |
+| `chrome-muted` | 0.892 | 0.015 | 0.406 | 0.015 |
+| `chrome-faint` | 0.861 | 0.016 | 0.420 | 0.016 |
+| `action-fallback` | 0.335 | 0.012 | 0.942 | 0.010 |
+| `glass` | 0.2586 | 0.035 | 0.985 | 0.006 |
+| `glass-strong` | 0.2832 | 0.035 | 0.988 | 0.006 |
+
+Alpha stays fixed: glass 0.78 dark / 0.82 light, glass-strong 0.84 / 0.86. The pane wash
+keeps C 0 and its scheme's alpha because it sits over pictures.
+
+| Accent | dark hue | light hue | dark ground | light ground |
+|---|---|---|---|---|
+| `lichen` | 150 | 95 | `#080f09` | `#f1efe6` |
+| `yellow` | 98 | 96 | `#0e0d06` | `#f1efe6` |
+| `orange` | 64 | 52 | `#110c07` | `#f6ede8` |
+| `cyan` | 206 | 207 | `#060f10` | `#e6f1f3` |
+| `green` | 147 | 147 | `#090f09` | `#eaf1ea` |
+| `pink` | 353 | 356 | `#120a0d` | `#f6ecef` |
+
+Lichen is pinned to 150°/95°, so the default space keeps today's room. The ladder is
+declared on `:root` and on any `[data-accent]` element, so a subtree — the Appearance
+preview — resolves its own room rather than inheriting the page's.
+
+**The Theme Is the Accent Rule.** There is no second appearance setting. A space's accent
+sets the state colour and the room's hue together; an unset accent is Lichen.
 
 ### Ground and matte surfaces
 - **Night Ground** (`{colors.ground}`): the page canvas.
@@ -193,16 +240,17 @@ the accent carries state. No colour appears without a job.
 - **Field Edge** (`{colors.line-interactive}`): the resting border of an input or a
   filter chip; held at 70% so a field is a soft well, not a drawn box.
 - **Moon Ink** (`{colors.ink}`), **Fog** (`{colors.muted}`), **Distant Fog**
-  (`{colors.faint}`): primary, secondary and quietest text. Faint is `#8b948b` in dark
-  and `#60665d` in light; both clear 4.5:1 on the inset, the surface and the raised step.
+  (`{colors.faint}`): primary, secondary and quietest text. Each keeps its lightness in
+  every theme, so Faint clears 4.5:1 on the inset, the surface and the raised step in all
+  twelve theme/scheme rooms.
 
 ### Glass
 - **Glass** (`{colors.glass}`): the resting chrome — app header, desktop rail, phone
-  dock, toolbars, menus, the record save row. Dark: `rgba(30,38,32,0.78)`; light:
-  `rgba(255,255,255,0.82)`.
+  dock, toolbars, menus, the record save row. The themed fill at 78% in dark
+  (`oklch(0.2586 0.035 var(--theme-hue) / 0.78)`) and 82% in light.
 - **Glass Strong** (`{colors.glass-strong}`): surfaces that must stay readable while the page
-  shows through — sheets, the command palette, menus, toasts, the bulk bar. Dark:
-  `rgba(36,44,38,0.84)`; light: `rgba(252,251,246,0.86)`.
+  shows through — sheets, the command palette, menus, toasts, the bulk bar. One lightness
+  step above Glass, at 84% in dark and 86% in light.
 - **Glass Edge** (`{colors.glass-edge}`): the 1px lit rim that gives the panel its edge.
 - Blur 24px at 150% saturation for chrome; 18–20px at 160% for menus and sheets,
   so what passes under stays legible as colour and shape. One wide shadow
@@ -216,7 +264,7 @@ which clears 4.5:1 against the lightest composite the fill can produce. Data sur
 keep `muted`/`faint`; the photo viewer is exempt.
 
 **The Scrim Is Not a Colour Rule.** An overlay scrim is the page itself, blurred and
-dimmed. It never adds a coloured wash; a tint over the green ground reads as a flat
+dimmed. It never adds a coloured wash; a tint over the themed ground reads as a flat
 plate and cheapens the glass. Dim to 55% in dark and 80% in light so a bright photo
 under a sheet cannot turn the panel pale.
 
@@ -247,12 +295,15 @@ gradient on a component.
 - **Amber** (`{colors.warning}`): degraded connection state, never decoration.
 
 ### Highlight accent
-The accent is a property of the space: an owner chooses one of six palettes in **Space
+The accent is a property of the space: an owner chooses one of six rooms in **Space
 settings > Appearance**, and every member's open client applies it live through
-`space.updated`. Editors and viewers see the current preset with its radios disabled.
+`space.updated`. Each option renders a small preview of the ground, glass and accent it
+will produce. Editors and viewers see the current preset with its radios disabled.
 The value lives in `space.yml` under the optional `accent` key (schema 4) and is written
 through the owner-only `PATCH /api/spaces/{space}`. An unknown id or a hex value is a
-`422` field `accent`; a hand-edited unknown value renders as Lichen.
+`422` field `accent`; a hand-edited unknown value renders as Lichen. A reader's profile
+accent and override live in the accounts database and are written through
+`PATCH /api/auth/me`.
 
 | id | label | dark accent | dark ink | dark wash | light accent | light ink | light wash |
 |---|---|---|---|---|---|---|---|
@@ -263,13 +314,22 @@ through the owner-only `PATCH /api/spaces/{space}`. An unknown id or a hex value
 | `green` | Green | `#7fe08a` | `#051706` | `#7fe08a1e` | `#256b33` | `#f0fbf2` | `#256b331e` |
 | `pink` | Pink | `#f49ac1` | `#1d0711` | `#f49ac11e` | `#96325f` | `#fdf1f6` | `#96325f1e` |
 
-`web/src/lib/accent.ts` is the single source for the picker and the contrast test; the
-core's `accent.rs` owns the ids the API accepts, and `globals.css` mirrors the palettes
-as `:root[data-accent=…]` overrides of `--color-accent`, `--color-accent-ink`,
-`--color-accent-on-wash` and `--color-accent-wash`.
+`web/src/lib/accent.ts` owns the id list, storage and the picker's labels; the core's
+`accent.rs` owns the ids the API accepts. `globals.css` declares the accent tokens on
+`[data-accent=…]` and the room ladder on `:root, [data-accent]`. The ladder repeats on the
+subtree because a custom property resolves `var()` where it is declared, so putting
+`data-accent` on an Appearance tile gives that tile its own room.
 
 **The Shared Accent Rule.** The accent is one shared property of a space, not a
 per-person skin. One owner sets it; every member sees the same state colour.
+
+**The Profile Theme Rule.** A reader may also store a profile accent in **Account
+settings**, with a switch for whether it replaces a space's accent. Inside a space the
+shared accent wins until that switch is on. Outside a space the profile accent applies as
+soon as it is chosen; with none, the room follows the last visited space, so the Spaces
+list keeps the room the reader just left; with neither, the default is Lichen. The
+preference lives in the accounts database, applies to that reader's screens only, and
+changes neither the space's `accent` nor another member's view.
 
 **The One Accent Rule.** The accent marks state and one primary action. It never fills a
 large area, never appears twice in a row for two meanings, and never becomes a second
@@ -277,8 +337,8 @@ accent. The 12% wash is the only permitted fill; at full strength it is text, a 
 the capture circle.
 
 **The Light Is the Same Instrument Rule.** Light mode is not a skin. It swaps the ground
-to bone, the glass to white and darkens the accent for contrast; it keeps every radius,
-rule, type role and composition.
+to bone and sets the light hue table, keeps a trace of the same hue in the glass,
+darkens the accent for contrast, and keeps every radius, rule, type role and composition.
 
 ## Typography
 
@@ -652,7 +712,7 @@ is dropped — an ink wash over a picture reads as one flat plate and hides it �
 is the material and the glyph carries the contrast: a light mark with a dark halo, which holds
 on a bright sky and a dark leaf alike. Under the pointer either pane takes the accent wash
 hover, the space's own colour one step up, laid over whichever body it has. The menu a kebab
-opens washes the neutral ground behind its own blur, never the green glass, because a cover can
+opens washes the neutral ground behind its own blur, never the themed glass, because a cover can
 sit behind it. An image opens the
 one lightbox: the picture at reading size, its caption, Escape and focus back on the tile.
 

@@ -16,7 +16,8 @@ use time::format_description::well_known::Rfc3339;
 use uuid::Uuid;
 
 /// One `CREATE TABLE` step per schema version, applied in order.
-const LADDER: &[&str] = &["
+const LADDER: &[&str] = &[
+    "
     CREATE TABLE IF NOT EXISTS user (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
@@ -40,7 +41,12 @@ const LADDER: &[&str] = &["
         used_by TEXT,
         used_at TEXT
     );
-"];
+",
+    "
+    ALTER TABLE user ADD COLUMN accent TEXT;
+    ALTER TABLE user ADD COLUMN accent_override INTEGER NOT NULL DEFAULT 0;
+",
+];
 
 /// What the accounts layer can refuse.
 #[derive(Debug, Error)]
@@ -59,6 +65,10 @@ pub struct User {
     pub id: Uuid,
     pub email: String,
     pub name: String,
+    /// The profile theme's preset id; absent means the default (Lichen).
+    pub accent: Option<String>,
+    /// Whether the profile theme replaces a space's own accent on every page.
+    pub accent_override: bool,
 }
 
 /// An invite code, before it is used.
@@ -131,6 +141,8 @@ impl Accounts {
             id: Uuid::now_v7(),
             email: email.to_owned(),
             name: name.to_owned(),
+            accent: None,
+            accent_override: false,
         };
         let inserted = self.connection().execute(
             "INSERT OR IGNORE INTO user (id, email, name, password_hash, created_at)
@@ -146,7 +158,7 @@ impl Accounts {
     pub fn user_by_id(&self, id: Uuid) -> Result<Option<User>, AccountError> {
         self.connection()
             .query_row(
-                "SELECT id, email, name FROM user WHERE id = ?1",
+                "SELECT id, email, name, accent, accent_override FROM user WHERE id = ?1",
                 params![id.to_string()],
                 user_from_row,
             )
@@ -158,9 +170,9 @@ impl Accounts {
     pub fn credentials(&self, email: &str) -> Result<Option<(User, String)>, AccountError> {
         self.connection()
             .query_row(
-                "SELECT id, email, name, password_hash FROM user WHERE email = ?1",
+                "SELECT id, email, name, accent, accent_override, password_hash FROM user WHERE email = ?1",
                 params![email],
-                |row| Ok((user_from_row(row)?, row.get::<_, String>(3)?)),
+                |row| Ok((user_from_row(row)?, row.get::<_, String>(5)?)),
             )
             .optional()
             .map_err(AccountError::from)
@@ -188,6 +200,35 @@ impl Accounts {
         )?;
         transaction.commit()?;
         Ok(true)
+    }
+
+    /// Sets a person's profile theme. `accent` distinguishes "leave it" from
+    /// "clear it": `None` leaves, `Some(None)` clears, `Some(Some(id))` sets.
+    /// Returns `None` when the account is gone.
+    pub fn update_user_preferences(
+        &self,
+        id: Uuid,
+        accent: Option<Option<String>>,
+        accent_override: Option<bool>,
+    ) -> Result<Option<User>, AccountError> {
+        {
+            let mut connection = self.connection();
+            let transaction = connection.transaction()?;
+            if let Some(accent) = accent {
+                transaction.execute(
+                    "UPDATE user SET accent = ?2 WHERE id = ?1",
+                    params![id.to_string(), accent],
+                )?;
+            }
+            if let Some(accent_override) = accent_override {
+                transaction.execute(
+                    "UPDATE user SET accent_override = ?2 WHERE id = ?1",
+                    params![id.to_string(), if accent_override { 1_i64 } else { 0 }],
+                )?;
+            }
+            transaction.commit()?;
+        }
+        self.user_by_id(id)
     }
 
     pub fn create_session(
@@ -219,11 +260,12 @@ impl Accounts {
         let found = self
             .connection()
             .query_row(
-                "SELECT user.id, user.email, user.name, session.expires_at
+                "SELECT user.id, user.email, user.name, user.accent, user.accent_override,
+                        session.expires_at
                  FROM session JOIN user ON user.id = session.user_id
                  WHERE session.token_hash = ?1",
                 params![token_hash],
-                |row| Ok((user_from_row(row)?, row.get::<_, String>(3)?)),
+                |row| Ok((user_from_row(row)?, row.get::<_, String>(5)?)),
             )
             .optional()?;
         let Some((user, expires_at)) = found else {
@@ -338,6 +380,8 @@ fn user_from_row(row: &rusqlite::Row<'_>) -> Result<User, rusqlite::Error> {
         id: uuid_from_row(row, 0)?,
         email: row.get(1)?,
         name: row.get(2)?,
+        accent: row.get(3)?,
+        accent_override: row.get::<_, i64>(4)? != 0,
     })
 }
 
@@ -435,6 +479,68 @@ mod tests {
         let refused = accounts.create_user("a@b.c", "Someone else", "hash", at());
         assert!(matches!(refused, Err(AccountError::EmailTaken(email)) if email == "a@b.c"));
         assert_eq!(accounts.user_count().expect("counts"), 1);
+    }
+
+    #[test]
+    fn a_version_one_database_gains_the_profile_columns() {
+        let connection = Connection::open_in_memory().expect("opens");
+        connection
+            .execute_batch(LADDER[0])
+            .expect("creates schema 1");
+        connection
+            .pragma_update(None, "user_version", 1_u32)
+            .expect("stamps schema 1");
+
+        migrate(&connection).expect("upgrades");
+
+        let version: u32 = connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("reads the version");
+        assert_eq!(version as usize, LADDER.len());
+        connection
+            .execute(
+                "INSERT INTO user (id, email, name, password_hash, created_at)
+                 VALUES ('u1', 'a@b.c', 'Talon', 'hash', 'now')",
+                [],
+            )
+            .expect("an old-shaped insert keeps its defaults");
+        let (accent, override_flag): (Option<String>, i64) = connection
+            .query_row("SELECT accent, accent_override FROM user", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .expect("reads the new columns");
+        assert_eq!(accent, None);
+        assert_eq!(override_flag, 0);
+    }
+
+    #[test]
+    fn a_profile_theme_round_trips_and_clears() {
+        let accounts = Accounts::in_memory().expect("opens");
+        let user = accounts
+            .create_user("a@b.c", "Talon", "hash", at())
+            .expect("registers");
+        assert_eq!(user.accent, None);
+        assert!(!user.accent_override);
+
+        let set = accounts
+            .update_user_preferences(user.id, Some(Some("cyan".to_owned())), Some(true))
+            .expect("writes")
+            .expect("the account exists");
+        assert_eq!(set.accent.as_deref(), Some("cyan"));
+        assert!(set.accent_override);
+
+        let cleared = accounts
+            .update_user_preferences(user.id, Some(None), Some(false))
+            .expect("writes")
+            .expect("the account exists");
+        assert_eq!(cleared.accent, None);
+        assert!(!cleared.accent_override);
+
+        let untouched = accounts
+            .update_user_preferences(user.id, None, None)
+            .expect("writes")
+            .expect("the account exists");
+        assert_eq!(untouched, cleared);
     }
 
     #[test]

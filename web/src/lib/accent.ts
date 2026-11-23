@@ -129,3 +129,23 @@ export function applyAccent(root: HTMLElement, id: AccentId): void {
 export function resetAccent(root: HTMLElement): void {
   delete root.dataset.accent;
 }
+
+/**
+ * Paints the browser's own chrome with the room's ground. `theme-color` cannot
+ * read a custom property, so it copies the resolved value after the theme is
+ * applied. Only the meta whose media query matches the current scheme is
+ * written; the other keeps its own scheme's ground until that scheme is shown.
+ */
+export function syncThemeColor(root: HTMLElement): void {
+  const document = root.ownerDocument;
+  const view = document.defaultView;
+  const ground =
+    root.style.getPropertyValue("--color-ground").trim() ||
+    view?.getComputedStyle(root).getPropertyValue("--color-ground").trim();
+  if (!ground) return;
+  for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    const media = meta.getAttribute("media");
+    if (media && view && !view.matchMedia(media).matches) continue;
+    meta.content = ground;
+  }
+}

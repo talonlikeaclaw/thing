@@ -12,6 +12,7 @@ import {
   readStoredAccent,
   resetAccent,
   storedAccentKey,
+  syncThemeColor,
   type AccentId,
 } from "@/lib/accent";
 import {
@@ -56,12 +57,35 @@ export function SpaceLayout() {
   const shared = space.data?.accent;
   const [seed, setSeed] = useState<AccentId | null>(null);
   const seeded = useRef(false);
-  const accent = isAccentId(shared) ? shared : (seed ?? DEFAULT_ACCENT);
+  // A reader who chose a profile theme and asked it to win sees it here; the
+  // space's shared accent still governs when the override is off.
+  const profile = me.data?.accent;
+  const profileOverride = me.data?.accent_override === true;
+  const accent = profileOverride
+    ? isAccentId(profile)
+      ? profile
+      : DEFAULT_ACCENT
+    : isAccentId(shared)
+      ? shared
+      : (seed ?? DEFAULT_ACCENT);
 
   useLayoutEffect(() => {
-    applyAccent(document.documentElement, accent);
-    return () => resetAccent(document.documentElement);
+    const root = document.documentElement;
+    applyAccent(root, accent);
+    syncThemeColor(root);
+    return () => {
+      resetAccent(root);
+      syncThemeColor(root);
+    };
   }, [accent]);
+
+  // The room and the browser chrome must agree when the OS scheme flips.
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: light)");
+    const sync = () => syncThemeColor(document.documentElement);
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   // The shared value wins once it exists; drop this user's stale local key.
   useEffect(() => {

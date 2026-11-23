@@ -32,6 +32,7 @@ import { ConnectionProvider } from "@/components/connection-context";
 import { HandednessProvider } from "@/components/handedness";
 import { PaletteProvider } from "@/components/palette-context";
 import { PageFooterProvider, usePageFooterSlot } from "@/components/page-footer";
+import { ProfileTheme } from "@/components/profile-theme";
 import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-capture";
 import { ShortcutSheet } from "@/components/shortcut-sheet";
 import { ShortcutsProvider } from "@/components/shortcut-context";
@@ -133,6 +134,7 @@ export function AppShell() {
   const currentType = typeRoute?.params.typeKey ?? object.data?.type;
   return (
     <HandednessRoot>
+      <ProfileTheme inSpace={Boolean(spaceId)} />
       <QuickCaptureProvider spaceId={spaceId} currentType={currentType}>
         <AppFrame spaceId={spaceId} />
       </QuickCaptureProvider>

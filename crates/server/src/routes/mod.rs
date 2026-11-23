@@ -632,6 +632,62 @@ mod tests {
     }
 
     #[test]
+    fn a_profile_theme_is_stored_and_refused_when_unknown() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let registered = server.register("theme@example.com", None).await;
+            let cookie = cookie_of(&registered).to_owned();
+
+            let updated = server
+                .call(
+                    "PATCH",
+                    "/api/auth/me",
+                    Some(json!({ "accent": " CYAN ", "accent_override": true })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(updated.status, StatusCode::OK, "{:?}", updated.body);
+            assert_eq!(updated.body["accent"], "cyan");
+            assert_eq!(updated.body["accent_override"], true);
+
+            let me = server
+                .call("GET", "/api/auth/me", None, Some(&cookie))
+                .await;
+            assert_eq!(me.body["accent"], "cyan");
+            assert_eq!(me.body["accent_override"], true);
+
+            let unknown = server
+                .call(
+                    "PATCH",
+                    "/api/auth/me",
+                    Some(json!({ "accent": "chartreuse" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(unknown.status, StatusCode::UNPROCESSABLE_ENTITY);
+            assert_eq!(unknown.field(), "accent");
+
+            let empty = server
+                .call("PATCH", "/api/auth/me", Some(json!({})), Some(&cookie))
+                .await;
+            assert_eq!(empty.status, StatusCode::UNPROCESSABLE_ENTITY);
+
+            let cleared = server
+                .call(
+                    "PATCH",
+                    "/api/auth/me",
+                    Some(json!({ "accent": null, "accent_override": false })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(cleared.status, StatusCode::OK);
+            assert_eq!(cleared.body["accent"], json!(null));
+            assert_eq!(cleared.body["accent_override"], false);
+        });
+    }
+
+    #[test]
     fn the_first_account_needs_no_invite_and_the_second_one_does() {
         let server = server();
         let runtime = tokio::runtime::Runtime::new().expect("a runtime");
@@ -662,6 +718,33 @@ mod tests {
             let again = server.register("first@example.com", Some(&code)).await;
             assert_eq!(again.status, StatusCode::CONFLICT);
             assert_eq!(again.code(), "conflict");
+        });
+    }
+
+    #[test]
+    fn the_space_list_carries_each_space_accent() {
+        let server = server();
+        let runtime = tokio::runtime::Runtime::new().expect("a runtime");
+        runtime.block_on(async {
+            let registered = server.register("accent-list@example.com", None).await;
+            let cookie = cookie_of(&registered).to_owned();
+            let space = create_space(&server, &cookie, "Garden").await;
+
+            let before = server.call("GET", "/api/spaces", None, Some(&cookie)).await;
+            assert_eq!(before.body[0]["accent"], json!(null));
+
+            let set = server
+                .call(
+                    "PATCH",
+                    &format!("/api/spaces/{space}"),
+                    Some(json!({ "accent": "orange" })),
+                    Some(&cookie),
+                )
+                .await;
+            assert_eq!(set.status, StatusCode::OK, "{:?}", set.body);
+
+            let after = server.call("GET", "/api/spaces", None, Some(&cookie)).await;
+            assert_eq!(after.body[0]["accent"], "orange");
         });
     }
 

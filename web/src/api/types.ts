@@ -10,6 +10,16 @@ export interface User {
   id: Uuid;
   email: string;
   name: string;
+  /** The profile theme's preset id; null means the default (Lichen). */
+  accent: string | null;
+  /** Whether the profile theme replaces a space's own accent. */
+  accent_override: boolean;
+}
+
+export interface UpdateMe {
+  /** Absent leaves the profile theme alone; null clears it. */
+  accent?: string | null;
+  accent_override?: boolean;
 }
 
 export interface Member {
@@ -23,6 +33,8 @@ export interface SpaceSummary {
   id: Uuid;
   name: string;
   icon: string | null;
+  /** The space's shared accent; null means Lichen. */
+  accent: string | null;
   role: Role;
   member_count: number;
   type_count: number;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 
 import { ACCENTS, type AccentId } from "@/lib/accent";
 import { cn } from "@/lib/cn";
@@ -12,31 +12,16 @@ interface AccentPickerProps {
   disabled?: boolean;
 }
 
-/** `prefers-color-scheme`, so a swatch shows the hue this screen will use. */
-function useLightScheme(): boolean {
-  const query = "(prefers-color-scheme: light)";
-  const [light, setLight] = useState(() => window.matchMedia(query).matches);
-
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    const sync = () => setLight(media.matches);
-    sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, []);
-
-  return light;
-}
-
 /**
  * A six-option radio group for the space's shared highlight accent.
  *
- * The colour name is always visible: the swatch is an aid, never the only
- * signal. Arrow keys move and select, and the selected option keeps the roving
- * tab stop. A change writes immediately — there is no Save button here.
+ * Each option is a small room: the ground, a pane of glass and the accent
+ * chip, drawn entirely from the tokens that `data-accent` resolves inside the
+ * tile. The colour name is always visible: the preview is an aid, never the
+ * only signal. Arrow keys move and select, and the selected option keeps the
+ * roving tab stop. A change writes immediately — there is no Save button here.
  */
 export function AccentPicker({ value, onChange, labelledBy, disabled = false }: AccentPickerProps) {
-  const light = useLightScheme();
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
 
   function move(from: number, delta: number) {
@@ -60,7 +45,6 @@ export function AccentPicker({ value, onChange, labelledBy, disabled = false }: 
       className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
     >
       {ACCENTS.map((accent, index) => {
-        const scheme = light ? accent.light : accent.dark;
         const checked = accent.id === value;
         return (
           <button
@@ -90,19 +74,22 @@ export function AccentPicker({ value, onChange, labelledBy, disabled = false }: 
               }
             }}
             className={cn(
-              "flex min-h-11 items-center gap-2.5 rounded-field px-1 py-1 text-left transition-colors pointer-coarse:min-h-12",
+              "flex min-h-11 items-center gap-3 rounded-field px-2 py-2 text-left transition-colors pointer-coarse:min-h-12",
               checked ? "text-accent" : "text-muted hover:text-ink",
               disabled && "cursor-default opacity-70",
             )}
           >
             <span
               aria-hidden
+              data-accent={accent.id}
               className={cn(
-                "size-6 shrink-0 rounded-full border",
+                "flex size-12 shrink-0 flex-col justify-end gap-1 rounded-[9px] bg-ground p-1.5",
                 checked && "ring-2 ring-accent ring-offset-2 ring-offset-ground",
               )}
-              style={{ backgroundColor: scheme.accent, borderColor: scheme.accent }}
-            />
+            >
+              <span className="h-1.5 w-full rounded-full bg-accent" />
+              <span className="h-3 w-full rounded-[4px] bg-glass" />
+            </span>
             <span className="text-[13px]">{accent.label}</span>
           </button>
         );

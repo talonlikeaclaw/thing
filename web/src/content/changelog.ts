@@ -37,109 +37,194 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "0.9.1",
-    title: "A model with rules",
-    date: "2026-11-22",
+    version: "0.9.2",
+    title: "Accent-tinted theme and profile theme",
+    date: "2026-11-23",
     summary:
-      "A property can now say what a value must be, so a column refuses what does not belong in it instead of storing it quietly.",
+      "The neutral palette takes its hue from the space accent, in both light and dark. Account settings can store a profile theme and apply it inside spaces; without one, the Spaces list uses the accent of the last space opened.",
     sections: [
       {
-        title: "Values that hold",
+        title: "Accent-tinted palette",
         intro:
-          "A column states its rules once, and every surface that writes a value holds to them.",
+          "The ground, cards, lines, text and glass use the space accent's hue instead of fixed green values.",
         items: [
           {
-            lead: "A column can refuse a value",
+            lead: "Neutral hue",
+            body: "Every neutral colour role uses the accent's hue instead of a fixed green.",
+          },
+          {
+            lead: "Default colours",
+            body: "Lichen keeps its previous colours, so a space that never changed its accent looks the same.",
+          },
+          {
+            lead: "Glass",
+            body: "Headers, rails, sheets and the phone dock use a higher chroma at the accent's hue.",
+          },
+          {
+            lead: "Contrast",
+            body: "Lightness values are unchanged, so the contrast ratios are the same for every accent.",
+          },
+          {
+            lead: "Neutral surfaces",
+            body: "The image viewer and the menus over a picture keep a grey background.",
+          },
+          {
+            lead: "Browser colour",
+            body: "The browser theme colour follows the accent in both schemes.",
+          },
+        ],
+      },
+      {
+        title: "Accent picker",
+        intro: "The picker in space settings shows the result each accent sets.",
+        items: [
+          {
+            lead: "Preview",
+            body: "Each option draws the ground, glass strip and accent chip it sets.",
+          },
+          {
+            lead: "Setting label",
+            body: "The appearance section states that the choice sets the accent and the glass tint.",
+          },
+        ],
+      },
+      {
+        title: "Profile theme",
+        intro:
+          "An account can store one accent for the pages outside a space and optionally apply it inside spaces.",
+        items: [
+          {
+            lead: "Stored accent",
+            body: "Account settings store one of the six accents; the account page, the Spaces list and the changelog use it.",
+          },
+          {
+            lead: "Instant paint",
+            body: "The page switches to the new accent before the write returns.",
+          },
+          {
+            lead: "Refused write",
+            body: "A refused write restores the previous accent and shows the server's message.",
+          },
+          {
+            lead: "Space override",
+            body: "A switch applies the profile accent inside a space, on your screens only.",
+          },
+          {
+            lead: "No profile accent",
+            body: "The Spaces list uses the accent of the most recently opened space.",
+          },
+          {
+            lead: "Other members",
+            body: "The profile accent changes only your screens; the space keeps its shared accent.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    version: "0.9.1",
+    title: "Property rules, defaults and member fields",
+    date: "2026-11-22",
+    summary:
+      "Properties can validate values, types can set starting values and require fields, and member columns name people in the space. Relations and rollups gain filters, formulas gain text and date functions, and a space can name a daily-note type.",
+    sections: [
+      {
+        title: "Value rules",
+        intro:
+          "A property can define bounds, a pattern and uniqueness; every write path checks them.",
+        items: [
+          {
+            lead: "Column validation",
             body: "A number or date property can carry a lowest and highest value, a text, URL or email property can require a pattern, and a single-value column can hold each value only once.",
           },
           {
-            lead: "A refusal names the rule",
+            lead: "Refusal messages",
             body: "A value outside the rules is refused in the cell and on the record with the sentence that says what was expected.",
           },
           {
-            lead: "A refused cell stays editable",
+            lead: "Refused cells stay editable",
             body: "A cell that refuses a value keeps the editor open, so a correction commits in place instead of a reload.",
           },
           {
-            lead: "A refusal never moves the layout",
+            lead: "Refusals do not move the layout",
             body: "A refused write shows its sentence in a toast, so a table row, a record or a panel keeps its shape while the control waits for the correction.",
           },
           {
-            lead: "A duplicate names its holder",
+            lead: "Duplicate detection",
             body: "Writing a value another record already holds is refused, and the message names the record that has it.",
           },
           {
-            lead: "An import checks the same rules",
+            lead: "CSV validation",
             body: "A CSV file is refused row by row when a value breaks a rule or repeats one already in the file.",
           },
         ],
       },
       {
-        title: "A record that starts ready",
+        title: "New-record defaults",
         intro:
-          "A type can decide what a new record already holds, so the fields that are always the same stop being retyped.",
+          "A type can set the starting value for each property and mark a property required.",
         items: [
           {
-            lead: "A new record starts with a value",
+            lead: "Starting values",
             body: "A type can name the value each new record begins with, so a price opens at 0 and a room at the one you always use.",
           },
           {
-            lead: "A field can be required from the editor",
+            lead: "Required properties",
             body: "Required is a switch on each property of a type, so capture asks for what a record cannot go without.",
           },
           {
-            lead: "A property and its place on a type are one sheet",
+            lead: "One property sheet",
             body: "The same sheet edits a property wherever it is opened from, so the definition, Required and the starting value sit together.",
           },
           {
-            lead: "A property sheet explains itself once",
+            lead: "Property sheet grouping",
             body: "Each group carries one sentence and the header names the property and its key; renaming the key or turning the column into a relation waits under one tools disclosure.",
           },
           {
-            lead: "A person can be a column",
+            lead: "Member columns",
             body: "A member column names someone in the space, so a record can say who owns it without a second type for people.",
           },
           {
-            lead: "A member reads as their name",
+            lead: "Member display names",
             body: "The table, the record and an export show the person's name while the id stays what the column stores and filters by.",
           },
           {
-            lead: "A member filter picks a person",
+            lead: "Member filters",
             body: "A condition on a member column chooses someone by name and compares the id the column stores.",
           },
           {
-            lead: "A departed member keeps their id",
+            lead: "Departed members",
             body: "A member whose account left the space stays on the record untouched, so no edit rewrites who it was.",
           },
           {
-            lead: "Health names a member the space no longer holds",
+            lead: "Health check for departed members",
             body: "The space's health read lists the records that still point at someone who is no longer a member.",
           },
         ],
       },
       {
-        title: "A page that says what it is",
+        title: "Type page labels",
         intro:
-          "The type page names its two cards, and every tool keeps its word at the width where it matters most.",
+          "The type page names its identity card and its view card, and keeps control labels on a phone.",
         items: [
           {
-            lead: "A type page names its two cards",
+            lead: "Named type cards",
             body: "The type card carries the identity and the type's actions behind one label; the view card carries the view tools, the search and the saved views behind another.",
           },
           {
-            lead: "A view opens on General",
+            lead: "View sheet opens on General",
             body: "The view sheet's strip leads with General, then Columns, Sort, Save as view and Data, and the sheet opens where the strip starts.",
           },
           {
-            lead: "A phone keeps every button's word",
+            lead: "Phone control labels",
             body: "Edit type, Properties, View settings and Filter print their labels at every width instead of shrinking to an icon, and the search is a field rather than a button that reveals one.",
           },
           {
-            lead: "The type page's actions break where they need to",
+            lead: "Type actions wrap on a long name",
             body: "A long type name moves the create button to its own line instead of shortening the name or pushing the edit and properties actions off the card.",
           },
           {
-            lead: "A property sheet reads in chapters",
+            lead: "Property sheet sections",
             body: "Definition, On this type, Display, Value rules and Relation group the controls, so the setting a reader wants is found by name rather than by scrolling.",
           },
           {
@@ -147,80 +232,80 @@ export const CHANGELOG: ChangelogEntry[] = [
             body: "The type page edits its own type in a sheet instead of leaving for the schema page, and the sheet is the same form the schema page shows, with the type's name and file at its top.",
           },
           {
-            lead: "The type form reads in chapters",
+            lead: "Type form sections",
             body: "Definition, Scheduling and Scheduling words group the type's controls the way the property sheet already does, and the generated schedule keys stay listed read only beneath the names they display.",
           },
         ],
       },
       {
-        title: "Scoped and owned",
+        title: "Rollup and relation filters",
         intro:
-          "A calculated column decides which linked records it reads, and a relation decides which records it may point at.",
+          "A rollup can filter the records it aggregates, and a relation can filter the records its picker offers.",
         items: [
           {
-            lead: "A total can count only what matches",
+            lead: "Rollup filters",
             body: "A rollup takes a filter over the records its relation points at, so a sum, count or list leaves out the ones that do not belong.",
           },
           {
-            lead: "A relation offers only the records that match",
+            lead: "Relation filters",
             body: "A relation can carry its own filter, so its picker offers the matching records and a value written anywhere else is refused with the reason.",
           },
           {
-            lead: "A record can be linked once",
+            lead: "One-to-one relations",
             body: "A one-to-one relation refuses a second record that links the same record, and the refusal names the first.",
           },
           {
-            lead: "A count carries no currency",
+            lead: "Count formatting",
             body: "A summary that counts records offers only alignment, because a tally is never money; a sum, a minimum or a maximum keeps the number formatting.",
           },
           {
-            lead: "A stale column setting no longer blocks a save",
+            lead: "Stale column settings are cleared",
             body: "A width or summary left behind for a column that is gone is cleared the next time the type is saved, instead of refusing the save.",
           },
         ],
       },
       {
-        title: "Words and days",
+        title: "Formulas and the daily note",
         intro:
-          "A formula reaches the text and the dates a reader actually works with, and a space can offer the page it is opened for every morning.",
+          "Formulas gain text and date functions, and a space can name the type used for its daily note.",
         items: [
           {
-            lead: "A formula fills an empty cell",
+            lead: "coalesce",
             body: "coalesce takes the first value that is not empty, so a room column can read \"unassigned\" without a second column.",
           },
           {
-            lead: "A formula reads and rewrites text",
+            lead: "contains and replace",
             body: "contains tests for a word and replace swaps every match for another, both over the text a column stores.",
           },
           {
-            lead: "A formula moves and writes a date",
+            lead: "date_add and format_date",
             body: "date_add shifts a date by whole days, and format_date writes it with YYYY, MM and DD, so a due date can read 15/11/2026.",
           },
           {
-            lead: "A formula's insert list folds by job",
+            lead: "Formula insert list",
             body: "The list under an expression opens on Fields — the columns this record can read — folds the language into Logic, Numbers, Text, Dates and Values & operators, keeps three worked examples beneath the tabs, and shows completions only once a name is under way.",
           },
           {
-            lead: "A space opens today's note",
+            lead: "Daily note type",
             body: "A space can name the type its daily note belongs to; Today opens the record titled with the day, and creates it once for an editor.",
           },
           {
-            lead: "Today is the space's day",
+            lead: "Daily note timezone",
             body: "The daily note's title is the current date in the space's timezone, so a reader in another zone still opens the same note.",
           },
         ],
       },
       {
-        title: "The type page on a phone",
+        title: "Type page on a phone",
         intro:
-          "The two cards above a type's ledger give their controls room instead of squeezing a label to fit.",
+          "The two cards above a type's ledger keep their controls at phone width.",
         items: [
           {
-            lead: "The create button gets the whole line",
+            lead: "Phone create button",
             body: "Edit type and Properties move up beside the card's TYPE folio, so New chore or New plant log takes a full-width line of its own and is cut only when the name outruns that entire line — never squeezed to a few letters by the buttons beside it. The whole name stays in the button's tooltip.",
           },
           {
-            lead: "The saved views read as one control",
+            lead: "Phone saved views",
             body: "Reorder, the view selector and New view sit together in the middle of the card instead of pinning the two circles to opposite edges, so adding a view is one tap beside the views it adds to.",
           },
         ],
@@ -229,141 +314,141 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.9.0",
-    title: "Numbers that read",
+    title: "Number formatting, alignment and summary controls",
     date: "2026-11-13",
     summary:
-      "A number column can say what its values are, sit where a ledger puts them, and choose whether the band under the rows summarises it. The view sheet follows the hand holding the phone, names the summaries it cannot choose, and edits a column without leaving the table.",
+      "Number properties can set currency, decimals, separators and alignment. Table views can turn the summary band off, blank individual cells and choose each column's measure. The view sheet is one View button at every width and follows handedness.",
     sections: [
       {
-        title: "Say what the number is",
+        title: "Number format",
         intro:
-          "A number column can name its unit and its precision, so a reader never has to remember which column meant what.",
+          "A number property can set its currency, decimals and separators.",
         items: [
           {
-            lead: "Money reads as money",
+            lead: "Currency and decimals",
             body: "A number property can carry a currency and a fixed number of decimals, so the cell and its total say $1,204.00 instead of 1204.",
           },
           {
-            lead: "Thousands can group",
+            lead: "Grouping",
             body: "Grouping is on by default and can be switched off for years, codes and other numbers that read better unbroken.",
           },
         ],
       },
       {
-        title: "Line up",
+        title: "Alignment",
         intro:
-          "Every column now sits where its values are read, and a column can move to the edge that suits it.",
+          "Columns align by format, and a text column can pin to the left edge.",
         items: [
           {
-            lead: "Numbers line up on the right",
+            lead: "Numbers align right",
             body: "Every number column now sits against its digits' right edge, a visible change to every table you already have.",
           },
           {
-            lead: "A column can be pinned left",
+            lead: "Text columns can pin left",
             body: "A text column whose codes read better at the left edge can keep that edge instead of following its format.",
           },
         ],
       },
       {
-        title: "The band, on your terms",
+        title: "Summary band",
         intro:
-          "The summary row is a setting of the view, not a fixture under every table.",
+          "The summary band is a view setting: it can be hidden, and individual cells can be blanked.",
         items: [
           {
-            lead: "The summary band can be switched off",
+            lead: "Hide the summary band",
             body: "A table view can drop the band entirely when its last columns are notes rather than measures.",
           },
           {
-            lead: "A column's summary cell can be blanked",
+            lead: "Blank one summary cell",
             body: "The band's own list removes one column's cell while its neighbours keep their totals.",
           },
           {
-            lead: "Each column prints the measure you choose",
+            lead: "Per-column summary measure",
             body: "A number can show its sum, average, lowest or highest, a date its earliest or latest, and a text column its distinct or filled count.",
           },
           {
-            lead: "No file editing needed",
+            lead: "Display settings stay in the property form",
             body: "A property's display sits under its format, and View settings carries the band's switch beside a checklist of the columns it summarises.",
           },
         ],
       },
       {
-        title: "Set it where you work",
+        title: "View sheet",
         intro:
-          "The view's settings are one sheet, opened from the View button at every width.",
+          "View settings are one sheet, opened from the View button at every width.",
         items: [
           {
-            lead: "One View button holds it all",
+            lead: "One View sheet",
             body: "Columns, Sort, Settings, Save as view and Data are tabs in one sheet, so no setting is buried behind a kebab.",
           },
           {
-            lead: "The sheet says where you are",
+            lead: "View sheet headings",
             body: "Its header names the view, its kind and its counts; each tab opens with a heading and one sentence of purpose; and a footer says changes save as you go, so nothing looks like it is waiting for a Save button.",
           },
           {
-            lead: "Every tab fits a phone again",
+            lead: "Phone view-sheet tabs",
             body: "The tab strip is one scrolling row that feathers its end instead of wrapping into a ragged second line, and the rest of the sheet reads top to bottom without sideways scrolling.",
           },
           {
-            lead: "Column names stay whole",
+            lead: "Long column names wrap",
             body: "A long property name wraps instead of trailing off, and a calculated column keeps the kind's glyph on a phone with the full spelling as its tooltip.",
           },
           {
-            lead: "The CSV field looks like the app",
+            lead: "CSV file field",
             body: "Importing is a button and the chosen file's name rather than the browser's own file control, and a clear control resets it so the same file can be chosen twice.",
           },
         ],
       },
       {
-        title: "Every hand",
+        title: "Handedness",
         intro:
-          "The view sheet's rows, actions and tabs follow the hand holding the phone.",
+          "The view sheet's rows, actions and tabs follow the hand selected on the phone.",
         items: [
           {
-            lead: "The view tabs keep their touch",
+            lead: "View tabs scroll on touch",
             body: "A sheet no longer cancels every touch that is not a vertical scroll, so a finger can pan the tab strip sideways and a tap still selects the tab it lands on — the last tabs are reachable again.",
           },
           {
-            lead: "A column keeps its name first",
+            lead: "Left-handed column rows",
             body: "A left hand moves a row's actions to the thumb edge without reversing the column's name and format pill.",
           },
           {
-            lead: "The actions meet the thumb",
+            lead: "Left-handed view actions",
             body: "Rename, Make default, Save as view and Import sit on the chosen edge instead of the far side.",
           },
           {
-            lead: "The saved view stays visible",
+            lead: "Selected view scrolls into view",
             body: "Selecting a view scrolls its tab into the strip on a phone, so the active view is never off-screen.",
           },
         ],
       },
       {
-        title: "Honest controls",
+        title: "Control labels",
         intro:
-          "A control that cannot change anything no longer looks like it can.",
+          "Controls name their scope, and actions that cannot apply are not shown.",
         items: [
           {
-            lead: "Display and summary say which is which",
+            lead: "Display vs summary scope",
             body: "A number's currency and decimals are property-level and read in every view; the summary measure is the view's. The property editor and the summary band now say so.",
           },
           {
-            lead: "Fixed summaries say what they are",
+            lead: "Fixed summary labels",
             body: "The title reads Row count and a relation or recurrence reads Filled count instead of a dash.",
           },
           {
-            lead: "A cover is a picture, a photo set or a tint",
+            lead: "Cover sources",
             body: "The cover picker offers only the formats a tile can draw, and the copy says a select property tints the tile.",
           },
           {
-            lead: "The View button is not a columns button",
+            lead: "View options icon",
             body: "The toolbar's view options use a sliders glyph on every kind, and a calendar opens its own details.",
           },
           {
-            lead: "A column is edited where it is",
+            lead: "Edit a column in the view",
             body: "A column's Edit property opens the shared property editor over the view instead of sending you to the schema page, so a rename or an option colour lands without losing the table.",
           },
           {
-            lead: "A generated column edits its schedule",
+            lead: "Generated columns edit the schedule",
             body: "Next watering, Water every and Last watered have no property to open, so their column menu now reads Edit schedule and lands on the type's scheduling block instead of an empty property editor.",
           },
         ],
@@ -372,34 +457,34 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: "0.8.1",
-    title: "A grid you can work in",
+    title: "Table navigation, copy and totals",
     date: "2026-11-11",
     summary:
-      "The type table now takes the keyboard the way a spreadsheet does: Tab walks its cells, a rectangle of cells can be marked and copied, and a band under the rows totals what the page shows.",
+      "The type table supports Tab and Shift+Tab between cells, Shift+arrow range selection, TSV and markdown copy, and a summary band over the displayed rows.",
     sections: [
       {
         title: "Move and select",
         intro:
-          "The ledger is one grid, with a visible target and a rectangle you can mark in either direction.",
+          "The table is a grid with a visible active cell and a rectangular selection.",
         items: [
           {
-            lead: "Tab walks the data cells",
+            lead: "Tab moves between cells",
             body: "Tab steps to the next cell and wraps to the next row; Shift+Tab reverses, and either key leaves the table at the end.",
           },
           {
-            lead: "Shift with an arrow marks a rectangle",
+            lead: "Shift+arrow selects a range",
             body: "The bar above the table names its size, and Escape clears it without losing the cell you were on.",
           },
           {
-            lead: "The active cell carries an accent ring",
+            lead: "Active cell ring",
             body: "Once the table has focus, the next keystroke has a visible target in both schemes.",
           },
           {
-            lead: "Arrow keys keep the cell in view",
+            lead: "Arrow keys scroll the cell into view",
             body: "Walking a wide table scrolls each cell clear of the pinned title column and the action rail instead of leaving it underneath them.",
           },
           {
-            lead: "O opens the record under the cursor",
+            lead: "O opens the active record",
             body: "The keyboard no longer has to walk to the row's action rail.",
           },
           {
@@ -407,80 +492,80 @@ export const CHANGELOG: ChangelogEntry[] = [
             body: "A select, multi-select or recurrence editor no longer strands focus on the toolbar control touched before it.",
           },
           {
-            lead: "A floating editor sits below its cell",
+            lead: "Floating editor below its cell",
             body: "It no longer covers the value being edited and follows the cell as the table scrolls.",
           },
           {
-            lead: "The last row stays readable",
+            lead: "Selection bar leaves the last row visible",
             body: "Selecting rows leaves a clear strip for the floating selection bar, so the table's final row is never hidden behind it.",
           },
         ],
       },
       {
-        title: "Copy out",
+        title: "Copy",
         intro:
-          "A marked rectangle leaves the page as data, in either of the two spellings a reader needs.",
+          "A selected range copies as tab-separated text or as a markdown table.",
         items: [
           {
-            lead: "Copy a block into a spreadsheet",
+            lead: "Copy a range as TSV",
             body: "Ctrl+C or ⌘C copies the marked rectangle as tab-separated text that pastes into any spreadsheet or notes app.",
           },
           {
-            lead: "Copy one cell without a rectangle",
+            lead: "Copy the active cell",
             body: "With no rectangle marked, the same keys copy just the cell under the cursor.",
           },
           {
-            lead: "Copy the same rectangle as a markdown table",
+            lead: "Copy a range as a markdown table",
             body: "The selection bar's second action produces a table ready for a record's body or a message.",
           },
           {
-            lead: "A copy says what it did",
+            lead: "Copy confirmation and refusal",
             body: "A toast reports the copied cell count or the markdown table, and a refused clipboard keeps the selection.",
           },
         ],
       },
       {
-        title: "Read the numbers",
+        title: "Summary band",
         intro:
-          "The table now answers what its page adds up to without an export.",
+          "The table totals the displayed rows without an export.",
         items: [
           {
-            lead: "A summary band totals the page shown",
+            lead: "Summary band over displayed rows",
             body: "Numbers carry a sum and an average, dates their earliest and latest day, checkboxes how many are checked, and text how many distinct values it holds.",
           },
           {
-            lead: "Every column has a short summary and a full sentence",
+            lead: "Compact and full summary labels",
             body: "The compact form fits a narrow footer, and the cell's tooltip and screen-reader name spell out how many rows are filled and the full range.",
           },
           {
-            lead: "The scope line is honest about the rows",
+            lead: "Summary scope line",
             body: "It says whether the totals cover every record or only the rows on screen.",
           },
         ],
       },
       {
-        title: "Headers that hold their line",
+        title: "Header layout",
         intro:
-          "A narrow column keeps its identity even when its name no longer fits.",
+          "A narrow column keeps its name and format on one line.",
         items: [
           {
-            lead: "A header wraps its name",
+            lead: "Wrapped header names",
             body: "A narrow column's name wraps onto up to three lines, and the full name stays on hover.",
           },
           {
-            lead: "Headers share a top edge",
+            lead: "Aligned header labels",
             body: "A wrapped name never pulls its label or its sort arrow out of line with its neighbours.",
           },
           {
-            lead: "The format sits on the header's bottom edge",
+            lead: "Format on the header's bottom edge",
             body: "Every property type reads at one height, and the Title column names Text with them.",
           },
           {
-            lead: "A format becomes an icon when the words do not fit",
+            lead: "Format falls back to an icon",
             body: "The icon keeps the spelling in its tooltip, and a phone keeps the type's glyph beside every name.",
           },
           {
-            lead: "Turn into a relation only appears where it can run",
+            lead: "Promote action only for eligible formats",
             body: "The column menu no longer lists the action for a format that cannot become a type.",
           },
         ],

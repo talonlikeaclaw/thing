@@ -650,6 +650,11 @@ Both gates are part of the checkpoint, not optional: fmt decides whitespace, cli
   Avoid implementation nouns such as schema keys, endpoints, component names and file paths. Put
   the long tail in `details`, in the same feature order, one change per line. A note says what a
   person can now do, not how it was built.
+- **Write statements, not copy.** Name the surface, the control, the condition and the observable
+  result. Do not write marketing prose: no metaphors, personification, scene-setting or mood
+  adjectives ("the glass carries the theme", "reads cool", "belongs to the person reading them",
+  "the loudest material"). If a sentence cannot be checked against the UI, a test or a diff,
+  rewrite it until it can.
 
 ## Important Files
 
@@ -763,6 +768,10 @@ code is; "it works" does not excuse a skipped gate, a secret change, or a commit
   command that stages, commits or rewrites history. Leave the checkpoint's changes uncommitted in
   the working tree and end the report with one **Proposed commit** line; the user reviews, stages
   and commits. Read-only git (`git status`, `git diff`, `git log`) is fine.
+- **Report facts.** Lead with what changed and in which files or symbols, then the observable
+  behaviour, then the exact commands or scenario that were run. One sentence per claim. Do not
+  restate the plan, pitch the work, summarise in a flourish, or use metaphor and mood adjectives.
+  Every sentence must be checkable against the diff or the command output.
 - **Every checkpoint ends with a manual test guide.** The report carries a **Test it** section: a
   numbered walkthrough the user can follow without reading the diff. Each step names the exact
   route or URL, the viewport or device mode, the tap/keystroke, and the observable result that

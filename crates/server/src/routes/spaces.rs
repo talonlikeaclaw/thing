@@ -68,6 +68,8 @@ pub struct SpaceSummary {
     pub id: Uuid,
     pub name: String,
     pub icon: Option<String>,
+    /// The space's shared accent; absent means Lichen.
+    pub accent: Option<String>,
     pub role: Role,
     pub member_count: usize,
     pub type_count: usize,
@@ -82,6 +84,7 @@ impl SpaceSummary {
             id: meta.id,
             name: meta.name,
             icon: meta.icon,
+            accent: meta.accent,
             role,
             member_count: meta.members.len(),
             type_count: handle.type_count(),

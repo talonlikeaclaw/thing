@@ -3,38 +3,45 @@
 /*
  * Night Glass: the field guide read through a lit instrument.
  * Chrome — headers, rails, the dock, sheets, toolbars — floats as frosted glass
- * over a top-lit dark ground. Data surfaces stay matte and opaque. One lichen
- * accent marks state; the only saturated chrome is the capture circle.
+ * over a top-lit ground. Data surfaces stay matte and opaque. One accent marks
+ * state and gives the room its hue; the only saturated chrome is the capture
+ * circle.
+ *
+ * The neutral ladder below is registered here as fixed Lichen values so
+ * Tailwind emits the token names and their utilities. The unlayered ladder
+ * after this block is authoritative: it rotates each role's hue to the space's
+ * accent while keeping the lightness steps registered here.
  */
 @theme static {
-  --color-ground: #0a0e0b;
-  --color-ground-lift: #141c16;
-  --color-inset: #070a08;
-  --color-surface: #151a16;
-  --color-raised: #1d231e;
-  --color-line: #293029;
-  --color-line-strong: #3a423a;
-  --color-line-interactive: #6a746a;
-  --color-ink: #edf1e8;
-  --color-muted: #a2ab9f;
-  --color-faint: #8b948b;
+  --color-ground: oklch(0.158 0.015 150);
+  --color-ground-lift: oklch(0.216 0.022 150);
+  --color-inset: oklch(0.14 0.012 150);
+  --color-surface: oklch(0.211 0.017 150);
+  --color-raised: oklch(0.248 0.02 150);
+  --color-line: oklch(0.3 0.022 150);
+  --color-line-strong: oklch(0.369 0.026 150);
+  --color-line-interactive: oklch(0.547 0.03 150);
+  --color-ink: oklch(0.953 0.01 150);
+  --color-muted: oklch(0.731 0.018 150);
+  --color-faint: oklch(0.656 0.016 150);
   /* Glass is chrome only: nav, headers, toolbars, sheets, toasts, floating
      actions. It never sits under a table cell, a record body or a form grid. */
-  --color-glass: rgba(30, 38, 32, 0.78);
-  --color-glass-strong: rgba(36, 44, 38, 0.84);
+  --color-glass: oklch(0.2586 0.035 150 / 0.78);
+  --color-glass-strong: oklch(0.2832 0.035 150 / 0.84);
   --color-glass-edge: rgba(255, 255, 255, 0.12);
   /* Chrome text is its own step: light enough (dark scheme) or dark enough
      (light scheme) to hold 4.5:1 even when a bright photo fills the glass. */
-  --color-chrome-muted: #d7ded3;
-  --color-chrome-faint: #ccd4c9;
+  --color-chrome-muted: oklch(0.892 0.015 150);
+  --color-chrome-faint: oklch(0.861 0.016 150);
   --color-chrome-danger: #ffb4a3;
   --color-chrome-warning: #f2cd7c;
   --color-glass-hover: rgba(255, 255, 255, 0.07);
   /* The pane's menus sit over pictures, so their fill is the neutral ground
-     rather than the green glass: text needs a tone the cover cannot take away. */
-  --color-pane-wash: rgba(10, 14, 11, 0.62);
-  /* A neutral solid for a browser that cannot blur; never the green surface. */
-  --color-action-fallback: #343834;
+     rather than the themed glass: text needs a tone the cover cannot take away. */
+  --color-pane-wash: oklch(0.158 0 0 / 0.62);
+  /* A neutral solid for a browser that cannot blur; a tinted black, not a
+     coloured surface. */
+  --color-action-fallback: oklch(0.335 0.012 150);
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
   --color-accent-on-wash: #c8d96b;
@@ -112,13 +119,52 @@
 }
 
 /*
+ * The themed neutral ladder. Every role is today's lightness step with the hue
+ * swapped for `--theme-hue`, so the accent a space chose tints the room without
+ * changing any contrast budget. Chroma stays a whisper on the data ladder; the
+ * glass fill carries more of the hue, because the frosted chrome is the loudest
+ * material in the room.
+ *
+ * The ladder is declared on `:root` and on any `[data-accent]` element: a
+ * custom property resolves `var()` where it is declared, so a subtree preview
+ * needs its own copy of the tokens, not only its own hue. The hue rules below
+ * then override the default for the root and for that subtree.
+ *
+ * `--color-pane-wash` stays neutral (C 0): its menus sit over pictures, and a
+ * picture is judged against grey. Shadows, the lit edge and the hover wash stay
+ * neutral for the same reason.
+ */
+:root,
+[data-accent] {
+  --theme-hue: 150;
+  --color-ground: oklch(0.158 0.015 var(--theme-hue));
+  --color-ground-lift: oklch(0.216 0.022 var(--theme-hue));
+  --color-inset: oklch(0.14 0.012 var(--theme-hue));
+  --color-surface: oklch(0.211 0.017 var(--theme-hue));
+  --color-raised: oklch(0.248 0.02 var(--theme-hue));
+  --color-line: oklch(0.3 0.022 var(--theme-hue));
+  --color-line-strong: oklch(0.369 0.026 var(--theme-hue));
+  --color-line-interactive: oklch(0.547 0.03 var(--theme-hue));
+  --color-ink: oklch(0.953 0.01 var(--theme-hue));
+  --color-muted: oklch(0.731 0.018 var(--theme-hue));
+  --color-faint: oklch(0.656 0.016 var(--theme-hue));
+  --color-chrome-muted: oklch(0.892 0.015 var(--theme-hue));
+  --color-chrome-faint: oklch(0.861 0.016 var(--theme-hue));
+  --color-action-fallback: oklch(0.335 0.012 var(--theme-hue));
+  --color-glass: oklch(0.2586 0.035 var(--theme-hue) / 0.78);
+  --color-glass-strong: oklch(0.2832 0.035 var(--theme-hue) / 0.84);
+  --color-pane-wash: oklch(0.158 0 0 / 0.62);
+}
+
+/*
  * Two tokens derived from whichever accent is in force: the wash one step up for
  * hover and focus, and the pane's glass with a trace of the space's colour. Both
  * are declared outside `@theme` because the compiler flattens a theme value that
  * references another theme value into one accent's literal hex, which would pin
- * every space to Lichen.
+ * every space to Lichen. They follow the same subtree rule as the ladder.
  */
-:root {
+:root,
+[data-accent] {
   --color-accent-wash-hover: color-mix(in srgb, var(--color-accent) 24%, transparent);
   --color-pane-glass: color-mix(in srgb, var(--color-accent) 10%, var(--color-glass));
 }
@@ -127,45 +173,52 @@
  * Highlight accent: one preset shared by every member of a space, applied by
  * `SpaceLayout` from `space.yml`. The accent, its ink and its 12% wash move;
  * every component keeps reading `accent` / `accent-ink` / `accent-wash`. Values mirror
- * `web/src/lib/accent.ts`, and `lib/accent.test.ts` enforces the 4.5:1
- * contrast floor in both schemes.
+ * `web/src/lib/accent.ts`, and `theme.test.ts` enforces the 4.5:1 contrast floor
+ * in both schemes. Each preset also sets the room's hue; Lichen is pinned to
+ * today's 150°/95° so the default space does not move.
  */
-:root[data-accent="lichen"] {
+[data-accent="lichen"] {
+  --theme-hue: 150;
   --color-accent: #c8d96b;
   --color-accent-ink: #14180f;
   --color-accent-on-wash: #c8d96b;
   --color-accent-wash: #c8d96b1e;
 }
 
-:root[data-accent="yellow"] {
+[data-accent="yellow"] {
+  --theme-hue: 98;
   --color-accent: #f2d64b;
   --color-accent-ink: #1a1503;
   --color-accent-on-wash: #f2d64b;
   --color-accent-wash: #f2d64b1e;
 }
 
-:root[data-accent="orange"] {
+[data-accent="orange"] {
+  --theme-hue: 64;
   --color-accent: #f5a24a;
   --color-accent-ink: #1c1204;
   --color-accent-on-wash: #f5a24a;
   --color-accent-wash: #f5a24a1e;
 }
 
-:root[data-accent="cyan"] {
+[data-accent="cyan"] {
+  --theme-hue: 206;
   --color-accent: #6fdbe8;
   --color-accent-ink: #04181a;
   --color-accent-on-wash: #6fdbe8;
   --color-accent-wash: #6fdbe81e;
 }
 
-:root[data-accent="green"] {
+[data-accent="green"] {
+  --theme-hue: 147;
   --color-accent: #7fe08a;
   --color-accent-ink: #051706;
   --color-accent-on-wash: #7fe08a;
   --color-accent-wash: #7fe08a1e;
 }
 
-:root[data-accent="pink"] {
+[data-accent="pink"] {
+  --theme-hue: 353;
   --color-accent: #f49ac1;
   --color-accent-ink: #1d0711;
   --color-accent-on-wash: #f49ac1;
@@ -173,42 +226,84 @@
 }
 
 @media (prefers-color-scheme: light) {
-  :root[data-accent="lichen"] {
+  /*
+   * The light instrument: the same ladder shape with its own lightness steps.
+   * At L 0.985 the sRGB gamut only allows a trace of chroma in the warm hues,
+   * so the light room stays nearly neutral; its variety comes from the bone
+   * ladder, not from a saturated ground.
+   */
+  :root,
+  [data-accent] {
+    --theme-hue: 95;
+    --color-ground: oklch(0.951 0.012 var(--theme-hue));
+    --color-ground-lift: oklch(0.984 0.005 var(--theme-hue));
+    --color-inset: oklch(0.918 0.016 var(--theme-hue));
+    --color-surface: oklch(0.984 0.004 var(--theme-hue));
+    --color-raised: oklch(0.945 0.014 var(--theme-hue));
+    --color-line: oklch(0.882 0.02 var(--theme-hue));
+    --color-line-strong: oklch(0.813 0.022 var(--theme-hue));
+    --color-line-interactive: oklch(0.629 0.024 var(--theme-hue));
+    --color-ink: oklch(0.227 0.01 var(--theme-hue));
+    --color-muted: oklch(0.501 0.018 var(--theme-hue));
+    --color-faint: oklch(0.502 0.016 var(--theme-hue));
+    --color-chrome-muted: oklch(0.406 0.015 var(--theme-hue));
+    --color-chrome-faint: oklch(0.42 0.016 var(--theme-hue));
+    --color-action-fallback: oklch(0.942 0.01 var(--theme-hue));
+    --color-glass: oklch(0.985 0.006 var(--theme-hue) / 0.82);
+    --color-glass-strong: oklch(0.988 0.006 var(--theme-hue) / 0.86);
+    --color-pane-wash: oklch(1 0 0 / 0.7);
+  }
+
+  /* Lichen is the default outside a space, before `SpaceLayout` runs. */
+  :root {
     --color-accent: #5f6f1e;
     --color-accent-ink: #f7f8f0;
     --color-accent-on-wash: #525f18;
     --color-accent-wash: #5f6f1e1e;
   }
 
-  :root[data-accent="yellow"] {
+  [data-accent="lichen"] {
+    --theme-hue: 95;
+    --color-accent: #5f6f1e;
+    --color-accent-ink: #f7f8f0;
+    --color-accent-on-wash: #525f18;
+    --color-accent-wash: #5f6f1e1e;
+  }
+
+  [data-accent="yellow"] {
+    --theme-hue: 96;
     --color-accent: #6f5d00;
     --color-accent-ink: #fbf9ea;
     --color-accent-on-wash: #645400;
     --color-accent-wash: #6f5d001e;
   }
 
-  :root[data-accent="orange"] {
+  [data-accent="orange"] {
+    --theme-hue: 52;
     --color-accent: #9a4a00;
     --color-accent-ink: #fdf6ee;
     --color-accent-on-wash: #8b4300;
     --color-accent-wash: #9a4a001e;
   }
 
-  :root[data-accent="cyan"] {
+  [data-accent="cyan"] {
+    --theme-hue: 207;
     --color-accent: #00646e;
     --color-accent-ink: #eefcfe;
     --color-accent-on-wash: #005a63;
     --color-accent-wash: #00646e1e;
   }
 
-  :root[data-accent="green"] {
+  [data-accent="green"] {
+    --theme-hue: 147;
     --color-accent: #256b33;
     --color-accent-ink: #f0fbf2;
     --color-accent-on-wash: #21602e;
     --color-accent-wash: #256b331e;
   }
 
-  :root[data-accent="pink"] {
+  [data-accent="pink"] {
+    --theme-hue: 356;
     --color-accent: #96325f;
     --color-accent-ink: #fdf1f6;
     --color-accent-on-wash: #872d56;
@@ -216,35 +311,14 @@
   }
 }
 
+/* Light-scheme tokens that are the same in every theme: the lit edge, the
+   semantic pair, the white hover wash and the shadows stay neutral. */
 @media (prefers-color-scheme: light) {
   :root {
-    --color-ground: #f1efe7;
-    --color-ground-lift: #fbfaf4;
-    --color-inset: #e7e4da;
-    --color-surface: #fbfaf5;
-    --color-raised: #efede4;
-    --color-line: #dcd8cc;
-    --color-line-strong: #c6c2b4;
-    --color-line-interactive: #8a8a7c;
-    --color-ink: #1b1d19;
-    --color-muted: #5f665c;
-    /* 4.64:1 on the inset, so the faintest label clears 4.5 on every scheme
-       surface; the old #636960 measured 4.44 on the darker inset. */
-    --color-faint: #60665d;
-    --color-glass: rgba(255, 255, 255, 0.82);
-    --color-glass-strong: rgba(252, 251, 246, 0.86);
     --color-glass-edge: rgba(255, 255, 255, 0.85);
-    --color-chrome-muted: #464b43;
-    --color-chrome-faint: #4a4f47;
     --color-chrome-danger: #8f2f1f;
     --color-chrome-warning: #6b460a;
     --color-glass-hover: rgba(255, 255, 255, 0.55);
-    --color-pane-wash: rgba(255, 255, 255, 0.7);
-    --color-action-fallback: #ecece7;
-    --color-accent: #5f6f1e;
-    --color-accent-ink: #f7f8f0;
-    --color-accent-on-wash: #525f18;
-    --color-accent-wash: #5f6f1e1e;
     --color-danger: #a33a28;
     --color-warning: #7d5410;
     --shadow-float: 0 20px 44px -24px rgba(40, 44, 34, 0.28);
@@ -462,8 +536,8 @@
    * of the space's own colour, a blur near its own size, and the accent on the
    * glyph, so the control has a body on a surface that gives it nothing to
    * refract. Over a cover the fill is dropped: an ink wash there reads as one
-   * flat green plate and hides the picture the pane sits on, so the picture
-   * itself is the material and the glyph carries the contrast.
+   * flat plate and hides the picture the pane sits on, so the picture itself
+   * is the material and the glyph carries the contrast.
    */
   .card-action {
     border: 1px solid var(--color-glass-edge);
@@ -567,7 +641,7 @@
 
   /*
    * The overlay scrim is the page itself, blurred and dimmed. No fill: a tint
-   * over a green ground reads as a flat colour and competes with the glass.
+   * over the themed ground reads as a flat colour and competes with the glass.
    *
    * A backdrop-filter that waits for its first repaint lands a beat after the
    * panel; promoting the layer makes the filter part of the same frame that

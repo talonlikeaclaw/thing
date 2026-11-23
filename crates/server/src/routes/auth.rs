@@ -5,7 +5,8 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use thing_core::accent::{ACCENT_IDS, is_accent};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -24,7 +25,7 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/auth/register", post(register))
         .route("/api/auth/login", post(login))
         .route("/api/auth/logout", post(logout))
-        .route("/api/auth/me", get(me))
+        .route("/api/auth/me", get(me).patch(update_me))
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,11 +46,34 @@ struct LoginRequest {
     password: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpdateMeRequest {
+    /// Absent leaves the profile theme alone; `null` clears it.
+    #[serde(default, deserialize_with = "explicit_option")]
+    accent: Option<Option<String>>,
+    #[serde(default)]
+    accent_override: Option<bool>,
+}
+
+/// Keeps `null` distinct from an absent field, so `"accent": null` clears the
+/// profile theme instead of reading as "leave it alone".
+fn explicit_option<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer).map(Some)
+}
+
 #[derive(Debug, Serialize)]
 pub struct UserView {
     pub id: Uuid,
     pub email: String,
     pub name: String,
+    /// The profile theme's preset id; absent means the default (Lichen).
+    pub accent: Option<String>,
+    /// Whether the profile theme replaces a space's own accent.
+    pub accent_override: bool,
 }
 
 impl From<&User> for UserView {
@@ -58,6 +82,8 @@ impl From<&User> for UserView {
             id: user.id,
             email: user.email.clone(),
             name: user.name.clone(),
+            accent: user.accent.clone(),
+            accent_override: user.accent_override,
         }
     }
 }
@@ -190,6 +216,51 @@ async fn logout(State(state): State<SharedState>, caller: Caller) -> Result<Resp
 /// `GET /api/auth/me`
 async fn me(caller: Caller) -> Json<UserView> {
     Json(UserView::from(&caller.user))
+}
+
+/// `PATCH /api/auth/me` — the reader's profile theme and whether it replaces a
+/// space's accent. Both fields are optional; at least one must be sent.
+async fn update_me(
+    State(state): State<SharedState>,
+    caller: Caller,
+    ApiJson(body): ApiJson<UpdateMeRequest>,
+) -> Result<Json<UserView>, ApiError> {
+    if body.accent.is_none() && body.accent_override.is_none() {
+        return Err(ApiError::validation(
+            "accent",
+            "choose a profile theme or the space override",
+        ));
+    }
+    let accent = match body.accent {
+        Some(raw) => Some(clean_profile_accent(raw)?),
+        None => None,
+    };
+    let user = state
+        .accounts
+        .update_user_preferences(caller.user.id, accent, body.accent_override)?
+        .ok_or_else(|| ApiError::not_found("account"))?;
+    Ok(Json(UserView::from(&user)))
+}
+
+/// A profile accent is one of the six preset ids; an empty string clears it.
+fn clean_profile_accent(raw: Option<String>) -> Result<Option<String>, ApiError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let raw = raw.trim().to_ascii_lowercase();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    if !is_accent(&raw) {
+        return Err(ApiError::validation(
+            "accent",
+            format!(
+                "unknown accent {raw}; choose one of {}",
+                ACCENT_IDS.join(", ")
+            ),
+        ));
+    }
+    Ok(Some(raw))
 }
 
 /// Records a session and returns the token, which only the client ever sees.
