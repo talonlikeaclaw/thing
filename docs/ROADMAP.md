@@ -108,13 +108,23 @@ its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properti
 grid-interaction patch landed as `0.8.1`, also at schema 7, with no format, route or dependency
 change; its spec is at [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md).
 
-**Revised 2026-11-23 (M9.3 landed):** the last `0.9.x` before M10 is Night Glass themes. The
-neutral ladder — ground, matte surfaces, lines, text, glass fills — used to ship as one green
-literal set, so the accent a space chose only tinted selection. M9.3 rotates the whole ladder to the
-space's accent hue at fixed lightness, so the room and its frosted chrome take the space's light; six
-curated hues, Lichen pinned to today's green-black so the default space does not move. Account
-settings also gain a profile theme with a switch for using it in every space. Workspace `0.9.2`,
-space schema 8 unchanged, web, accounts and docs. Spec:
+**Revised 2026-11-23 (M9.4 planned):** the daily note grows up before M10 starts. It is a page that
+opens today and nothing else: no other day has a URL, yesterday and tomorrow cannot be reached, and
+the month's shape is invisible because the `calendar` view needs a date property while a journal
+records the day in its title. M9.4 makes the day the URL (`/daily/<YYYY-MM-DD>`), puts a day strip
+with `‹` / `›` / Today on every daily record, and lays the month out as a grid over the existing
+`MonthGrid`, marking written days and the scheduled rows outstanding that day. Workspace `0.9.3`,
+space schema 8 unchanged, web only: no format key, no server route, no dependency, and the calendar's
+month is one ordinary list read over a `title` range. Spec:
+[`docs/plan/m9.4-daily-notes.md`](plan/m9.4-daily-notes.md).
+
+**Revised 2026-11-23 (M9.3 landed):** Night Glass themes ship as `0.9.2`, and daily notes add
+`0.9.3` as the last `0.9.x` before M10. The neutral ladder — ground, matte surfaces, lines, text,
+glass fills — used to ship as one green literal set, so the accent a space chose only tinted
+selection. M9.3 rotates the whole ladder to the space's accent hue at fixed lightness, so the room
+and its frosted chrome take the space's light; six curated hues, Lichen pinned to today's green-black
+so the default space does not move. Account settings also gain a profile theme with a switch for
+using it in every space. Workspace `0.9.2`, space schema 8 unchanged, web, accounts and docs. Spec:
 [`docs/plan/m9.3-night-glass-themes.md`](plan/m9.3-night-glass-themes.md).
 
 **Revised 2026-11-11 (M9 merged):** table presentation was requested as its own `0.9.0` milestone,
@@ -432,6 +442,17 @@ usability move ahead of search.
   measured across all twelve theme/scheme ladders before the ladder ships: the lowest pair anywhere
   is `4.62`, against today's `4.64` floor. Space settings' Appearance swatches become room previews;
   the accent stays the only control and `space.yml` gains nothing.
+- **M9.4 — Daily notes.** `0.9.3`, space schema 8 unchanged, web only: no `space.yml` key, no server
+  route, no dependency. The daily page stops being "today and nothing else". `/s/<space>/daily`
+  stays Today as a `replace` redirect to the day, `/s/<space>/daily/<YYYY-MM-DD>` opens any day —
+  its record, or a day card that offers to write it — and `/daily/calendar?month=` lays the month
+  out over the existing `MonthGrid`, marking written days, the notes in each day panel and the
+  scheduled rows still outstanding that day. A daily record carries a day strip: `‹` / `›` to the
+  adjacent days, Today, and the month, with `[` / `]` / `t` while one is open. Only today is created
+  by arrival; navigation never writes. The month is one ordinary list read over a `title` range and
+  the day's chores one agenda range read, so the calendar adds no query language; a run of written
+  days is bounded to 90 and says `90+`. Body templates wait for M10.2 and the type's create-time
+  defaults carry the structured half. Spec: [`docs/plan/m9.4-daily-notes.md`](plan/m9.4-daily-notes.md).
 - **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
   workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
   and list; conditional formatting as saved view rules; row height and pinned columns; record
