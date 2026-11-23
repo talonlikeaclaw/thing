@@ -108,6 +108,14 @@ its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properti
 grid-interaction patch landed as `0.8.1`, also at schema 7, with no format, route or dependency
 change; its spec is at [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md).
 
+**Revised 2026-11-23 (M9.3 added):** one more `0.9.x` lands before M10: Night Glass themes. The
+neutral ladder — ground, matte surfaces, lines, text, glass fills — currently ships as one green
+literal set, so the accent a space chose only tints selection. M9.3 rotates the whole ladder to the
+space's accent hue at fixed lightness, so the room and its frosted chrome take the space's light; six
+curated hues, Lichen pinned to today's green-black so the default space does not move. Workspace
+`0.9.2`, schema 8 unchanged, web and docs only. Spec:
+[`docs/plan/m9.3-night-glass-themes.md`](plan/m9.3-night-glass-themes.md).
+
 **Revised 2026-11-11 (M9 merged):** table presentation was requested as its own `0.9.0` milestone,
 but `0.9.0` was already held for property model depth. Rather than renumber M10–M14, M9 now carries
 both halves on one schema bump: presentation first (the `display` block, the view's summary-band
@@ -410,6 +418,18 @@ usability move ahead of search.
   `coalesce`/`contains`/`replace`/`date_add`/`format_date` formula additions, and the shared daily
   type, with the property sheet of `m9.2` carrying the definition and the membership together. It
   fixed property semantics before views and agents are built on them.
+- **M9.3 — Night Glass themes.** **Planned** (workspace `0.9.2`, schema 8 unchanged, web and docs
+  only; no route, permission or dependency change); spec:
+  [`docs/plan/m9.3-night-glass-themes.md`](plan/m9.3-night-glass-themes.md). The neutral ladder —
+  ground, lift, inset, matte surfaces, lines, text, glass fills, chrome text, the no-blur fallback —
+  is one green literal set today, so a space's accent only tints selection. The patch re-expresses
+  every one of those tokens as `oklch(L C var(--theme-hue))` with today's lightness kept, sets a
+  curated hue per accent and scheme (Lichen pinned to the shipped `150°`/`95°`), raises the dark
+  glass chroma so the frosted chrome carries the space's hue, and leaves the photo lupe, the pane
+  wash over pictures, the shadows and the semantic pair neutral in every theme. Contrast is
+  measured across all twelve theme/scheme ladders before the ladder ships: the lowest pair anywhere
+  is `4.62`, against today's `4.64` floor. Space settings' Appearance swatches become room previews;
+  the accent stays the only control and `space.yml` gains nothing.
 - **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
   workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
   and list; conditional formatting as saved view rules; row height and pinned columns; record
