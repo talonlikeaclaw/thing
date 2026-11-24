@@ -5,7 +5,9 @@ import {
   moveNavLink,
   navOrderKey,
   readNavOrder,
+  visibleNavOrder,
   writeNavOrder,
+  type NavLink,
   type NavOrderStorage,
 } from "@/lib/nav-order";
 
@@ -40,18 +42,28 @@ describe("readNavOrder", () => {
     expect(readNavOrder(memoryStorage({ [key]: '"schedule"' }), key)).toEqual(DEFAULT_NAV_ORDER);
   });
 
-  it("keeps known links, drops duplicates and appends missing ones", () => {
+  it("keeps known links, drops duplicates and places missing ones", () => {
     const storage = memoryStorage({
       [key]: JSON.stringify(["trash", "schedule", "trash", "nope", "members"]),
     });
     expect(readNavOrder(storage, key)).toEqual([
-      "trash",
-      "schedule",
-      "members",
+      "overview",
+      "today",
+      "calendar",
       "schema",
       "library",
+      "trash",
       "settings",
+      "schedule",
+      "members",
     ]);
+  });
+
+  it("keeps a saved rail's shape when a link this build adds arrives", () => {
+    const storage = memoryStorage({
+      [key]: JSON.stringify(["schema", "library", "schedule", "members", "trash", "settings"]),
+    });
+    expect(readNavOrder(storage, key)).toEqual(DEFAULT_NAV_ORDER);
   });
 });
 
@@ -60,12 +72,15 @@ describe("writeNavOrder", () => {
     const storage = memoryStorage();
     writeNavOrder(storage, key, ["members", "trash", "schedule", "schema", "settings"]);
     expect(readNavOrder(storage, key)).toEqual([
+      "overview",
+      "today",
+      "calendar",
       "members",
       "trash",
       "schedule",
       "schema",
-      "settings",
       "library",
+      "settings",
     ]);
 
     expect(() =>
@@ -83,10 +98,27 @@ describe("writeNavOrder", () => {
   });
 });
 
+const all: ReadonlySet<NavLink> = new Set(DEFAULT_NAV_ORDER);
+
+describe("visibleNavOrder", () => {
+  it("keeps the reader's order and drops links this space cannot show", () => {
+    const available = new Set<NavLink>(["overview", "calendar", "schema", "schedule"]);
+    expect(visibleNavOrder(DEFAULT_NAV_ORDER, available)).toEqual([
+      "overview",
+      "calendar",
+      "schema",
+      "schedule",
+    ]);
+  });
+});
+
 describe("moveNavLink", () => {
   it("moves a link up and down without mutating the input", () => {
     const order = [...DEFAULT_NAV_ORDER];
-    expect(moveNavLink(order, "settings", -1)).toEqual([
+    expect(moveNavLink(order, all, "settings", -1)).toEqual([
+      "overview",
+      "today",
+      "calendar",
       "schema",
       "library",
       "schedule",
@@ -94,20 +126,38 @@ describe("moveNavLink", () => {
       "settings",
       "trash",
     ]);
-    expect(moveNavLink(order, "schedule", 1)).toEqual([
+    expect(moveNavLink(order, all, "overview", 1)).toEqual([
+      "today",
+      "overview",
+      "calendar",
       "schema",
       "library",
-      "members",
       "schedule",
+      "members",
       "trash",
       "settings",
     ]);
     expect(order).toEqual(DEFAULT_NAV_ORDER);
   });
 
+  it("skips a hidden link and keeps its stored slot", () => {
+    const available = new Set<NavLink>(["overview", "calendar", "schema"]);
+    expect(moveNavLink(DEFAULT_NAV_ORDER, available, "calendar", -1)).toEqual([
+      "calendar",
+      "today",
+      "overview",
+      "schema",
+      "library",
+      "schedule",
+      "members",
+      "trash",
+      "settings",
+    ]);
+  });
+
   it("does nothing at the ends or for an unknown link", () => {
-    expect(moveNavLink(DEFAULT_NAV_ORDER, "schema", -1)).toEqual(DEFAULT_NAV_ORDER);
-    expect(moveNavLink(DEFAULT_NAV_ORDER, "settings", 1)).toEqual(DEFAULT_NAV_ORDER);
-    expect(moveNavLink(DEFAULT_NAV_ORDER, "members", 0)).toEqual(DEFAULT_NAV_ORDER);
+    expect(moveNavLink(DEFAULT_NAV_ORDER, all, "overview", -1)).toEqual(DEFAULT_NAV_ORDER);
+    expect(moveNavLink(DEFAULT_NAV_ORDER, all, "settings", 1)).toEqual(DEFAULT_NAV_ORDER);
+    expect(moveNavLink(DEFAULT_NAV_ORDER, all, "members", 0)).toEqual(DEFAULT_NAV_ORDER);
   });
 });

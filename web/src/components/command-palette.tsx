@@ -37,6 +37,7 @@ import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { formatLabel } from "@/lib/schema";
 import { matchRanges, rank } from "@/lib/search";
 import { shiftDay, todayIn } from "@/lib/timezone";
+import { monthLabel, monthOf } from "@/lib/views";
 
 interface PaletteItem {
   id: string;
@@ -103,6 +104,12 @@ function dayActions(spaceId: string, timezone: string | undefined): PaletteItem[
       label: "Tomorrow's note",
       hint: dayLabel(shiftDay(today, 1)),
       to: `/s/${spaceId}/daily/${shiftDay(today, 1)}`,
+    },
+    {
+      id: "action:calendar",
+      label: "Calendar",
+      hint: monthLabel(monthOf(today)),
+      to: `/s/${spaceId}/calendar`,
     },
   ];
 }

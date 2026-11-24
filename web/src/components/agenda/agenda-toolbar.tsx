@@ -2,7 +2,7 @@ import type { TypeSummary } from "@/api/types";
 import { AgendaHorizons } from "@/components/agenda/agenda-list";
 import { TypeFilter } from "@/components/agenda/type-filter";
 import { useThumbHandedness } from "@/components/handedness";
-import type { AgendaHorizon, AgendaView } from "@/lib/agenda";
+import type { AgendaHorizon } from "@/lib/agenda";
 import { cn } from "@/lib/cn";
 
 /**
@@ -12,7 +12,6 @@ import { cn } from "@/lib/cn";
  * range pill takes the row, the filter stays at the thumb edge.
  */
 export function AgendaToolbar({
-  view,
   horizon,
   onHorizonChange,
   types,
@@ -20,7 +19,6 @@ export function AgendaToolbar({
   onTypesChange,
   stretch,
 }: {
-  view: AgendaView;
   horizon: AgendaHorizon;
   onHorizonChange: (horizon: AgendaHorizon) => void;
   /** Every type the space schedules; empty means no filter is offered. */
@@ -32,10 +30,7 @@ export function AgendaToolbar({
 }) {
   const handedness = useThumbHandedness();
   const left = stretch && handedness === "left";
-  const range =
-    view === "list" ? (
-      <AgendaHorizons horizon={horizon} onChange={onHorizonChange} stretch={stretch} />
-    ) : null;
+  const range = <AgendaHorizons horizon={horizon} onChange={onHorizonChange} stretch={stretch} />;
   const filter =
     types.length > 0 ? (
       <TypeFilter
@@ -46,9 +41,6 @@ export function AgendaToolbar({
         title="Filter the schedule"
       />
     ) : null;
-  if (!range && !filter) {
-    return null;
-  }
   // The filter is the primary control, so it sits at the thumb edge: it trails
   // in right-handed mode and leads in left-handed mode.
   return (
@@ -57,9 +49,8 @@ export function AgendaToolbar({
       aria-label="Schedule controls"
       className={cn(
         "flex min-w-0 items-center gap-2",
-        // A phone stretches the row. With no range switch (Calendar), the
-        // filter is the only child, so it must still sit at the thumb edge
-        // instead of at the start of a full-width row.
+        // A phone stretches the row, so the filter still sits at the thumb
+        // edge instead of at the start of a full-width row.
         stretch && "w-full",
         stretch && (left ? "justify-start" : "justify-end"),
       )}

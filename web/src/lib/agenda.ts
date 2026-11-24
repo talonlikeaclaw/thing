@@ -1,5 +1,5 @@
 import type { AgendaRow } from "@/api/types";
-import { isMonth, monthOf } from "@/lib/views";
+
 
 /** The three List buckets, in display order. */
 export interface AgendaBuckets {
@@ -27,9 +27,6 @@ export function agendaBuckets(rows: AgendaRow[]): AgendaBuckets {
   return buckets;
 }
 
-/** The two ways Schedule shows one set of rows. */
-export type AgendaView = "list" | "calendar";
-
 /** The windows the List offers. */
 export const AGENDA_HORIZONS = [7, 14, 30] as const;
 export type AgendaHorizon = (typeof AGENDA_HORIZONS)[number];
@@ -37,12 +34,9 @@ export type AgendaHorizon = (typeof AGENDA_HORIZONS)[number];
 /** The defaults the URL omits. */
 export const DEFAULT_AGENDA_HORIZON: AgendaHorizon = 14;
 
-/** Everything the Schedule page remembers: view, List horizon, month and types. */
+/** Everything the Schedule page remembers: List horizon and types. */
 export interface AgendaState {
-  view: AgendaView;
   horizon: AgendaHorizon;
-  /** `YYYY-MM` for the Calendar; kept while the List is showing. */
-  month: string;
   /** Scheduled type keys; empty means every scheduled type. */
   types: string[];
 }
@@ -70,9 +64,9 @@ export function agendaTypeLabel(names: readonly string[]): string {
   return new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(names);
 }
 
-/** A first visit: the List at 14 days, on the month containing `today`. */
-export function defaultAgendaState(today: string): AgendaState {
-  return { view: "list", horizon: DEFAULT_AGENDA_HORIZON, month: monthOf(today), types: [] };
+/** A first visit: the List at 14 days. */
+export function defaultAgendaState(): AgendaState {
+  return { horizon: DEFAULT_AGENDA_HORIZON, types: [] };
 }
 
 /**
@@ -80,32 +74,22 @@ export function defaultAgendaState(today: string): AgendaState {
  * or invalid. Unknown parameters are the caller's to ignore.
  */
 export function agendaStateFromParams(params: URLSearchParams, base: AgendaState): AgendaState {
-  const view = params.get("view");
   const horizon = Number(params.get("horizon"));
-  const month = params.get("month") ?? "";
   const types = params.get("types");
   return {
-    view: view === "list" || view === "calendar" ? view : base.view,
     horizon: isHorizon(horizon) ? horizon : base.horizon,
-    month: isMonth(month) ? month : base.month,
     types: types === null ? base.types : normalizeAgendaTypes(types.split(",")),
   };
 }
 
 /**
- * The query string for a state, writing only what differs from the defaults
- * `base` names, in a fixed order so the same state always makes the same link.
+ * The query string for a state, writing only what differs from the defaults,
+ * in a fixed order so the same state always makes the same link.
  */
-export function agendaParams(state: AgendaState, base: AgendaState): URLSearchParams {
+export function agendaParams(state: AgendaState): URLSearchParams {
   const params = new URLSearchParams();
-  if (state.view !== "list") {
-    params.set("view", state.view);
-  }
   if (state.horizon !== DEFAULT_AGENDA_HORIZON) {
     params.set("horizon", String(state.horizon));
-  }
-  if (state.month !== base.month) {
-    params.set("month", state.month);
   }
   const types = normalizeAgendaTypes(state.types);
   if (types.length > 0) {
@@ -149,10 +133,7 @@ export function readAgendaState(
   const stored = parsed as Record<string, unknown>;
   const storedTypes = stored.types;
   return {
-    view:
-      stored.view === "list" || stored.view === "calendar" ? stored.view : base.view,
     horizon: isHorizon(stored.horizon) ? stored.horizon : base.horizon,
-    month: typeof stored.month === "string" && isMonth(stored.month) ? stored.month : base.month,
     types:
       Array.isArray(storedTypes) && storedTypes.every((value) => typeof value === "string")
         ? normalizeAgendaTypes(storedTypes)

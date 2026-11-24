@@ -40,7 +40,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: "Unreleased",
     title: "A daily note for any day",
     summary:
-      "A daily note can be opened for any day of its month, not only today. An unwritten day shows one button that creates the note. The journal type's create button opens today's note instead of a blank form.",
+      "A daily note can be opened for any day of its month, not only today. An unwritten day shows one button that creates the note. The journal type's create button opens today's note instead of a blank form. A Calendar shows the space's month and week, with the journal's notes and the work due on each day.",
     sections: [
       {
         title: "Any day",
@@ -115,6 +115,66 @@ export const CHANGELOG: ChangelogEntry[] = [
           {
             lead: "Today stays highlighted",
             body: "The space's navigation marks Today while a day of the journal is open.",
+          },
+        ],
+      },
+      {
+        title: "Calendar",
+        intro: "The space's month and week in one place.",
+        items: [
+          {
+            lead: "One calendar",
+            body: "The Calendar joins the journal's notes and the work due on each day.",
+          },
+          {
+            lead: "A week at a time",
+            body: "The Week switch shows seven days with their notes and due items.",
+          },
+          {
+            lead: "The day's panel",
+            body: "Opening a day lists its note and its outstanding items.",
+          },
+          {
+            lead: "Write from the calendar",
+            body: "An editor can write a missing day's note from the calendar.",
+          },
+          {
+            lead: "Complete from the calendar",
+            body: "An editor can complete or snooze a due item in the calendar.",
+          },
+          {
+            lead: "The month's count",
+            body: "The calendar states how many of the month's days are written.",
+          },
+          {
+            lead: "The run",
+            body: "The calendar states the current run of consecutive written days.",
+          },
+          {
+            lead: "Renamed notes leave the calendar",
+            body: "A note whose title is no longer its day is not drawn, and the empty month says why.",
+          },
+          {
+            lead: "The Schedule is a list",
+            body: "The Schedule keeps its list and horizons; the month lives in the Calendar.",
+          },
+          {
+            lead: "Old links still open the month",
+            body: "A link to the old journal month or schedule calendar opens the Calendar.",
+          },
+        ],
+      },
+      {
+        title: "Navigation",
+        intro: "The rail's order is the reader's.",
+        items: [
+          {
+            lead: "Every link reorders",
+            body: "Overview, Today and Calendar move with the rest of the rail's links.",
+          },
+          {
+            lead: "A saved rail keeps its shape",
+            body: "A link added by a later version lands beside the link it ships next to, not at the bottom.",
           },
         ],
       },

@@ -1,16 +1,18 @@
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import { useThumbHandedness } from "@/components/handedness";
+import { CalendarControls } from "@/components/views/calendar-controls";
 import { cn } from "@/lib/cn";
 import { formatDay } from "@/lib/display";
 import { isCoarsePointer } from "@/lib/media";
 import { addMonths, groupByDate, monthGrid, monthLabel, monthOf } from "@/lib/views";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** The Monday-first weekday row both calendar shapes print. */
+export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DEFAULT_MAX_CHIPS = 3;
 const DAY_PANEL_WIDTH = 272;
 const DAY_PANEL_MARGIN = 8;
@@ -35,6 +37,16 @@ export interface MonthGridProps<T> {
   above?: ReactNode;
   /** Shown after the grid, inside the same block. */
   footer?: ReactNode;
+  /**
+   * A quiet mark in a cell's header, beside its number — the journal's count
+   * of rows due that day. `null` draws nothing.
+   */
+  dayMarker?(date: string): ReactNode;
+  /**
+   * Content under the day panel's rows — the journal lists a day's outstanding
+   * work and its write action there. `null` leaves the panel footer out.
+   */
+  dayActions?(date: string): ReactNode;
   /** Extra classes on the card, when the caller must change its spacing. */
   className?: string;
   onMonthChange(month: string): void;
@@ -62,6 +74,8 @@ export function MonthGrid<T>({
   maxChips = DEFAULT_MAX_CHIPS,
   above,
   footer,
+  dayMarker,
+  dayActions,
   className,
   onMonthChange,
 }: MonthGridProps<T>) {
@@ -174,6 +188,7 @@ export function MonthGrid<T>({
       <X aria-hidden size={13} />
     </button>
   );
+  const panelActions = dayOpen && dayActions ? dayActions(dayOpen.date) : null;
 
   return (
     /*
@@ -190,41 +205,21 @@ export function MonthGrid<T>({
     >
       {/* The month and its controls are navigation, not thumb actions: the
           label leads, the prev/Today/next pair trails, in both modes. */}
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-heading font-medium">{label}</h2>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label="Previous month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
-            onClick={() => onMonthChange(addMonths(month, -1))}
-          >
-            <ChevronLeft aria-hidden size={15} />
-          </button>
-          <button
-            type="button"
-            className="label rounded-[8px] px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-            onClick={() => {
-              if (month === currentMonth) {
-                scrollToToday();
-                return;
-              }
-              // The month effect scrolls once the current grid has rendered.
-              onMonthChange(currentMonth);
-            }}
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            aria-label="Next month"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:h-11 pointer-coarse:w-11"
-            onClick={() => onMonthChange(addMonths(month, 1))}
-          >
-            <ChevronRight aria-hidden size={15} />
-          </button>
-        </div>
-      </div>
+      <CalendarControls
+        label={label}
+        previousLabel="Previous month"
+        nextLabel="Next month"
+        onPrevious={() => onMonthChange(addMonths(month, -1))}
+        onNext={() => onMonthChange(addMonths(month, 1))}
+        onToday={() => {
+          if (month === currentMonth) {
+            scrollToToday();
+            return;
+          }
+          // The month effect scrolls once the current grid has rendered.
+          onMonthChange(currentMonth);
+        }}
+      />
 
       {items.length === 0 ? above : null}
 
@@ -246,7 +241,7 @@ export function MonthGrid<T>({
                 cell.inMonth ? "" : "bg-surface/40",
               )}
             >
-              <div className="flex items-baseline justify-between gap-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-1">
                 {/*
                   The day number opens the day panel on every pointer, so the
                   calendar's complete and menu actions are reachable without a
@@ -268,11 +263,14 @@ export function MonthGrid<T>({
                 >
                   {Number(cell.date.slice(8, 10))}
                 </button>
-                {isToday ? (
-                  <span className="hidden font-mono text-[11px] tracking-[0.08em] text-accent sm:inline">
-                    TODAY
-                  </span>
-                ) : null}
+                <div className="ml-auto flex items-baseline justify-end gap-1 whitespace-nowrap">
+                  {isToday ? (
+                    <span className="hidden font-mono text-[11px] tracking-[0.08em] text-accent sm:inline">
+                      TODAY
+                    </span>
+                  ) : null}
+                  {dayMarker?.(cell.date)}
+                </div>
               </div>
               <ul className="mt-1 grid gap-0.5">
                 {bucket.slice(0, maxChips).map((item) => (
@@ -280,7 +278,7 @@ export function MonthGrid<T>({
                     <Link
                       to={hrefOf(item)}
                       title={titleOf?.(item)}
-                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-0"
+                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised max-sm:px-0.5 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-0"
                       onClick={(event) => {
                         // A finger cannot aim at a ~50 px chip, so a tap
                         // opens the day and its full rows.
@@ -351,24 +349,34 @@ export function MonthGrid<T>({
               {(byDate.get(dayOpen.date) ?? []).length === 0 ? (
                 <p className="px-1 py-1 text-[12px] text-faint">No records on this day.</p>
               ) : null}
-              <ul className="mt-1 grid min-h-0 gap-0.5 overflow-y-auto overscroll-contain">
-                {(byDate.get(dayOpen.date) ?? []).map((item) => (
-                  <li key={keyOf(item)} className="flex min-w-0 items-center gap-1">
-                    {renderRow ? (
-                      renderRow(item)
-                    ) : (
-                      <Link
-                        to={hrefOf(item)}
-                        title={titleOf?.(item)}
-                        className="min-w-0 flex-1 truncate px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
-                        onClick={() => setDayOpen(null)}
-                      >
-                        {renderChip(item)}
-                      </Link>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              {/*
+                The rows and the caller's actions scroll as one: the Journal's
+                day panel carries its due rows under the note, and a fixed
+                footer would clip the second of them on a short window.
+              */}
+              <div className="mt-1 grid min-h-0 flex-1 gap-1 overflow-y-auto overscroll-contain">
+                <ul className="grid gap-0.5">
+                  {(byDate.get(dayOpen.date) ?? []).map((item) => (
+                    <li key={keyOf(item)} className="flex min-w-0 items-center gap-1">
+                      {renderRow ? (
+                        renderRow(item)
+                      ) : (
+                        <Link
+                          to={hrefOf(item)}
+                          title={titleOf?.(item)}
+                          className="min-w-0 flex-1 truncate px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
+                          onClick={() => setDayOpen(null)}
+                        >
+                          {renderChip(item)}
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                {panelActions ? (
+                  <div className="border-t rule pt-1">{panelActions}</div>
+                ) : null}
+              </div>
             </div>,
             document.body,
           )

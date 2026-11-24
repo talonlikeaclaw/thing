@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react/dialog";
 import {
   ArrowUpDown,
   CalendarDays,
+  CalendarRange,
   Check,
   ChevronDown,
   ChevronUp,
@@ -38,6 +39,7 @@ import {
   DEFAULT_NAV_ORDER,
   moveNavLink,
   navOrderKey,
+  visibleNavOrder,
   readNavOrder,
   writeNavOrder,
   type NavLink,
@@ -55,7 +57,11 @@ interface SpaceNavProps {
   onUnfold?: () => void;
 }
 
-const UTILITY: Record<NavLink, { label: string; path: string; icon: typeof House }> = {
+/** Every rail destination; `path` is empty for the space's own index. */
+const DESTINATIONS: Record<NavLink, { label: string; path: string; icon: typeof House }> = {
+  overview: { label: "Overview", path: "", icon: House },
+  today: { label: "Today", path: "daily", icon: Sun },
+  calendar: { label: "Calendar", path: "calendar", icon: CalendarRange },
   schedule: { label: "Schedule", path: "agenda", icon: CalendarDays },
   schema: { label: "Schema", path: "schema", icon: Shapes },
   library: { label: "Library", path: "library", icon: Images },
@@ -107,6 +113,28 @@ export function SpaceNav({
   // The rail badge reports the whole space, never a page filter: every overdue
   // row is inside the default window.
   const overdue = agenda.data?.rows.filter((row) => row.status === "overdue").length ?? 0;
+  // The month is offered while a day or a scheduled type can appear in it.
+  const dated = Boolean(space.data?.daily_type) || types.some((type) => type.schedule);
+  /**
+   * The links this space can show. Overview and the utility pages always
+   * exist; Today and Calendar wait for a daily type or a dated layer, and a
+   * hidden link keeps its stored slot while it is away.
+   */
+  const available = new Set<NavLink>([
+    "overview",
+    "schema",
+    "library",
+    "schedule",
+    "members",
+    "trash",
+    "settings",
+  ]);
+  if (space.data?.daily_type) {
+    available.add("today");
+  }
+  if (dated) {
+    available.add("calendar");
+  }
   const userId = me.data?.id;
   const [order, setOrder] = useState<NavLink[]>(DEFAULT_NAV_ORDER);
   const [reordering, setReordering] = useState(false);
@@ -186,7 +214,7 @@ export function SpaceNav({
   }, [mobileOpen]);
 
   function move(link: NavLink, delta: number) {
-    const next = moveNavLink(order, link, delta);
+    const next = moveNavLink(order, available, link, delta);
     setOrder(next);
     if (userId) {
       writeNavOrder(window.localStorage, navOrderKey(userId, spaceId), next);
@@ -399,14 +427,11 @@ export function SpaceNav({
                 />
                 <div className="mt-4">
                   <AllSpacesLink onNavigate={close} />
-                  <OverviewLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
-                  {space.data?.daily_type ? (
-                    <TodayLink spaceId={spaceId} pathname={pathname} onNavigate={close} />
-                  ) : null}
-                  <UtilityLinks
+                  <NavLinks
                     spaceId={spaceId}
                     pathname={pathname}
                     order={order}
+                    available={available}
                     overdue={overdue}
                     reordering={reordering}
                     onMove={move}
@@ -511,14 +536,11 @@ export function SpaceNav({
 
         <div className={cn("flex flex-col", folded ? "mt-2 gap-1" : "mt-4")}>
           <AllSpacesLink folded={folded} />
-          <OverviewLink spaceId={spaceId} pathname={pathname} folded={folded} />
-          {space.data?.daily_type ? (
-            <TodayLink spaceId={spaceId} pathname={pathname} folded={folded} />
-          ) : null}
-          <UtilityLinks
+          <NavLinks
             spaceId={spaceId}
             pathname={pathname}
             order={order}
+            available={available}
             overdue={overdue}
             reordering={reordering}
             onMove={move}
@@ -770,71 +792,11 @@ function AllSpacesLink({
   );
 }
 
-function OverviewLink({
-  spaceId,
-  pathname,
-  folded = false,
-  onNavigate,
-}: {
-  spaceId: string;
-  pathname: string;
-  folded?: boolean;
-  onNavigate?: () => void;
-}) {
-  const to = `/s/${spaceId}`;
-  const active = pathname === to;
-  return (
-    <div className={cn(folded && "flex justify-center")}>
-      <Link
-        to={to}
-        aria-current={active ? "page" : undefined}
-        title={folded ? "Overview" : undefined}
-        onClick={onNavigate}
-        className={cn(railItem(active, folded), folded && "mx-auto")}
-      >
-        <House aria-hidden size={14} className={cn("shrink-0", active ? "text-accent" : "text-faint")} />
-        <span className={folded ? "sr-only" : undefined}>Overview</span>
-      </Link>
-    </div>
-  );
-}
-
-/** Today's note, offered only while the space names a `daily_type`. */
-function TodayLink({
-  spaceId,
-  pathname,
-  folded = false,
-  onNavigate,
-}: {
-  spaceId: string;
-  pathname: string;
-  folded?: boolean;
-  onNavigate?: () => void;
-}) {
-  const to = `/s/${spaceId}/daily`;
-  // The journal's days and its month are the Today destination too, so the
-  // rail keeps the seal while the reader walks the journal.
-  const active = pathname === to || pathname.startsWith(`${to}/`);
-  return (
-    <div className={cn(folded && "flex justify-center")}>
-      <Link
-        to={to}
-        aria-current={active ? "page" : undefined}
-        title={folded ? "Today" : undefined}
-        onClick={onNavigate}
-        className={cn(railItem(active, folded), folded && "mx-auto")}
-      >
-        <Sun aria-hidden size={14} className={cn("shrink-0", active ? "text-accent" : "text-faint")} />
-        <span className={folded ? "sr-only" : undefined}>Today</span>
-      </Link>
-    </div>
-  );
-}
-
-function UtilityLinks({
+function NavLinks({
   spaceId,
   pathname,
   order,
+  available,
   overdue,
   reordering,
   onMove,
@@ -846,6 +808,7 @@ function UtilityLinks({
   spaceId: string;
   pathname: string;
   order: NavLink[];
+  available: ReadonlySet<NavLink>;
   overdue: number;
   reordering: boolean;
   onMove: (link: NavLink, delta: number) => void;
@@ -856,14 +819,21 @@ function UtilityLinks({
   folded?: boolean;
 }) {
   const handedness = useThumbHandedness();
+  const visible = visibleNavOrder(order, available);
+  const base = `/s/${spaceId}`;
   return (
     <>
       <ul className={cn("flex flex-col", folded && "gap-1")}>
-        {order.map((key, index) => {
-          const item = UTILITY[key];
+        {visible.map((key, index) => {
+          const item = DESTINATIONS[key];
           const Icon = item.icon;
-          const to = `/s/${spaceId}/${item.path}`;
-          const active = pathname === to;
+          const to = item.path ? `${base}/${item.path}` : base;
+          // Today keeps the seal across its days; every other destination is
+          // its own page, so an exact match is the whole test.
+          const active =
+            key === "today"
+              ? pathname === to || pathname.startsWith(`${to}/`)
+              : pathname === to;
           return (
             <li key={key} className={cn("flex items-center gap-1", folded && "justify-center")}>
               <Link
@@ -907,7 +877,7 @@ function UtilityLinks({
                   <button
                     type="button"
                     aria-label={`Move ${item.label} down`}
-                    disabled={index === order.length - 1}
+                    disabled={index === visible.length - 1}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onMove(key, 1)}
                   >

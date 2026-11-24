@@ -13,6 +13,14 @@ const AgendaPage = lazy(() =>
 const ChangelogPage = lazy(() =>
   import("@/pages/changelog").then((module) => ({ default: module.ChangelogPage })),
 );
+const CalendarPage = lazy(() =>
+  import("@/pages/calendar").then((module) => ({ default: module.CalendarPage })),
+);
+const DailyCalendarRedirect = lazy(() =>
+  import("@/pages/calendar").then((module) => ({
+    default: module.DailyCalendarRedirect,
+  })),
+);
 const DailyDayPage = lazy(() =>
   import("@/pages/daily").then((module) => ({ default: module.DailyDayPage })),
 );
@@ -96,7 +104,9 @@ export const router = createBrowserRouter([
               { index: true, element: page(<SpacePage />) },
               { path: "t/:typeKey", element: page(<TypeTablePage />) },
               { path: "agenda", element: page(<AgendaPage />) },
+              { path: "calendar", element: page(<CalendarPage />) },
               { path: "daily", element: page(<DailyPage />) },
+              { path: "daily/calendar", element: page(<DailyCalendarRedirect />) },
               { path: "daily/:date", element: page(<DailyDayPage />) },
               { path: "library", element: page(<LibraryPage />) },
               { path: "o/:objectId", element: page(<ObjectPage />) },

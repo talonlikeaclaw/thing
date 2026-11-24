@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useParams, useSearchParams } from "react-router";
 
 import {
   useAgenda,
@@ -11,10 +11,8 @@ import {
   useTypes,
 } from "@/api/queries";
 import type { AgendaQuery, AgendaRow } from "@/api/types";
-import { AgendaCalendar } from "@/components/agenda/agenda-calendar";
 import { AgendaList } from "@/components/agenda/agenda-list";
 import { AgendaToolbar } from "@/components/agenda/agenda-toolbar";
-import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
 import { ThumbRow } from "@/components/handedness";
@@ -36,7 +34,6 @@ import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
 import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
-import { gridRange, isMonth } from "@/lib/views";
 
 /** `/s/:spaceId/agenda` — every scheduled row, as a List or a Calendar. */
 export function AgendaPage() {
@@ -49,7 +46,7 @@ export function AgendaPage() {
   useRouteMeta("Schedule");
 
   const spaceToday = space.data ? todayIn(space.data.timezone) : "";
-  const base = useMemo(() => defaultAgendaState(spaceToday), [spaceToday]);
+  const base = useMemo(() => defaultAgendaState(), []);
   const storageKey = me.data && spaceId ? agendaStorageKey(me.data.id, spaceId) : null;
   const [booted, setBooted] = useState(false);
 
@@ -64,8 +61,8 @@ export function AgendaPage() {
       return;
     }
     const stored = readAgendaState(window.localStorage, storageKey, base);
-    if (params.toString() === "" && agendaParams(stored, base).toString() !== "") {
-      setParams(agendaParams(stored, base), { replace: true });
+    if (params.toString() === "" && agendaParams(stored).toString() !== "") {
+      setParams(agendaParams(stored), { replace: true });
     } else {
       writeAgendaState(window.localStorage, storageKey, agendaStateFromParams(params, base));
     }
@@ -92,14 +89,11 @@ export function AgendaPage() {
     if (storageKey) {
       writeAgendaState(window.localStorage, storageKey, next);
     }
-    setParams(agendaParams(next, base), { replace: true });
+    setParams(agendaParams(next), { replace: true });
   }, [booted, types.data, state, effectiveTypes, storageKey, base, setParams]);
 
   const typeFilter = effectiveTypes.length > 0 ? { types: effectiveTypes } : {};
-  const query: AgendaQuery =
-    state.view === "calendar" && isMonth(state.month)
-      ? { ...gridRange(state.month), ...typeFilter }
-      : { days: state.horizon, ...typeFilter };
+  const query: AgendaQuery = { days: state.horizon, ...typeFilter };
   // The first read waits for the URL and the type list to settle, so a bare
   // link makes one request rather than a default one it immediately replaces,
   // and a stale type key never reaches the server.
@@ -114,12 +108,30 @@ export function AgendaPage() {
   const toast = useToast();
   const compact = useCompactWidth();
 
+  // The calendar moved to the space's own Calendar. An old Schedule link
+  // lands there, keeping the month and the type filter it carried.
+  if (params.get("view") === "calendar") {
+    const next = new URLSearchParams();
+    const month = params.get("month");
+    if (month) {
+      next.set("month", month);
+    }
+    const types = params.get("types");
+    if (types) {
+      next.set("types", types);
+    }
+    const search = next.toString();
+    return (
+      <Navigate to={`/s/${spaceId}/calendar${search ? `?${search}` : ""}`} replace />
+    );
+  }
+
   function update(patch: Partial<AgendaState>) {
     const next = { ...state, ...patch, types: normalizeAgendaTypes(patch.types ?? state.types) };
     if (storageKey) {
       writeAgendaState(window.localStorage, storageKey, next);
     }
-    setParams(agendaParams(next, base), { replace: false });
+    setParams(agendaParams(next), { replace: false });
   }
 
   function onSnooze(row: AgendaRow, days: number) {
@@ -216,36 +228,13 @@ export function AgendaPage() {
     (snooze.isPending ? snooze.variables?.id : undefined) ??
     null;
   const today = schedule?.today || spaceToday;
-  const viewSwitch = (
-    <div role="group" aria-label="View" className={AGENDA_TOOLBAR}>
-      {(
-        [
-          ["list", "List"],
-          ["calendar", "Calendar"],
-        ] as const
-      ).map(([view, label]) => (
-        <button
-          key={view}
-          type="button"
-          aria-pressed={state.view === view}
-          className={AGENDA_SEGMENT}
-          onClick={() => update({ view })}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
   // The header is chrome, so it is the page's one glass panel: it floats over
   // the list while that scrolls under it. The view switch, the range switch
   // and the filter are three separate pills of one size; the timezone line
   // closes the panel under them.
   const header = (
     <header className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:z-20">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <h1 className="display text-display">Schedule</h1>
-        {viewSwitch}
-      </div>
+      <h1 className="display text-display">Schedule</h1>
       {/*
         A mouse has no thumb edge: on a wide screen the controls start at the
         leading edge; a phone stretches the range pill across the row and keeps
@@ -258,7 +247,6 @@ export function AgendaPage() {
         )}
       >
         <AgendaToolbar
-          view={state.view}
           horizon={state.horizon}
           onHorizonChange={(horizon) => update({ horizon })}
           types={scheduledTypes}
@@ -305,21 +293,6 @@ export function AgendaPage() {
           </div>
         ) : !schedule ? (
           <p className="mt-6 text-[13px] text-muted">Reading the schedule…</p>
-        ) : state.view === "calendar" ? (
-          <AgendaCalendar
-            spaceId={detail.id}
-            month={state.month}
-            today={today}
-            rows={schedule.rows}
-            canEdit={canEdit}
-            verbs={verbs}
-            pendingId={pendingId}
-            onComplete={onComplete}
-            onSnooze={onSnooze}
-            onMonthChange={(month) => update({ month })}
-            filterLabel={filterLabel}
-            onClearFilter={() => update({ types: [] })}
-          />
         ) : (
           <AgendaList
             rows={schedule.rows}

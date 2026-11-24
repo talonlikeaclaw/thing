@@ -384,6 +384,13 @@ export function monthLabel(month: string): string {
   }).format(new Date(`${month}-01T00:00:00Z`));
 }
 
+/** A `YYYY-MM` month's name alone — `October` — formatted in UTC. */
+export function monthName(month: string): string {
+  return new Intl.DateTimeFormat(undefined, { month: "long", timeZone: "UTC" }).format(
+    new Date(`${month}-01T00:00:00Z`),
+  );
+}
+
 /** `YYYY-MM` moved by whole months, using UTC arithmetic. */
 export function addMonths(month: string, delta: number): string {
   const [yearText, monthText] = month.split("-");

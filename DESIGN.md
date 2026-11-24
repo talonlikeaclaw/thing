@@ -385,7 +385,10 @@ full pill on a phone and 20px rounded from `lg`. Below `lg` it scrolls with the 
 a phone — and a phone on its side in particular — spends no fixed height on chrome; from
 `lg` it sticks while the page scrolls under it. From `lg` the space rail is a glass card
 inset from the content edge, sticky under the header. It folds to its icons on request:
-208px wide by default, 72px folded, with one 44px control in the rail's header row.
+208px wide by default, 72px folded, with one 44px control in the rail's header row. Every rail
+destination reorders — Overview, Today and Calendar included — while **All spaces** stays fixed
+above the list; the order is per reader and space, and a link a later build adds lands beside the
+link it ships next to rather than at the bottom.
 Folded, the space switcher is the current icon over the native select, every row is a
 44px icon target, names stay in the accessibility tree and in tooltips, and the type list
 carries its name and count in the tooltip. The choice is per reader and space; the phone
@@ -708,12 +711,19 @@ page header and one section rhythm. Sections are matte cards at 22px; the danger
 carries an Ember edge. Space settings carries a third section for the space's attachments:
 the used and unused totals in plain figures and the owner's `Collect unused` action.
 
-**The Calendars.** The Schedule's Calendar and a type's Calendar are the same matte card
-with the same month controls, weekday rule, chip cap and glass day panel. A chip carries
-the record's name only, so a narrow cell never trades its title for a hover-only control;
-the day number opens the day panel on every pointer, and a row there reads title first,
-with its date and due phrase in mono, plus complete and menu actions. Every visible date
-— chip, day panel, empty state — comes from the shared formatter.
+**The Calendars.** The space Calendar and a type's Calendar are the same matte card with
+the same range controls, weekday rule, chip cap and glass day panel. The space Calendar
+holds the space's dated layers at two shapes: the month, whose cells carry a `Note` chip
+per journal entry and a quiet `N due` margin; and the week, seven days from Monday with
+the same chips, rows and actions — seven columns from `lg`, seven stacked day sections
+below it, because a phone-width column cannot hold a title. One glass day panel serves the
+month: the day's note first, then its outstanding rows with the completion verb and the
+snooze menu, then one primary write action for an editor on a day with no note. A type's
+Calendar remains its saved query over a date property and keeps its own panel. A chip
+carries the record's name only, so a narrow cell never trades its title for a hover-only
+control; the day number opens the day panel on every pointer, and a row there reads title
+first, with its date and due phrase in mono, plus complete and menu actions. Every visible
+date — chip, day panel, week label, empty state — comes from the shared formatter.
 
 **The Tiles.** A gallery tile is matte at the card radius (18px); its tinted cover is
 clipped by that corner, never a square band over a rounded frame. When the view names an
@@ -870,7 +880,7 @@ Every signed-in surface consumes the foundation: the floating header and rail; t
 dock and space sheet; the cover sheet; the record sheet and its save row; the journal day,
 its rail and the day card; the ledger
 table, view tabs, filter/sort bars and bulk bar; the command palette, capture, shortcuts,
-sign-out and icon sheets; the schedule list and calendar; the record's attachment set, the
+sign-out and icon sheets; the schedule list, the space calendar's month and week; the record's attachment set, the
 space library and the storage section of space settings; schema, members, settings,
 trash, account settings, auth, join, changelog and not-found. The shell owns the one
 footer rule; a page's line joins it through `usePageFooter`. The accent picker and the

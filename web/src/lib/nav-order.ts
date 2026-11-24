@@ -1,5 +1,8 @@
 /** The space rail's links, in their shipped order. */
 export type NavLink =
+  | "overview"
+  | "today"
+  | "calendar"
   | "schedule"
   | "schema"
   | "library"
@@ -8,6 +11,9 @@ export type NavLink =
   | "trash";
 
 export const DEFAULT_NAV_ORDER: NavLink[] = [
+  "overview",
+  "today",
+  "calendar",
   "schema",
   "library",
   "schedule",
@@ -32,7 +38,7 @@ function isNavLink(value: unknown): value is NavLink {
 
 /**
  * A saved order with unknown entries dropped, duplicates removed and any link
- * this build added appended in its default position at the end.
+ * this build added placed beside its shipped neighbour.
  */
 export function readNavOrder(storage: NavOrderStorage, key: string): NavLink[] {
   let raw: string | null;
@@ -60,10 +66,22 @@ export function readNavOrder(storage: NavOrderStorage, key: string): NavLink[] {
       order.push(value);
     }
   }
+  // A link this build adds lands beside its shipped neighbour rather than at
+  // the end, so a rail saved before the link existed keeps its shape.
   for (const link of DEFAULT_NAV_ORDER) {
-    if (!order.includes(link)) {
-      order.push(link);
+    if (order.includes(link)) {
+      continue;
     }
+    const shipped = DEFAULT_NAV_ORDER.indexOf(link);
+    let insertAt = 0;
+    for (let index = shipped - 1; index >= 0; index -= 1) {
+      const previous = order.indexOf(DEFAULT_NAV_ORDER[index] as NavLink);
+      if (previous !== -1) {
+        insertAt = previous + 1;
+        break;
+      }
+    }
+    order.splice(insertAt, 0, link);
   }
   return order;
 }
@@ -77,18 +95,45 @@ export function writeNavOrder(storage: NavOrderStorage, key: string, order: NavL
   }
 }
 
-/** Moves one link by `delta` places, bounded at both ends. */
-export function moveNavLink(order: NavLink[], link: NavLink, delta: number): NavLink[] {
-  const index = order.indexOf(link);
-  const target = index + delta;
-  if (index === -1 || target < 0 || target >= order.length) {
+/**
+ * The links a space can show, in the reader's order. Overview and the utility
+ * pages always exist; Today needs a daily type and Calendar needs anything
+ * dated, so a hidden link never takes a slot the reader cannot move it from.
+ */
+export function visibleNavOrder(
+  order: readonly NavLink[],
+  available: ReadonlySet<NavLink>,
+): NavLink[] {
+  return order.filter((link) => available.has(link));
+}
+
+/**
+ * Moves one visible link one place in the direction `delta` names, swapping it
+ * with its nearest visible neighbour. A hidden link keeps its stored slot, so
+ * turning a daily type back on does not reshuffle the rail.
+ */
+export function moveNavLink(
+  order: NavLink[],
+  available: ReadonlySet<NavLink>,
+  link: NavLink,
+  delta: number,
+): NavLink[] {
+  if (delta === 0) {
+    return order;
+  }
+  const visible = visibleNavOrder(order, available);
+  const index = visible.indexOf(link);
+  const neighbour = visible[index + (delta > 0 ? 1 : -1)];
+  if (index === -1 || neighbour === undefined) {
     return order;
   }
   const next = [...order];
-  const [moved] = next.splice(index, 1);
-  if (!moved) {
+  const a = next.indexOf(link);
+  const b = next.indexOf(neighbour);
+  if (a === -1 || b === -1) {
     return order;
   }
-  next.splice(target, 0, moved);
+  next[a] = neighbour;
+  next[b] = link;
   return next;
 }

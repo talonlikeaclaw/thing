@@ -38,9 +38,23 @@ const leafSearch = {
   ],
 };
 
-function stubPalette(search: unknown) {
+function stubPalette(search: unknown, timezone?: string) {
   return stubFetch((input) => {
     const url = requestUrl(input);
+    if (timezone && url.endsWith("/api/spaces/s1")) {
+      return jsonResponse({
+        id: "s1",
+        name: "Garden",
+        icon: null,
+        accent: null,
+        timezone,
+        daily_type: "journal",
+        created_at: "2026-10-01T12:00:00Z",
+        role: "owner",
+        members: [],
+        type_count: 0,
+      });
+    }
     if (url.endsWith("/api/auth/me")) {
       return jsonResponse({ id: "u1", email: "a@b.c", name: "Talen" });
     }
@@ -158,6 +172,21 @@ describe("CommandPalette", () => {
     fireEvent.keyDown(input, { key: "ArrowDown" });
 
     expect(screen.getAllByRole("option")[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("offers the journal's days and the calendar once the space answers", async () => {
+    stubPalette(unfurling, "UTC");
+    openPalette();
+
+    const group = await screen.findByRole("group", { name: "Actions" });
+    await waitFor(() => {
+      expect(within(group).getByRole("option", { name: /Yesterday's note/ })).toBeInTheDocument();
+    });
+    fireEvent.click(within(group).getByRole("option", { name: /^Calendar/ }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent("/s/s1/calendar");
+    });
   });
 
   it("closes on Escape", () => {

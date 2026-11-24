@@ -93,38 +93,27 @@ function memoryStorage(initial: Record<string, string> = {}): AgendaStorage & {
   };
 }
 
-const base = defaultAgendaState("2026-10-30");
+const base = defaultAgendaState();
 
 describe("agenda page state", () => {
-  it("starts on the List at 14 days in the current month", () => {
-    expect(base).toEqual({ view: "list", horizon: 14, month: "2026-10", types: [] });
+  it("starts on the List at 14 days", () => {
+    expect(base).toEqual({ horizon: 14, types: [] });
   });
 
   it("writes no parameters for the defaults", () => {
-    expect(agendaParams(base, base).toString()).toBe("");
+    expect(agendaParams(base).toString()).toBe("");
   });
 
   it("writes non-default state in a fixed order", () => {
-    const state: AgendaState = {
-      view: "calendar",
-      horizon: 30,
-      month: "2026-11",
-      types: ["chore", "plant"],
-    };
-    expect(agendaParams(state, base).toString()).toBe(
-      "view=calendar&horizon=30&month=2026-11&types=chore%2Cplant",
-    );
+    const state: AgendaState = { horizon: 30, types: ["chore", "plant"] };
+    expect(agendaParams(state).toString()).toBe("horizon=30&types=chore%2Cplant");
   });
 
-  it("round-trips every view, horizon and month through the query string", () => {
-    for (const view of ["list", "calendar"] as const) {
-      for (const horizon of [7, 14, 30] as const) {
-        for (const month of ["2026-10", "2026-11", "2027-01"]) {
-          const state: AgendaState = { view, horizon, month, types: [] };
-          const params = agendaParams(state, base);
-          expect(agendaStateFromParams(params, base)).toEqual(state);
-        }
-      }
+  it("round-trips every horizon through the query string", () => {
+    for (const horizon of [7, 14, 30] as const) {
+      const state: AgendaState = { horizon, types: ["chore"] };
+      const params = agendaParams(state);
+      expect(agendaStateFromParams(params, base)).toEqual(state);
     }
   });
 
@@ -132,9 +121,10 @@ describe("agenda page state", () => {
     const params = new URLSearchParams("view=board&horizon=99&month=2026-13");
     expect(agendaStateFromParams(params, base)).toEqual(base);
     expect(agendaStateFromParams(new URLSearchParams(), base)).toEqual(base);
-    expect(
-      agendaStateFromParams(new URLSearchParams("view=calendar&month=2026-11"), base),
-    ).toEqual({ view: "calendar", horizon: 14, month: "2026-11", types: [] });
+    expect(agendaStateFromParams(new URLSearchParams("horizon=30"), base)).toEqual({
+      horizon: 30,
+      types: [],
+    });
   });
 
   it("scopes storage to the user and the space", () => {
@@ -144,12 +134,7 @@ describe("agenda page state", () => {
   it("reads a stored state back", () => {
     const storage = memoryStorage();
     const key = agendaStorageKey("user-1", "space-1");
-    const state: AgendaState = {
-      view: "calendar",
-      horizon: 7,
-      month: "2026-11",
-      types: ["chore", "plant"],
-    };
+    const state: AgendaState = { horizon: 7, types: ["chore", "plant"] };
     writeAgendaState(storage, key, state);
     expect(readAgendaState(storage, key, base)).toEqual(state);
   });
@@ -166,12 +151,7 @@ describe("agenda page state", () => {
     const storage = memoryStorage({
       [key]: JSON.stringify({ view: "calendar", horizon: "7", month: "2026-11" }),
     });
-    expect(readAgendaState(storage, key, base)).toEqual({
-      view: "calendar",
-      horizon: 14,
-      month: "2026-11",
-      types: [],
-    });
+    expect(readAgendaState(storage, key, base)).toEqual({ horizon: 14, types: [] });
   });
 
   it("swallows a refused storage write", () => {
@@ -196,8 +176,8 @@ describe("agenda page state", () => {
       ...base,
       types: ["plant", "chore"],
     };
-    expect(agendaParams(state, base).get("types")).toBe("chore,plant");
-    expect(agendaParams({ ...state, types: ["chore", "plant"] }, base).get("types")).toBe(
+    expect(agendaParams(state).get("types")).toBe("chore,plant");
+    expect(agendaParams({ ...state, types: ["chore", "plant"] }).get("types")).toBe(
       "chore,plant",
     );
   });
