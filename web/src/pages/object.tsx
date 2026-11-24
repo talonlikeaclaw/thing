@@ -2,13 +2,17 @@ import { useParams, useSearchParams } from "react-router";
 
 import { useObject, useProperties, useSpace, useType } from "@/api/queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { DayDue } from "@/components/day-due";
+import { DayStrip, useDayHotkeys } from "@/components/day-strip";
 import { ErrorState } from "@/components/error-state";
 import { HistoryPanel } from "@/components/history-panel";
 import { LinksPanel } from "@/components/links-panel";
 import { ObjectPanel } from "@/components/object-panel";
+import { isDayTitle } from "@/lib/daily";
 import { shortId } from "@/lib/display";
 import { effectiveProperties } from "@/lib/schema";
 import { useRouteMeta } from "@/lib/route";
+import { todayIn } from "@/lib/timezone";
 
 /** `/s/:spaceId/o/:objectId` — one record, its properties and its markdown body. */
 export function ObjectPage() {
@@ -21,6 +25,18 @@ export function ObjectPage() {
   const type = useType(spaceId, object.data?.type);
 
   useRouteMeta(object.data?.title ?? "Record");
+
+  /**
+   * A daily note is recognised by its type and its title and by nothing else,
+   * so the rail appears exactly where the journal's grammar holds: a renamed
+   * note, or one of another type, is an ordinary record with no day to step.
+   */
+  const dailyType = space.data?.daily_type ?? null;
+  const noteTitle = object.data?.title ?? "";
+  const dailyDay =
+    dailyType && type.data?.key === dailyType && isDayTitle(noteTitle) ? noteTitle : null;
+  const spaceToday = space.data ? todayIn(space.data.timezone) : "";
+  useDayHotkeys({ spaceId: spaceId ?? "", day: dailyDay, today: spaceToday });
 
   if (
     properties.isPending ||
@@ -63,6 +79,9 @@ export function ObjectPage() {
           { label: record.title },
         ]}
       />
+      {dailyDay ? (
+        <DayStrip spaceId={detail.id} day={dailyDay} today={spaceToday} />
+      ) : null}
       <ObjectPanel
         key={record.id}
         spaceId={detail.id}
@@ -74,6 +93,7 @@ export function ObjectPage() {
         timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
         highlight={highlight}
+        dayContext={dailyDay ? <DayDue spaceId={detail.id} day={dailyDay} /> : undefined}
         onClearHighlight={
           highlight === ""
             ? undefined

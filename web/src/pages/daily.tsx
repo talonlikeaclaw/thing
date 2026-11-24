@@ -1,3 +1,4 @@
+import { AlignLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 
@@ -10,98 +11,44 @@ import {
   useTypes,
 } from "@/api/queries";
 import type { Filter } from "@/api/types";
-import { Breadcrumbs } from "@/components/breadcrumbs";
+import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
+import { DayDue, useDayDue } from "@/components/day-due";
+import { DayStrip, useDayHotkeys } from "@/components/day-strip";
 import { ErrorState } from "@/components/error-state";
+import { Button } from "@/components/ui/controls";
 import { EmptyState, PageHeader } from "@/components/ui/page";
+import { ThingIcon } from "@/components/thing-icon";
+import { cn } from "@/lib/cn";
+import { dayLabel, isDayTitle, longDayLabel } from "@/lib/daily";
 import { withDefaults } from "@/lib/defaults";
 import { readError } from "@/lib/display";
 import { useRouteMeta } from "@/lib/route";
 import { todayIn } from "@/lib/timezone";
 
 /**
- * `/s/:spaceId/daily` — today's note, opened or created once.
+ * `/s/:spaceId/daily` — the space's standing appointment: today.
  *
- * The day is the space's civil day, and the record is the ordinary record of
- * the space's `daily_type` whose title is that day. The page reads it through
- * the list endpoint, opens the oldest of a duplicate pair, and creates it only
- * for an editor, with the type's defaults and an empty body.
+ * The canonical URL of a day is `/daily/:date`, so this route resolves the
+ * space's civil day and replaces itself with it rather than rendering a second
+ * address for the same note.
  */
 export function DailyPage() {
   const { spaceId } = useParams();
   const space = useSpace(spaceId);
-  const types = useTypes(spaceId);
-  const create = useCreateObject(spaceId ?? "");
-  const createNote = create.mutate;
-  const creating = useRef(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   useRouteMeta("Today");
 
-  const dailyType = space.data?.daily_type ?? null;
-  const type = types.data?.find((summary) => summary.key === dailyType);
-  const title = space.data ? todayIn(space.data.timezone) : "";
-  const filter: Filter = {
-    op: "and",
-    conditions: [{ property: "title", condition: "equal", value: title }],
-  };
-  const list = useObjects(spaceId && type && title ? spaceId : undefined, {
-    type: dailyType ?? "",
-    filter,
-    sorts: [{ property: "updated_at", direction: "asc" }],
-    limit: 1,
-  });
-  const def = useType(type ? spaceId : undefined, type ? dailyType ?? undefined : undefined);
-  const properties = useProperties(spaceId);
-  const canEdit = space.data ? space.data.role !== "viewer" : false;
-  const existing = list.data?.objects[0];
-
-  // One create per visit: a second tab is allowed to make its own note, but
-  // this page never creates twice while the first write is in flight, and a
-  // refused create stays refused rather than looping.
-  useEffect(() => {
-    if (
-      existing ||
-      creating.current ||
-      createError ||
-      !canEdit ||
-      !type ||
-      !def.data ||
-      !properties.data ||
-      !title ||
-      !dailyType
-    ) {
-      return;
-    }
-    creating.current = true;
-    createNote(
-      {
-        type: dailyType,
-        title,
-        properties: withDefaults(def.data, properties.data, {}),
-        body: "",
-      },
-      {
-        onError: (error) => {
-          creating.current = false;
-          setCreateError(readError(error));
-        },
-      },
-    );
-  }, [existing, createError, canEdit, type, def.data, properties.data, title, dailyType, createNote]);
-
-  if (space.isPending || types.isPending) {
+  if (space.isPending) {
     return <p className="text-[13px] text-muted">Reading today's note…</p>;
   }
 
-  const error = space.error ?? types.error;
-  if (error) {
+  if (space.error) {
     return (
       <ErrorState
-        error={error}
+        error={space.error}
         subject="Today"
         onRetry={() => {
           void space.refetch();
-          void types.refetch();
         }}
       />
     );
@@ -111,65 +58,373 @@ export function DailyPage() {
     return null;
   }
 
-  if (existing) {
-    return <Navigate to={`/s/${space.data.id}/o/${existing.id}`} replace />;
+  return <Navigate to={`/s/${space.data.id}/daily/${todayIn(space.data.timezone)}`} replace />;
+}
+
+/** The day's trail: the space, then Today, then the day — or Today itself. */
+function dayCrumbs(
+  space: { id: string; name: string },
+  day: string,
+  isToday: boolean,
+): Crumb[] {
+  const base = `/s/${space.id}`;
+  if (isToday) {
+    return [{ label: space.name, to: base }, { label: "Today" }];
+  }
+  return [
+    { label: space.name, to: base },
+    { label: "Today", to: `${base}/daily` },
+    { label: day },
+  ];
+}
+
+/**
+ * `/s/:spaceId/daily/:date` — one day of the journal.
+ *
+ * The day is the URL, and the note is the record of the space's `daily_type`
+ * whose title is that day. Today — the standing appointment — is written on
+ * arrival, once, for an editor; every other day is offered as a day card and
+ * created only when the reader asks, so stepping through a month never leaves
+ * empty notes behind.
+ */
+export function DailyDayPage() {
+  const { spaceId, date } = useParams();
+  const day = date ?? "";
+  const dayIsDate = isDayTitle(day);
+  const space = useSpace(spaceId);
+  const types = useTypes(spaceId);
+  const create = useCreateObject(spaceId ?? "");
+  const createNote = create.mutate;
+  /** The day the automatic write was started for; a ref, so a re-render keeps it. */
+  const attempted = useRef<string | null>(null);
+  /** A refused write belongs to the day it was refused on, never to the next. */
+  const [refused, setRefused] = useState<{ day: string; message: string } | null>(null);
+
+  const dailyType = space.data?.daily_type ?? null;
+  const type = types.data?.find((summary) => summary.key === dailyType);
+  const today = space.data ? todayIn(space.data.timezone) : "";
+  const isToday = dayIsDate && day === today;
+
+  useRouteMeta(dayIsDate ? dayLabel(day) : "Today");
+  useDayHotkeys({ spaceId: spaceId ?? "", day: dayIsDate ? day : null, today });
+
+  const filter: Filter = {
+    op: "and",
+    conditions: [{ property: "title", condition: "equal", value: day }],
+  };
+  const list = useObjects(spaceId && dayIsDate && type ? spaceId : undefined, {
+    type: dailyType ?? "",
+    filter,
+    sorts: [{ property: "updated_at", direction: "asc" }],
+    limit: 1,
+  });
+  const def = useType(type ? spaceId : undefined, type ? dailyType ?? undefined : undefined);
+  const properties = useProperties(spaceId);
+  /**
+   * The same agenda read `DayDue` makes, taken here so the card knows whether
+   * its margin has anything to hold: a day with nothing outstanding keeps one
+   * full-width column instead of a blank half beside the writing.
+   */
+  const due = useDayDue(dayIsDate && type ? spaceId : undefined, day);
+  const hasDue = (due.data?.rows.length ?? 0) > 0;
+  const canEdit = space.data ? space.data.role !== "viewer" : false;
+  /**
+   * A placeholder is the previous day's read, still on screen while this day's
+   * loads, so only a settled read is this day's answer: a stale row would open
+   * the wrong note, and an unsettled one would write a note that already exists.
+   */
+  const readSettled = list.isSuccess && !list.isPlaceholderData;
+  const existing = readSettled ? list.data.objects[0] : undefined;
+  /** The type's own defaults are half of what a write needs. */
+  const ready = Boolean(def.data && properties.data);
+  const createError = refused && refused.day === day ? refused.message : null;
+
+  /**
+   * Writes the day and leaves the redirect to the read: the create invalidates
+   * the list, this day's row arrives, and `existing` replaces the URL. Nothing
+   * writes twice — the mutation's own pending flag holds the buttons, and the
+   * automatic path records the day it started on.
+   */
+  function writeNote() {
+    const definition = def.data;
+    const library = properties.data;
+    if (
+      create.isPending ||
+      !readSettled ||
+      !definition ||
+      !library ||
+      !canEdit ||
+      !type ||
+      !dailyType
+    ) {
+      return;
+    }
+    setRefused(null);
+    createNote(
+      {
+        type: dailyType,
+        title: day,
+        properties: withDefaults(definition, library, {}),
+        body: "",
+      },
+      { onError: (error) => setRefused({ day, message: readError(error) }) },
+    );
   }
 
-  return (
-    <div className="settle max-w-[76rem]">
-      <Breadcrumbs
-        items={[{ label: space.data.name, to: `/s/${space.data.id}` }, { label: "Today" }]}
+  // Today is written without asking, once: `/daily` is the space's standing
+  // appointment. Any other day waits for the reader, so navigation is a read.
+  // `attempted` is keyed by the day rather than reset on mount, because a
+  // re-run engine must not write the same note twice.
+  useEffect(() => {
+    if (
+      !isToday ||
+      !readSettled ||
+      existing ||
+      createError ||
+      create.isPending ||
+      attempted.current === day ||
+      !canEdit ||
+      !ready ||
+      !type ||
+      !dailyType
+    ) {
+      return;
+    }
+    attempted.current = day;
+    writeNote();
+  }, [
+    isToday,
+    readSettled,
+    existing,
+    createError,
+    create.isPending,
+    canEdit,
+    ready,
+    type,
+    dailyType,
+    day,
+    createNote,
+  ]);
+
+  if (space.isPending || types.isPending) {
+    return <p className="text-[13px] text-muted">Reading this day's note…</p>;
+  }
+
+  const error = space.error ?? types.error ?? def.error ?? properties.error;
+  if (error) {
+    return (
+      <ErrorState
+        error={error}
+        subject="Today"
+        onRetry={() => {
+          void space.refetch();
+          void types.refetch();
+          void def.refetch();
+          void properties.refetch();
+        }}
       />
-      <PageHeader
-        title="Today"
-        sentence={`The note this space writes for ${title} in ${space.data.timezone}.`}
-        meta={type?.name}
-      />
-      {!dailyType ? (
+    );
+  }
+
+  if (!space.data) {
+    return null;
+  }
+
+  const base = `/s/${space.data.id}`;
+
+  if (!dayIsDate) {
+    return (
+      <div className="settle max-w-[76rem]">
+        <Breadcrumbs
+          items={[
+            { label: space.data.name, to: base },
+            { label: "Today", to: `${base}/daily` },
+            { label: day },
+          ]}
+        />
+        <PageHeader
+          title="Not a day"
+          sentence={`“${day}” is not a date. A day's note is addressed as YYYY-MM-DD, for a day that exists.`}
+          actions={
+            <Link
+              to={`${base}/daily`}
+              className="text-[13px] text-accent underline-offset-4 hover:underline"
+            >
+              Open today
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (!dailyType) {
+    return (
+      <div className="settle max-w-[76rem]">
+        <Breadcrumbs items={dayCrumbs(space.data, day, isToday)} />
+        <PageHeader title={longDayLabel(day)} meta={day} />
         <EmptyState
           sentence="This space has no daily note yet. An owner chooses the type it writes in space settings."
           action={
             <Link
-              to={`/s/${space.data.id}/settings`}
+              to={`${base}/settings`}
               className="text-[13px] text-accent underline-offset-4 hover:underline"
             >
               Open space settings
             </Link>
           }
         />
-      ) : !type ? (
+      </div>
+    );
+  }
+
+  if (!type) {
+    return (
+      <div className="settle max-w-[76rem]">
+        <Breadcrumbs items={dayCrumbs(space.data, day, isToday)} />
+        <PageHeader title={longDayLabel(day)} meta={day} />
         <EmptyState
           sentence={`This space's daily note type (${dailyType}) is missing; an owner can choose another in space settings.`}
           action={
             <Link
-              to={`/s/${space.data.id}/settings`}
+              to={`${base}/settings`}
               className="text-[13px] text-accent underline-offset-4 hover:underline"
             >
               Open space settings
             </Link>
           }
         />
-      ) : canEdit ? (
-        <EmptyState
-          sentence={
-            createError
-              ? `Today's note could not be created: ${createError}`
-              : "Writing today's note…"
-          }
-        />
-      ) : (
-        <EmptyState
-          sentence="An editor can create today's note."
-          action={
-            <Link
-              to={`/s/${space.data.id}/t/${type.key}`}
-              className="text-[13px] text-accent underline-offset-4 hover:underline"
-            >
-              Open {type.name}
-            </Link>
-          }
-        />
-      )}
+      </div>
+    );
+  }
+
+  if (existing) {
+    return <Navigate to={`${base}/o/${existing.id}`} replace />;
+  }
+
+  const body = !canEdit ? (
+    <EmptyState
+      sentence="An editor can write this day's note."
+      action={
+        <Link
+          to={`${base}/t/${type.key}`}
+          className="text-[13px] text-accent underline-offset-4 hover:underline"
+        >
+          Open {type.name_plural}
+        </Link>
+      }
+    />
+  ) : !readSettled ? (
+    <p className="text-[13px] text-muted">Reading this day's note…</p>
+  ) : isToday ? (
+    createError ? (
+      <EmptyState
+        sentence={`Today's note could not be created: ${createError}`}
+        action={
+          <Button type="button" variant="ghost" onClick={writeNote}>
+            Try again
+          </Button>
+        }
+      />
+    ) : (
+      <p role="status" className="text-[13px] text-muted">
+        Writing today's note…
+      </p>
+    )
+  ) : createError ? (
+    <EmptyState sentence={`This day's note could not be created: ${createError}`} />
+  ) : create.isPending ? (
+    <p role="status" className="text-[13px] text-muted">
+      Writing this day's note…
+    </p>
+  ) : (
+    <EmptyState
+      sentence="Nothing written for this day yet."
+      action={
+        <Button
+          type="button"
+          // A write needs the type's defaults and this day's answer, so the
+          // action waits for both rather than ignoring a click made a beat too
+          // early — or writing over a note it had not heard about.
+          disabled={!ready || !readSettled}
+          onClick={writeNote}
+        >
+          Write this day&apos;s note
+        </Button>
+      }
+    />
+  );
+
+  return (
+    <div className="settle">
+      <Breadcrumbs
+        items={[
+          { label: space.data.name, to: base },
+          { label: type.name_plural, to: `${base}/t/${type.key}` },
+          { label: day },
+        ]}
+      />
+      <DayStrip spaceId={space.data.id} day={day} today={today} />
+
+      {/*
+        The day card is the note's own frame, one surface either side of the
+        write: the identity band already shows the title the record will carry,
+        so writing the note changes the sheet's middle and nothing else. The
+        day's context sits in the margin the record gives its properties — and
+        only when the day has outstanding rows, so a clear day is one column
+        rather than a sheet with half of it blank.
+      */}
+      <div className="rounded-[24px] border border-line bg-surface p-5 sm:p-6" data-day-card>
+        <div className="xl:grid xl:grid-cols-12 xl:gap-x-10">
+          <div
+            className={cn(
+              "border-b rule pb-3 xl:col-start-1",
+              hasDue ? "xl:col-span-8" : "xl:col-span-12",
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+              <span className="flex min-w-0 items-center gap-2">
+                {type.icon ? <ThingIcon icon={type.icon} size="md" /> : null}
+                <span className="label truncate">{type.name}</span>
+              </span>
+              <span className="font-mono text-[length:var(--text-small)] text-faint uppercase">
+                Not written
+              </span>
+            </div>
+            <h1 className="display mt-1 text-title">{day}</h1>
+            <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-mono text-[length:var(--text-small)] text-faint">
+              <time dateTime={day}>{longDayLabel(day)}</time>
+            </p>
+          </div>
+
+          <section
+            aria-label="Body"
+            className={cn(
+              "mt-5 min-w-0 xl:col-start-1",
+              hasDue ? "xl:col-span-8" : "xl:col-span-12",
+            )}
+          >
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">
+              <h2 className="label flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <AlignLeft aria-hidden size={13} strokeWidth={1.5} className="text-muted" />
+                Body
+                <span className="font-mono text-[11px] font-normal tracking-normal text-faint normal-case tnum">
+                  0 words · 0 characters
+                </span>
+              </h2>
+            </div>
+            {body}
+          </section>
+
+          {hasDue ? (
+            <DayDue
+              spaceId={space.data.id}
+              day={day}
+              className="mt-6 border-t rule pt-4 xl:col-span-4 xl:col-start-9 xl:mt-0 xl:border-t-0 xl:border-l xl:border-line xl:pt-0 xl:pl-8 xl:[grid-row:1/span_99]"
+            />
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

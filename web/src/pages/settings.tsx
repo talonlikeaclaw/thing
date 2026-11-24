@@ -217,7 +217,7 @@ export function SettingsPage() {
             <FieldRow
               label="Daily note"
               htmlFor="space-daily"
-              hint="Today's note is this type's record for the current day."
+              hint="A day's note is this type's record titled with its day, YYYY-MM-DD. Today opens the current day."
             >
               <select
                 id="space-daily"

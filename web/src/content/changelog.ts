@@ -37,6 +37,90 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "A daily note for any day",
+    summary:
+      "A daily note can be opened for any day of its month, not only today. An unwritten day shows one button that creates the note. The journal type's create button opens today's note instead of a blank form.",
+    sections: [
+      {
+        title: "Any day",
+        intro: "The journal is no longer limited to today.",
+        items: [
+          {
+            lead: "Open any day",
+            body: "Any day of the journal can be opened, not only today.",
+          },
+          {
+            lead: "Each day has its own page",
+            body: "A day can be bookmarked.",
+          },
+          {
+            lead: "Today is one click",
+            body: "The journal's page opens today's note.",
+          },
+          {
+            lead: "Browsing creates nothing",
+            body: "Stepping to another day only reads it, so no empty note is left behind.",
+          },
+        ],
+      },
+      {
+        title: "Writing a day",
+        intro: "A day is written only when someone asks for it, except today.",
+        items: [
+          {
+            lead: "One button writes the note",
+            body: "An unwritten day shows the day's title, its body heading and a button that creates the note.",
+          },
+          {
+            lead: "Today is written on opening",
+            body: "Opening the journal writes today's note once, without asking.",
+          },
+          {
+            lead: "The create button writes today",
+            body: "The journal type's create button opens today's note instead of a blank form.",
+          },
+        ],
+      },
+      {
+        title: "The day's work",
+        intro: "The note shows what is still due on that day.",
+        items: [
+          {
+            lead: "Due that day",
+            body: "The note lists everything still due that day, beside its properties.",
+          },
+          {
+            lead: "The margin stays after writing",
+            body: "The day's outstanding items stay in the note's margin after the note is written.",
+          },
+          {
+            lead: "No empty margin",
+            body: "A day with nothing scheduled uses the card's full width.",
+          },
+        ],
+      },
+      {
+        title: "Keys and navigation",
+        intro: "The journal's keys work on a day, and only while no field has focus.",
+        items: [
+          {
+            lead: "Step a day",
+            body: "The bracket keys move to the previous and next day.",
+          },
+          {
+            lead: "Back to today",
+            body: "The T key opens today's note.",
+          },
+          {
+            lead: "Today stays highlighted",
+            body: "The space's navigation marks Today while a day of the journal is open.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     version: "0.9.2",
     title: "Accent-tinted theme and profile theme",
     date: "2026-11-23",

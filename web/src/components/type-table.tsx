@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -45,7 +45,7 @@ import { TypeEditorSheet } from "@/components/schema/type-editor";
 import { SortBar } from "@/components/sort-bar";
 import { ThingIcon } from "@/components/thing-icon";
 import { useQuickCapture } from "@/components/quick-capture";
-import { useTableShortcuts } from "@/components/table-shortcuts";
+import { usePageShortcuts } from "@/components/page-shortcuts";
 import { Button, FormError, TextField, focusRing } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
 import { BoardView } from "@/components/views/board-view";
@@ -102,6 +102,12 @@ interface TypeTableProps {
   library: PropertyDef[];
   canEdit: boolean;
   timeZone: string;
+  /**
+   * Whether this type is the space's daily note. Its create action opens
+   * today's note instead of the capture sheet, because a journal's records are
+   * days and creating one from here means writing today.
+   */
+  daily: boolean;
 }
 
 /** The type page: saved views, their shared toolbar, filters and a renderer. */
@@ -112,6 +118,7 @@ export function TypeTable({
   library,
   canEdit,
   timeZone,
+  daily,
 }: TypeTableProps) {
   const [params, setParams] = useSearchParams();
   const selected = selectedView(type, params.get("view") ?? undefined);
@@ -143,6 +150,7 @@ export function TypeTable({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const capture = useQuickCapture();
+  const navigate = useNavigate();
   const journal = useRef(new Map<string, { rev?: number; queue: Promise<unknown> }>());
   const [addPropertyOpen, setAddPropertyOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -161,7 +169,7 @@ export function TypeTable({
     () => (isTable ? (canEdit ? TABLE_SHORTCUTS : TABLE_VIEWER_SHORTCUTS) : NO_SHORTCUTS),
     [canEdit, isTable],
   );
-  useTableShortcuts(tableShortcuts);
+  usePageShortcuts(tableShortcuts);
 
   // Step 1 starts on the first property this view actually shows.
   const initialBulkKey =
@@ -740,22 +748,37 @@ export function TypeTable({
       ) : null}
     </div>
   );
-  const createTitle = `New ${type.name.toLowerCase()}`;
+  const createName = daily ? "Today's note" : `New ${type.name.toLowerCase()}`;
+  const createHint = daily ? "Open today's note" : createName;
   /*
-   * The create label is the type's own name. On a phone the button owns a whole
-   * line and the schema pair rides the folio row above the title, so the label
-   * only ellipsizes once it is wider than that entire line; the full name stays
-   * in the native tooltip. It is never squeezed beside the schema actions, which
-   * is what used to cut it down to a few letters.
+   * A journal's create is its standing appointment: today's note, resolved or
+   * written by the day page. The capture sheet stays reachable for every other
+   * type, and for a journal through `C`, so a backdated entry is still a
+   * deliberate create rather than the type page's one button.
    */
-  const createLabel = <span className="min-w-0 truncate">{createTitle}</span>;
+  const openCreate = () => {
+    if (daily) {
+      navigate(`/s/${spaceId}/daily`);
+      return;
+    }
+    capture.open(type.key);
+  };
+  /*
+   * The create label names what the button makes: the type's own name, or
+   * today's note for a journal. On a phone the button owns a whole line and the
+   * schema pair rides the folio row above the title, so the label only
+   * ellipsizes once it is wider than that entire line; the full name stays in
+   * the native tooltip. It is never squeezed beside the schema actions, which is
+   * what used to cut it down to a few letters.
+   */
+  const createLabel = <span className="min-w-0 truncate">{createName}</span>;
   const newRecordButton = canEdit ? (
     <Button
       type="button"
       data-action="create"
-      title={createTitle}
+      title={createHint}
       className="px-3 pointer-coarse:min-h-[var(--control-coarse)] max-sm:min-h-[var(--control-coarse)] max-sm:w-full"
-      onClick={() => capture.open(type.key)}
+      onClick={openCreate}
     >
       {createLabel}
     </Button>
@@ -1230,9 +1253,9 @@ export function TypeTable({
                 ) : null}
                 <Button
                   type="button"
-                  title={createTitle}
+                  title={createHint}
                   className="min-h-9 w-fit max-w-full shrink-0 px-3 text-[13px] pointer-coarse:min-h-11"
-                  onClick={() => capture.open(type.key)}
+                  onClick={openCreate}
                 >
                   {createLabel}
                 </Button>

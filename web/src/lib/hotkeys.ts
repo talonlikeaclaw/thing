@@ -13,7 +13,7 @@ export interface HotkeyBinding {
   run: (event: KeyboardEvent) => boolean | void;
 }
 
-export type ShortcutScope = "Global" | "Space" | "Table" | "Record";
+export type ShortcutScope = "Global" | "Space" | "Table" | "Record" | "Journal";
 
 /** One advertised shortcut. The listener and the sheet read the same list. */
 export interface ShortcutDescriptor {

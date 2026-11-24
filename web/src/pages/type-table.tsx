@@ -57,6 +57,7 @@ export function TypeTablePage() {
         library={propertiesData}
         canEdit={detail.role !== "viewer"}
         timeZone={detail.timezone}
+        daily={detail.daily_type === typeData.key}
       />
     </>
   );

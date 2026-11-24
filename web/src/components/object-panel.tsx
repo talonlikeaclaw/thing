@@ -79,6 +79,11 @@ interface ObjectPanelProps {
   onClearHighlight?: () => void;
   /** Evidence below the body — the links and the history — in the main field. */
   children?: ReactNode;
+  /**
+   * The day's own context above the properties, for a journal note: what is
+   * still outstanding on the day the note is about.
+   */
+  dayContext?: ReactNode;
 }
 
 const STATUS_LABELS = {
@@ -342,6 +347,7 @@ export function ObjectPanel({
   highlight,
   onClearHighlight,
   children,
+  dayContext,
 }: ObjectPanelProps) {
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
   const [draft, setDraft] = useState<Draft>(() => draftOf(object));
@@ -1446,11 +1452,11 @@ export function ObjectPanel({
         </div>
       ) : null}
 
-      <fieldset
-        aria-label="Properties"
-        disabled={update.isPending}
-        className="mt-6 m-0 min-w-0 border-t rule pt-4 xl:col-span-4 xl:col-start-9 xl:mt-0 xl:border-t-0 xl:border-l xl:border-line xl:pt-0 xl:pl-8 xl:[grid-row:1/span_99]"
-      >
+      <aside className="mt-6 min-w-0 border-t rule pt-4 xl:col-span-4 xl:col-start-9 xl:mt-0 xl:border-t-0 xl:border-l xl:border-line xl:pt-0 xl:pl-8 xl:[grid-row:1/span_99]">
+        {dayContext ? (
+          <div className="mb-5 border-b rule pb-4">{dayContext}</div>
+        ) : null}
+        <fieldset aria-label="Properties" disabled={update.isPending} className="m-0 min-w-0">
         <div className="xl:sticky xl:top-[calc(var(--shell-header-h)+1rem)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-heading font-medium">
@@ -1511,7 +1517,8 @@ export function ObjectPanel({
           )}
         </div>
         </div>
-      </fieldset>
+        </fieldset>
+      </aside>
 
       <section aria-label="Body" className="mt-10 xl:col-span-8 xl:col-start-1 xl:mt-8">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3 border-b rule pb-2">

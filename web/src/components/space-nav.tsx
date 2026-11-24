@@ -812,7 +812,9 @@ function TodayLink({
   onNavigate?: () => void;
 }) {
   const to = `/s/${spaceId}/daily`;
-  const active = pathname === to;
+  // The journal's days and its month are the Today destination too, so the
+  // rail keeps the seal while the reader walks the journal.
+  const active = pathname === to || pathname.startsWith(`${to}/`);
   return (
     <div className={cn(folded && "flex justify-center")}>
       <Link

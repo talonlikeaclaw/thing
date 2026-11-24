@@ -14,6 +14,7 @@ import {
   useMe,
   useProperties,
   useSearch,
+  useSpace,
   useSpaces,
   useTrash,
   useTypes,
@@ -28,12 +29,14 @@ import {
   SheetViewport,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { dayLabel } from "@/lib/daily";
 import { useDebouncedValue } from "@/lib/debounce";
 import { plural, relativeTime, typeLabel } from "@/lib/format";
 import { searchProperties } from "@/lib/property-search";
 import { readRecent, recentKey, type RecentItem } from "@/lib/recent";
 import { formatLabel } from "@/lib/schema";
 import { matchRanges, rank } from "@/lib/search";
+import { shiftDay, todayIn } from "@/lib/timezone";
 
 interface PaletteItem {
   id: string;
@@ -79,6 +82,32 @@ interface CommandPaletteProps {
 
 
 /**
+ * The journal's two doors: a reader who remembers "yesterday" should not have
+ * to work out the date. They are omitted until the space answers, because the
+ * day is the space's own civil day, not the browser's.
+ */
+function dayActions(spaceId: string, timezone: string | undefined): PaletteItem[] {
+  if (!timezone) {
+    return [];
+  }
+  const today = todayIn(timezone);
+  return [
+    {
+      id: "action:journal-previous",
+      label: "Yesterday's note",
+      hint: dayLabel(shiftDay(today, -1)),
+      to: `/s/${spaceId}/daily/${shiftDay(today, -1)}`,
+    },
+    {
+      id: "action:journal-next",
+      label: "Tomorrow's note",
+      hint: dayLabel(shiftDay(today, 1)),
+      to: `/s/${spaceId}/daily/${shiftDay(today, 1)}`,
+    },
+  ];
+}
+
+/**
  * The global command sheet: actions, recent records, types and spaces, plus a
  * ranked search over every record's title and body in the current space.
  */
@@ -92,6 +121,7 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const me = useMe();
   const spaces = useSpaces(open);
+  const space = useSpace(spaceId);
   const types = useTypes(spaceId);
   const properties = useProperties(spaceId);
   const trash = useTrash(spaceId);
@@ -146,6 +176,7 @@ export function CommandPalette({
         label: "Open Schedule",
         to: `/s/${spaceId}/agenda`,
       },
+      ...dayActions(spaceId, space.data?.timezone),
       {
         id: "action:types",
         label: "Types and properties",

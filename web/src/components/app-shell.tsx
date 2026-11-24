@@ -37,7 +37,7 @@ import { QuickCaptureProvider, useQuickCapture } from "@/components/quick-captur
 import { ShortcutSheet } from "@/components/shortcut-sheet";
 import { ShortcutsProvider } from "@/components/shortcut-context";
 import { SignOutDialog } from "@/components/sign-out-dialog";
-import { TableShortcutsProvider } from "@/components/table-shortcuts";
+import { PageShortcutsProvider } from "@/components/page-shortcuts";
 import { focusSheetField, sheetReturnFocus } from "@/components/ui/sheet";
 import { Button, Keycap } from "@/components/ui/controls";
 import { Wordmark } from "@/components/wordmark";
@@ -193,7 +193,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   // Table bindings are registered by whichever grid is on screen.
-  const [tableShortcuts, setTableShortcuts] = useState<ShortcutDescriptor[]>([]);
+  const [pageShortcuts, setPageShortcuts] = useState<ShortcutDescriptor[]>([]);
   const connection = useSpaceEvents(spaceId);
   const previousPath = useRef(location.pathname);
   const accountTriggerRef = useRef<HTMLElement | null>(null);
@@ -261,7 +261,7 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
   // A viewer sees no capture action, and the `c` sheet line would lie there.
   const activeShortcuts = [
     ...SHORTCUTS.filter((shortcut) => shortcut.id !== "capture" || capture.available),
-    ...tableShortcuts,
+    ...pageShortcuts,
   ];
   const bindings: HotkeyBinding[] = activeShortcuts.flatMap((shortcut) => {
     const run = shortcutActions[shortcut.id];
@@ -468,9 +468,9 @@ function AppFrame({ spaceId }: { spaceId: string | undefined }) {
                 tabIndex={-1}
                 className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-8 focus:outline-none sm:px-6 lg:px-8 lg:py-10"
               >
-                <TableShortcutsProvider onChange={setTableShortcuts}>
+                <PageShortcutsProvider onChange={setPageShortcuts}>
                   <Outlet />
-                </TableShortcutsProvider>
+                </PageShortcutsProvider>
               </main>
               <ShellFooter />
             </PageFooterProvider>

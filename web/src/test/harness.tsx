@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, type RenderOptions, type RenderResult } from "@testing-library/react";
-import type { ReactElement, ReactNode } from "react";
+import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, vi } from "vitest";
 
@@ -55,6 +55,8 @@ interface ProviderOptions extends Omit<RenderOptions, "wrapper"> {
   /** The URL the router starts at. */
   route?: string;
   queryClient?: QueryClient;
+  /** Mount the way the app does, so every effect runs twice. */
+  strict?: boolean;
 }
 
 export interface HarnessRender extends RenderResult {
@@ -68,16 +70,22 @@ export interface HarnessRender extends RenderResult {
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { route = "/", queryClient = testQueryClient(), ...options }: ProviderOptions = {},
+  {
+    route = "/",
+    queryClient = testQueryClient(),
+    strict = false,
+    ...options
+  }: ProviderOptions = {},
 ): HarnessRender {
   function Providers({ children }: { children: ReactNode }) {
-    return (
+    const tree = (
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
         </ToastProvider>
       </QueryClientProvider>
     );
+    return strict ? <StrictMode>{tree}</StrictMode> : tree;
   }
 
   return { queryClient, ...render(ui, { wrapper: Providers, ...options }) };

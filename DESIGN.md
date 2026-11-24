@@ -434,6 +434,23 @@ a second card. The clean `Saved` seal is a small glass pill in the identity band
 dirty, one glass action row sticks above the dock on a phone; from `lg` the identity band
 carries the unsaved count and Save.
 
+**The Journal.** A day is a record whose title is its date (`YYYY-MM-DD`), so its note is
+the record sheet unchanged; the journal adds one rail and the day's own margin. The rail
+is one row — `‹ Sun 22 Nov`, a `Today` slot, `Mon 24 Nov ›` — with the adjacent days in
+sans and tabular numerals, a raised fill on hover and a 44px target on a coarse pointer.
+The middle slot links to today everywhere except on today itself, where it is an accent
+label rather than a second control. A day with no note yet is the sheet the note will
+become: the same breadcrumbs, the same rail, one matte card at 24px, the type's icon and
+name at the leading edge of the identity band with a mono `NOT WRITTEN` at its trailing
+one, the day as the title in the record's title voice, the weekday date in mono faint
+where a record prints its dates, then the record's own **Body** rule with its count, one
+sentence and one primary pill. A day whose outstanding rows exist gives them the record's
+4/12 margin under **Due that day**; a day with nothing outstanding keeps one full-width
+column, because an empty half-sheet reads as a broken layout. The written note is the
+record sheet with the same rail above it and the same day band above its Properties, so
+only the middle changes when the note is written. A renamed note, or a record of another
+type, carries no rail: the grammar is its type plus a date-shaped title and nothing else.
+
 **The Cover Hero.** A record's cover opens the card inside its padding: a 16:9 image in a
 16px inner frame with one hairline, `object-fit: cover`, above the identity band. The
 hero is the card's first element and nothing sits over it; the identity band keeps its
@@ -850,7 +867,8 @@ are non-negotiable. Any state shown by colour is also legible as text or a shape
 ## Surface record
 
 Every signed-in surface consumes the foundation: the floating header and rail; the phone
-dock and space sheet; the cover sheet; the record sheet and its save row; the ledger
+dock and space sheet; the cover sheet; the record sheet and its save row; the journal day,
+its rail and the day card; the ledger
 table, view tabs, filter/sort bars and bulk bar; the command palette, capture, shortcuts,
 sign-out and icon sheets; the schedule list and calendar; the record's attachment set, the
 space library and the storage section of space settings; schema, members, settings,
