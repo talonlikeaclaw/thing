@@ -37,9 +37,9 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "Unreleased",
+    version: "0.9.3",
     title: "A daily note for any day",
-    upcoming: true,
+    date: "2026-11-25",
     summary:
       "A daily note opens for any date in its journal, not only today. A date without a note shows the record's page with one Write this day's note button. The journal type's create button opens today's note. A Calendar shows the space's month or week with the notes and the work still due on each day. The type page leads with its name, the view card with its search, and the dated pages share one header.",
     sections: [
@@ -185,7 +185,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           },
           {
             lead: "Today is marked",
-            body: "Today's day carries a ring and the word Today, so the month never relies on colour alone.",
+            body: "Today's day carries a ring, and the word Today from a tablet up, so the month never relies on colour alone.",
           },
           {
             lead: "The day's panel",
@@ -288,6 +288,10 @@ export const CHANGELOG: ChangelogEntry[] = [
           {
             lead: "Snooze from the day",
             body: "A record due on a day is snoozed from the same two places.",
+          },
+          {
+            lead: "A single record",
+            body: "A type with one record says one record.",
           },
         ],
       },

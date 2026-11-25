@@ -730,11 +730,13 @@ export function TypeTable({
     searchRef.current?.focus();
   }
 
+  const countLabel =
+    compact || shown === total
+      ? `${total} ${total === 1 ? "record" : "records"}`
+      : `${shown} of ${total} records`;
   const recordCount = (
     <span className="tnum mt-1 block font-mono text-[length:var(--text-small)] text-muted max-[359px]:hidden">
-      {objects.isPending
-        ? "— records"
-        : `${compact || shown === total ? total : `${shown} of ${total}`} records`}
+      {objects.isPending ? "— records" : countLabel}
     </span>
   );
   // The key is minted from the name, so it usually repeats it in another

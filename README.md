@@ -210,7 +210,7 @@ command and the account CLI.
 
 ## Status
 
-`0.9.1`, schema 8. Every schema-1…7 file still loads. `thing` is pre-1.0: the file format is
+`0.9.3`, schema 8. Every schema-1…7 file still loads. `thing` is pre-1.0: the file format is
 versioned, an unknown schema is refused rather than guessed at, and CI runs the Rust and web gates
 plus Semgrep on every push.
 

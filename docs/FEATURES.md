@@ -1,6 +1,6 @@
 # Features
 
-This is the complete feature list for the next release (`0.9.3`). The plan each milestone shipped against is
+This is the complete feature list for the current release (`0.9.3`). The plan each milestone shipped against is
 in [`docs/plan/`](plan/).
 
 ## Schema and properties

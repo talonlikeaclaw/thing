@@ -114,7 +114,7 @@ keys sits on every daily record, and `/calendar` lays the space's month or week 
 existing `MonthGrid`, marking written days and the scheduled rows still outstanding each day. Only
 today is created by arrival; every other day is offered and written by a click. The Schedule keeps
 its list, and the old journal-month and schedule-calendar addresses redirect to the Calendar.
-Workspace `0.9.2` until the release bump, space schema 8 unchanged, web only: no format key, no server route, no
+Workspace `0.9.3`, space schema 8 unchanged, web only: no format key, no server route, no
 dependency, and the Calendar's month is one ordinary list read over a `title` range. Spec:
 [`docs/plan/m9.4-daily-notes.md`](plan/m9.4-daily-notes.md).
 
@@ -442,7 +442,7 @@ usability move ahead of search.
   measured across all twelve theme/scheme ladders before the ladder ships: the lowest pair anywhere
   is `4.62`, against today's `4.64` floor. Space settings' Appearance swatches become room previews;
   the accent stays the only control and `space.yml` gains nothing.
-- **M9.4 — Daily notes.** **Landed** (unreleased; workspace `0.9.2` until the release bump, space schema 8 unchanged, web only: no
+- **M9.4 — Daily notes.** **Landed** (workspace `0.9.3`, space schema 8 unchanged, web only: no
   `space.yml` key, no server route, no dependency; checkpoints 1–5 implemented); spec:
   [`docs/plan/m9.4-daily-notes.md`](plan/m9.4-daily-notes.md). The daily page stops being "today
   and nothing else". `/s/<space>/daily` stays Today as a `replace` redirect to the day,
