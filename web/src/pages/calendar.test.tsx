@@ -108,6 +108,10 @@ interface StubOptions {
   notes?: unknown[];
   runNotes?: unknown[];
   due?: unknown[];
+  /** Refuse the notes read, as a disk or server failure would. */
+  notesError?: boolean;
+  /** Hold the notes and agenda reads, as a cold read does. */
+  delay?: number;
 }
 
 /**
@@ -121,6 +125,8 @@ function stubCalendar({
   notes = [],
   runNotes = [],
   due = [],
+  notesError = false,
+  delay = 0,
 }: StubOptions = {}) {
   return stubFetch((input, init) => {
     const url = requestUrl(input);
@@ -137,11 +143,31 @@ function stubCalendar({
       return jsonResponse(choreType);
     }
     if (url.includes("/api/spaces/s1/agenda?")) {
-      return jsonResponse({ today, timezone: "UTC", rows: due });
+      const body = { today, timezone: "UTC", rows: due };
+      if (delay === 0) {
+        return jsonResponse(body);
+      }
+      // `lib` is pinned to ES2022, so `Promise.withResolvers` is not typed;
+      // the executor form is the one that compiles here.
+      return new Promise<Response>((resolve) =>
+        setTimeout(() => resolve(jsonResponse(body)), delay),
+      );
     }
     if (url.includes("/api/spaces/s1/objects?")) {
       const limit = new URL(url, "http://test").searchParams.get("limit");
-      return jsonResponse(page(limit === "90" ? runNotes : notes));
+      if (notesError && limit !== "90") {
+        return jsonResponse(
+          { error: { code: "io", message: "The notes could not be read." } },
+          500,
+        );
+      }
+      const body = page(limit === "90" ? runNotes : notes);
+      if (delay === 0) {
+        return jsonResponse(body);
+      }
+      return new Promise<Response>((resolve) =>
+        setTimeout(() => resolve(jsonResponse(body)), delay),
+      );
     }
     throw new Error(`unstubbed ${url}`);
   });
@@ -191,6 +217,35 @@ describe("CalendarPage — month", () => {
     await screen.findByText("2-day run");
   });
 
+  it("leaves the run out under a month that does not contain today", async () => {
+    const earlier = monthOf(shiftDay(`${month}-01`, -1));
+    const daysInEarlier = new Date(
+      Date.UTC(Number(earlier.slice(0, 4)), Number(earlier.slice(5, 7)), 0),
+    ).getUTCDate();
+    stubCalendar({ runNotes: [note(today, "r1"), note(shiftDay(today, -1), "r2")] });
+    renderCalendar(`/s/s1/calendar?month=${earlier}`);
+    await screen.findByText(`0 of ${daysInEarlier} days written in ${monthName(earlier)}`);
+    expect(screen.queryByText(/day run/)).not.toBeInTheDocument();
+  });
+
+  it("states a failed notes read with a retry instead of an empty month", async () => {
+    stubCalendar({ notesError: true });
+    renderCalendar();
+    await screen.findByText("The notes could not be read.");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("opens the day panel's own date as that day", async () => {
+    stubCalendar({ notes: [note(`${month}-05`, "n1")] });
+    renderCalendar();
+    await screen.findByRole("link", { name: `Note: ${month}-05` });
+    fireEvent.click(screen.getByRole("button", { name: `Records on ${formatDay(`${month}-05`)}` }));
+    const panel = await screen.findByRole("dialog", { name: /Records on/ });
+    expect(
+      within(panel).getByRole("link", { name: formatDay(`${month}-05`) }),
+    ).toHaveAttribute("href", `/s/s1/daily/${month}-05`);
+  });
+
   it("marks a day with the rows still due on it", async () => {
     stubCalendar({ due: [dueRow(`${month}-07`)] });
     renderCalendar();
@@ -218,8 +273,20 @@ describe("CalendarPage — month", () => {
     );
     expect(within(panel).getByText("Water the ferns")).toBeInTheDocument();
     expect(within(panel).getByText("Overdue 2d")).toBeInTheDocument();
+    // The panel names the day's work for the day it is: this one is not today.
+    expect(within(panel).getByText("Due that day")).toBeInTheDocument();
     // The written day needs no write action.
     expect(within(panel).queryByRole("link", { name: "Write this day's note" })).toBeNull();
+  });
+
+  it("names today's panel list as due today", async () => {
+    stubCalendar({ due: [dueRow(today)] });
+    renderCalendar();
+    await screen.findByText("1 due");
+    fireEvent.click(screen.getByRole("button", { name: `Records on ${formatDay(today)}` }));
+    const panel = await screen.findByRole("dialog", { name: /Records on/ });
+    expect(within(panel).getByText("Due today")).toBeInTheDocument();
+    expect(within(panel).queryByText("Due that day")).toBeNull();
   });
 
   it("offers an editor the write action on a day with no note", async () => {
@@ -278,7 +345,9 @@ describe("CalendarPage — week", () => {
       "href",
       "/s/s1/o/n1",
     );
-    expect(within(todaySection).getByText("Water the ferns")).toBeInTheDocument();
+    // The day's work is one named group under its note, never loose rows.
+    const work = within(todaySection).getByRole("region", { name: "Due" });
+    expect(within(work).getByText("Water the ferns")).toBeInTheDocument();
     expect(screen.getByText("1 due")).toBeInTheDocument();
   });
 
@@ -309,6 +378,13 @@ describe("CalendarPage — week", () => {
     expect(within(section).queryByRole("button", { name: /Snooze/ })).toBeNull();
   });
 
+  it("offers no day to write in a space without a journal", async () => {
+    stubCalendar({ dailyType: null, due: [dueRow(today)] });
+    renderCalendar(`/s/s1/calendar?view=week&week=${monday}`);
+    await screen.findByText("Water the ferns");
+    expect(screen.queryByRole("link", { name: "Write this day's note" })).toBeNull();
+  });
+
   it("switches shape in the URL and keeps the reader's place", async () => {
     stubCalendar({ notes: [note(`${month}-05`, "n1")] });
     renderCalendar(`/s/s1/calendar?month=${month}`);
@@ -324,6 +400,33 @@ describe("CalendarPage — week", () => {
     stubCalendar();
     renderCalendar(`/s/s1/calendar?view=week&week=${monday}`);
     await screen.findByText("Nothing written or due this week.");
+  });
+
+  it("states that the week is reading instead of inviting a write", async () => {
+    stubCalendar({ delay: 600 });
+    renderCalendar(`/s/s1/calendar?view=week&week=${monday}`);
+    expect(await screen.findByText(/Reading the week/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Write this day's note" })).toBeNull();
+    await screen.findByRole(
+      "link",
+      { name: `Open ${longDayLabel(monday)}` },
+      { timeout: 3000 },
+    );
+  });
+
+  it("makes every day's number its address", async () => {
+    stubCalendar();
+    renderCalendar(`/s/s1/calendar?view=week&week=${monday}`);
+    for (const day of week) {
+      const link = await screen.findByRole("link", { name: `Open ${longDayLabel(day)}` });
+      expect(link).toHaveAttribute("href", `/s/s1/daily/${day}`);
+    }
+  });
+
+  it("settles a week address on its Monday", async () => {
+    stubCalendar();
+    renderCalendar(`/s/s1/calendar?view=week&week=${week[3]}`);
+    await screen.findByText(`at /s/s1/calendar?view=week&week=${monday}`);
   });
 });
 

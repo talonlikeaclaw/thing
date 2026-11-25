@@ -24,6 +24,7 @@ import { withDefaults } from "@/lib/defaults";
 import { readError } from "@/lib/display";
 import { useRouteMeta } from "@/lib/route";
 import { todayIn } from "@/lib/timezone";
+import { monthLabel, monthOf } from "@/lib/views";
 
 /**
  * `/s/:spaceId/daily` — the space's standing appointment: today.
@@ -99,6 +100,14 @@ export function DailyDayPage() {
   const attempted = useRef<string | null>(null);
   /** A refused write belongs to the day it was refused on, never to the next. */
   const [refused, setRefused] = useState<{ day: string; message: string } | null>(null);
+  /**
+   * The day a write was started for. `create.isPending` ends when the POST
+   * answers, but the day's read has not heard about the note yet; without this
+   * the card would offer the button again for one round trip, and a second
+   * press would write a second note under the same title.
+   */
+  const [writingDay, setWritingDay] = useState<string | null>(null);
+  const writeStarted = useRef(0);
 
   const dailyType = space.data?.daily_type ?? null;
   const type = types.data?.find((summary) => summary.key === dailyType);
@@ -138,6 +147,8 @@ export function DailyDayPage() {
   /** The type's own defaults are half of what a write needs. */
   const ready = Boolean(def.data && properties.data);
   const createError = refused && refused.day === day ? refused.message : null;
+  /** A write in flight or awaiting the read that will carry its result. */
+  const busy = create.isPending || writingDay === day;
 
   /**
    * Writes the day and leaves the redirect to the read: the create invalidates
@@ -149,7 +160,7 @@ export function DailyDayPage() {
     const definition = def.data;
     const library = properties.data;
     if (
-      create.isPending ||
+      busy ||
       !readSettled ||
       !definition ||
       !library ||
@@ -160,6 +171,8 @@ export function DailyDayPage() {
       return;
     }
     setRefused(null);
+    setWritingDay(day);
+    writeStarted.current = Date.now();
     createNote(
       {
         type: dailyType,
@@ -167,9 +180,39 @@ export function DailyDayPage() {
         properties: withDefaults(definition, library, {}),
         body: "",
       },
-      { onError: (error) => setRefused({ day, message: readError(error) }) },
+      {
+        onError: (error) => {
+          setWritingDay(null);
+          setRefused({ day, message: readError(error) });
+        },
+      },
     );
   }
+
+  /*
+   * The write ends when a read that started after it lands: the note is found
+   * and the page replaces itself, or the read is still empty and the action is
+   * offered again. Clearing on the mutation alone would reopen the window the
+   * day is held for.
+   */
+  useEffect(() => {
+    if (
+      writingDay === null ||
+      create.isPending ||
+      !readSettled ||
+      list.dataUpdatedAt <= writeStarted.current
+    ) {
+      return;
+    }
+    setWritingDay(null);
+  }, [writingDay, create.isPending, readSettled, list.dataUpdatedAt]);
+
+  // A held day belongs to the day it was started on; stepping away releases it.
+  useEffect(() => {
+    if (writingDay !== null && writingDay !== day) {
+      setWritingDay(null);
+    }
+  }, [day, writingDay]);
 
   // Today is written without asking, once: `/daily` is the space's standing
   // appointment. Any other day waits for the reader, so navigation is a read.
@@ -210,17 +253,23 @@ export function DailyDayPage() {
     return <p className="text-[13px] text-muted">Reading this day's note…</p>;
   }
 
-  const error = space.error ?? types.error ?? def.error ?? properties.error;
+  /*
+   * The day's own read belongs to the same refusal as the space's: a failed
+   * list read otherwise leaves the card saying "Reading this day's note…"
+   * for ever, and an empty answer is indistinguishable from a broken one.
+   */
+  const error = space.error ?? types.error ?? def.error ?? properties.error ?? list.error;
   if (error) {
     return (
       <ErrorState
         error={error}
-        subject="Today"
+        subject={isToday ? "Today" : "This day"}
         onRetry={() => {
           void space.refetch();
           void types.refetch();
           void def.refetch();
           void properties.refetch();
+          void list.refetch();
         }}
       />
     );
@@ -264,7 +313,7 @@ export function DailyDayPage() {
         <Breadcrumbs items={dayCrumbs(space.data, day, isToday)} />
         <PageHeader title={longDayLabel(day)} meta={day} />
         <EmptyState
-          sentence="This space has no daily note yet. An owner chooses the type it writes in space settings."
+          sentence="No type is set as this space's daily note yet. An owner chooses one in space settings."
           action={
             <Link
               to={`${base}/settings`}
@@ -332,27 +381,41 @@ export function DailyDayPage() {
       </p>
     )
   ) : createError ? (
-    <EmptyState sentence={`This day's note could not be created: ${createError}`} />
-  ) : create.isPending ? (
-    <p role="status" className="text-[13px] text-muted">
-      Writing this day's note…
-    </p>
-  ) : (
     <EmptyState
-      sentence="Nothing written for this day yet."
+      sentence={`This day's note could not be created: ${createError}`}
       action={
-        <Button
-          type="button"
-          // A write needs the type's defaults and this day's answer, so the
-          // action waits for both rather than ignoring a click made a beat too
-          // early — or writing over a note it had not heard about.
-          disabled={!ready || !readSettled}
-          onClick={writeNote}
-        >
-          Write this day&apos;s note
+        <Button type="button" variant="ghost" onClick={writeNote}>
+          Try again
         </Button>
       }
     />
+  ) : busy ? (
+    <p role="status" className="text-[13px] text-muted">
+      Writing this day&apos;s note…
+    </p>
+  ) : (
+    /*
+      The window a note will fill: the body's own layer inside the sheet, drawn
+      dashed because it holds nothing yet, the same affordance a calendar's
+      empty day carries.
+    */
+    <div className="rounded-[16px] border border-dashed border-line-interactive/60 bg-ground/25 px-4">
+      <EmptyState
+        sentence="Nothing written for this day yet."
+        action={
+          <Button
+            type="button"
+            // A write needs the type's defaults and this day's answer, so the
+            // action waits for both rather than ignoring a click made a beat too
+            // early — or writing over a note it had not heard about.
+            disabled={!ready || !readSettled}
+            onClick={writeNote}
+          >
+            Write this day&apos;s note
+          </Button>
+        }
+      />
+    </div>
   );
 
   return (
@@ -361,6 +424,10 @@ export function DailyDayPage() {
         items={[
           { label: space.data.name, to: base },
           { label: type.name_plural, to: `${base}/t/${type.key}` },
+          {
+            label: monthLabel(monthOf(day)),
+            to: `${base}/calendar?month=${monthOf(day)}`,
+          },
           { label: day },
         ]}
       />
@@ -388,7 +455,7 @@ export function DailyDayPage() {
                 <span className="label truncate">{type.name}</span>
               </span>
               <span className="font-mono text-[length:var(--text-small)] text-faint uppercase">
-                Not written
+                {readSettled ? "Not written" : "Reading"}
               </span>
             </div>
             <h1 className="display mt-1 text-title">{day}</h1>
@@ -420,6 +487,8 @@ export function DailyDayPage() {
             <DayDue
               spaceId={space.data.id}
               day={day}
+              today={today}
+              canEdit={canEdit}
               className="mt-6 border-t rule pt-4 xl:col-span-4 xl:col-start-9 xl:mt-0 xl:border-t-0 xl:border-l xl:border-line xl:pt-0 xl:pl-8 xl:[grid-row:1/span_99]"
             />
           ) : null}

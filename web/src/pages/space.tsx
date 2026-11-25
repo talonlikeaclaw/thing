@@ -11,6 +11,7 @@ import { SpaceGraph } from "@/components/space-graph";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button } from "@/components/ui/controls";
 import { cn } from "@/lib/cn";
+import { isDayTitle } from "@/lib/daily";
 import { shortId } from "@/lib/display";
 import { relativeTime, typeLabel } from "@/lib/format";
 import { useRouteMeta } from "@/lib/route";
@@ -168,7 +169,11 @@ export function SpacePage() {
                 {shown.map((entry) => (
                   <li key={entry.id} className="border-b rule">
                     <Link
-                      to={`/s/${detail.id}/o/${entry.id}`}
+                      to={
+                        entry.type === detail.daily_type && isDayTitle(entry.title)
+                          ? `/s/${detail.id}/daily/${entry.title}`
+                          : `/s/${detail.id}/o/${entry.id}`
+                      }
                       className="group flex min-h-11 flex-col gap-0.5 py-2.5"
                     >
                       <span className="flex min-w-0 items-center gap-2 text-[14px]">

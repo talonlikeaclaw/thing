@@ -1,3 +1,4 @@
+import { Dialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -5,6 +6,13 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import { useThumbHandedness } from "@/components/handedness";
+import {
+  SheetCloseButton,
+  SheetHeader,
+  SheetPopup,
+  SheetTitle,
+  SheetViewport,
+} from "@/components/ui/sheet";
 import { CalendarControls } from "@/components/views/calendar-controls";
 import { cn } from "@/lib/cn";
 import { formatDay } from "@/lib/display";
@@ -47,6 +55,11 @@ export interface MonthGridProps<T> {
    * work and its write action there. `null` leaves the panel footer out.
    */
   dayActions?(date: string): ReactNode;
+  /**
+   * Where the day panel's own date links. The journal opens that day's page;
+   * a type calendar without a day route omits it and the date stays a label.
+   */
+  dayHref?(date: string): string;
   /** Extra classes on the card, when the caller must change its spacing. */
   className?: string;
   onMonthChange(month: string): void;
@@ -76,6 +89,7 @@ export function MonthGrid<T>({
   footer,
   dayMarker,
   dayActions,
+  dayHref,
   className,
   onMonthChange,
 }: MonthGridProps<T>) {
@@ -94,10 +108,10 @@ export function MonthGrid<T>({
   const currentMonth = monthOf(today);
 
   /**
-   * `nearest` leaves a visible month alone on a wide screen and brings the
-   * current week above the phone bar otherwise; the bar's height is the cell's
-   * `scroll-margin-bottom`. Motion is never animated here: the calendar should
-   * open where the reader already is, not travel there.
+   * `nearest` brings a today that is off screen back into view when the reader
+   * asks for it by pressing Today; opening a month never travels on its own,
+   * because a page that moves itself loses the reader's place. The bar's height
+   * is the cell's `scroll-margin-bottom`.
    */
   function scrollToToday() {
     todayCell.current?.scrollIntoView({
@@ -106,12 +120,6 @@ export function MonthGrid<T>({
       behavior: "auto",
     });
   }
-
-  useLayoutEffect(() => {
-    if (month === currentMonth) {
-      scrollToToday();
-    }
-  }, [month, currentMonth]);
 
   /**
    * The day list is portalled and clamped into the viewport, so it flips on a
@@ -139,8 +147,17 @@ export function MonthGrid<T>({
   }
 
   useLayoutEffect(() => {
+    if (dayOpen?.coarse) {
+      // The sheet is a dialog: it traps focus, moves it into the panel and
+      // hands it back to the cell when it closes, so this panel stays out of
+      // that path.
+      return;
+    }
     if (dayOpen) {
-      dayPanel.current?.focus();
+      // The panel is fixed, but its static position is the end of the body:
+      // focusing it without this scrolls the page to the bottom of the
+      // document and takes the month's own title out of view.
+      dayPanel.current?.focus({ preventScroll: true });
       return;
     }
     dayAnchor.current?.focus({ preventScroll: true });
@@ -148,7 +165,7 @@ export function MonthGrid<T>({
   }, [dayOpen]);
 
   useEffect(() => {
-    if (!dayOpen) {
+    if (!dayOpen || dayOpen.coarse) {
       return;
     }
     const onPointerDown = (event: PointerEvent) => {
@@ -189,6 +206,55 @@ export function MonthGrid<T>({
     </button>
   );
   const panelActions = dayOpen && dayActions ? dayActions(dayOpen.date) : null;
+  const dayLabel = dayOpen ? formatDay(dayOpen.date) : "";
+  /**
+   * The day's rows and the caller's actions scroll as one: the Journal's panel
+   * carries its due rows under the note, and a fixed footer would clip them on
+   * a short window. A note is the same chip here as in a week's day column, so
+   * the panel is not a second, plainer list.
+   */
+  const dayPanelBody =
+    dayOpen === null ? null : (
+      <>
+        {(byDate.get(dayOpen.date) ?? []).length === 0 && !panelActions ? (
+          <p className="px-1 py-1 text-[12px] text-faint">No records on this day.</p>
+        ) : null}
+        <div className="mt-1 grid min-h-0 flex-1 gap-1 overflow-y-auto overscroll-contain">
+          <ul className="grid gap-0.5">
+            {(byDate.get(dayOpen.date) ?? []).map((item) => (
+              <li key={keyOf(item)} className="flex min-w-0 items-center gap-1">
+                {renderRow ? (
+                  renderRow(item)
+                ) : (
+                  <Link
+                    to={hrefOf(item)}
+                    title={titleOf?.(item)}
+                    className="min-w-0 flex-1 truncate px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
+                    onClick={() => setDayOpen(null)}
+                  >
+                    {renderChip(item)}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+          {panelActions ? <div className="border-t rule pt-1">{panelActions}</div> : null}
+        </div>
+      </>
+    );
+  const dayPanelTitle = dayOpen ? (
+    dayHref ? (
+      <Link
+        to={dayHref(dayOpen.date)}
+        className="inline-flex items-center transition-colors hover:text-accent"
+        onClick={() => setDayOpen(null)}
+      >
+        {dayLabel}
+      </Link>
+    ) : (
+      dayLabel
+    )
+  ) : null;
 
   return (
     /*
@@ -237,7 +303,7 @@ export function MonthGrid<T>({
               key={cell.date}
               ref={isToday ? todayCell : undefined}
               className={cn(
-                "calendar-day relative min-h-[6.5rem] border-r border-b rule p-1.5",
+                "calendar-day relative min-h-[6.5rem] scroll-mt-24 border-r border-b rule p-1.5 max-sm:p-1",
                 cell.inMonth ? "" : "bg-surface/40",
               )}
             >
@@ -254,9 +320,16 @@ export function MonthGrid<T>({
                   aria-haspopup="dialog"
                   aria-label={`Records on ${formatDay(cell.date)}`}
                   className={cn(
-                    "tnum -ml-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-[6px] px-1 font-mono text-[11px] transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+                    // Seven 44px targets cannot fit a 320px phone (7×44 is
+                    // wider than the grid's 254px), so below `sm` the number
+                    // keeps its full height and 36px of width: exactly the
+                    // track, so no two day targets overlap. From `sm` the
+                    // grid has room for the coarse floor.
+                    "tnum -ml-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-[6px] px-1 font-mono text-[11px] transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-9 sm:pointer-coarse:min-w-11",
                     cell.inMonth ? "text-muted" : "text-faint",
-                    isToday ? "text-accent" : "",
+                    // `TODAY` is carried from `sm`; below it the ring is the
+                    // second, non-colour cue on a cell too narrow for the word.
+                    isToday ? "text-accent ring-1 ring-accent/60" : "",
                   )}
                   title={isToday ? "Today" : undefined}
                   onClick={(event) => openDay(cell.date, event.currentTarget)}
@@ -278,7 +351,7 @@ export function MonthGrid<T>({
                     <Link
                       to={hrefOf(item)}
                       title={titleOf?.(item)}
-                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised max-sm:px-0.5 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-0"
+                      className="block min-w-0 truncate rounded-[6px] border-l border-line-strong px-1 py-0.5 text-[length:var(--text-small)] text-ink transition-colors hover:bg-raised max-sm:px-0 max-sm:text-[11px] pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-0"
                       onClick={(event) => {
                         // A finger cannot aim at a ~50 px chip, so a tap
                         // opens the day and its full rows.
@@ -312,72 +385,85 @@ export function MonthGrid<T>({
 
       {dayOpen
         ? createPortal(
-            <div
-              ref={dayPanel}
-              role="dialog"
-              aria-label={`Records on ${formatDay(dayOpen.date)}`}
-              tabIndex={-1}
-              className={cn(
-                "glass-strong fixed z-50 flex flex-col overflow-hidden rounded-card text-[12px] focus:outline-none",
-                dayOpen.coarse
-                  ? // Clear the phone dock: 12px inset + 68px bar + 8px gap.
-                    "inset-x-2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] rounded-t-field p-3"
-                  : "rounded-field p-2",
-              )}
-              style={
-                dayOpen.coarse
-                  ? { maxHeight: "min(60vh, 60dvh)" }
-                  : {
-                      top: dayOpen.top,
-                      left: dayOpen.left,
-                      width: dayOpen.width,
-                      maxHeight: dayOpen.maxHeight,
-                    }
-              }
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  setDayOpen(null);
-                }
-              }}
-            >
-              <div className="flex shrink-0 items-baseline justify-between gap-2">
-                {handedness === "left" ? dayClose : null}
-                <span className="label">{formatDay(dayOpen.date)}</span>
-                {handedness === "left" ? null : dayClose}
+            dayOpen.coarse ? (
+              /*
+               * A finger gets the app's one overlay: a scrim, the sheet
+               * geometry and the shared close control, as the filter, the
+               * capture sheet and Add property all do. The day's own rows are
+               * the same chips and the same work group the week draws.
+               */
+              <Dialog.Root open onOpenChange={(open) => (open ? undefined : setDayOpen(null))}>
+                <Dialog.Portal>
+                  <Dialog.Backdrop className="fixed inset-0 z-40 scrim" />
+                  <SheetViewport>
+                    <SheetPopup className="text-[12px] sm:w-[34rem]">
+                      <SheetHeader
+                        className={cn(
+                          "gap-[var(--space-3)]",
+                          handedness === "left" ? "justify-start" : "justify-between",
+                        )}
+                      >
+                        {handedness === "left" ? (
+                          <>
+                            <SheetCloseButton label="Close day" />
+                            <SheetTitle className="tnum min-w-0 flex-1 truncate">
+                              {dayPanelTitle}
+                            </SheetTitle>
+                          </>
+                        ) : (
+                          <>
+                            <SheetTitle className="tnum min-w-0 flex-1 truncate">
+                              {dayPanelTitle}
+                            </SheetTitle>
+                            <SheetCloseButton label="Close day" />
+                          </>
+                        )}
+                      </SheetHeader>
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--space-4)] py-[var(--space-3)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                        {dayPanelBody}
+                      </div>
+                    </SheetPopup>
+                  </SheetViewport>
+                </Dialog.Portal>
+              </Dialog.Root>
+            ) : (
+              <div
+                ref={dayPanel}
+                role="dialog"
+                aria-label={`Records on ${dayLabel}`}
+                tabIndex={-1}
+                className="glass-strong fixed z-50 flex flex-col overflow-hidden rounded-field p-2 text-[12px] focus:outline-none"
+                style={{
+                  top: dayOpen.top,
+                  left: dayOpen.left,
+                  width: dayOpen.width,
+                  maxHeight: dayOpen.maxHeight,
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    setDayOpen(null);
+                  }
+                }}
+              >
+                <div className="flex shrink-0 items-baseline justify-between gap-2">
+                  {handedness === "left" ? dayClose : null}
+                  {dayHref ? (
+                    <Link
+                      to={dayHref(dayOpen.date)}
+                      className="label inline-flex items-center transition-colors hover:text-accent pointer-coarse:min-h-11"
+                      onClick={() => setDayOpen(null)}
+                    >
+                      {dayLabel}
+                    </Link>
+                  ) : (
+                    <span className="label">{dayLabel}</span>
+                  )}
+                  {handedness === "left" ? null : dayClose}
+                </div>
+                {dayPanelBody}
               </div>
-              {(byDate.get(dayOpen.date) ?? []).length === 0 ? (
-                <p className="px-1 py-1 text-[12px] text-faint">No records on this day.</p>
-              ) : null}
-              {/*
-                The rows and the caller's actions scroll as one: the Journal's
-                day panel carries its due rows under the note, and a fixed
-                footer would clip the second of them on a short window.
-              */}
-              <div className="mt-1 grid min-h-0 flex-1 gap-1 overflow-y-auto overscroll-contain">
-                <ul className="grid gap-0.5">
-                  {(byDate.get(dayOpen.date) ?? []).map((item) => (
-                    <li key={keyOf(item)} className="flex min-w-0 items-center gap-1">
-                      {renderRow ? (
-                        renderRow(item)
-                      ) : (
-                        <Link
-                          to={hrefOf(item)}
-                          title={titleOf?.(item)}
-                          className="min-w-0 flex-1 truncate px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
-                          onClick={() => setDayOpen(null)}
-                        >
-                          {renderChip(item)}
-                        </Link>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                {panelActions ? (
-                  <div className="border-t rule pt-1">{panelActions}</div>
-                ) : null}
-              </div>
-            </div>,
+            ),
             document.body,
           )
         : null}

@@ -30,6 +30,7 @@ export function TypeFilter({
   onChange,
   allLabel = "All types",
   title = "Filter by type",
+  stretch = false,
 }: {
   types: readonly TypeSummary[];
   /** The active keys; empty means every type. */
@@ -39,6 +40,8 @@ export function TypeFilter({
   allLabel?: string;
   /** The phone sheet's title, worded for the surface. */
   title?: string;
+  /** Fill the row's share, when the phone header splits its second line. */
+  stretch?: boolean;
 }) {
   const compact = useCompactWidth();
   const handedness = useThumbHandedness();
@@ -66,9 +69,12 @@ export function TypeFilter({
 
   if (!compact) {
     return (
-      <div className={cn(AGENDA_TOOLBAR, "shrink-0")}>
+      <div className={cn(AGENDA_TOOLBAR, "shrink-0", stretch && "flex-1")}>
         <Popover.Root>
-          <Popover.Trigger aria-label={label} className={cn(TRIGGER, count > 0 && "text-ink")}>
+          <Popover.Trigger
+            aria-label={label}
+            className={cn(TRIGGER, count > 0 && "text-ink", stretch && "flex-1")}
+          >
             {trigger}
           </Popover.Trigger>
           <Popover.Portal>
@@ -92,13 +98,13 @@ export function TypeFilter({
 
   return (
     <>
-      <div className={cn(AGENDA_TOOLBAR, "shrink-0")}>
+      <div className={cn(AGENDA_TOOLBAR, "shrink-0", stretch && "flex-1")}>
         <button
           type="button"
           aria-label={label}
           aria-expanded={open}
           aria-haspopup="dialog"
-          className={cn(TRIGGER, count > 0 && "text-ink")}
+          className={cn(TRIGGER, count > 0 && "text-ink", stretch && "flex-1")}
           onClick={() => setOpen(true)}
         >
           {trigger}

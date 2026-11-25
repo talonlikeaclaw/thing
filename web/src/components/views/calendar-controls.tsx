@@ -35,7 +35,7 @@ export function CalendarControls({
         </button>
         <button
           type="button"
-          className="label rounded-[8px] px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+          className="min-h-8 rounded-[8px] px-2 text-[12px] font-medium text-muted transition-colors hover:bg-raised hover:text-ink pointer-coarse:min-h-11 pointer-coarse:min-w-11"
           onClick={onToday}
         >
           Today

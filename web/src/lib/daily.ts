@@ -88,6 +88,19 @@ export function dayLabel(day: string): string {
 }
 
 /**
+ * A day without its month — `Sun 23` — for a chip that sits above the month it
+ * belongs to. Used where the month is already named, so a narrow rail never
+ * truncates the date it is stepping.
+ */
+export function dayNumberLabel(day: string): string {
+  const parts = formatParts(shortDay, day);
+  if (!parts) {
+    return day;
+  }
+  return `${partOf(parts, "weekday")} ${partOf(parts, "day")}`.trim();
+}
+
+/**
  * The long form a day card leads with — `Sunday, 23 November 2026` — assembled
  * in the same fixed order, in UTC. A malformed day reads as itself.
  */

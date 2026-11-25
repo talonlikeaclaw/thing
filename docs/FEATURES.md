@@ -1,6 +1,6 @@
 # Features
 
-This is the complete feature list for version `0.9.0`. The plan each milestone shipped against is
+This is the complete feature list for the next release (`0.9.3`). The plan each milestone shipped against is
 in [`docs/plan/`](plan/).
 
 ## Schema and properties
@@ -56,8 +56,38 @@ in [`docs/plan/`](plan/).
   overdue and today are calendar days in the space's IANA timezone, not elapsed hours.
 - **In-app reminders.** An overdue badge in the space navigation and a Schedule page with Overdue,
   Today and upcoming sections. There are no emails, push notifications or background jobs.
-- **Schedule views.** The Schedule page shows one agenda across types, with a range and type
-  filter, a remembered horizon and month in the URL, and snooze for a record.
+- **Schedule views.** The Schedule page lists one agenda across types, with a range and type
+  filter and a remembered horizon. Snooze moves a record's due date by 1–90 days, and the month
+  lives in the Calendar.
+
+## Journal and calendar
+
+- **Daily notes.** A space whose settings name a daily type opens today's note from the Today item.
+  Each day of the journal has its own address, `/daily/<YYYY-MM-DD>`, and a day without a note
+  shows the note's own frame with one **Write this day's note** action. Only today is written on
+  arrival; the write is held until the day's read answers, and a refused day offers **Try again**.
+- **Stepping a day.** A daily record carries `‹` / `›` to the previous and next day and a Today
+  link, as chips in the day's glass header; the day's month is its parent breadcrumb and opens that
+  month in the Calendar. The `[`, `]` and `t` keys do the same while no field has focus, and `?`
+  lists them under Journal. The space navigation marks Today while a day of the journal is open,
+  including the record page a written day becomes.
+- **A day's other doors.** A scheduled record's due date, a Schedule row's date, a daily note in
+  Search or the space's Activity, and the journal type page's Calendar button all open the day or
+  the month. The Search sheet lists today's, yesterday's and tomorrow's note, and a typed
+  `YYYY-MM-DD` opens that day.
+- **The day's work.** A daily note lists the scheduled records still outstanding that day beside
+  its properties, each with its type and due phrase. An editor completes or snoozes a row there,
+  with the type's own completion verb and an Undo on each result.
+- **Calendar.** `/calendar` shows the space's month or week. A day marks a written note and the
+  count still due; its panel lists both, and an editor can complete or snooze a due record there or
+  write a missing note. The month states how many of its days are written and, for the current
+  month, the run of consecutive days. A failed read states the server's sentence with Retry, and
+  the week says it is reading until its notes and work settle. The Calendar and the Schedule link
+  to each other, and a week address settles on its Monday.
+- **Recognition.** A daily note is a record of the space's daily type whose title is a date. A note
+  renamed out of that convention stays an ordinary record and does not appear in the Calendar.
+- **Old addresses.** A link to the former journal month or the Schedule's calendar opens the
+  Calendar.
 
 ## Writing, links and search
 

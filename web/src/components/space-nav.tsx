@@ -24,9 +24,9 @@ import {
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useMatch, useNavigate } from "react-router";
 
-import { useAgenda, useMe, useSpace, useSpaces } from "@/api/queries";
+import { useAgenda, useMe, useObject, useSpace, useSpaces } from "@/api/queries";
 import type { Role, SpaceSummary, TypeSummary } from "@/api/types";
 import { useThumbHandedness } from "@/components/handedness";
 import { usePalette } from "@/components/palette-context";
@@ -35,9 +35,11 @@ import { useShortcuts } from "@/components/shortcut-context";
 import { ThingIcon } from "@/components/thing-icon";
 import { SheetPopup, SheetViewport } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { isDayTitle } from "@/lib/daily";
 import {
   DEFAULT_NAV_ORDER,
   moveNavLink,
+  navLinkActive,
   navOrderKey,
   visibleNavOrder,
   readNavOrder,
@@ -110,6 +112,18 @@ export function SpaceNav({
   const shortcuts = useShortcuts();
   const handedness = useThumbHandedness();
   const list: SpaceSummary[] = spaces.data ?? [];
+  /*
+   * A daily note is the day it records, so Today stays lit once the note
+   * exists and the address is the record's page. The query is the one the
+   * record page already made, so the rail adds no request.
+   */
+  const objectMatch = useMatch("/s/:spaceId/o/:objectId");
+  const openRecord = useObject(spaceId, objectMatch?.params.objectId);
+  const journalOpen = Boolean(
+    space.data?.daily_type &&
+      openRecord.data?.type === space.data.daily_type &&
+      isDayTitle(openRecord.data.title),
+  );
   // The rail badge reports the whole space, never a page filter: every overdue
   // row is inside the default window.
   const overdue = agenda.data?.rows.filter((row) => row.status === "overdue").length ?? 0;
@@ -138,6 +152,13 @@ export function SpaceNav({
   const userId = me.data?.id;
   const [order, setOrder] = useState<NavLink[]>(DEFAULT_NAV_ORDER);
   const [reordering, setReordering] = useState(false);
+  /*
+   * A move reflows the rows, so the arrow the reader just pressed is no longer
+   * under the pointer. Holding both arrows for a beat keeps a second click
+   * from landing on the neighbour and undoing the move it followed.
+   */
+  const [reorderHeld, setReorderHeld] = useState(false);
+  const holdTimer = useRef<number | undefined>(undefined);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [typesBelow, setTypesBelow] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -214,12 +235,23 @@ export function SpaceNav({
   }, [mobileOpen]);
 
   function move(link: NavLink, delta: number) {
+    if (reorderHeld) {
+      return;
+    }
     const next = moveNavLink(order, available, link, delta);
+    if (next === order) {
+      return;
+    }
     setOrder(next);
     if (userId) {
       writeNavOrder(window.localStorage, navOrderKey(userId, spaceId), next);
     }
+    setReorderHeld(true);
+    window.clearTimeout(holdTimer.current);
+    holdTimer.current = window.setTimeout(() => setReorderHeld(false), 250);
   }
+
+  useEffect(() => () => window.clearTimeout(holdTimer.current), []);
 
   const close = () => setMobileOpen(false);
 
@@ -434,6 +466,8 @@ export function SpaceNav({
                     available={available}
                     overdue={overdue}
                     reordering={reordering}
+                    held={reorderHeld}
+                    journalOpen={journalOpen}
                     onMove={move}
                     onToggleReorder={() => setReordering((current) => !current)}
                     onNavigate={close}
@@ -543,6 +577,8 @@ export function SpaceNav({
             available={available}
             overdue={overdue}
             reordering={reordering}
+            held={reorderHeld}
+            journalOpen={journalOpen}
             onMove={move}
             onToggleReorder={() => {
               onUnfold?.();
@@ -799,6 +835,8 @@ function NavLinks({
   available,
   overdue,
   reordering,
+  held,
+  journalOpen,
   onMove,
   onToggleReorder,
   onNavigate,
@@ -811,6 +849,10 @@ function NavLinks({
   available: ReadonlySet<NavLink>;
   overdue: number;
   reordering: boolean;
+  /** A move just reflowed the rows; the arrows wait a beat. */
+  held: boolean;
+  /** A daily note is open, so Today is the page's own destination. */
+  journalOpen: boolean;
   onMove: (link: NavLink, delta: number) => void;
   onToggleReorder: () => void;
   onNavigate?: () => void;
@@ -830,10 +872,7 @@ function NavLinks({
           const to = item.path ? `${base}/${item.path}` : base;
           // Today keeps the seal across its days; every other destination is
           // its own page, so an exact match is the whole test.
-          const active =
-            key === "today"
-              ? pathname === to || pathname.startsWith(`${to}/`)
-              : pathname === to;
+          const active = navLinkActive(key, to, pathname, journalOpen);
           return (
             <li key={key} className={cn("flex items-center gap-1", folded && "justify-center")}>
               <Link
@@ -868,7 +907,7 @@ function NavLinks({
                   <button
                     type="button"
                     aria-label={`Move ${item.label} up`}
-                    disabled={index === 0}
+                    disabled={held || index === 0}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onMove(key, -1)}
                   >
@@ -877,7 +916,7 @@ function NavLinks({
                   <button
                     type="button"
                     aria-label={`Move ${item.label} down`}
-                    disabled={index === visible.length - 1}
+                    disabled={held || index === visible.length - 1}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full text-faint transition-colors hover:bg-raised hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-faint pointer-coarse:h-11 pointer-coarse:w-11"
                     onClick={() => onMove(key, 1)}
                   >
@@ -907,7 +946,7 @@ function NavLinks({
             ) : (
               <ArrowUpDown aria-hidden size={13} />
             )}
-            {reordering ? "Done" : "Reorder links"}
+            {reordering ? "Done" : "Reorder"}
           </button>
         </div>
       )}

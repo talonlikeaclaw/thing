@@ -137,3 +137,22 @@ export function moveNavLink(
   next[b] = link;
   return next;
 }
+
+/**
+ * Whether one rail link is the page the reader is on.
+ *
+ * Today covers the whole journal, and a daily note is a record at `/o/:id`
+ * once it exists, so `journalOpen` is the link's third case: the page under a
+ * note of that type still belongs to Today.
+ */
+export function navLinkActive(
+  link: NavLink,
+  to: string,
+  pathname: string,
+  journalOpen: boolean,
+): boolean {
+  if (link !== "today") {
+    return pathname === to;
+  }
+  return journalOpen || pathname === to || pathname.startsWith(`${to}/`);
+}

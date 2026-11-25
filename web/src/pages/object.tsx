@@ -13,6 +13,7 @@ import { shortId } from "@/lib/display";
 import { effectiveProperties } from "@/lib/schema";
 import { useRouteMeta } from "@/lib/route";
 import { todayIn } from "@/lib/timezone";
+import { monthLabel, monthOf } from "@/lib/views";
 
 /** `/s/:spaceId/o/:objectId` — one record, its properties and its markdown body. */
 export function ObjectPage() {
@@ -76,6 +77,14 @@ export function ObjectPage() {
         items={[
           { label: detail.name, to: `/s/${detail.id}` },
           { label: typeData.name_plural, to: `/s/${detail.id}/t/${typeData.key}` },
+          ...(dailyDay
+            ? [
+                {
+                  label: monthLabel(monthOf(dailyDay)),
+                  to: `/s/${detail.id}/calendar?month=${monthOf(dailyDay)}`,
+                },
+              ]
+            : []),
           { label: record.title },
         ]}
       />
@@ -93,7 +102,17 @@ export function ObjectPage() {
         timeZone={detail.timezone}
         reloadObject={async () => (await object.refetch()).data}
         highlight={highlight}
-        dayContext={dailyDay ? <DayDue spaceId={detail.id} day={dailyDay} /> : undefined}
+        dayContext={
+          dailyDay ? (
+            <DayDue
+              spaceId={detail.id}
+              day={dailyDay}
+              today={spaceToday}
+              canEdit={detail.role !== "viewer"}
+            />
+          ) : undefined
+        }
+        dayLinks={Boolean(space.data?.daily_type)}
         onClearHighlight={
           highlight === ""
             ? undefined

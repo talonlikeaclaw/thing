@@ -8,6 +8,7 @@ vi.mock("@/lib/use-dirty-guard", () => ({
 
 import type { ObjectDetail, PropertyDef, TypeDef } from "@/api/types";
 import { ObjectPanel } from "@/components/object-panel";
+import { formatDay } from "@/lib/display";
 import { jsonResponse, renderWithProviders, requestUrl, stubFetch } from "@/test/harness";
 
 const types = [
@@ -104,6 +105,65 @@ const sourceDetail: ObjectDetail = {
     },
   ],
 };
+
+describe("ObjectPanel schedule", () => {
+  it("opens the due date as its day when the space has a journal", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse(types);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+    const scheduled: TypeDef = { ...plantType, schedule: true };
+    renderWithProviders(
+      <ObjectPanel
+        spaceId="s1"
+        type={scheduled}
+        object={targetDetail({
+          schedule: { due_date: "2026-11-26", status: "upcoming", days_until_due: 3 },
+        })}
+        properties={[]}
+        canEdit
+        timeZone="UTC"
+        reloadObject={async () => targetDetail()}
+        dayLinks
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: formatDay("2026-11-26") })).toHaveAttribute(
+      "href",
+      "/s/s1/daily/2026-11-26",
+    );
+  });
+
+  it("leaves the date plain in a space with no day page", async () => {
+    stubFetch((input) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/api/spaces/s1/types")) {
+        return jsonResponse(types);
+      }
+      throw new Error(`unstubbed ${url}`);
+    });
+    const scheduled: TypeDef = { ...plantType, schedule: true };
+    renderWithProviders(
+      <ObjectPanel
+        spaceId="s1"
+        type={scheduled}
+        object={targetDetail({
+          schedule: { due_date: "2026-11-26", status: "upcoming", days_until_due: 3 },
+        })}
+        properties={[]}
+        canEdit
+        timeZone="UTC"
+        reloadObject={async () => targetDetail()}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: formatDay("2026-11-26") })).toBeNull();
+    expect(screen.getByText(formatDay("2026-11-26"))).toBeInTheDocument();
+  });
+});
 
 describe("ObjectPanel rename repair", () => {
   it("asks before a title change strands mentions, then rewrites each source", async () => {

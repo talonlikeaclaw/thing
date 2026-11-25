@@ -39,145 +39,299 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "Unreleased",
     title: "A daily note for any day",
+    upcoming: true,
     summary:
-      "A daily note can be opened for any day of its month, not only today. An unwritten day shows one button that creates the note. The journal type's create button opens today's note instead of a blank form. A Calendar shows the space's month and week, with the journal's notes and the work due on each day.",
+      "A daily note opens for any date in its journal, not only today. A date without a note shows the record's page with one Write this day's note button. The journal type's create button opens today's note. A Calendar shows the space's month or week with the notes and the work still due on each day. The type page leads with its name, the view card with its search, and the dated pages share one header.",
     sections: [
       {
         title: "Any day",
-        intro: "The journal is no longer limited to today.",
+        intro: "A day of the journal opens by its date.",
         items: [
           {
             lead: "Open any day",
-            body: "Any day of the journal can be opened, not only today.",
+            body: "Any day opens from its date, not only today.",
           },
           {
-            lead: "Each day has its own page",
-            body: "A day can be bookmarked.",
+            lead: "A day has an address",
+            body: "Each day has its own URL.",
           },
           {
-            lead: "Today is one click",
-            body: "The journal's page opens today's note.",
+            lead: "A day's header",
+            body: "The day rail sits in one glass header, as the Schedule's does, with the three steps as chips.",
           },
           {
-            lead: "Browsing creates nothing",
-            body: "Stepping to another day only reads it, so no empty note is left behind.",
+            lead: "The month around a day",
+            body: "The month above the day in the trail opens that month in the Calendar.",
+          },
+          {
+            lead: "A day from the Search sheet",
+            body: "Search lists today's, yesterday's and tomorrow's note, and a typed date opens that day.",
+          },
+          {
+            lead: "A note keeps its day",
+            body: "A daily note reached from Search, the space's Activity or the Calendar opens by its day.",
+          },
+          {
+            lead: "Today in one click",
+            body: "The Today item opens today's note.",
+          },
+          {
+            lead: "Opening a day writes nothing",
+            body: "Opening another day only reads it and creates no note.",
           },
         ],
       },
       {
         title: "Writing a day",
-        intro: "A day is written only when someone asks for it, except today.",
+        intro: "Only today is written without a click.",
         items: [
           {
-            lead: "One button writes the note",
-            body: "An unwritten day shows the day's title, its body heading and a button that creates the note.",
+            lead: "One button writes a day",
+            body: "A date without a note shows the record's page with one Write this day's note button.",
+          },
+          {
+            lead: "The card is the note's page",
+            body: "A date without a note draws the breadcrumbs, type band, title and body heading the note will have.",
           },
           {
             lead: "Today is written on opening",
             body: "Opening the journal writes today's note once, without asking.",
           },
           {
-            lead: "The create button writes today",
+            lead: "The create button opens today",
             body: "The journal type's create button opens today's note instead of a blank form.",
+          },
+          {
+            lead: "A viewer gets no write",
+            body: "A viewer is told an editor can write the day, with no write control.",
+          },
+          {
+            lead: "One note per day",
+            body: "The write action is held until the day's read answers, so a second press cannot write a second note.",
+          },
+          {
+            lead: "A refused day can retry",
+            body: "A day whose note was not written offers Try again instead of a reload.",
+          },
+          {
+            lead: "A day that cannot be read",
+            body: "A day whose records fail to load states the error with Retry instead of reading for ever.",
           },
         ],
       },
       {
         title: "The day's work",
-        intro: "The note shows what is still due on that day.",
+        intro: "A note lists the scheduled records still due that day.",
         items: [
           {
-            lead: "Due that day",
-            body: "The note lists everything still due that day, beside its properties.",
+            lead: "Due today, or due that day",
+            body: "The records still due are listed beside the note's properties with their type and due phrase, under Due today on today and Due that day on any other day.",
           },
           {
-            lead: "The margin stays after writing",
-            body: "The day's outstanding items stay in the note's margin after the note is written.",
+            lead: "The list stays after writing",
+            body: "The list remains in the note's margin after the note is written.",
           },
           {
             lead: "No empty margin",
-            body: "A day with nothing scheduled uses the card's full width.",
+            body: "A day with nothing due uses the card's full width.",
+          },
+          {
+            lead: "A date opens its day",
+            body: "A scheduled record's due date, and a row on the Schedule, open that day's note.",
           },
         ],
       },
       {
-        title: "Keys and navigation",
-        intro: "The journal's keys work on a day, and only while no field has focus.",
+        title: "Keys",
+        intro: "Three keys step through the journal while no field has focus.",
         items: [
           {
-            lead: "Step a day",
-            body: "The bracket keys move to the previous and next day.",
+            lead: "Previous and next day",
+            body: "`[` and `]` open the previous and next day.",
           },
           {
-            lead: "Back to today",
-            body: "The T key opens today's note.",
+            lead: "Today",
+            body: "`T` opens today's note.",
           },
           {
-            lead: "Today stays highlighted",
-            body: "The space's navigation marks Today while a day of the journal is open.",
+            lead: "The shortcut sheet",
+            body: "`?` lists the three keys under Journal while a daily note is open.",
+          },
+          {
+            lead: "Today stays marked",
+            body: "The space navigation marks Today while a day of the journal is open.",
           },
         ],
       },
       {
         title: "Calendar",
-        intro: "The space's month and week in one place.",
+        intro: "One page shows the space's month or week.",
         items: [
           {
-            lead: "One calendar",
-            body: "The Calendar joins the journal's notes and the work due on each day.",
+            lead: "Month and week",
+            body: "The Calendar shows the month or the week.",
           },
           {
-            lead: "A week at a time",
-            body: "The Week switch shows seven days with their notes and due items.",
+            lead: "The last shape",
+            body: "The Calendar reopens in the shape last chosen.",
+          },
+          {
+            lead: "Written days",
+            body: "A day with a note shows a Note chip with the note's icon in the month.",
+          },
+          {
+            lead: "Due counts",
+            body: "A day shows how many of its scheduled records are still due.",
+          },
+          {
+            lead: "Today is marked",
+            body: "Today's day carries a ring and the word Today, so the month never relies on colour alone.",
           },
           {
             lead: "The day's panel",
-            body: "Opening a day lists its note and its outstanding items.",
+            body: "Opening a day lists its note and its outstanding records.",
           },
           {
             lead: "Write from the calendar",
-            body: "An editor can write a missing day's note from the calendar.",
+            body: "An editor can write a missing day's note from the day's panel.",
           },
           {
-            lead: "Complete from the calendar",
-            body: "An editor can complete or snooze a due item in the calendar.",
+            lead: "Complete and snooze",
+            body: "An editor can complete or snooze a due record from the day's panel.",
           },
           {
             lead: "The month's count",
-            body: "The calendar states how many of the month's days are written.",
+            body: "The month states how many of its days are written.",
+          },
+          {
+            lead: "The week's count",
+            body: "The week states how many of its seven days are written.",
           },
           {
             lead: "The run",
-            body: "The calendar states the current run of consecutive written days.",
+            body: "The current month states the run of consecutive written days.",
           },
           {
-            lead: "Renamed notes leave the calendar",
-            body: "A note whose title is no longer its day is not drawn, and the empty month says why.",
+            lead: "Reading states",
+            body: "A failed read states the server's sentence with Retry, and the week says it is reading rather than showing an empty guess.",
           },
           {
-            lead: "The Schedule is a list",
-            body: "The Schedule keeps its list and horizons; the month lives in the Calendar.",
+            lead: "A day in the panel is an address",
+            body: "The day panel's date and a week column's number open the day.",
           },
           {
-            lead: "Old links still open the month",
-            body: "A link to the old journal month or schedule calendar opens the Calendar.",
+            lead: "One week address",
+            body: "A week link settles on its Monday, so one week has one address.",
+          },
+          {
+            lead: "One header",
+            body: "The Calendar's title, controls and count sit in one glass card, and its filter and the Schedule door hold the right edge, as the Schedule's hold the same edge.",
+          },
+          {
+            lead: "The week's note is a row",
+            body: "In the week, a written day's note is a bordered row with its icon and a chevron, and an empty day offers a dashed Write this day's note row.",
+          },
+          {
+            lead: "The Schedule door",
+            body: "The Calendar opens the Schedule, and the Schedule opens the Calendar.",
+          },
+          {
+            lead: "Renamed notes leave the grid",
+            body: "A note renamed out of the date convention is not drawn.",
+          },
+          {
+            lead: "The empty month",
+            body: "An empty month says a note belongs to the calendar only while its title is the day it records.",
+          },
+          {
+            lead: "The Schedule shows a list",
+            body: "The Schedule lists records in Overdue, Today and upcoming sections, with no calendar.",
+          },
+          {
+            lead: "Old addresses",
+            body: "A link to the former journal month or the Schedule's calendar opens the Calendar.",
+          },
+        ],
+      },
+      {
+        title: "Calmer surfaces",
+        intro: "The type page, the view card and the dated pages settle into one layout.",
+        items: [
+          {
+            lead: "The type's page",
+            body: "The type's name leads, with Edit type and Properties as equal halves beneath it.",
+          },
+          {
+            lead: "The view's card",
+            body: "The search leads, with View settings and Filter as equal halves under it.",
+          },
+          {
+            lead: "A day on a phone",
+            body: "A day in the Calendar opens as a sheet with its note and the work still due that day.",
+          },
+          {
+            lead: "Keep your place",
+            body: "Switching between the Schedule and the Calendar keeps the page's position.",
+          },
+          {
+            lead: "No jump to today",
+            body: "Opening a Calendar leaves the page where it is.",
+          },
+          {
+            lead: "The day's work reads once",
+            body: "The work due on a day sits under one heading with its count, in the day page, the record, the month's list and the week.",
+          },
+          {
+            lead: "Complete from the day",
+            body: "A record due on a day is completed from the day page and from the record's own margin.",
+          },
+          {
+            lead: "Snooze from the day",
+            body: "A record due on a day is snoozed from the same two places.",
           },
         ],
       },
       {
         title: "Navigation",
-        intro: "The rail's order is the reader's.",
+        intro: "The rail's links can be reordered.",
         items: [
           {
-            lead: "Every link reorders",
-            body: "Overview, Today and Calendar move with the rest of the rail's links.",
+            lead: "Reorder the rail",
+            body: "The Reorder control adds an up and a down control to every rail link.",
           },
           {
-            lead: "A saved rail keeps its shape",
-            body: "A link added by a later version lands beside the link it ships next to, not at the bottom.",
+            lead: "A move holds the arrows",
+            body: "After a move, both arrows pause for a moment so a second press cannot undo it.",
+          },
+          {
+            lead: "Finish reordering",
+            body: "Done ends reordering.",
+          },
+          {
+            lead: "Each move is saved",
+            body: "A moved link stays where it was put for that account in that space.",
+          },
+          {
+            lead: "Hidden links keep their slot",
+            body: "A link the space does not show keeps its place for when it returns.",
+          },
+          {
+            lead: "An update keeps the order",
+            body: "A link added by a later update takes its default place rather than the end of the rail.",
           },
         ],
       },
+    ],
+    details: [
+      "The Schedule and the Calendar place their controls the same way on a phone: the range or the shape takes one line, and the filter and the other page's link share the next.",
+      "A week's day keeps its note and its due work as two separate blocks, so a day's tasks no longer sit loose between one day and the next.",
+      "A week shows two days per row on a tablet and seven columns only on a wide screen, so a title and a button are no longer squeezed.",
+      "A stacked week day keeps the full sentence on its write action.",
+      "A day's write action fills the note chip's width in both calendar shapes.",
+      "A day with no note yet draws an empty writing panel inside the day's page.",
+      "The month's day list frames a day's due records as one group, the same way a week's day does.",
+      "Save view and Reset appear in a change bar that names the query's state, so the two doors keep their equal halves.",
+      "A left-handed phone puts the door at the thumb edge.",
     ],
   },
   {

@@ -1,22 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router";
 
-import {
-  useAgenda,
-  useCompleteObject,
-  useMe,
-  useSnoozeObject,
-  useSpace,
-  useTypeDetails,
-  useTypes,
-} from "@/api/queries";
-import type { AgendaQuery, AgendaRow } from "@/api/types";
-import { AgendaList } from "@/components/agenda/agenda-list";
-import { AgendaToolbar } from "@/components/agenda/agenda-toolbar";
+import { useAgenda, useMe, useSpace, useTypes } from "@/api/queries";
+import type { AgendaQuery } from "@/api/types";
+import { AgendaHorizons, AgendaList } from "@/components/agenda/agenda-list";
+import { AgendaDoor } from "@/components/agenda/door";
+import { TypeFilter } from "@/components/agenda/type-filter";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { DatedHeader } from "@/components/dated-header";
 import { ErrorState } from "@/components/error-state";
-import { ThumbRow } from "@/components/handedness";
-import { useToast } from "@/components/ui/toast";
 import {
   agendaParams,
   agendaStateFromParams,
@@ -28,14 +20,14 @@ import {
   writeAgendaState,
   type AgendaState,
 } from "@/lib/agenda";
-import { cn } from "@/lib/cn";
-import { formatDay, readError } from "@/lib/display";
+import { useAgendaActions } from "@/lib/agenda-actions";
+import { formatDay } from "@/lib/display";
+import { useKeptDatedScroll } from "@/lib/kept-scroll";
 import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
-import { completeLabel } from "@/lib/schedule";
 import { todayIn } from "@/lib/timezone";
 
-/** `/s/:spaceId/agenda` — every scheduled row, as a List or a Calendar. */
+/** `/s/:spaceId/agenda` — every scheduled row, as a List; the calendar moved to `/calendar`. */
 export function AgendaPage() {
   const { spaceId } = useParams();
   const [params, setParams] = useSearchParams();
@@ -98,14 +90,13 @@ export function AgendaPage() {
   // link makes one request rather than a default one it immediately replaces,
   // and a stale type key never reaches the server.
   const agenda = useAgenda(booted && types.data ? spaceId : undefined, query);
+  // The door from the Calendar notes where the reader was; this page holds it.
+  useKeptDatedScroll();
 
-  // Scheduled types carry the completion verb on their definition; one cached
-  // request per type, not one per row.
-  const typeDetails = useTypeDetails(spaceId ?? "", scheduledKeys);
-
-  const complete = useCompleteObject(spaceId ?? "");
-  const snooze = useSnoozeObject(spaceId ?? "");
-  const toast = useToast();
+  const { verbs, pendingId, onComplete, onSnooze } = useAgendaActions(
+    spaceId ?? "",
+    scheduledKeys,
+  );
   const compact = useCompactWidth();
 
   // The calendar moved to the space's own Calendar. An old Schedule link
@@ -134,66 +125,6 @@ export function AgendaPage() {
     setParams(agendaParams(next), { replace: false });
   }
 
-  function onSnooze(row: AgendaRow, days: number) {
-    snooze.mutate(
-      { id: row.id, rev: row.rev, days },
-      {
-        onSuccess: ({ object: saved, dueDateBefore }) => {
-          const nextDue = saved.schedule?.due_date;
-          toast.showToast(
-            nextDue
-              ? `Snoozed “${saved.title}” to ${nextDue}.`
-              : `“${saved.title}” snoozed.`,
-            "plain",
-            {
-              label: "Undo",
-              onAction: () => {
-                void snooze
-                  .undo(saved, dueDateBefore)
-                  .then(() => toast.showToast("Snooze undone."))
-                  .catch((error) =>
-                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
-                  );
-              },
-            },
-          );
-        },
-        onError: (error) => {
-          toast.showToast(`Could not snooze — ${readError(error)}`, "danger");
-        },
-      },
-    );
-  }
-
-  function onComplete(row: AgendaRow) {
-    complete.mutate(
-      { id: row.id, rev: row.rev },
-      {
-        onSuccess: ({ object: saved, previous }) => {
-          const nextDue = saved.schedule?.due_date;
-          toast.showToast(
-            nextDue ? `Next due ${nextDue} for “${saved.title}”.` : `“${saved.title}” marked done.`,
-            "plain",
-            {
-              label: "Undo",
-              onAction: () => {
-                void complete
-                  .undo(saved, previous)
-                  .then(() => toast.showToast("Completion undone."))
-                  .catch((error) =>
-                    toast.showToast(`Could not undo — ${readError(error)}`, "danger"),
-                  );
-              },
-            },
-          );
-        },
-        onError: (error) => {
-          toast.showToast(`Could not complete — ${readError(error)}`, "danger");
-        },
-      },
-    );
-  }
-
   if (!booted || types.isPending) {
     return <p className="text-[13px] text-muted">Reading the schedule…</p>;
   }
@@ -219,46 +150,50 @@ export function AgendaPage() {
 
   const schedule = agenda.data;
   const canEdit = detail.role !== "viewer";
-  const verbs: Record<string, string> = Object.fromEntries(
-    typeDetails.details.map((def) => [def.key, completeLabel(def.schedule_labels)]),
-  );
-  // One busy row at a time: the verb and the alarm both disable together.
-  const pendingId =
-    (complete.isPending ? complete.variables?.id : undefined) ??
-    (snooze.isPending ? snooze.variables?.id : undefined) ??
-    null;
   const today = schedule?.today || spaceToday;
   // The header is chrome, so it is the page's one glass panel: it floats over
-  // the list while that scrolls under it. The view switch, the range switch
-  // and the filter are three separate pills of one size; the timezone line
-  // closes the panel under them.
+  // the list while that scrolls under it. The range, the filter and the door
+  // are three pills of one size, and a phone gives them two rows that share a
+  // leading edge rather than a pair left hanging at the right margin.
   const header = (
-    <header className="glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4 lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:z-20">
-      <h1 className="display text-display">Schedule</h1>
-      {/*
-        A mouse has no thumb edge: on a wide screen the controls start at the
-        leading edge; a phone stretches the range pill across the row and keeps
-        the filter at the thumb edge.
-      */}
-      <ThumbRow
-        className={cn(
-          "mt-3 flex-wrap items-center gap-2",
-          compact ? "w-full" : "justify-start",
-        )}
-      >
-        <AgendaToolbar
+    <DatedHeader
+      title="Schedule"
+      controls={
+        <AgendaHorizons
           horizon={state.horizon}
-          onHorizonChange={(horizon) => update({ horizon })}
-          types={scheduledTypes}
-          selected={effectiveTypes}
-          onTypesChange={(nextTypes) => update({ types: nextTypes })}
+          onChange={(horizon) => update({ horizon })}
           stretch={compact}
         />
-      </ThumbRow>
-      <p className="mt-2.5 font-mono text-[12px] text-faint">
-        {schedule?.timezone ?? detail.timezone} · today {formatDay(today)}
-      </p>
-    </header>
+      }
+      trailing={[
+        ...(scheduledTypes.length > 0
+          ? [
+              <TypeFilter
+                key="filter"
+                types={scheduledTypes}
+                selected={effectiveTypes}
+                onChange={(nextTypes) => update({ types: nextTypes })}
+                allLabel="All scheduled types"
+                title="Filter the schedule"
+                stretch={compact}
+              />,
+            ]
+          : []),
+        // The same rows as a calendar: one door between the two readings of
+        // the space's dated layer.
+        <AgendaDoor
+          key="door"
+          to={`/s/${detail.id}/calendar`}
+          label="Calendar"
+          stretch={compact && scheduledTypes.length > 0}
+        />,
+      ]}
+      line={
+        <>
+          {schedule?.timezone ?? detail.timezone} · today {formatDay(today)}
+        </>
+      }
+    />
   );
 
   return (
@@ -307,6 +242,7 @@ export function AgendaPage() {
             onSnooze={onSnooze}
             filterLabel={filterLabel}
             onClearFilter={() => update({ types: [] })}
+            dayLinks={Boolean(detail.daily_type)}
           />
         )}
       </div>

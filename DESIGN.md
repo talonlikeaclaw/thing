@@ -388,7 +388,9 @@ inset from the content edge, sticky under the header. It folds to its icons on r
 208px wide by default, 72px folded, with one 44px control in the rail's header row. Every rail
 destination reorders — Overview, Today and Calendar included — while **All spaces** stays fixed
 above the list; the order is per reader and space, and a link a later build adds lands beside the
-link it ships next to rather than at the bottom.
+link it ships next to rather than at the bottom. Reordering is a mode with one up and one down
+control per link, and after a move both controls rest for a beat so the rows can settle under the
+pointer: a second press cannot land on the neighbour and undo the move it followed.
 Folded, the space switcher is the current icon over the native select, every row is a
 44px icon target, names stay in the accessibility tree and in tooltips, and the type list
 carries its name and count in the tooltip. The choice is per reader and space; the phone
@@ -439,20 +441,37 @@ carries the unsaved count and Save.
 
 **The Journal.** A day is a record whose title is its date (`YYYY-MM-DD`), so its note is
 the record sheet unchanged; the journal adds one rail and the day's own margin. The rail
-is one row — `‹ Sun 22 Nov`, a `Today` slot, `Mon 24 Nov ›` — with the adjacent days in
-sans and tabular numerals, a raised fill on hover and a 44px target on a coarse pointer.
-The middle slot links to today everywhere except on today itself, where it is an accent
-label rather than a second control. A day with no note yet is the sheet the note will
+is the day page's glass header — the same card and padding as the Schedule and the
+Calendar, so the three dated pages share one piece of chrome. Inside it the rail
+keeps its three positions — `‹ Sun 22 Nov` at the leading edge, `Today` in the middle,
+`Mon 24 Nov ›` at the trailing one — each drawn as a glass pill chip: a lit
+`line-interactive` edge, a `raised` fill at 40%, sans with tabular numerals, a raised fill
+and a stronger edge on hover, and a 44px target on a coarse pointer. On today the middle
+chip is a state, filled with the accent wash; on any other day it is the link back. The
+header holds nothing else: the month the day sits in is the day's parent crumb in the
+trail above it, `Space / Journals / November 2026 / 2026-11-24`, and that crumb opens the
+month in the Calendar. The header does not stick: a record's property column sticks under
+the shell header, and a second sticky layer would cover it. A scheduled record's due date,
+a Schedule row's date and the space's Activity all address a day the same way, through
+`/daily/<YYYY-MM-DD>`. A day with no note yet is the sheet the note will
 become: the same breadcrumbs, the same rail, one matte card at 24px, the type's icon and
 name at the leading edge of the identity band with a mono `NOT WRITTEN` at its trailing
 one, the day as the title in the record's title voice, the weekday date in mono faint
 where a record prints its dates, then the record's own **Body** rule with its count, one
-sentence and one primary pill. A day whose outstanding rows exist gives them the record's
-4/12 margin under **Due that day**; a day with nothing outstanding keeps one full-width
-column, because an empty half-sheet reads as a broken layout. The written note is the
+sentence and one primary pill inside a dashed writing panel — the body's own layer inside
+the sheet, the same affordance a calendar's empty day carries. A day whose outstanding
+rows exist gives them the record's 4/12 margin under a label-voice heading — **Due today**
+when the day is today and **Due that day** otherwise — with a mono count at its trailing
+edge and the record's own row grammar beneath; a day with nothing outstanding keeps one
+full-width column, because an empty half-sheet reads as a broken layout. Each row carries
+the completion verb and the snooze menu for an editor, the same controls the Calendar's day
+panel carries. A viewer gets the rows without those controls. The written note is the
 record sheet with the same rail above it and the same day band above its Properties, so
-only the middle changes when the note is written. A renamed note, or a record of another
-type, carries no rail: the grammar is its type plus a date-shaped title and nothing else.
+only the middle changes when the note is written. While the day's own read is in flight,
+the folio says **READING** rather than **NOT WRITTEN**, so a written day is never painted as
+empty for a round trip; a failed read is the page's one refusal, with the server's sentence
+and Retry. A renamed note, or a record of another type, carries no rail: the grammar is its
+type plus a date-shaped title and nothing else.
 
 **The Cover Hero.** A record's cover opens the card inside its padding: a 16:9 image in a
 16px inner frame with one hairline, `object-fit: cover`, above the identity band. The
@@ -511,24 +530,25 @@ formats its aggregate can read. The result type is static once an aggregate and 
 decide it, never a disabled select that looks enabled. On a wide screen the property
 create form takes the editor column, so a formula is never written in the list strip.
 
-**The Ledger Table.** A type page is two glass cards above one matte ledger, and each card
-opens with a mono folio that names its scope. The first is the type's: `TYPE` over the
-card, then the identity — icon, name, key, record count, description — with the type's own
-actions at its trailing edge and the primary create button outermost. A phone gives the
-identity the full width instead: the schema pair rides the folio row, level with `TYPE`, and
-the create button takes a line of its own beneath the identity, so its label is only ever
-elided by the whole line, never by the buttons beside it. A name wider than that line
-ellipsizes there, with the full name in its tooltip; no action leaves the card's edge to
-make room for it.
-The second is
-the view's:
-`VIEW` on the left, `View settings` and `Filter` flush right, the reserved `Save view`
-and `Reset` slots leading that cluster so they appear without moving `Filter` off its own
-panel, then the search as a full-width field, then the saved views. The two cards scroll with the page and never park
-over the ledger's own column labels. Every one of those actions prints its word at every
-width: no type-page control shrinks to a bare icon, because an icon a first-time reader has
-to guess is a control they do not use. A phone buys that word back with a line rather than
-with a glyph. The table itself lives in a 20px matte card with one border. It has two fills and
+**The Ledger Table.** A type page is two glass cards above one matte ledger, and neither
+card opens with a folio: the type's own actions state what the first card is, and the
+search is what the second is for. The first card is the type's, ordered as it is read —
+the identity first (icon, name, key, record count, description), then the schema pair,
+`Edit type` and `Properties`, splitting the row beneath it evenly. The record actions
+follow: beside the identity on a wide screen, where the primary create reaches the card's
+trailing edge, and under the pair on a phone, where the create owns a line or shares one
+with `Calendar` when the type is a journal. A name wider than the identity ellipsizes
+there, with the full name in its tooltip; no action leaves the card's edge to make room
+for it.
+The second card is the view's, again in reading order: the search as a full-width
+field, then the two doors — `View settings` and `Filter` — each owning half the row, then
+the query's own state in a change bar (`View changed` or `Search applied`, with `Reset` and
+`Save`) that appears only when there is something to say, then the saved views. Neither
+card carries a promise the other cards do not keep: the doors are equal halves at every
+width, so no reserved slot nudges `Filter` off its own panel. The two cards scroll with
+the page and never park over the ledger's own column labels. Every one of those actions
+prints its word at every width: no type-page control shrinks to a bare icon, because an
+icon a first-time reader has to guess is a control they do not use. The table itself lives in a 20px matte card with one border. It has two fills and
 no third: a raised band for the whole header row — Title and the checkbox cell included —
 and the card's surface for every body cell, the checkbox column and both action rails
 included. A pinned column keeps its rule and never changes fill to prove it is pinned.
@@ -711,18 +731,59 @@ page header and one section rhythm. Sections are matte cards at 22px; the danger
 carries an Ember edge. Space settings carries a third section for the space's attachments:
 the used and unused totals in plain figures and the owner's `Collect unused` action.
 
+**The Dated Header.** The Schedule and the Calendar wear one glass header, and the
+Journal's day rail is the same card without a title. Its line is fixed: the page's name in
+the display voice, then its controls, then one mono line that closes the panel — the
+month's or week's count, or the space's zone and today. On a fine pointer the leading
+switch takes the start of the row and the filter and the door take its end. A phone gives
+the switch the whole row and splits the row beneath between the filter and the door, so
+both rows share the leading and trailing edges and no pill is left hanging at a ragged
+margin. The controls are one size: each is a pill in the same frame, the frame supplying
+the height, whether it holds a range switch, a shape switch, a filter with its count or
+the door to the other reading of the dated layer. The filter and the door are the row's
+thumb-zone pair, so a left-handed phone reverses their DOM order in `ThumbRow` and the
+door sits at the thumb edge; the switch keeps its reading order in both modes.
+
 **The Calendars.** The space Calendar and a type's Calendar are the same matte card with
 the same range controls, weekday rule, chip cap and glass day panel. The space Calendar
 holds the space's dated layers at two shapes: the month, whose cells carry a `Note` chip
-per journal entry and a quiet `N due` margin; and the week, seven days from Monday with
-the same chips, rows and actions — seven columns from `lg`, seven stacked day sections
-below it, because a phone-width column cannot hold a title. One glass day panel serves the
-month: the day's note first, then its outstanding rows with the completion verb and the
-snooze menu, then one primary write action for an editor on a day with no note. A type's
+per journal entry and a quiet `N due` margin; and the week, Monday first with the same
+chips, rows and actions — two days per row from `md` and seven columns from `xl`, because
+a column narrower than a deadline cannot hold a title beside a verb, and one stacked day
+per row on a phone. A day's outstanding work is one group in both shapes: a recessed tray
+inside the day, one hairline and a `ground` fill a step under the card, its heading in the
+label voice with a mono count — `Due` in a week column whose day number already names the
+day, `Due today` or `Due that day` in the day panel — and each row the same anatomy, title
+first, its type and due phrase in mono, then the completion verb and the snooze menu. The
+work is never a run of loose rows between a day's note and the next day's column. In the
+week a written day's note is drawn as a control, not a label: a lit `line-interactive` edge
+on a raised fill, the record's icon or a document glyph, the word `Note`, and a chevron at
+the trailing edge, at least 40px tall and 44px on a coarse pointer. An empty day offers its
+write action in that same slot: a dashed row of the chip's width, radius and padding, a
+plus and the sentence in the sans control voice, never a small pill floating inside the
+column or the panel and never the uppercase label face. One day
+panel serves the month: the day's note first, drawn as that same chip, then its outstanding
+rows framed as that same tray, then the same dashed row for an editor on a day with no
+note. A fine pointer gets it as a glass popover under the cell; a finger gets the app's
+one overlay, the shared sheet, with the scrim, the day's date as its title and the shared
+close control, so a day is the same small page on a phone as every other sheet. A type's
 Calendar remains its saved query over a date property and keeps its own panel. A chip
 carries the record's name only, so a narrow cell never trades its title for a hover-only
 control; the day number opens the day panel on every pointer, and a row there reads title
-first, with its date and due phrase in mono, plus complete and menu actions. Every visible
+first, with its date and due phrase in mono, plus complete and menu actions. The day
+panel's own date, a week column's day number and every `Note` chip are addresses: the
+first two open the day, the chip its record. Today is never colour alone: the cell's number
+is accented and ringed, the word **TODAY** joins it from `sm`, and the week names the day at
+every width. On a coarse pointer a month cell's number is a 36px-wide target below `sm`
+— exactly its track, because seven 44px targets cannot fit a 320px phone — and the coarse
+floor from `sm`; the week's number holds the coarse floor at every width. Neither shape scrolls itself on opening: a
+calendar that travels to today loses the place the reader opened it for, so today is
+reached only through `Today` in the range controls. The week states that it is reading until
+its notes and work settle, and a failed read states the server's sentence with Retry
+rather than painting an empty month. The Calendar and the Schedule link to each other
+from their toolbars, and that door keeps the reader's position: the two are one place read
+two ways, so the page it lands on restores the offset the reader left, holding it while
+its own reads fill in and settling for the height the page does have. Every visible
 date — chip, day panel, week label, empty state — comes from the shared formatter.
 
 **The Tiles.** A gallery tile is matte at the card radius (18px); its tinted cover is

@@ -1,4 +1,12 @@
-import { ListFilter, ListTree, Pencil, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  CalendarDays,
+  ListFilter,
+  ListTree,
+  Pencil,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -7,7 +15,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -813,28 +821,43 @@ export function TypeTable({
       <span>Properties</span>
     </button>
   ) : null;
-  // The title leads. On a phone the schema pair moves up to the folio row and
-  // the primary New action gets a line of its own, so it always reaches the
-  // thumb edge with its full name; on desktop all three stay the header's
-  // trailing cluster.
-  const recordActions = compact ? (
-    canEdit ? <div className="mt-3">{newRecordButton}</div> : null
-  ) : (
-    <div className="flex shrink-0 items-center gap-3">
+  /*
+   * A journal's records are days, so its type page offers the month the days
+   * live in beside the schema actions, at both widths.
+   */
+  const calendarButton = daily ? (
+    <Link
+      to={`/s/${spaceId}/calendar`}
+      title={`Open ${type.name_plural} in the calendar`}
+      className={schemaAction}
+    >
+      <CalendarDays aria-hidden size={14} />
+      <span>Calendar</span>
+    </Link>
+  ) : null;
+  /*
+   * The card leads with the type's identity at every width. Both schema
+   * actions edit the type, so they share one row under it and split that row
+   * evenly; the record actions follow. A phone gives the primary create the
+   * width it needs, so its label is only ever elided by the whole line, never
+   * by the buttons beside it.
+   */
+  const schemaActions = canEdit ? (
+    <div className="mt-3 grid grid-cols-2 gap-2">
       {editTypeButton}
       {manageButton}
+    </div>
+  ) : null;
+  const recordActions = compact ? (
+    <div className={cn("mt-2 grid gap-2", calendarButton ? "grid-cols-2" : "grid-cols-1")}>
+      {calendarButton}
       {newRecordButton}
     </div>
-  );
-  /**
-   * Both schema actions edit the type, so on a phone they sit together on the
-   * card's folio row rather than taking a row of their own below the title.
-   */
-  const folioActions = (
-    <ThumbRow className="items-center gap-2">
-      {editTypeButton}
-      {manageButton}
-    </ThumbRow>
+  ) : (
+    <div className="flex shrink-0 items-center gap-2">
+      {calendarButton}
+      {newRecordButton}
+    </div>
   );
 
   // The canonical order runs outward from the thumb: search is the most
@@ -844,7 +867,6 @@ export function TypeTable({
   const searchNode = (
     <SearchBox key="search" value={q} inputRef={searchRef} onSubmit={submitSearch} />
   );
-  const toolbarTools: ReactNode[] = [];
   // One View button replaces the old Columns, Sort and kebab cluster: every
   // column, sort, summary and view action lives in one tabbed sheet, so a
   // setting is one tap from the view instead of a popover chain.
@@ -904,90 +926,48 @@ export function TypeTable({
     </Button>,
   ];
   /*
-   * Save and Reset keep their slot whether or not they apply: the first filter
-   * makes the query dirty, and a button appearing mid-session drags the tools
-   * beside it. They lead the cluster, so the reserved slot pads its left edge
-   * and Filter stays flush with the card's right edge, under its own panel.
+   * Save and Reset are the query's own condition, not doors: they appear only
+   * while the view is dirty or overridden, in the change bar under the tools,
+   * so the two doors keep their two equal halves at every width.
    */
-  if (!compact && canEdit) {
-    toolbarTools.push(
-      <Button
-        key="save"
-        type="button"
-        aria-label="Save view"
-        aria-hidden={!dirty}
-        tabIndex={dirty ? undefined : -1}
-        className={cn(
-          "min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11",
-          !dirty && "invisible max-lg:hidden",
-        )}
-        disabled={!dirty || updateView.isPending}
-        onClick={saveQuery}
-      >
-        {updateView.isPending ? "Saving…" : "Save view"}
-      </Button>,
-    );
-  }
-  if (!compact) {
-    toolbarTools.push(
-      <Button
-        key="reset"
-        type="button"
-        variant="ghost"
-        aria-label="Reset"
-        aria-hidden={!hasOverrides}
-        tabIndex={hasOverrides ? undefined : -1}
-        className={cn(
-          "min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11 max-sm:min-h-11",
-          !hasOverrides && "invisible max-lg:hidden",
-        )}
-        disabled={!hasOverrides}
-        onClick={clearQuery}
-        title="Clear search, filters and sorts"
-      >
-        Reset
-      </Button>,
-    );
-  }
-  toolbarTools.push(...queryTools);
+  const changeStatus = dirty || hasOverrides ? (
+    <ThumbRow className="min-w-0 items-center justify-between gap-2">
+      <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+        {dirty ? "View changed" : "Search applied"}
+      </span>
+      <ThumbRow className="shrink-0 items-center gap-1">
+        {hasOverrides ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-8 shrink-0 px-2.5 text-[12px] pointer-coarse:min-h-11"
+            onClick={clearQuery}
+            title="Clear search, filters and sorts"
+          >
+            Reset
+          </Button>
+        ) : null}
+        {canEdit && dirty ? (
+          <Button
+            type="button"
+            aria-label="Save view"
+            className="min-h-8 shrink-0 px-3 text-[12px] pointer-coarse:min-h-11"
+            disabled={updateView.isPending}
+            onClick={saveQuery}
+          >
+            {updateView.isPending ? "Saving…" : "Save"}
+          </Button>
+        ) : null}
+      </ThumbRow>
+    </ThumbRow>
+  ) : null;
+  /** The table's phone band shows the same bar, so the header never repeats it. */
+  const compactStatus = compact ? changeStatus : undefined;
   const viewPanels = viewSheetPanels(canEdit, view.kind);
   const activeViewPanel = viewPanels.includes(viewPanel)
     ? viewPanel
     : (viewPanels[0] ?? "data");
-
-  const compactStatus =
-    compact && (dirty || hasOverrides) ? (
-      <ThumbRow className="min-w-0 items-center justify-between gap-2">
-        <span className="label flex min-w-0 items-center gap-2 truncate text-muted">
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-          {dirty ? "View changed" : "Search applied"}
-        </span>
-        <ThumbRow className="shrink-0 items-center gap-1">
-          {hasOverrides ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-11 shrink-0 px-2.5 text-[12px]"
-              onClick={clearQuery}
-              title="Clear search, filters and sorts"
-            >
-              Reset
-            </Button>
-          ) : null}
-          {canEdit && dirty ? (
-            <Button
-              type="button"
-              aria-label="Save view"
-              className="min-h-11 shrink-0 px-3 text-[12px]"
-              disabled={updateView.isPending}
-              onClick={saveQuery}
-            >
-              {updateView.isPending ? "Saving…" : "Save"}
-            </Button>
-          ) : null}
-        </ThumbRow>
-      </ThumbRow>
-    ) : undefined;
 
   return (
     <div className="settle">
@@ -1000,38 +980,40 @@ export function TypeTable({
       */}
       <header>
         {/*
-          The type's own card: its folio names the scope, the schema actions sit
-          on the folio row, and the identity leads below. A phone keeps that
-          split and drops the primary create button onto a line of its own, so
-          it spans the card and never has to shorten its name.
+          The type's card leads with the type's identity and nothing else: no
+          folio names a scope the Edit type button already states. The schema
+          pair splits the row under it evenly, and the record actions follow —
+          beside the title on a wide screen, where the primary create reaches
+          the pad's edge, and under the pair on a phone.
         */}
         <div className="glass rounded-[22px] px-4 pt-3 pb-4 sm:px-5">
           {compact ? (
             <>
-              <ThumbRow className="w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                <span className="label shrink-0">Type</span>
-                {folioActions}
-              </ThumbRow>
-              <div className="mt-2">{pageTitle}</div>
+              <div>{pageTitle}</div>
+              {schemaActions}
               {recordActions}
             </>
           ) : (
             <>
-              <span className="label">Type</span>
-              <div className="mt-1 flex flex-nowrap items-start justify-between gap-x-4">
+              <div className="flex flex-nowrap items-start justify-between gap-x-4">
                 {pageTitle}
                 {recordActions}
               </div>
+              {schemaActions}
             </>
           )}
         </div>
 
+        {/*
+          The view's card is ordered as it is read: the search first, because
+          finding a record is what a reader comes for, then the two doors —
+          view settings and filter — each owning half the row, then the state
+          of the query and the saved views.
+        */}
         <div className="glass mt-2 rounded-[22px] px-3 pt-3 pb-3 sm:px-4">
-          <ThumbRow className="items-center justify-between gap-2">
-            <span className="label">View</span>
-            <ThumbRow className="items-center gap-1.5">{toolbarTools}</ThumbRow>
-          </ThumbRow>
-          <div className="mt-2">{searchNode}</div>
+          {searchNode}
+          <div className="mt-2 grid grid-cols-2 gap-2">{queryTools}</div>
+          {compact ? null : <div className="mt-2">{changeStatus}</div>}
 
           {/*
             The saved views close the panel: the strip sits on the container's

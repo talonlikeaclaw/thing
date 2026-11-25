@@ -35,10 +35,10 @@ repair patch (`0.5.1`, schema 4), the v0.5.2 visual refresh, Night Glass (`0.5.2
 the v0.5.3 stability pass (`0.5.3`, schema 4), M6 files and images (`0.6.0`, schema 5) and M6.1
 attachments UX (`0.7.0`, schema 6), the M6.2 workspace UX patch (`0.7.1`, schema 6), M8
 calculated properties (`0.8.0`, schema 7), the M8.1 grid-interaction patch (`0.8.1`, schema 7) and
-M9's two halves (`0.9.0` presentation, `0.9.1` property depth, schema 8) are implemented, not yet
-tagged or deployed; CI is green.
-The
-v0.4.3 physical-iPhone pass is still open.**
+M9's two halves (`0.9.0` presentation, `0.9.1` property depth, schema 8), the v0.9.2 accent-tinted
+themes and profile theme and the v0.9.3 daily notes and Calendar (`0.9.2`, `0.9.3`, schema 8)
+are implemented, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is still
+open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
 grammar next to the filename slugs), `value`, `markdown`, `schedule`, `csv`, `search` (`tokens`,
@@ -309,7 +309,7 @@ server. No route, format, permission or dependency changes.
 | `docs/plan/m9.1-property-depth.md` | The v0.9.1 spec at schema 8: property `validation` (bounds, pattern, uniqueness), membership defaults and the Required/Default editor, rollup filters, the `member` format with its label resolution, relation `target_filter` and `one_to_one`, five formula functions, and the space `daily_type` with the daily page. Checkpoints 7–13 of M9, landed 2026-11-22. |
 | `docs/plan/m9.2-one-property-sheet.md` | The v0.9.1 UI patch between M9.1 checkpoints 8 and 9: one property sheet carrying the definition and the membership (Required, Default), mounted from the schema type editor, the type page's Properties sheet, the record's Manage sheet and the add-property form; the type editor stops editing memberships. No format, route or dependency change. Landed 2026-11-22. |
 | `docs/plan/m9.3-night-glass-themes.md` | The v0.9.2 patch: the 16-role neutral ladder re-expressed as `oklch(L C var(--theme-hue))`, six curated hues per scheme, the contrast and gamut gates, the Appearance room previews, and the account profile theme with its "use in every space" switch. Landed as `0.9.2`, schema 8. |
-| `docs/plan/m9.4-daily-notes.md` | The v0.9.3 spec: the day as the URL (`/daily/<YYYY-MM-DD>`), the day card that offers an unwritten day, the day strip and `[`/`]`/`t` on a daily record, and the month calendar over `MonthGrid` with written days, outstanding rows and a bounded run. Web only, schema 8, one list read over a `title` range. Planned. |
+|`docs/plan/m9.4-daily-notes.md`|The v0.9.3 spec: the day as the URL (`/daily/<YYYY-MM-DD>`), the day card that offers an unwritten day, the day strip and `[`/`]`/`t` on a daily record, and the month calendar over `MonthGrid` with written days, outstanding rows and a bounded run. Web only, schema 8, one list read over a `title` range. Landed, web only; the `0.9.3` bump is held until the release.|
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and

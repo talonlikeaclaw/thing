@@ -28,6 +28,8 @@ You define the schema, and a property can also be a relation, formula or summary
   prefill one, and a column can name a person in the space.
 - **Saved views.** The same records can be shown as a table, a board, a gallery or a calendar,
   with saved columns, filters and sorts.
+- **Journal and calendar.** A space can name a daily type, so each day is a record with its own
+  address; a Calendar shows the month's notes beside the work due each day.
 - **Self-hosted and shared.** One container serves the app. Accounts are stored in SQLite; space
   content stays in files. Spaces have owner, editor and viewer roles.
 

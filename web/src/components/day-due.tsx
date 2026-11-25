@@ -1,21 +1,26 @@
-import { Link } from "react-router";
+import { useMemo } from "react";
 
 import { useAgenda } from "@/api/queries";
-import { cn } from "@/lib/cn";
-import { duePhrase, dueTone } from "@/lib/schedule";
+import { DayDueRow } from "@/components/calendar/day-due-row";
+import { DayWork } from "@/components/day-work";
+import { useAgendaActions } from "@/lib/agenda-actions";
 
 interface DayDueProps {
   spaceId: string;
   /** The day whose outstanding rows are listed, `YYYY-MM-DD`. */
   day: string;
+  /** The space's civil today, so the day's own list says it is today's. */
+  today: string;
+  /** An editor completes and snoozes a row where it is listed. */
+  canEdit?: boolean;
   /** The column the caller gives it: a grid cell on the card, the margin here. */
   className?: string;
 }
 
 /**
- * The day's outstanding rows, as a read. Shared with the day card so the card
- * can give its margin the column only when there is something to put in it;
- * both callers hit the same cached agenda query.
+ * The day's outstanding rows, as both a read and an action surface. Shared
+ * with the day card so the card can give its margin the column only when there
+ * is something to put in it; both callers hit the same cached agenda query.
  */
 export function useDayDue(spaceId: string | undefined, day: string) {
   return useAgenda(spaceId, { from: day, to: day });
@@ -28,48 +33,35 @@ export function useDayDue(spaceId: string | undefined, day: string) {
  * they find after — the day's work sits where a record keeps its properties.
  *
  * A completed row is not listed, because the agenda never lists one; the
- * heading says **Due that day**, never "done that day".
+ * heading names the day it is on — **Due today** for today, **Due that day**
+ * for any other — and never says "done that day". An editor gets the calendar
+ * row's own grammar, so a row is completed or snoozed where it is read.
  */
-export function DayDue({ spaceId, day, className }: DayDueProps) {
+export function DayDue({ spaceId, day, today, canEdit = false, className }: DayDueProps) {
   const rows = useDayDue(spaceId, day).data?.rows ?? [];
+  const typeKeys = useMemo(
+    () => (canEdit ? [...new Set(rows.map((row) => row.type))] : []),
+    [canEdit, rows],
+  );
+  const { verbs, pendingId, onComplete, onSnooze } = useAgendaActions(spaceId, typeKeys);
   if (rows.length === 0) {
     return null;
   }
+  const heading = day === today ? "Due today" : "Due that day";
   return (
-    <section aria-label="Due that day" className={cn("min-w-0", className)}>
-      <h2 className="flex flex-wrap items-baseline gap-2 text-heading font-medium">
-        Due that day
-        <span className="font-mono text-[length:var(--text-small)] font-normal text-faint tnum">
-          {rows.length}
-        </span>
-      </h2>
-      <ul className="mt-1">
-        {rows.map((row) => {
-          const phrase = duePhrase(row.status, row.days_until_due);
-          return (
-            <li key={row.id} className="border-b rule last:border-b-0">
-              <Link to={`/s/${spaceId}/o/${row.id}`} className="group block min-w-0 py-2.5">
-                <span className="block min-w-0 truncate text-[15px] font-medium text-ink group-hover:underline">
-                  {row.title}
-                </span>
-                <span className="mt-1 flex flex-wrap items-baseline gap-x-2 font-mono text-[12px]">
-                  <span className="text-faint">
-                    {row.type_icon ? (
-                      <span aria-hidden className="mr-1">
-                        {row.type_icon}
-                      </span>
-                    ) : null}
-                    {row.type_name || row.type}
-                  </span>
-                  {phrase ? (
-                    <span className={cn("tnum", dueTone(row.status))}>{phrase}</span>
-                  ) : null}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <DayWork label={heading} count={rows.length} framed={false} className={className}>
+      {rows.map((row) => (
+        <DayDueRow
+          key={row.id}
+          spaceId={spaceId}
+          row={row}
+          canEdit={canEdit}
+          verb={verbs[row.type] ?? "Complete"}
+          pending={pendingId === row.id}
+          onComplete={onComplete}
+          onSnooze={onSnooze}
+        />
+      ))}
+    </DayWork>
   );
 }

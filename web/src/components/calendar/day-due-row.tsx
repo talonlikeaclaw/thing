@@ -12,6 +12,9 @@ import { duePhrase, dueTone } from "@/lib/schedule";
  * a week's day column show the same anatomy — title, its type and due phrase,
  * then the completion verb and the snooze menu for an editor. The actions sit
  * on the thumb edge through `ThumbRow`, as they do on the Schedule.
+ *
+ * The row is an `<li>` in the caller's `DayWork` group, never a bare block, so
+ * a day's work reads as one layer under the day's note.
  */
 export function DayDueRow({
   spaceId,
@@ -35,11 +38,11 @@ export function DayDueRow({
 }) {
   const phrase = duePhrase(row.status, row.days_until_due);
   return (
-    <div className={cn("min-w-0", className)}>
+    <li className={cn("min-w-0 rounded-[10px] p-1", className)}>
       <Link
         to={`/s/${spaceId}/o/${row.id}`}
         title={row.title}
-        className="block min-w-0 px-1 py-1 hover:bg-raised pointer-coarse:min-h-11"
+        className="block min-w-0 rounded-[8px] px-1 py-1 transition-colors hover:bg-surface/70 pointer-coarse:min-h-11"
       >
         <span className="flex min-w-0 items-baseline gap-1.5">
           {row.type_icon ? (
@@ -74,6 +77,6 @@ export function DayDueRow({
           </Button>
         </ThumbRow>
       ) : null}
-    </div>
+    </li>
   );
 }

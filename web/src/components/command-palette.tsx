@@ -29,7 +29,7 @@ import {
   SheetViewport,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
-import { dayLabel } from "@/lib/daily";
+import { dayLabel, isDayTitle, longDayLabel } from "@/lib/daily";
 import { useDebouncedValue } from "@/lib/debounce";
 import { plural, relativeTime, typeLabel } from "@/lib/format";
 import { searchProperties } from "@/lib/property-search";
@@ -56,7 +56,7 @@ interface PaletteItem {
   disabled?: boolean;
 }
 
-type SectionId = "actions" | "recent" | "records" | "types" | "properties" | "spaces";
+type SectionId = "day" | "actions" | "recent" | "records" | "types" | "properties" | "spaces";
 
 interface PaletteSection {
   id: SectionId;
@@ -87,12 +87,22 @@ interface CommandPaletteProps {
  * to work out the date. They are omitted until the space answers, because the
  * day is the space's own civil day, not the browser's.
  */
-function dayActions(spaceId: string, timezone: string | undefined): PaletteItem[] {
-  if (!timezone) {
+function dayActions(
+  spaceId: string,
+  timezone: string | undefined,
+  dailyType: string | null | undefined,
+): PaletteItem[] {
+  if (!timezone || !dailyType) {
     return [];
   }
   const today = todayIn(timezone);
   return [
+    {
+      id: "action:journal-today",
+      label: "Today's note",
+      hint: dayLabel(today),
+      to: `/s/${spaceId}/daily/${today}`,
+    },
     {
       id: "action:journal-previous",
       label: "Yesterday's note",
@@ -183,7 +193,7 @@ export function CommandPalette({
         label: "Open Schedule",
         to: `/s/${spaceId}/agenda`,
       },
-      ...dayActions(spaceId, space.data?.timezone),
+      ...dayActions(spaceId, space.data?.timezone, space.data?.daily_type),
       {
         id: "action:types",
         label: "Types and properties",
@@ -260,18 +270,37 @@ export function CommandPalette({
             chip: formatLabel(property.format),
             to: `/s/${spaceId}/schema?tab=properties&property=${encodeURIComponent(property.key)}`,
           }));
-  const recordItems: PaletteItem[] = records.map((record) => ({
-    id: `record:${record.id}`,
-    label: record.title,
-    hint: `${record.type_name} · ${relativeTime(record.updated_at)}`,
-    ...(record.snippet ? { detail: record.snippet } : {}),
-    ...(record.icon ? { icon: record.icon } : {}),
-    to: `/s/${spaceId}/o/${record.id}${
-      trimmed === "" ? "" : `?q=${encodeURIComponent(trimmed)}`
-    }`,
-  }));
+  const dailyType = space.data?.daily_type;
+  const recordItems: PaletteItem[] = records.map((record) => {
+    const isDailyNote = Boolean(
+      dailyType && record.type === dailyType && isDayTitle(record.title),
+    );
+    return {
+      id: `record:${record.id}`,
+      label: record.title,
+      hint: `${record.type_name} · ${relativeTime(record.updated_at)}`,
+      ...(record.snippet ? { detail: record.snippet } : {}),
+      ...(record.icon ? { icon: record.icon } : {}),
+      // A daily note is addressed by its day: opening it there keeps the day
+      // context (the strip and the day's work) the record page carries anyway.
+      to: isDailyNote
+        ? `/s/${spaceId}/daily/${record.title}`
+        : `/s/${spaceId}/o/${record.id}${
+            trimmed === "" ? "" : `?q=${encodeURIComponent(trimmed)}`
+          }`,
+    };
+  });
 
   const sections: PaletteSection[] = [];
+  const dayItem: PaletteItem | null =
+    spaceId && isDayTitle(trimmed)
+      ? {
+          id: "action:day",
+          label: longDayLabel(trimmed),
+          hint: "Day",
+          to: `/s/${spaceId}/daily/${trimmed}`,
+        }
+      : null;
   if (trimmed === "") {
     sections.push({ id: "actions", label: "Actions", items: actions });
     if (recentItems.length > 0) {
@@ -293,6 +322,9 @@ export function CommandPalette({
       5,
     );
     const rankedSpaces = rank(trimmed, spaceItems, (item) => item.label).slice(0, 5);
+    if (dayItem) {
+      sections.push({ id: "day", label: "Day", items: [dayItem] });
+    }
     if (rankedActions.length > 0) {
       sections.push({ id: "actions", label: "Actions", items: rankedActions });
     }

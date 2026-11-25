@@ -2,7 +2,7 @@ import { Link } from "react-router";
 
 import type { AgendaRow } from "@/api/types";
 import { SnoozeMenu } from "@/components/agenda/snooze-menu";
-import { AGENDA_SEGMENT, AGENDA_TOOLBAR } from "@/components/agenda/toolbar";
+import { AgendaSwitch } from "@/components/agenda/switch";
 import { ClearFilterButton } from "@/components/agenda/type-filter";
 import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
@@ -23,24 +23,17 @@ export function AgendaHorizons({
   stretch?: boolean;
 }) {
   return (
-    <div
-      role="group"
-      aria-label="Horizon"
-      className={cn(AGENDA_TOOLBAR, stretch && "w-full flex-1")}
-    >
-      {AGENDA_HORIZONS.map((days) => (
-        <button
-          key={days}
-          type="button"
-          aria-pressed={horizon === days}
-          aria-label={`Show items due within ${days} days`}
-          className={cn(AGENDA_SEGMENT, stretch && "flex-1")}
-          onClick={() => onChange(days)}
-        >
-          {days} days
-        </button>
-      ))}
-    </div>
+    <AgendaSwitch
+      label="Horizon"
+      value={horizon}
+      stretch={stretch}
+      options={AGENDA_HORIZONS.map((days) => ({
+        value: days,
+        label: `${days} days`,
+        name: `Show items due within ${days} days`,
+      }))}
+      onChange={onChange}
+    />
   );
 }
 
@@ -58,6 +51,7 @@ export function AgendaList({
   onSnooze,
   filterLabel,
   onClearFilter,
+  dayLinks = false,
 }: {
   rows: AgendaRow[];
   horizon: AgendaHorizon;
@@ -74,6 +68,8 @@ export function AgendaList({
   /** The active type names, or empty when every type is showing. */
   filterLabel?: string;
   onClearFilter?: () => void;
+  /** Whether a row's due date opens the journal's day. */
+  dayLinks?: boolean;
 }) {
   const { overdue, due_today, upcoming } = agendaBuckets(rows);
   // A clear schedule is one calm sentence, not three ruled headings counting
@@ -112,6 +108,7 @@ export function AgendaList({
             pendingId={pendingId}
             onComplete={onComplete}
             onSnooze={onSnooze}
+            dayLinks={dayLinks}
           />
           <Bucket
             title="Today"
@@ -123,6 +120,7 @@ export function AgendaList({
             pendingId={pendingId}
             onComplete={onComplete}
             onSnooze={onSnooze}
+            dayLinks={dayLinks}
           />
           <Bucket
             title={`Next ${horizon} days`}
@@ -134,6 +132,7 @@ export function AgendaList({
             pendingId={pendingId}
             onComplete={onComplete}
             onSnooze={onSnooze}
+            dayLinks={dayLinks}
           />
         </>
       )}
@@ -164,6 +163,7 @@ function Bucket({
   pendingId,
   onComplete,
   onSnooze,
+  dayLinks,
 }: {
   title: string;
   rows: AgendaRow[];
@@ -174,6 +174,7 @@ function Bucket({
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
   onSnooze: (row: AgendaRow, days: number) => void;
+  dayLinks: boolean;
 }) {
   // An empty bucket is not a card: it is one sentence in the column. The
   // heading and the mono count exist to frame rows, and there are none.
@@ -200,6 +201,7 @@ function Bucket({
             pendingId={pendingId}
             onComplete={onComplete}
             onSnooze={onSnooze}
+            dayLinks={dayLinks}
           />
         ))}
       </ul>
@@ -215,6 +217,7 @@ function AgendaEntry({
   pendingId,
   onComplete,
   onSnooze,
+  dayLinks,
 }: {
   spaceId: string;
   row: AgendaRow;
@@ -225,6 +228,7 @@ function AgendaEntry({
   pendingId: string | null;
   onComplete: (row: AgendaRow) => void;
   onSnooze: (row: AgendaRow, days: number) => void;
+  dayLinks: boolean;
 }) {
   const handedness = useThumbHandedness();
   const phrase = duePhrase(row.status, row.days_until_due);
@@ -239,33 +243,44 @@ function AgendaEntry({
           : "max-lg:grid-cols-[minmax(0,1fr)_fit-content(45%)]",
       )}
     >
-      {/* The content block is the link; the verb stays its own target beside it. */}
-      <Link
-        to={`/s/${spaceId}/o/${row.id}`}
+      {/* The title is the record's link; the day beneath it is its own, so a
+          date can open the journal without nesting one anchor inside another. */}
+      <div
         className={cn(
-          "col-start-1 row-start-1 group block min-w-0 py-3 text-ink",
+          "col-start-1 row-start-1 min-w-0 py-3",
           leftHanded && "max-lg:col-start-2",
         )}
       >
-        <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <span className="min-w-0 truncate text-[15px] font-medium group-hover:underline">
-            {row.title}
+        <Link to={`/s/${spaceId}/o/${row.id}`} className="group block min-w-0 text-ink">
+          <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+            <span className="min-w-0 truncate text-[15px] font-medium group-hover:underline">
+              {row.title}
+            </span>
+            <span className="font-mono text-[12px] text-faint">
+              {row.type_icon ? (
+                <span aria-hidden className="mr-1">
+                  {row.type_icon}
+                </span>
+              ) : null}
+              {row.type_name || row.type}
+            </span>
           </span>
-          <span className="font-mono text-[12px] text-faint">
-            {row.type_icon ? (
-              <span aria-hidden className="mr-1">
-                {row.type_icon}
-              </span>
-            ) : null}
-            {row.type_name || row.type}
-          </span>
-        </span>
+        </Link>
         <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-[12px]">
-          <span className="tnum text-muted">{formatDay(row.due_date)}</span>
+          {dayLinks ? (
+            <Link
+              to={`/s/${spaceId}/daily/${row.due_date}`}
+              className="tnum inline-flex items-center text-muted transition-colors hover:text-accent hover:underline pointer-coarse:min-h-11"
+            >
+              {formatDay(row.due_date)}
+            </Link>
+          ) : (
+            <span className="tnum text-muted">{formatDay(row.due_date)}</span>
+          )}
           {phrase ? <span className={cn("tnum", dueTone(row.status))}>{phrase}</span> : null}
           {row.recurrence ? <span className="text-faint">{row.recurrence}</span> : null}
         </span>
-      </Link>
+      </div>
       {canEdit ? (
         // The action cell keeps the grid's handedness flip; inside it the
         // snooze (secondary) precedes the verb (primary), and `ThumbRow` moves

@@ -38,7 +38,7 @@ const leafSearch = {
   ],
 };
 
-function stubPalette(search: unknown, timezone?: string) {
+function stubPalette(search: unknown, timezone?: string, dailyType: string | null = "journal") {
   return stubFetch((input) => {
     const url = requestUrl(input);
     if (timezone && url.endsWith("/api/spaces/s1")) {
@@ -48,7 +48,7 @@ function stubPalette(search: unknown, timezone?: string) {
         icon: null,
         accent: null,
         timezone,
-        daily_type: "journal",
+        daily_type: dailyType,
         created_at: "2026-10-01T12:00:00Z",
         role: "owner",
         members: [],
@@ -180,12 +180,67 @@ describe("CommandPalette", () => {
 
     const group = await screen.findByRole("group", { name: "Actions" });
     await waitFor(() => {
+      expect(within(group).getByRole("option", { name: /Today's note/ })).toBeInTheDocument();
       expect(within(group).getByRole("option", { name: /Yesterday's note/ })).toBeInTheDocument();
     });
     fireEvent.click(within(group).getByRole("option", { name: /^Calendar/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent("/s/s1/calendar");
+    });
+  });
+
+  it("offers no day door to a space without a journal", async () => {
+    stubPalette(unfurling, "UTC", null);
+    openPalette();
+
+    const group = await screen.findByRole("group", { name: "Actions" });
+    await waitFor(() => {
+      expect(within(group).getByRole("option", { name: /Open Schedule/ })).toBeInTheDocument();
+    });
+    expect(within(group).queryByRole("option", { name: /note$/ })).toBeNull();
+    expect(within(group).queryByRole("option", { name: /^Calendar/ })).toBeNull();
+  });
+
+  it("opens a typed date as its day", async () => {
+    stubPalette(unfurling, "UTC");
+    const input = openPalette();
+
+    fireEvent.change(input, { target: { value: "2026-11-05" } });
+
+    const day = await screen.findByRole("option", { name: /Thursday, 5 November 2026/ });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent("/s/s1/daily/2026-11-05");
+    });
+    expect(day).toBeInTheDocument();
+  });
+
+  it("sends a daily note's search hit to its day", async () => {
+    const note = {
+      query: "leaf",
+      total: 1,
+      results: [
+        {
+          id: "n1",
+          type: "journal",
+          type_name: "Journal",
+          title: "2026-11-05",
+          updated_at: "2026-11-05T12:00:00Z",
+          score: 9,
+        },
+      ],
+    };
+    stubPalette(note, "UTC");
+    const input = openPalette();
+
+    fireEvent.change(input, { target: { value: "leaf" } });
+    const option = await screen.findByRole("option", { name: /2026-11-05/ });
+    fireEvent.click(option);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent("/s/s1/daily/2026-11-05");
     });
   });
 

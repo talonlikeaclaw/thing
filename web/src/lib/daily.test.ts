@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { dayLabel, isDayTitle, longDayLabel, monthParam, STREAK_DAYS, streakOf } from "@/lib/daily";
+import {
+  dayLabel,
+  dayNumberLabel,
+  isDayTitle,
+  longDayLabel,
+  monthParam,
+  STREAK_DAYS,
+  streakOf,
+} from "@/lib/daily";
 import { shiftDay } from "@/lib/timezone";
 
 describe("a day title", () => {
@@ -99,6 +107,12 @@ describe("day labels", () => {
   it("reads a malformed day as itself", () => {
     expect(dayLabel("not a day")).toBe("not a day");
     expect(longDayLabel("")).toBe("");
+  });
+
+  it("names a day without the month it already sits under", () => {
+    const weekday = part({ weekday: "short" }, "weekday");
+    expect(dayNumberLabel("2026-11-23")).toBe(`${weekday} 23`);
+    expect(dayNumberLabel("not a day")).toBe("not a day");
   });
 });
 

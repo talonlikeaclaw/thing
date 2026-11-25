@@ -48,6 +48,7 @@ import { Button, StickyActionBar } from "@/components/ui/controls";
 import { FormatChip } from "@/components/ui/page";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
+import { isDayTitle } from "@/lib/daily";
 import { formatDate, formatDateTime, formatDay, readError } from "@/lib/display";
 import { coverPoint, thumbnailUrl } from "@/lib/files";
 import { useWideLayout } from "@/lib/media";
@@ -84,6 +85,11 @@ interface ObjectPanelProps {
    * still outstanding on the day the note is about.
    */
   dayContext?: ReactNode;
+  /**
+   * Whether a scheduled date opens the journal's day. A space with no daily
+   * type has no day page to open, so its dates stay plain text.
+   */
+  dayLinks?: boolean;
 }
 
 const STATUS_LABELS = {
@@ -348,6 +354,7 @@ export function ObjectPanel({
   onClearHighlight,
   children,
   dayContext,
+  dayLinks = false,
 }: ObjectPanelProps) {
   const [baseline, setBaseline] = useState<Baseline>(() => baselineOf(object));
   const [draft, setDraft] = useState<Draft>(() => draftOf(object));
@@ -1305,9 +1312,21 @@ export function ObjectPanel({
             {object.schedule.due_date ? (
               <span className="text-muted">
                 {dueLabel}{" "}
-                <span className={cn("tnum", dueTone(object.schedule.status))}>
-                  {formatDay(object.schedule.due_date)}
-                </span>
+                {dayLinks && isDayTitle(object.schedule.due_date) ? (
+                  <Link
+                    to={`/s/${spaceId}/daily/${object.schedule.due_date}`}
+                    className={cn(
+                      "tnum underline-offset-4 hover:underline",
+                      dueTone(object.schedule.status),
+                    )}
+                  >
+                    {formatDay(object.schedule.due_date)}
+                  </Link>
+                ) : (
+                  <span className={cn("tnum", dueTone(object.schedule.status))}>
+                    {formatDay(object.schedule.due_date)}
+                  </span>
+                )}
               </span>
             ) : null}
             {object.schedule.status === "overdue" &&

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_NAV_ORDER,
   moveNavLink,
+  navLinkActive,
   navOrderKey,
   readNavOrder,
   visibleNavOrder,
@@ -159,5 +160,27 @@ describe("moveNavLink", () => {
     expect(moveNavLink(DEFAULT_NAV_ORDER, all, "overview", -1)).toEqual(DEFAULT_NAV_ORDER);
     expect(moveNavLink(DEFAULT_NAV_ORDER, all, "settings", 1)).toEqual(DEFAULT_NAV_ORDER);
     expect(moveNavLink(DEFAULT_NAV_ORDER, all, "members", 0)).toEqual(DEFAULT_NAV_ORDER);
+  });
+});
+
+describe("navLinkActive", () => {
+  const base = "/s/s1";
+
+  it("keeps Today lit across the journal's days", () => {
+    expect(navLinkActive("today", `${base}/daily`, `${base}/daily`, false)).toBe(true);
+    expect(navLinkActive("today", `${base}/daily`, `${base}/daily/2026-11-05`, false)).toBe(true);
+  });
+
+  it("keeps Today lit on a written day, whose address is the record", () => {
+    expect(navLinkActive("today", `${base}/daily`, `${base}/o/n1`, true)).toBe(true);
+    expect(navLinkActive("today", `${base}/daily`, `${base}/o/n1`, false)).toBe(false);
+  });
+
+  it("marks every other link by its own page", () => {
+    expect(navLinkActive("calendar", `${base}/calendar`, `${base}/calendar`, false)).toBe(true);
+    expect(navLinkActive("calendar", `${base}/calendar`, `${base}/calendar/2026-11`, false)).toBe(
+      false,
+    );
+    expect(navLinkActive("overview", base, base, true)).toBe(true);
   });
 });
