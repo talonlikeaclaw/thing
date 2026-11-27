@@ -108,7 +108,19 @@ its spec is at [`docs/plan/m8-computed-properties.md`](plan/m8-computed-properti
 grid-interaction patch landed as `0.8.1`, also at schema 7, with no format, route or dependency
 change; its spec is at [`docs/plan/m8.1-grid-interaction.md`](plan/m8.1-grid-interaction.md).
 
-**Revised 2026-11-23 (M9.4 landed):** daily notes ship as `0.9.3`, the last `0.9.x` before M10. The
+**Revised 2026-11-27 (M9.5 planned):** the last `0.9.x` before M10 is an access and UX patch at
+`0.9.4`, not a model change. Types and properties get one plain-language front door — the surface
+is named **Types & properties**, `?new=type` and `?new=property` open focused create forms, and the
+home, rail, phone sheet, palette and settings all lead to it. A rail type row gains a pencil to its
+editor, the rail and sheet Types headers gain **New type**, and the schema tabs follow the keyboard
+pattern. The same pass fixes the audit's vocabulary and state defects (props, lone Manage, the
+duplicate Members id, the palette's no-hit grammar) and gives the product a real favicon and install
+identity: a 2 × 2 ledger mark in the accent, a theme-aware SVG, apple-touch and manifest raster
+icons. Workspace `0.9.4`, space schema 8 unchanged, web only: no format key, no server route, no
+dependency. Spec: [`docs/plan/m9.5-types-and-ux.md`](plan/m9.5-types-and-ux.md).
+
+**Revised 2026-11-23 (M9.4 landed):** daily notes ship as `0.9.3`, the last content `0.9.x` before
+the access patch at `0.9.4`. The
 day is the URL (`/daily/<YYYY-MM-DD>`), a day strip with `‹` / `›` / Today and the `[` / `]` / `t`
 keys sits on every daily record, and `/calendar` lays the space's month or week out over the
 existing `MonthGrid`, marking written days and the scheduled rows still outstanding each day. Only
@@ -119,7 +131,7 @@ dependency, and the Calendar's month is one ordinary list read over a `title` ra
 [`docs/plan/m9.4-daily-notes.md`](plan/m9.4-daily-notes.md).
 
 **Revised 2026-11-23 (M9.3 landed):** Night Glass themes ship as `0.9.2`, and daily notes add
-`0.9.3` as the last `0.9.x` before M10. The neutral ladder — ground, matte surfaces, lines, text,
+`0.9.3` as the last content release before the M9.5 access patch at `0.9.4`. The neutral ladder — ground, matte surfaces, lines, text,
 glass fills — used to ship as one green literal set, so the accent a space chose only tinted
 selection. M9.3 rotates the whole ladder to the space's accent hue at fixed lightness, so the room
 and its frosted chrome take the space's light; six curated hues, Lichen pinned to today's green-black
@@ -455,6 +467,19 @@ usability move ahead of search.
   read, so the calendar adds no query language; a run of written days is bounded to 90 and says
   `90+`. Body templates wait for M10.2 and the type's create-time defaults carry the structured
   half.
+- **M9.5 — Types at hand and the UX sweep.** **In progress** (workspace `0.9.4`, space schema 8
+  unchanged, web only: no `space.yml` key, no server route, no dependency; checkpoint 1 landed);
+  spec:
+  [`docs/plan/m9.5-types-and-ux.md`](plan/m9.5-types-and-ux.md). The type and property library gets
+  one plain-language name, **Types & properties**, and one front door: a page-header action, the
+  home and quick-capture links, the rail and phone-sheet Types headers, the command palette and
+  space settings all land on the matching create form through `?new=type` / `?new=property`, with
+  the name focused. A rail type row keeps opening its table and gains a pencil to its editor. The
+  patch also closes the audit's interaction defects — the tab-key pattern, the props/Manage/Add
+  vocabulary split, the duplicate Members id, the palette's no-hit grammar, the blank properties
+  landing — and replaces the generic note favicon with the product's 2 × 2 ledger mark, a
+  theme-aware SVG plus apple-touch and manifest icons. The Night Glass materials, the record sheet,
+  the table model and the day grammar do not change.
 - **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
   workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
   and list; conditional formatting as saved view rules; row height and pinned columns; record

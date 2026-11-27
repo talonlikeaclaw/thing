@@ -37,7 +37,8 @@ attachments UX (`0.7.0`, schema 6), the M6.2 workspace UX patch (`0.7.1`, schema
 calculated properties (`0.8.0`, schema 7), the M8.1 grid-interaction patch (`0.8.1`, schema 7) and
 M9's two halves (`0.9.0` presentation, `0.9.1` property depth, schema 8), the v0.9.2 accent-tinted
 themes and profile theme and the v0.9.3 daily notes and Calendar (`0.9.2`, `0.9.3`, schema 8)
-are implemented at workspace `0.9.3`, not yet tagged or deployed; CI is green. The v0.4.3 physical-iPhone pass is still
+are implemented and `v0.9.3` is tagged; the v0.9.4 types-at-hand and UX patch is in progress.
+M2–M9 are not deployed; CI is green. The v0.4.3 physical-iPhone pass is still
 open.**
 `thing-core` exposes
 `model`, `error`, `accent` (the six preset ids and `is_accent`), `slug` (with the type/property key
@@ -310,6 +311,7 @@ server. No route, format, permission or dependency changes.
 | `docs/plan/m9.2-one-property-sheet.md` | The v0.9.1 UI patch between M9.1 checkpoints 8 and 9: one property sheet carrying the definition and the membership (Required, Default), mounted from the schema type editor, the type page's Properties sheet, the record's Manage sheet and the add-property form; the type editor stops editing memberships. No format, route or dependency change. Landed 2026-11-22. |
 | `docs/plan/m9.3-night-glass-themes.md` | The v0.9.2 patch: the 16-role neutral ladder re-expressed as `oklch(L C var(--theme-hue))`, six curated hues per scheme, the contrast and gamut gates, the Appearance room previews, and the account profile theme with its "use in every space" switch. Landed as `0.9.2`, schema 8. |
 |`docs/plan/m9.4-daily-notes.md`|The v0.9.3 spec: the day as the URL (`/daily/<YYYY-MM-DD>`), the day card that offers an unwritten day, the day strip and `[`/`]`/`t` on a daily record, and the month calendar over `MonthGrid` with written days, outstanding rows and a bounded run. Web only, schema 8, one list read over a `title` range. Landed as `0.9.3`, web only.|
+|`docs/plan/m9.5-types-and-ux.md`|The v0.9.4 spec: the surface renamed **Types & properties**, `?new=type` / `?new=property` create deep links, page-header, rail, phone-sheet, palette and settings entry points, the rail row's edit pencil, the tabs keyboard pattern, the vocabulary and state fixes from the audit, and the 2 × 2 ledger favicon with its apple-touch and manifest set. Web only, schema 8, no route or dependency. In progress; checkpoint 1 (the favicon set) landed.|
 
 M1, M2, M3 and M4 are implemented: **checkpoints 1–14 of M1 (scaffold; core model and format; store;
 index, validation and query; server shell; auth and membership; schema and object APIs; events and
