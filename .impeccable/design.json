@@ -557,7 +557,8 @@
       "Matte 18-24px cards for every data surface; hairline borders only, no shadow.",
       "Pills for actions and segments, circles for icon actions, 12/18/28px corners for fields, cards and sheets.",
       "The 68px dock with 44px destinations and one 56px accent capture circle; 40px icon circles in the header and rail.",
-      "Maple Mono display and data, IBM Plex Sans sentences; one accent per space, Lichen by default."
+      "Maple Mono display and data, IBM Plex Sans sentences; one accent per space, Lichen by default.",
+      "The tab and home-screen mark is a 2 x 2 ledger: three filled cells and one empty cell, the top-left cell in the accent."
     ],
     "rules": [
       {

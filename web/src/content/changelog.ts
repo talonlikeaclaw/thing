@@ -37,6 +37,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "Unreleased",
+    title: "A mark of its own",
+    upcoming: true,
+    highlights: [
+      "The browser tab, bookmark and home-screen icon now show a four-cell table with one cell in the accent.",
+    ],
+    details: [
+      "The icon switches between light and dark with the system.",
+    ],
+  },
+  {
     version: "0.9.3",
     title: "A daily note for any day",
     date: "2026-11-25",

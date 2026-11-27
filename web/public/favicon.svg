@@ -1,7 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#121512" />
-  <rect x="7" y="7" width="4" height="18" rx="1" fill="#c8d96b" />
-  <rect x="15" y="10" width="10" height="2" rx="1" fill="#e8ece4" />
-  <rect x="15" y="16" width="10" height="2" rx="1" fill="#9aa398" />
-  <rect x="15" y="22" width="6" height="2" rx="1" fill="#9aa398" />
+  <!--
+    One type, one cell: a 2 x 2 ledger with the top-left value in the accent.
+    The literal colours stand in for the Night Glass tokens because a favicon
+    renders outside the document's cascade; they follow the scheme, not the
+    space's accent, so the tab stays the product's mark in every space.
+  -->
+  <style>
+    .ground { fill: #080f09; }
+    .filled { fill: #ebf1ec; }
+    .empty { fill: none; stroke: #8a948c; stroke-width: 1.5; }
+    .accent { fill: #c8d96b; }
+    @media (prefers-color-scheme: light) {
+      .ground { fill: #f1efe6; }
+      .filled { fill: #1e1c17; }
+      .empty { stroke: #66645a; }
+      .accent { fill: #5f6f1e; }
+    }
+  </style>
+  <rect class="ground" width="32" height="32" rx="7" />
+  <rect class="accent" x="6" y="6" width="9" height="9" rx="2" />
+  <rect class="filled" x="17" y="6" width="9" height="9" rx="2" />
+  <rect class="filled" x="6" y="17" width="9" height="9" rx="2" />
+  <rect class="empty" x="17.75" y="17.75" width="7.5" height="7.5" rx="1.5" />
 </svg>

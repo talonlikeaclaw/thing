@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Safari's pinned-tab mask is one colour; the empty cell is the hole. -->
+  <rect x="6" y="6" width="9" height="9" rx="2" fill="#000" />
+  <rect x="17" y="6" width="9" height="9" rx="2" fill="#000" />
+  <rect x="6" y="17" width="9" height="9" rx="2" fill="#000" />
+  <rect x="17.75" y="17.75" width="7.5" height="7.5" rx="1.5" fill="none" stroke="#000" stroke-width="1.5" />
+</svg>

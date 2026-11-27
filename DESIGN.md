@@ -177,6 +177,14 @@ no mascots, no playful colour, no card grid of trip tiles.
 - Reading order never moves. Only thumb-zone action order and the dock mirror with
   handedness.
 
+**The mark.** The browser tab, bookmark and home-screen icon are the product's own model:
+a 2 × 2 ledger, three filled cells and one empty cell, with the top-left cell in the
+accent. It is a table with one value, not a document glyph. The SVG follows
+`prefers-color-scheme` — the dark ground and ink flip on light — and the committed
+apple-touch and manifest PNGs use the dark mark, because the OS owns their background.
+The colours are literal rather than tokens: an icon renders outside the document's
+cascade, so the six space accents cannot reach it.
+
 ## Colors
 
 The palette is functional. The ground carries the light; the glass carries the chrome;
