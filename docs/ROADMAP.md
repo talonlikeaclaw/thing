@@ -468,7 +468,7 @@ usability move ahead of search.
   `90+`. Body templates wait for M10.2 and the type's create-time defaults carry the structured
   half.
 - **M9.5 — Types at hand and the UX sweep.** **In progress** (workspace `0.9.4`, space schema 8
-  unchanged, web only: no `space.yml` key, no server route, no dependency; checkpoint 1 landed);
+  unchanged, web only: no `space.yml` key, no server route, no dependency; checkpoints 1–2 landed);
   spec:
   [`docs/plan/m9.5-types-and-ux.md`](plan/m9.5-types-and-ux.md). The type and property library gets
   one plain-language name, **Types & properties**, and one front door: a page-header action, the

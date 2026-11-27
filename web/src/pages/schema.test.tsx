@@ -34,6 +34,16 @@ const plantSummary: TypeSummary = {
   object_count: 2,
 };
 
+const bookSummary: TypeSummary = {
+  key: "book",
+  name: "Book",
+  name_plural: "Books",
+  description: "",
+  schedule: false,
+  property_count: 0,
+  object_count: 0,
+};
+
 const properties: PropertyDef[] = [
   { key: "room", name: "Room", format: "select", options: [] },
   { key: "bedroom", name: "Bedroom", format: "text" },
@@ -64,14 +74,42 @@ const plantType: TypeDef = {
   default_view: "table",
 };
 
-function stubSchema() {
-  return stubFetch((input) => {
+const bookType: TypeDef = {
+  key: "book",
+  name: "Book",
+  name_plural: "Books",
+  description: "",
+  schedule: false,
+  properties: [],
+  views: [
+    {
+      key: "table",
+      name: "Table",
+      kind: "table",
+      sorts: [],
+      filter: { op: "and", conditions: [] },
+      columns: ["title"],
+    },
+  ],
+  default_view: "table",
+};
+
+function stubSchema(role: "owner" | "viewer" = "owner") {
+  let created = false;
+  return stubFetch((input, init) => {
     const url = requestUrl(input);
+    if (url.endsWith("/api/spaces/s1/types") && init?.method === "POST") {
+      created = true;
+      return jsonResponse(bookType);
+    }
+    if (url.endsWith("/api/spaces/s1/types/book")) {
+      return jsonResponse(bookType);
+    }
     if (url.endsWith("/api/spaces/s1/types/plant")) {
       return jsonResponse(plantType);
     }
     if (url.endsWith("/api/spaces/s1/types")) {
-      return jsonResponse([plantSummary]);
+      return jsonResponse(created ? [plantSummary, bookSummary] : [plantSummary]);
     }
     if (url.endsWith("/api/spaces/s1/properties")) {
       return jsonResponse(properties);
@@ -87,7 +125,7 @@ function stubSchema() {
       });
     }
     if (url.endsWith("/api/spaces/s1")) {
-      return jsonResponse(space);
+      return jsonResponse(role === "viewer" ? { ...space, role } : space);
     }
     throw new Error(`unstubbed ${url}`);
   });
@@ -222,6 +260,11 @@ describe("SchemaPage", () => {
     expect(await screen.findByText("3 live records hold a value.")).toBeInTheDocument();
     const usage = screen.getByRole("region", { name: "Used by" });
     expect(within(usage).getByText("Plant")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New property" })).toHaveAttribute(
+      "href",
+      "/s/s1/schema?new=property",
+    );
+    expect(screen.queryByRole("button", { name: "New property" })).toBeNull();
   });
 
   it("opens a type on a phone and returns to the list with Back", async () => {
@@ -257,5 +300,171 @@ describe("SchemaPage", () => {
 
     expect(await screen.findByRole("button", { name: "Back to properties" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Room")).toBeInTheDocument();
+  });
+
+  it("names the surface and the document Types & properties", async () => {
+    stubSchema();
+    renderSchema();
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Types & properties" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.title).toBe("Types & properties · thing"),
+    );
+    expect(screen.getByLabelText("Breadcrumb")).toHaveTextContent("Types & properties");
+    expect(screen.queryByText("owner")).toBeNull();
+  });
+
+  it("opens the type create form from the URL and focuses its name", async () => {
+    stubSchema();
+    renderSchema("/s/s1/schema?new=type");
+
+    const name = await screen.findByRole("textbox", { name: "Name" });
+    expect(name).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "New type" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Types" })).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/s/s1/schema?new=type",
+    );
+  });
+
+  it("opens the property create form from the URL and focuses its name", async () => {
+    stubSchema();
+    renderSchema("/s/s1/schema?new=property");
+
+    const name = await screen.findByRole("textbox", { name: "Name" });
+    expect(name).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "New property" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Properties/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/s/s1/schema?new=property",
+    );
+  });
+
+  it("opens the type form inside the list on a phone", async () => {
+    stubMedia(true);
+    stubSchema();
+    renderSchema("/s/s1/schema?new=type");
+
+    const list = await screen.findByRole("region", { name: "Types" });
+    expect(within(list).getByRole("heading", { name: "New type" })).toBeInTheDocument();
+    expect(document.getElementById("type-editor")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveFocus();
+  });
+
+  it("switches the header action with the tab", async () => {
+    stubSchema();
+    renderSchema();
+
+    const newType = await screen.findByRole("link", { name: "New type" });
+    expect(newType).toHaveAttribute("href", "/s/s1/schema?new=type");
+    expect(screen.queryByRole("button", { name: "New type" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: /^Properties/ }));
+
+    const newProperty = await screen.findByRole("link", { name: "New property" });
+    expect(newProperty).toHaveAttribute("href", "/s/s1/schema?new=property");
+    expect(screen.queryByRole("link", { name: "New type" })).toBeNull();
+  });
+
+  it("clears the create form when a row is selected", async () => {
+    stubSchema();
+    renderSchema("/s/s1/schema?new=type");
+
+    const list = await screen.findByRole("region", { name: "Types" });
+    fireEvent.click(within(list).getByRole("button", { name: /Plant/ }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/s/s1/schema?tab=types&type=plant",
+      ),
+    );
+    expect(screen.getByTestId("location")).not.toHaveTextContent("new=type");
+    expect(screen.queryByRole("heading", { name: "New type" })).toBeNull();
+  });
+
+  it("cancels a property create back to its tab", async () => {
+    stubSchema();
+    renderSchema("/s/s1/schema?new=property");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("?tab=properties"),
+    );
+    expect(screen.getByTestId("location")).not.toHaveTextContent("new=property");
+    expect(screen.queryByRole("heading", { name: "New property" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Properties" })).toBeInTheDocument();
+  });
+
+  it("creates a type and selects it on the list and the editor", async () => {
+    stubMedia(false);
+    stubSchema();
+    renderSchema("/s/s1/schema?new=type");
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "Name" }), {
+      target: { value: "Book" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create type" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/s/s1/schema?tab=types&type=book",
+      ),
+    );
+    const list = screen.getByRole("region", { name: "Types" });
+    expect(await within(list).findByRole("button", { name: /Book/ })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(await screen.findByDisplayValue("Book")).toBeInTheDocument();
+  });
+
+  it("moves the tabs with arrows, Home and End", async () => {
+    stubSchema();
+    renderSchema();
+
+    const typesTab = await screen.findByRole("tab", { name: /^Types/ });
+    const propertiesTab = screen.getByRole("tab", { name: /^Properties/ });
+    expect(typesTab).toHaveAttribute("tabindex", "0");
+    expect(propertiesTab).toHaveAttribute("tabindex", "-1");
+    expect(typesTab).toHaveAttribute("aria-controls", "schema-panel-types");
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("id", "schema-panel-types");
+
+    typesTab.focus();
+    fireEvent.keyDown(typesTab, { key: "ArrowRight" });
+
+    await waitFor(() => expect(propertiesTab).toHaveFocus());
+    expect(propertiesTab).toHaveAttribute("aria-selected", "true");
+    expect(propertiesTab).toHaveAttribute("tabindex", "0");
+    expect(screen.getByTestId("location")).toHaveTextContent("?tab=properties");
+
+    fireEvent.keyDown(propertiesTab, { key: "Home" });
+    await waitFor(() => expect(typesTab).toHaveFocus());
+    expect(typesTab).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(typesTab, { key: "End" });
+    await waitFor(() => expect(propertiesTab).toHaveFocus());
+    expect(propertiesTab).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(propertiesTab, { key: "ArrowRight" });
+    await waitFor(() => expect(typesTab).toHaveFocus());
+  });
+
+  it("shows a viewer no create action", async () => {
+    stubSchema("viewer");
+    renderSchema("/s/s1/schema?new=type");
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Types & properties" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New type" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New type" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "New type" })).toBeNull();
+    expect(screen.getByText("viewer")).toBeInTheDocument();
   });
 });

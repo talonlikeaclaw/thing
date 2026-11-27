@@ -313,7 +313,7 @@ export function ViewSettings({
             disabled={update.isPending}
             hint={
               selectProperties.length === 0
-                ? "Add a select property in the schema first."
+                ? "Add a select property in Types & properties first."
                 : undefined
             }
           />
@@ -345,7 +345,7 @@ export function ViewSettings({
             disabled={update.isPending}
             hint={
               coverProperties.length === 0
-                ? "Add an image, attachment or select property in the schema first."
+                ? "Add an image, attachment or select property in Types & properties first."
                 : undefined
             }
           />
@@ -384,7 +384,7 @@ export function ViewSettings({
             disabled={update.isPending}
             hint={
               dateProperties.length === 0
-                ? "Add a date property in the schema first."
+                ? "Add a date property in Types & properties first."
                 : undefined
             }
           />

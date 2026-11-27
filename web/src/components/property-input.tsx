@@ -356,7 +356,7 @@ function MultiSelectInput({ property, value, onCommit, onCancel }: PropertyInput
     <div className="grid gap-1.5">
       <div className="max-h-52 overflow-auto">
         {(property.options ?? []).length === 0 ? (
-          <p className="text-[12px] text-muted">No options yet; add them in the schema.</p>
+          <p className="text-[12px] text-muted">No options yet; add them in Types & properties.</p>
         ) : (
           (property.options ?? []).map((option) => (
             <label

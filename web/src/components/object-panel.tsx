@@ -1525,7 +1525,7 @@ export function ObjectPanel({
         <div className="mt-1 border-t rule">
           {type && keys.length === 0 ? (
             <p className="py-4 text-[13px] text-muted">
-              This type has no properties yet. Add one here or in the schema.
+              This type has no properties yet. Add one here or in Types & properties.
             </p>
           ) : visibleKeys.length === 0 ? (
             <p className="py-4 text-[13px] text-muted">

@@ -46,7 +46,7 @@ export function AuthScaffold({ title, subtitle, children, footer }: AuthScaffold
               </dd>
             </div>
             <div>
-              <dt className="label">Your schema</dt>
+              <dt className="label">Your types</dt>
               <dd className="mt-1 max-w-[34ch] text-[15px]">
                 Types and properties are yours to define. No migration step, no one else's idea of
                 a plant or a chore.

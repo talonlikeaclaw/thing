@@ -129,7 +129,7 @@ export function SpacePage() {
               {canEdit ? (
                 <li className="border-b rule">
                   <Link
-                    to={`/s/${detail.id}/schema`}
+                    to={`/s/${detail.id}/schema?new=type`}
                     className="flex min-h-11 items-center gap-2 py-3 pl-1 text-[13px] text-muted transition-colors hover:text-accent"
                   >
                     <Plus aria-hidden size={14} className="shrink-0" />
@@ -320,7 +320,7 @@ function Onboarding({ spaceId, canEdit }: { spaceId: string; canEdit: boolean })
         <div className="mt-4 grid gap-2">
           <Button
             className="w-fit"
-            render={<Link to={`/s/${spaceId}/schema`} />}
+            render={<Link to={`/s/${spaceId}/schema?new=type`} />}
           >
             Create your first type
           </Button>

@@ -18,7 +18,7 @@ const properties: PropertyDef[] = [
   },
 ];
 
-function renderList() {
+function renderList({ creating = false }: { creating?: boolean } = {}) {
   return renderWithProviders(
     <PropertyList
       spaceId="s1"
@@ -28,6 +28,8 @@ function renderList() {
       canEdit
       onSelect={() => undefined}
       onCreated={() => undefined}
+      creating={creating}
+      onCreatingChange={() => undefined}
     />,
   );
 }
@@ -39,8 +41,7 @@ describe("PropertyList", () => {
   });
 
   it("never offers the calculated list format to a stored property", async () => {
-    renderList();
-    fireEvent.click(screen.getByRole("button", { name: "New property" }));
+    renderList({ creating: true });
 
     fireEvent.click(screen.getByRole("combobox", { name: "Format" }));
     await screen.findByRole("listbox");
@@ -50,8 +51,7 @@ describe("PropertyList", () => {
   });
 
   it("reveals the expression field when the new property is a formula", () => {
-    renderList();
-    fireEvent.click(screen.getByRole("button", { name: "New property" }));
+    renderList({ creating: true });
     fireEvent.click(screen.getByRole("radio", { name: "Formula" }));
 
     expect(screen.getByLabelText("Expression")).toBeInTheDocument();

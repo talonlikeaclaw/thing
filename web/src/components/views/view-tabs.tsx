@@ -369,7 +369,7 @@ export function ViewTabs({
             missingSelect ? (
               <p className="max-w-[62ch] border-l border-warning pl-3 text-[13px] text-warning">
                 A board groups by a select property. Add a select property to this type
-                in the schema first.
+                in Types & properties first.
               </p>
             ) : (
               <SelectField
@@ -398,7 +398,7 @@ export function ViewTabs({
               onValueChange={setCover}
               hint={
                 coverProperties.length === 0
-                  ? "Add an image, attachment or select property in the schema first."
+                  ? "Add an image, attachment or select property in Types & properties first."
                   : undefined
               }
             />
@@ -408,7 +408,7 @@ export function ViewTabs({
             missingDate ? (
               <p className="max-w-[62ch] border-l border-warning pl-3 text-[13px] text-warning">
                 A calendar places records on a date property. Add a date property to this
-                type in the schema first.
+                type in Types & properties first.
               </p>
             ) : (
               <SelectField

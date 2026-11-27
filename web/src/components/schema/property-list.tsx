@@ -39,10 +39,10 @@ interface PropertyListProps {
   canEdit: boolean;
   onSelect: (key: string) => void;
   onCreated: (key: string) => void;
-  /** Whether the create form is open; omitted, the list owns the state. */
-  creating?: boolean;
-  /** Opens or closes the create form; omitted, the list owns the state. */
-  onCreatingChange?: (creating: boolean) => void;
+  /** Whether the create form is open. */
+  creating: boolean;
+  /** Opens or closes the create form. */
+  onCreatingChange: (creating: boolean) => void;
   /** False on a wide screen, where the form takes the editor column. */
   inlineCreate?: boolean;
 }
@@ -64,9 +64,6 @@ export function PropertyList({
   onCreatingChange,
   inlineCreate = true,
 }: PropertyListProps) {
-  const [localCreating, setLocalCreating] = useState(false);
-  const showCreate = creating ?? localCreating;
-  const setShowCreate = onCreatingChange ?? setLocalCreating;
   const [query, setQuery] = useState("");
   const matches = searchProperties(properties, query);
 
@@ -76,18 +73,6 @@ export function PropertyList({
         id="schema-properties"
         title="Properties"
         count={properties.length}
-        action={
-          canEdit && !showCreate ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-9 px-2.5 text-[12px] pointer-coarse:min-h-11"
-              onClick={() => setShowCreate(true)}
-            >
-              New property
-            </Button>
-          ) : null
-        }
       />
 
       {properties.length > 0 ? (
@@ -107,17 +92,17 @@ export function PropertyList({
         </div>
       ) : null}
 
-      {canEdit && showCreate && inlineCreate ? (
+      {canEdit && creating && inlineCreate ? (
         <PropertyCreateForm
           spaceId={spaceId}
           properties={properties}
           types={types}
           canEdit={canEdit}
           onCreated={(key) => {
-            setShowCreate(false);
+            onCreatingChange(false);
             onCreated(key);
           }}
-          onCancel={() => setShowCreate(false)}
+          onCancel={() => onCreatingChange(false)}
         />
       ) : null}
 
@@ -239,6 +224,7 @@ export function PropertyCreateForm({
         </p>
         <TextField
           label="Name"
+          id="property-name"
           name="property-name"
           required
           maxLength={200}

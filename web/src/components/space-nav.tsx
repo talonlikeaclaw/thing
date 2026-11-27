@@ -65,7 +65,7 @@ const DESTINATIONS: Record<NavLink, { label: string; path: string; icon: typeof 
   today: { label: "Today", path: "daily", icon: Sun },
   calendar: { label: "Calendar", path: "calendar", icon: CalendarRange },
   schedule: { label: "Schedule", path: "agenda", icon: CalendarDays },
-  schema: { label: "Schema", path: "schema", icon: Shapes },
+  schema: { label: "Types & properties", path: "schema", icon: Shapes },
   library: { label: "Library", path: "library", icon: Images },
   members: { label: "Members", path: "members", icon: Users },
   settings: { label: "Settings", path: "settings", icon: Settings },

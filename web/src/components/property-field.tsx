@@ -640,7 +640,7 @@ function MultiSelectField({ property, value, onChange }: PropertyFieldProps) {
     <div className="flex max-w-[28rem] flex-wrap items-center gap-1.5">
       {options.length === 0 ? (
         <p className="py-1 text-[length:var(--text-small)] text-muted">
-          No options yet; add them in the schema.
+          No options yet; add them in Types & properties.
         </p>
       ) : (
         options.map((option) => {

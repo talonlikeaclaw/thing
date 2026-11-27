@@ -217,13 +217,14 @@ export function AgendaPage() {
         ) : scheduledTypes.length === 0 ? (
           <div className="mt-6 max-w-[52ch] rounded-[22px] border border-line bg-surface p-4 sm:p-5">
             <p className="text-muted">
-              No type is scheduled — open Schema and turn on Schedule for a type.
+              No type is scheduled — open Types & properties and turn on Schedule for a
+              type.
             </p>
             <Link
               to={`/s/${detail.id}/schema`}
               className="mt-3 inline-flex min-h-10 w-fit items-center rounded-full border border-line-interactive/70 bg-raised/40 px-4 text-sm text-ink transition-colors hover:border-line-strong pointer-coarse:min-h-11"
             >
-              Open Schema
+              Open Types & properties
             </Link>
           </div>
         ) : !schedule ? (

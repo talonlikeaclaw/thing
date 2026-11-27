@@ -38,13 +38,18 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "Unreleased",
-    title: "A mark of its own",
+    title: "Types at hand",
     upcoming: true,
     highlights: [
       "The browser tab, bookmark and home-screen icon now show a four-cell table with one cell in the accent.",
+      "New type and New property open a form with the name field focused, from the page header, the home page and quick capture.",
     ],
     details: [
       "The icon switches between light and dark with the system.",
+      "The type and property library is called Types & properties in the rail, the breadcrumb and the browser title.",
+      "The page header names a viewer's role only; an owner or editor sees no role label.",
+      "The Types and Properties tabs move with the arrow keys, Home and End.",
+      "The property tab offers New property when nothing is selected.",
     ],
   },
   {

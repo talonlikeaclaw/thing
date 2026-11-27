@@ -196,7 +196,7 @@ export function CommandPalette({
       ...dayActions(spaceId, space.data?.timezone, space.data?.daily_type),
       {
         id: "action:types",
-        label: "Types and properties",
+        label: "Types & properties",
         to: `/s/${spaceId}/schema`,
       },
       {

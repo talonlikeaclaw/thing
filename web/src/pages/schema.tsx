@@ -1,6 +1,11 @@
-import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useParams, useSearchParams } from "react-router";
+import { ArrowLeft, Plus } from "lucide-react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { Link, useLocation, useParams, useSearchParams } from "react-router";
 
 import { useProperties, useSpace, useType, useTypes } from "@/api/queries";
 import { PropertyEditor } from "@/components/schema/property-editor";
@@ -9,10 +14,11 @@ import {
   PropertyList,
 } from "@/components/schema/property-list";
 import { TypeEditor } from "@/components/schema/type-editor";
-import { TypeList } from "@/components/schema/type-list";
+import { TypeCreateForm, TypeList } from "@/components/schema/type-list";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
-import { useThumbHandedness } from "@/components/handedness";
+import { ThumbRow, useThumbHandedness } from "@/components/handedness";
+import { Button } from "@/components/ui/controls";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { useCompactWidth } from "@/lib/media";
@@ -38,16 +44,26 @@ export function SchemaPage() {
   const compact = useCompactWidth();
   const handedness = useThumbHandedness();
 
-  const [creatingProperty, setCreatingProperty] = useState(false);
+  const canEdit = space.data ? space.data.role !== "viewer" : false;
+  const requestedNew = params.get("new");
+  const creatingType = requestedNew === "type" && canEdit;
+  const creatingProperty = requestedNew === "property" && canEdit;
   const selectedTypeParam = params.get("type") ?? undefined;
   const selectedPropertyKey = params.get("property") ?? undefined;
-  const tab: SchemaTab = selectedPropertyKey
-    ? "properties"
-    : selectedTypeParam
-      ? "types"
-      : params.get("tab") === "properties"
-        ? "properties"
-        : "types";
+  const activeTypeParam = creatingType ? undefined : selectedTypeParam;
+  const activePropertyKey = creatingProperty ? undefined : selectedPropertyKey;
+  const tab: SchemaTab =
+    requestedNew === "property"
+      ? "properties"
+      : requestedNew === "type"
+        ? "types"
+        : selectedPropertyKey
+          ? "properties"
+          : selectedTypeParam
+            ? "types"
+            : params.get("tab") === "properties"
+              ? "properties"
+              : "types";
 
   /**
    * The type page's Edit action deep-links to `#type-editor`, and a generated
@@ -61,23 +77,26 @@ export function SchemaPage() {
   const deepLink = scrollTarget.current !== null;
 
   // Desktop keeps the old default: the first type is open beside the list.
-  const selectedTypeKey = compact
-    ? selectedTypeParam
-    : (selectedTypeParam ?? types.data?.[0]?.key);
+  // A create form owns the editor column instead, so no type is selected.
+  const selectedTypeKey = creatingType
+    ? undefined
+    : compact
+      ? selectedTypeParam
+      : (selectedTypeParam ?? types.data?.[0]?.key);
   const type = useType(spaceId, selectedTypeKey);
   const selectedProperty = properties.data?.find(
-    (property) => property.key === selectedPropertyKey,
+    (property) => property.key === activePropertyKey,
   );
 
   useEffect(() => {
-    if (!deepLink || selectedTypeParam || !types.data?.length) {
+    if (!deepLink || creatingType || selectedTypeParam || !types.data?.length) {
       return;
     }
     const next = new URLSearchParams(params);
     next.set("tab", "types");
     next.set("type", types.data[0]!.key);
     setParams(next, { replace: true, preventScrollReset: true });
-  }, [deepLink, selectedTypeParam, types.data, params, setParams]);
+  }, [deepLink, creatingType, selectedTypeParam, types.data, params, setParams]);
 
   useEffect(() => {
     const target = scrollTarget.current;
@@ -98,28 +117,30 @@ export function SchemaPage() {
     });
   }, [type.data]);
 
-  // A New property form may open in the editor column below the fold, or
-  // inline under a long list on a phone: bring it to the reader either way.
+  // A pathname change moves focus to the new page's h1 in the shell. A create
+  // deep link must land in its first field instead, so take focus back on the
+  // next frame, after that heading focus. Focusing the field is also what
+  // brings an inline phone form or the editor column into view; a start-aligned
+  // scroll would push the page header under the chrome on a wide screen.
   useEffect(() => {
-    if (!creatingProperty) {
+    if (!creatingType && !creatingProperty) {
       return;
     }
+    const id = creatingType ? "type-name" : "property-name";
     const frame = window.requestAnimationFrame(() => {
-      document
-        .getElementById("property-create")
-        ?.scrollIntoView({ block: "start", inline: "nearest" });
+      document.getElementById(id)?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [creatingProperty]);
+  }, [creatingType, creatingProperty]);
 
   /** Where the list was when a phone tapped into its editor. */
   const listScroll = useRef(0);
 
   const selectTab = useCallback(
     (nextTab: SchemaTab) => {
-      setCreatingProperty(false);
       const next = new URLSearchParams(params);
       next.set("tab", nextTab);
+      next.delete("new");
       if (nextTab === "types") {
         next.delete("property");
       } else {
@@ -136,6 +157,7 @@ export function SchemaPage() {
     next.set("tab", "types");
     next.set("type", key);
     next.delete("property");
+    next.delete("new");
     setParams(next, { replace: true, preventScrollReset: true });
     if (compact) {
       window.requestAnimationFrame(() => window.scrollTo({ top: 0 }));
@@ -143,25 +165,43 @@ export function SchemaPage() {
   }
 
   function selectProperty(key: string) {
-    setCreatingProperty(false);
     listScroll.current = window.scrollY;
     const next = new URLSearchParams(params);
     next.set("tab", "properties");
     next.set("property", key);
     next.delete("type");
+    next.delete("new");
     setParams(next, { replace: true, preventScrollReset: true });
     if (compact) {
       window.requestAnimationFrame(() => window.scrollTo({ top: 0 }));
     }
   }
 
+  /** New type on a wide screen opens in the editor column, not the list. */
+  function startCreateType() {
+    const next = new URLSearchParams(params);
+    next.set("tab", "types");
+    next.set("new", "type");
+    next.delete("type");
+    next.delete("property");
+    setParams(next, { replace: true, preventScrollReset: true });
+  }
+
   /** New property on a wide screen opens in the editor column, not the list. */
   function startCreateProperty() {
-    setCreatingProperty(true);
     const next = new URLSearchParams(params);
     next.set("tab", "properties");
+    next.set("new", "property");
     next.delete("property");
     next.delete("type");
+    setParams(next, { replace: true, preventScrollReset: true });
+  }
+
+  /** Closing a create form keeps the reader on the tab they opened it from. */
+  function stopCreating(nextTab: SchemaTab) {
+    const next = new URLSearchParams(params);
+    next.delete("new");
+    next.set("tab", nextTab);
     setParams(next, { replace: true, preventScrollReset: true });
   }
 
@@ -169,6 +209,7 @@ export function SchemaPage() {
     const y = listScroll.current;
     const next = new URLSearchParams(params);
     next.set("tab", nextTab);
+    next.delete("new");
     if (nextTab === "types") {
       next.delete("type");
     } else {
@@ -178,10 +219,39 @@ export function SchemaPage() {
     window.requestAnimationFrame(() => window.scrollTo({ top: y }));
   }
 
-  useRouteMeta("Schema");
+  /**
+   * The WAI-ARIA tabs pattern: one tab in the tab order, arrows and
+   * Home/End select and move focus. The selected tab owns the panel.
+   */
+  function handleTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const order: SchemaTab[] = ["types", "properties"];
+    const index = order.indexOf(tab);
+    let next: SchemaTab;
+    switch (event.key) {
+      case "ArrowRight":
+        next = order[(index + 1) % order.length]!;
+        break;
+      case "ArrowLeft":
+        next = order[(index - 1 + order.length) % order.length]!;
+        break;
+      case "Home":
+        next = order[0]!;
+        break;
+      case "End":
+        next = order[order.length - 1]!;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    selectTab(next);
+    document.getElementById(`schema-tab-${next}`)?.focus();
+  }
+
+  useRouteMeta("Types & properties");
 
   if (types.isPending || properties.isPending) {
-    return <p className="text-[13px] text-muted">Reading the schema…</p>;
+    return <p className="text-[13px] text-muted">Reading types and properties…</p>;
   }
 
   if (types.isError || properties.isError) {
@@ -189,7 +259,7 @@ export function SchemaPage() {
     return (
       <ErrorState
         error={error}
-        subject="Schema"
+        subject="Types & properties"
         onRetry={() => {
           void types.refetch();
           void properties.refetch();
@@ -200,52 +270,86 @@ export function SchemaPage() {
 
   const detail = space.data;
   if (!detail) {
-    return <p className="text-[13px] text-muted">Reading the schema…</p>;
+    return <p className="text-[13px] text-muted">Reading types and properties…</p>;
   }
-  const canEdit = detail.role !== "viewer";
-  const showTypeList = !compact || !selectedTypeParam;
-  const showTypeEditor = !compact || Boolean(selectedTypeParam);
-  const showPropertyList = !compact || !selectedPropertyKey;
-  const showPropertyEditor = !compact || Boolean(selectedPropertyKey);
+  const showTypeList = !compact || !activeTypeParam;
+  const showTypeEditor = compact ? Boolean(activeTypeParam) : true;
+  const showPropertyList = !compact || !activePropertyKey;
+  const showPropertyEditor = compact ? Boolean(activePropertyKey) : true;
 
   return (
     <div className="settle">
       <Breadcrumbs
-        items={[{ label: detail.name, to: `/s/${detail.id}` }, { label: "Schema" }]}
+        items={[
+          { label: detail.name, to: `/s/${detail.id}` },
+          { label: "Types & properties" },
+        ]}
       />
 
-      <PageHeader title="Schema" meta={detail.role} />
+      <PageHeader
+        title="Types & properties"
+        meta={detail.role === "viewer" ? "viewer" : undefined}
+      />
 
-      <div
-        className={cn(
-          "mt-6 flex w-full",
-          compact && (handedness === "left" ? "justify-start" : "justify-end"),
-        )}
-      >
+      <div className="mt-4 flex flex-wrap items-center gap-3 lg:justify-between">
+        {canEdit && !creatingType && !creatingProperty ? (
+          <ThumbRow className="order-1 w-full lg:order-2 lg:w-auto">
+            <Button
+              variant="ghost"
+              render={
+                <Link
+                  to={`/s/${detail.id}/schema?new=${tab === "types" ? "type" : "property"}`}
+                />
+              }
+            >
+              <Plus aria-hidden size={15} className="shrink-0" />
+              {tab === "types" ? "New type" : "New property"}
+            </Button>
+          </ThumbRow>
+        ) : null}
         <div
-          role="tablist"
-          aria-label="Schema"
-          className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-line/80 bg-inset/60 p-1"
+          className={cn(
+            "order-2 flex w-full lg:order-1 lg:w-auto",
+            compact && (handedness === "left" ? "justify-start" : "justify-end"),
+          )}
         >
-          <SchemaTabButton
-            selected={tab === "types"}
-            count={types.data.length}
-            onClick={() => selectTab("types")}
+          <div
+            role="tablist"
+            aria-label="Types & properties"
+            onKeyDown={handleTabKeyDown}
+            className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-line/80 bg-inset/60 p-1"
           >
-            Types
-          </SchemaTabButton>
-          <SchemaTabButton
-            selected={tab === "properties"}
-            count={properties.data.length}
-            onClick={() => selectTab("properties")}
-          >
-            Properties
-          </SchemaTabButton>
+            <SchemaTabButton
+              id="schema-tab-types"
+              controls="schema-panel-types"
+              tabIndex={tab === "types" ? 0 : -1}
+              selected={tab === "types"}
+              count={types.data.length}
+              onClick={() => selectTab("types")}
+            >
+              Types
+            </SchemaTabButton>
+            <SchemaTabButton
+              id="schema-tab-properties"
+              controls="schema-panel-properties"
+              tabIndex={tab === "properties" ? 0 : -1}
+              selected={tab === "properties"}
+              count={properties.data.length}
+              onClick={() => selectTab("properties")}
+            >
+              Properties
+            </SchemaTabButton>
+          </div>
         </div>
       </div>
 
       {tab === "types" ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-6">
+        <div
+          role="tabpanel"
+          id="schema-panel-types"
+          aria-labelledby="schema-tab-types"
+          className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-6"
+        >
           {showTypeList ? (
             <div className="self-start rounded-[22px] border border-line bg-surface p-4">
               <TypeList
@@ -255,17 +359,28 @@ export function SchemaPage() {
                 canEdit={canEdit}
                 onSelect={selectType}
                 onCreated={selectType}
+                creating={creatingType}
+                onCreatingChange={(next) =>
+                  next ? startCreateType() : stopCreating("types")
+                }
+                inlineCreate={compact}
               />
             </div>
           ) : null}
           {showTypeEditor ? (
             <div className="min-w-0">
-              {compact && selectedTypeParam ? (
+              {compact && activeTypeParam ? (
                 <BackButton label="Back to types" onClick={() => back("types")} />
               ) : null}
               {/* The record page and the columns panel deep-link to this id. */}
               <div id="type-editor" className="scroll-mt-[calc(var(--shell-header-h)+1rem)] rounded-[22px] border border-line bg-surface p-5">
-                {type.isPending && selectedTypeKey ? (
+                {creatingType ? (
+                  <TypeCreateForm
+                    spaceId={detail.id}
+                    onCreated={selectType}
+                    onCancel={() => stopCreating("types")}
+                  />
+                ) : type.isPending && selectedTypeKey ? (
                   <p className="text-[13px] text-muted">Reading the type…</p>
                 ) : type.isError ? (
                   <div className="grid gap-3">
@@ -297,20 +412,25 @@ export function SchemaPage() {
           ) : null}
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-6">
+        <div
+          role="tabpanel"
+          id="schema-panel-properties"
+          aria-labelledby="schema-tab-properties"
+          className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-6"
+        >
           {showPropertyList ? (
             <div className="self-start rounded-[22px] border border-line bg-surface p-4">
               <PropertyList
                 spaceId={detail.id}
                 properties={properties.data}
                 types={types.data}
-                selectedKey={selectedPropertyKey}
+                selectedKey={activePropertyKey}
                 canEdit={canEdit}
                 onSelect={selectProperty}
                 onCreated={selectProperty}
                 creating={creatingProperty}
                 onCreatingChange={(next) =>
-                  next ? startCreateProperty() : setCreatingProperty(false)
+                  next ? startCreateProperty() : stopCreating("properties")
                 }
                 inlineCreate={compact}
               />
@@ -318,14 +438,23 @@ export function SchemaPage() {
           ) : null}
           {showPropertyEditor ? (
             <div className="flex min-w-0 flex-col">
-              {compact && selectedPropertyKey ? (
+              {compact && activePropertyKey ? (
                 <BackButton
                   label="Back to properties"
                   onClick={() => back("properties")}
                 />
               ) : null}
               <div className="flex min-h-[18rem] flex-1 flex-col rounded-[22px] border border-line bg-surface p-5">
-                {selectedProperty ? (
+                {creatingProperty ? (
+                  <PropertyCreateForm
+                    spaceId={detail.id}
+                    properties={properties.data}
+                    types={types.data}
+                    canEdit={canEdit}
+                    onCreated={selectProperty}
+                    onCancel={() => stopCreating("properties")}
+                  />
+                ) : selectedProperty ? (
                   <PropertyEditor
                     key={selectedProperty.key}
                     spaceId={detail.id}
@@ -335,17 +464,21 @@ export function SchemaPage() {
                     canEdit={canEdit}
                     onRenamed={selectProperty}
                   />
-                ) : creatingProperty && canEdit ? (
-                  <PropertyCreateForm
-                    spaceId={detail.id}
-                    properties={properties.data}
-                    types={types.data}
-                    canEdit={canEdit}
-                    onCreated={selectProperty}
-                    onCancel={() => setCreatingProperty(false)}
-                  />
                 ) : (
-                  <EmptyState sentence="Select a property to edit it, or create one to describe a new column. A property's format is fixed once it exists; its name, options and colours stay editable." />
+                  <EmptyState
+                    sentence="Select a property to edit it. A property's format is fixed once it exists; its name, options and colours stay editable."
+                    action={
+                      canEdit ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={startCreateProperty}
+                        >
+                          New property
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 )}
               </div>
             </div>
@@ -357,11 +490,17 @@ export function SchemaPage() {
 }
 
 function SchemaTabButton({
+  id,
+  controls,
+  tabIndex,
   selected,
   count,
   onClick,
   children,
 }: {
+  id: string;
+  controls: string;
+  tabIndex: number;
   selected: boolean;
   count: number;
   onClick: () => void;
@@ -371,7 +510,10 @@ function SchemaTabButton({
     <button
       type="button"
       role="tab"
+      id={id}
+      aria-controls={controls}
       aria-selected={selected}
+      tabIndex={tabIndex}
       onClick={onClick}
       className={cn(
         "flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[length:var(--text-small)] transition-colors pointer-coarse:min-h-11",
