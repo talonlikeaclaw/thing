@@ -9,4 +9,4 @@ export const AGENDA_TOOLBAR =
 
 /** One segment inside a frame; the frame supplies the height. */
 export const AGENDA_SEGMENT =
-  "label inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-faint transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent-on-wash pointer-coarse:min-h-11";
+  "label inline-flex min-h-9 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-faint transition-colors hover:text-ink aria-pressed:bg-accent-wash aria-pressed:text-accent-on-wash pointer-coarse:min-h-11 max-sm:px-2";

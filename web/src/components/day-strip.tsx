@@ -21,7 +21,7 @@ export const JOURNAL_SHORTCUTS: ShortcutDescriptor[] = [
 
 const NO_SHORTCUTS: ShortcutDescriptor[] = [];
 
-interface DayStripProps {
+interface DayRailProps {
   spaceId: string;
   /** The day on screen, as the journal titles it: `YYYY-MM-DD`. */
   day: string;
@@ -31,60 +31,63 @@ interface DayStripProps {
 
 /**
  * `‹ Sun 22 Nov · Today · Mon 24 Nov ›` — the day rail a journal day and a
- * journal record share, and the page's own glass header.
+ * journal record share. It is the controls row of the day page's header and
+ * the whole content of the record page's glass strip.
  *
  * Stepping is calendar-adjacent, not "next written": the chevrons are always
  * the previous and the next day, because that is what a reader predicts. The
  * middle slot names Today and is a link everywhere except on Today itself,
- * where it is the state it names. The month under the rail is the header's
- * closing line, as the Schedule closes on its timezone and the Calendar on its
- * count.
- *
- * The header is not sticky: a record's property column sticks under the shell
- * header, and a second sticky layer would cover it. The day page is one sheet,
- * so there is nothing to scroll under the chrome.
+ * where it is the state it names.
  */
-export function DayStrip({ spaceId, day, today }: DayStripProps) {
+export function DayRail({ spaceId, day, today }: DayRailProps) {
   const previous = shiftDay(day, -1);
   const next = shiftDay(day, 1);
   return (
+    <nav aria-label="Day" className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-1">
+      <Link
+        to={`/s/${spaceId}/daily/${previous}`}
+        aria-label={`Previous day, ${dayLabel(previous)}`}
+        className={cn(step, "justify-self-start")}
+      >
+        <ChevronLeft aria-hidden size={15} className="shrink-0" />
+        <time className="truncate tnum" dateTime={previous}>
+          <span className="sm:hidden">{dayNumberLabel(previous)}</span>
+          <span className="max-sm:hidden">{dayLabel(previous)}</span>
+        </time>
+      </Link>
+      {day === today ? (
+        <span aria-current="date" className={cn(step, todayChip, "justify-self-center")}>
+          Today
+        </span>
+      ) : (
+        <Link to={`/s/${spaceId}/daily/${today}`} className={cn(step, "justify-self-center")}>
+          Today
+        </Link>
+      )}
+      <Link
+        to={`/s/${spaceId}/daily/${next}`}
+        aria-label={`Next day, ${dayLabel(next)}`}
+        className={cn(step, "justify-self-end")}
+      >
+        <time className="truncate tnum" dateTime={next}>
+          <span className="sm:hidden">{dayNumberLabel(next)}</span>
+          <span className="max-sm:hidden">{dayLabel(next)}</span>
+        </time>
+        <ChevronRight aria-hidden size={15} className="shrink-0" />
+      </Link>
+    </nav>
+  );
+}
+
+/**
+ * The rail in its own glass strip. A record page puts it above the record, where
+ * a second sticky layer would cover the property column; the day page gives the
+ * rail to the shared page header instead.
+ */
+export function DayStrip({ spaceId, day, today }: DayRailProps) {
+  return (
     <header className="glass mb-4 rounded-[22px] px-4 py-3 sm:px-5 sm:py-4">
-      <nav aria-label="Day" className="grid grid-cols-[1fr_auto_1fr] items-center gap-1">
-        <Link
-          to={`/s/${spaceId}/daily/${previous}`}
-          aria-label={`Previous day, ${dayLabel(previous)}`}
-          className={cn(step, "justify-self-start")}
-        >
-          <ChevronLeft aria-hidden size={15} className="shrink-0" />
-          <time className="truncate tnum" dateTime={previous}>
-            <span className="sm:hidden">{dayNumberLabel(previous)}</span>
-            <span className="max-sm:hidden">{dayLabel(previous)}</span>
-          </time>
-        </Link>
-        {day === today ? (
-          <span aria-current="date" className={cn(step, todayChip, "justify-self-center")}>
-            Today
-          </span>
-        ) : (
-          <Link
-            to={`/s/${spaceId}/daily/${today}`}
-            className={cn(step, "justify-self-center")}
-          >
-            Today
-          </Link>
-        )}
-        <Link
-          to={`/s/${spaceId}/daily/${next}`}
-          aria-label={`Next day, ${dayLabel(next)}`}
-          className={cn(step, "justify-self-end")}
-        >
-          <time className="truncate tnum" dateTime={next}>
-            <span className="sm:hidden">{dayNumberLabel(next)}</span>
-            <span className="max-sm:hidden">{dayLabel(next)}</span>
-          </time>
-          <ChevronRight aria-hidden size={15} className="shrink-0" />
-        </Link>
-      </nav>
+      <DayRail spaceId={spaceId} day={day} today={today} />
     </header>
   );
 }

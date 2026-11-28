@@ -16,10 +16,9 @@ import { DayDueRow } from "@/components/calendar/day-due-row";
 import { DayNoteChip, DayWriteNote } from "@/components/calendar/day-note-chip";
 import { WeekGrid } from "@/components/calendar/week-grid";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { DatedHeader } from "@/components/dated-header";
 import { DayWork } from "@/components/day-work";
 import { ErrorState } from "@/components/error-state";
-import { EmptyState } from "@/components/ui/page";
+import { EmptyState, PageHeader } from "@/components/ui/page";
 import { MonthGrid } from "@/components/views/month-grid";
 import { useAgendaActions } from "@/lib/agenda-actions";
 import {
@@ -38,7 +37,6 @@ import {
 import { isDayTitle, STREAK_DAYS, streakOf } from "@/lib/daily";
 import { formatDay } from "@/lib/display";
 import { useKeptDatedScroll } from "@/lib/kept-scroll";
-import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
 import { shiftDay, todayIn } from "@/lib/timezone";
 import { gridRange, groupByDate, monthName, monthOf } from "@/lib/views";
@@ -73,7 +71,6 @@ export function CalendarPage() {
   const me = useMe();
   const space = useSpace(spaceId);
   const types = useTypes(spaceId);
-  const compact = useCompactWidth();
 
   useRouteMeta("Calendar");
 
@@ -373,9 +370,9 @@ export function CalendarPage() {
 
   const viewSwitch = (
     <AgendaSwitch
+      key="view"
       label="View"
       value={state.view}
-      stretch={compact}
       options={[
         { value: "month", label: "Month" },
         { value: "week", label: "Week" },
@@ -388,38 +385,35 @@ export function CalendarPage() {
     <div className="settle">
       <Breadcrumbs items={[{ label: detail.name, to: basePath }, { label: "Calendar" }]} />
       {/*
-        One glass header and one control grammar, as the Schedule has: the
-        page's name, its leading switch, the filter and the door, then the line
-        that closes them. The month or week under it is the data, so it stays on
-        the matte card and never scrolls inside the chrome.
+        One glass header: the page's name and its buttons on the title row, the
+        filter right-aligned beneath them, then the line that closes the card.
+        The month or week under it is the data, so it stays on the matte card
+        and never scrolls inside the chrome.
       */}
-      <DatedHeader
+      <PageHeader
         title="Calendar"
-        controls={viewSwitch}
-        trailing={[
-          ...(scheduledTypes.length > 0
-            ? [
-                <TypeFilter
-                  key="filter"
-                  types={scheduledTypes}
-                  selected={effectiveTypes}
-                  onChange={(next) => apply({ ...state, types: normalizeCalendarTypes(next) })}
-                  allLabel="All scheduled types"
-                  title="Filter the calendar"
-                  stretch={compact}
-                />,
-              ]
-            : []),
-          // The same rows as a list: one door between the two readings of the
-          // space's dated layer.
+        titleActions={[
+          viewSwitch,
           <AgendaDoor
             key="door"
             to={`${basePath}/agenda`}
             label="Schedule"
-            stretch={compact && scheduledTypes.length > 0}
           />,
         ]}
+        controls={
+          scheduledTypes.length > 0 ? (
+            <TypeFilter
+              types={scheduledTypes}
+              selected={effectiveTypes}
+              onChange={(next) => apply({ ...state, types: normalizeCalendarTypes(next) })}
+              allLabel="All scheduled types"
+              title="Filter the calendar"
+            />
+          ) : undefined
+        }
+        controlsClassName="w-full"
         settling={!rangeSettled}
+        sticky
         line={
           /* While the notes and the work load, the line says what the room
              is; once they land it becomes the month's or week's own count. The

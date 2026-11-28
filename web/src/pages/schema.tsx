@@ -17,7 +17,6 @@ import { TypeEditor } from "@/components/schema/type-editor";
 import { TypeCreateForm, TypeList } from "@/components/schema/type-list";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ErrorState } from "@/components/error-state";
-import { ThumbRow, useThumbHandedness } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
@@ -42,7 +41,6 @@ export function SchemaPage() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const compact = useCompactWidth();
-  const handedness = useThumbHandedness();
 
   const canEdit = space.data ? space.data.role !== "viewer" : false;
   const requestedNew = params.get("new");
@@ -289,12 +287,39 @@ export function SchemaPage() {
       <PageHeader
         title="Types & properties"
         meta={detail.role === "viewer" ? "viewer" : undefined}
-      />
-
-      <div className="mt-4 flex flex-wrap items-center gap-3 lg:justify-between">
-        {canEdit && !creatingType && !creatingProperty ? (
-          <ThumbRow className="order-1 w-full lg:order-2 lg:w-auto">
+        titleActions={[
+          <div key="tabs" className="flex">
+            <div
+              role="tablist"
+              aria-label="Types & properties"
+              onKeyDown={handleTabKeyDown}
+              className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-line/80 bg-inset/60 p-1"
+            >
+              <SchemaTabButton
+                id="schema-tab-types"
+                controls="schema-panel-types"
+                tabIndex={tab === "types" ? 0 : -1}
+                selected={tab === "types"}
+                count={types.data.length}
+                onClick={() => selectTab("types")}
+              >
+                Types
+              </SchemaTabButton>
+              <SchemaTabButton
+                id="schema-tab-properties"
+                controls="schema-panel-properties"
+                tabIndex={tab === "properties" ? 0 : -1}
+                selected={tab === "properties"}
+                count={properties.data.length}
+                onClick={() => selectTab("properties")}
+              >
+                Properties
+              </SchemaTabButton>
+            </div>
+          </div>,
+          canEdit && !creatingType && !creatingProperty ? (
             <Button
+              key="new"
               variant="ghost"
               render={
                 <Link
@@ -305,43 +330,10 @@ export function SchemaPage() {
               <Plus aria-hidden size={15} className="shrink-0" />
               {tab === "types" ? "New type" : "New property"}
             </Button>
-          </ThumbRow>
-        ) : null}
-        <div
-          className={cn(
-            "order-2 flex w-full lg:order-1 lg:w-auto",
-            compact && (handedness === "left" ? "justify-start" : "justify-end"),
-          )}
-        >
-          <div
-            role="tablist"
-            aria-label="Types & properties"
-            onKeyDown={handleTabKeyDown}
-            className="flex w-fit max-w-full items-center gap-1 overflow-x-auto rounded-full border border-line/80 bg-inset/60 p-1"
-          >
-            <SchemaTabButton
-              id="schema-tab-types"
-              controls="schema-panel-types"
-              tabIndex={tab === "types" ? 0 : -1}
-              selected={tab === "types"}
-              count={types.data.length}
-              onClick={() => selectTab("types")}
-            >
-              Types
-            </SchemaTabButton>
-            <SchemaTabButton
-              id="schema-tab-properties"
-              controls="schema-panel-properties"
-              tabIndex={tab === "properties" ? 0 : -1}
-              selected={tab === "properties"}
-              count={properties.data.length}
-              onClick={() => selectTab("properties")}
-            >
-              Properties
-            </SchemaTabButton>
-          </div>
-        </div>
-      </div>
+          ) : null,
+        ]}
+        line={`${types.data.length} ${types.data.length === 1 ? "type" : "types"} · ${properties.data.length} ${properties.data.length === 1 ? "property" : "properties"}`}
+      />
 
       {tab === "types" ? (
         <div

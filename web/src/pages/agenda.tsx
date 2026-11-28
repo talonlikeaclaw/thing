@@ -7,8 +7,8 @@ import { AgendaHorizons, AgendaList } from "@/components/agenda/agenda-list";
 import { AgendaDoor } from "@/components/agenda/door";
 import { TypeFilter } from "@/components/agenda/type-filter";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { DatedHeader } from "@/components/dated-header";
 import { ErrorState } from "@/components/error-state";
+import { PageHeader } from "@/components/ui/page";
 import {
   agendaParams,
   agendaStateFromParams,
@@ -23,7 +23,6 @@ import {
 import { useAgendaActions } from "@/lib/agenda-actions";
 import { formatDay } from "@/lib/display";
 import { useKeptDatedScroll } from "@/lib/kept-scroll";
-import { useCompactWidth } from "@/lib/media";
 import { useRouteMeta } from "@/lib/route";
 import { todayIn } from "@/lib/timezone";
 
@@ -97,7 +96,6 @@ export function AgendaPage() {
     spaceId ?? "",
     scheduledKeys,
   );
-  const compact = useCompactWidth();
 
   // The calendar moved to the space's own Calendar. An old Schedule link
   // lands there, keeping the month and the type filter it carried.
@@ -152,47 +150,44 @@ export function AgendaPage() {
   const canEdit = detail.role !== "viewer";
   const today = schedule?.today || spaceToday;
   // The header is chrome, so it is the page's one glass panel: it floats over
-  // the list while that scrolls under it. The range, the filter and the door
-  // are three pills of one size, and a phone gives them two rows that share a
-  // leading edge rather than a pair left hanging at the right margin.
+  // the list while that scrolls under it. The page's name and buttons share the
+  // title row, the filter sits right-aligned beneath them, and the line closes
+  // the card.
   const header = (
-    <DatedHeader
+    <PageHeader
       title="Schedule"
-      controls={
+      titleActions={[
         <AgendaHorizons
+          key="range"
           horizon={state.horizon}
           onChange={(horizon) => update({ horizon })}
-          stretch={compact}
-        />
-      }
-      trailing={[
-        ...(scheduledTypes.length > 0
-          ? [
-              <TypeFilter
-                key="filter"
-                types={scheduledTypes}
-                selected={effectiveTypes}
-                onChange={(nextTypes) => update({ types: nextTypes })}
-                allLabel="All scheduled types"
-                title="Filter the schedule"
-                stretch={compact}
-              />,
-            ]
-          : []),
+        />,
         // The same rows as a calendar: one door between the two readings of
         // the space's dated layer.
         <AgendaDoor
           key="door"
           to={`/s/${detail.id}/calendar`}
           label="Calendar"
-          stretch={compact && scheduledTypes.length > 0}
         />,
       ]}
+      controls={
+        scheduledTypes.length > 0 ? (
+          <TypeFilter
+            types={scheduledTypes}
+            selected={effectiveTypes}
+            onChange={(nextTypes) => update({ types: nextTypes })}
+            allLabel="All scheduled types"
+            title="Filter the schedule"
+          />
+        ) : undefined
+      }
+      controlsClassName="w-full"
       line={
         <>
           {schedule?.timezone ?? detail.timezone} · today {formatDay(today)}
         </>
       }
+      sticky
     />
   );
 

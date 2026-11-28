@@ -280,7 +280,7 @@ function TrashList({
       <PageHeader
         title="Trash"
         sentence="A trashed record keeps its file and its history; restore it to its table, or purge it to delete the file and every revision for good."
-        meta={`${items.length} ${items.length === 1 ? "record" : "records"}`}
+        line={`${items.length} ${items.length === 1 ? "record" : "records"}`}
       />
 
       {items.length === 0 ? (

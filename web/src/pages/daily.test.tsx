@@ -315,8 +315,7 @@ describe("DailyDayPage", () => {
     const { written } = stubDaily();
     renderAt("/s/s1/daily/2026-11-05");
     await screen.findByText("Nothing written for this day yet.");
-    // The card is the note's own frame: the record's title is the day, and
-    // the weekday date sits under it where a record prints its dates.
+    // The page header names the day; the card's own title is the record's date.
     expect(screen.getByRole("heading", { name: "2026-11-05" })).toBeInTheDocument();
     expect(screen.getByText("Thursday, 5 November 2026")).toBeInTheDocument();
     // The month is the day's parent in the trail, and opens it in the Calendar.

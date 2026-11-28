@@ -468,7 +468,8 @@ usability move ahead of search.
   `90+`. Body templates wait for M10.2 and the type's create-time defaults carry the structured
   half.
 - **M9.5 — Types at hand and the UX sweep.** **In progress** (workspace `0.9.4`, space schema 8
-  unchanged, web only: no `space.yml` key, no server route, no dependency; checkpoints 1–2 landed);
+  unchanged, web only: no `space.yml` key, no server route, no dependency; checkpoints 1–2 and 2.5
+  landed);
   spec:
   [`docs/plan/m9.5-types-and-ux.md`](plan/m9.5-types-and-ux.md). The type and property library gets
   one plain-language name, **Types & properties**, and one front door: a page-header action, the
@@ -477,9 +478,12 @@ usability move ahead of search.
   the name focused. A rail type row keeps opening its table and gains a pencil to its editor. The
   patch also closes the audit's interaction defects — the tab-key pattern, the props/Manage/Add
   vocabulary split, the duplicate Members id, the palette's no-hit grammar, the blank properties
-  landing — and replaces the generic note favicon with the product's 2 × 2 ledger mark, a
-  theme-aware SVG plus apple-touch and manifest icons. The Night Glass materials, the record sheet,
-  the table model and the day grammar do not change.
+  landing — and brings the Calendar and Schedule's glass header to the Overview, a journal day,
+  Types & properties, Library, Members, Trash, Space settings, Account settings, All spaces and
+  Changelog; the type page keeps its identity card and a record its sheet. It replaces the generic
+  note favicon with the product's 2 × 2 ledger mark, a theme-aware SVG plus apple-touch and manifest
+  icons. The Night Glass materials, the record sheet, the table model and the day grammar do not
+  change.
 - **M10 — View model depth.** **Planned**; spec written when the milestone starts. Schema 9,
   workspace `0.10.0`: list, pivot, tree-over-a-self-relation and timeline views; grouping in table
   and list; conditional formatting as saved view rules; row height and pinned columns; record

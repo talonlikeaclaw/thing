@@ -8,6 +8,7 @@ import { ThingIcon } from "@/components/thing-icon";
 import { ErrorState } from "@/components/error-state";
 import { TimezonePicker } from "@/components/timezone-picker";
 import { Button, FormError, TextField } from "@/components/ui/controls";
+import { PageHeader } from "@/components/ui/page";
 import { readError, shortId } from "@/lib/display";
 import { defaultSpaceTimezone, timezoneNames } from "@/lib/timezone";
 import { useRouteMeta } from "@/lib/route";
@@ -115,20 +116,17 @@ export function SpaceListPage() {
 
   return (
     <div className="settle">
-      <header className="px-1 pb-7">
-        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-          <div className="min-w-0">
-            <h1 className="display text-display">Spaces</h1>
-          </div>
-          {count !== undefined ? (
-            <span className="label tnum text-faint">
-              {count} {count === 1 ? "space" : "spaces"}
-            </span>
-          ) : null}
-        </div>
-      </header>
+      <PageHeader
+        title="Spaces"
+        sentence="Every space you belong to."
+        line={
+          count !== undefined
+            ? `${count} ${count === 1 ? "space" : "spaces"}`
+            : undefined
+        }
+      />
 
-      <div className="rounded-[22px] border border-line bg-surface p-5 sm:p-6">
+      <div className="mt-4 rounded-[22px] border border-line bg-surface p-5 sm:p-6">
         <div
           aria-hidden
           className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-3 border-b rule pb-2 md:grid-cols-[5rem_minmax(0,1fr)]"

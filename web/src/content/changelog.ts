@@ -43,11 +43,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     highlights: [
       "The browser tab, bookmark and home-screen icon now show a four-cell table with one cell in the accent.",
       "New type and New property open a form with the name field focused, from the page header, the home page and quick capture.",
+      "Overview, a journal day, Types & properties, Library, Members, Trash, Settings, All spaces and Changelog now share the Calendar and Schedule's glass header.",
     ],
     details: [
       "The icon switches between light and dark with the system.",
       "The type and property library is called Types & properties in the rail, the breadcrumb and the browser title.",
       "The page header names a viewer's role only; an owner or editor sees no role label.",
+      "The header puts the page's chips and main button on one row, with the filter beneath.",
+      "A journal day's header carries the day rail and the date.",
+      "A type page keeps its identity card.",
+      "A record keeps its own sheet.",
       "The Types and Properties tabs move with the arrow keys, Home and End.",
       "The property tab offers New property when nothing is selected.",
     ],

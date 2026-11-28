@@ -164,7 +164,7 @@ export function SettingsPage() {
       <PageHeader
         title="Space settings"
         sentence="The space's name, icon, timezone, daily note and shared highlight are written to the space file."
-        meta={detail.role}
+        line={detail.role}
       />
 
       <div className="mt-8 grid gap-4 xl:grid-cols-2 xl:items-start">

@@ -4,12 +4,12 @@ import { Link, useParams } from "react-router";
 import { useSpace, useSpaceActivity, useSpaceGraph, useTypes } from "@/api/queries";
 import type { ActivityEntry, TypeSummary } from "@/api/types";
 import { InlineError } from "@/components/error-state";
-import { ThumbRow } from "@/components/handedness";
 import { usePageFooter } from "@/components/page-footer";
 import { useQuickCapture } from "@/components/quick-capture";
 import { SpaceGraph } from "@/components/space-graph";
 import { ThingIcon } from "@/components/thing-icon";
 import { Button } from "@/components/ui/controls";
+import { PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { isDayTitle } from "@/lib/daily";
 import { shortId } from "@/lib/display";
@@ -73,35 +73,35 @@ export function SpacePage() {
 
   return (
     <div className="settle">
-      <header className="px-1 pb-7">
-        <div
-          className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5"
-        >
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="glass grid size-18 shrink-0 place-items-center rounded-[22px]">
-              <ThingIcon icon={detail.icon} name={detail.name} size="xl" />
-            </span>
-            <div className="min-w-0">
-              <h1 className="display text-display break-words">{detail.name}</h1>
-              <p className="tnum mt-2 font-mono text-[length:var(--text-label)] leading-[var(--text-label--line-height)] tracking-[0.06em] text-muted">
-                {summary}
-              </p>
-            </div>
-          </div>
-          <ThumbRow className="max-lg:w-full flex flex-wrap items-center gap-2">
-            <Button variant="ghost" render={<Link to={`/s/${detail.id}/agenda`} />}>
-              Open schedule
+      <PageHeader
+        title={detail.name}
+        icon={
+          <span className="glass grid size-12 shrink-0 place-items-center rounded-[16px]">
+            <ThingIcon icon={detail.icon} name={detail.name} size="lg" />
+          </span>
+        }
+        line={summary}
+        actions={[
+          <Button
+            key="schedule"
+            variant="ghost"
+            render={<Link to={`/s/${detail.id}/agenda`} />}
+          >
+            Open schedule
+          </Button>,
+          canEdit ? (
+            <Button key="capture" onClick={() => capture.open()}>
+              Capture a record
             </Button>
-            {canEdit ? <Button onClick={() => capture.open()}>Capture a record</Button> : null}
-          </ThumbRow>
-        </div>
-      </header>
+          ) : null,
+        ]}
+      />
 
       {/* One grid from the cover's first rule down: the ledger and the graph
           share the 8-column body, the activity timeline holds the 4-column
           margin beside both. `items-start` keeps each column as tall as its
-          own rows instead of stretching to its neighbour. */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-start xl:gap-6">
+          own rows instead of stretching it to its neighbour. */}
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12 xl:items-start xl:gap-6">
         <section
           aria-labelledby="space-types"
           // Without a margin the body keeps the full sheet, rather than

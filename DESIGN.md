@@ -449,23 +449,25 @@ carries the unsaved count and Save.
 
 **The Journal.** A day is a record whose title is its date (`YYYY-MM-DD`), so its note is
 the record sheet unchanged; the journal adds one rail and the day's own margin. The rail
-is the day page's glass header — the same card and padding as the Schedule and the
-Calendar, so the three dated pages share one piece of chrome. Inside it the rail
-keeps its three positions — `‹ Sun 22 Nov` at the leading edge, `Today` in the middle,
+is the shared page header's controls row on a day page: the header carries the day's
+weekday title, the rail, and the mono `YYYY-MM-DD` line. On a record page, the same rail
+is a glass strip above the sheet, with no title or closing line. Inside it the rail keeps
+its three positions — `‹ Sun 22 Nov` at the leading edge, `Today` in the middle,
 `Mon 24 Nov ›` at the trailing one — each drawn as a glass pill chip: a lit
 `line-interactive` edge, a `raised` fill at 40%, sans with tabular numerals, a raised fill
 and a stronger edge on hover, and a 44px target on a coarse pointer. On today the middle
 chip is a state, filled with the accent wash; on any other day it is the link back. The
-header holds nothing else: the month the day sits in is the day's parent crumb in the
-trail above it, `Space / Journals / November 2026 / 2026-11-24`, and that crumb opens the
-month in the Calendar. The header does not stick: a record's property column sticks under
-the shell header, and a second sticky layer would cover it. A scheduled record's due date,
+record page's strip holds nothing else: the month the day sits in is the day's parent crumb
+in the trail above it, `Space / Journals / November 2026 / 2026-11-24`, and that crumb opens
+the month in the Calendar. Neither the page header nor the strip sticks: a record's property
+column sticks under the shell header, and a second sticky layer would cover it. A scheduled
+record's due date,
 a Schedule row's date and the space's Activity all address a day the same way, through
 `/daily/<YYYY-MM-DD>`. A day with no note yet is the sheet the note will
-become: the same breadcrumbs, the same rail, one matte card at 24px, the type's icon and
+become: the same breadcrumbs, the same header, one matte card at 24px, the type's icon and
 name at the leading edge of the identity band with a mono `NOT WRITTEN` at its trailing
-one, the day as the title in the record's title voice, the weekday date in mono faint
-where a record prints its dates, then the record's own **Body** rule with its count, one
+one, the day as an `h2` in the record's title voice, then the record's own **Body** rule
+with its count, one
 sentence and one primary pill inside a dashed writing panel — the body's own layer inside
 the sheet, the same affordance a calendar's empty day carries. A day whose outstanding
 rows exist gives them the record's 4/12 margin under a label-voice heading — **Due today**
@@ -734,23 +736,31 @@ size. An `Unused` chip marks bytes no record names, and a trashed use reads `In 
 without navigating. A tinted, untinted and image card share one radius, one hairline and
 one caption rhythm; the page never becomes a second gallery.
 
-**Quiet surfaces.** Schema, members, settings, trash, auth and account settings share one
-page header and one section rhythm. Sections are matte cards at 22px; the danger section
+**Quiet surfaces.** Schema, the library, members, settings, trash, the Overview, a journal day,
+account settings, All spaces and Changelog share one glass page header and one section rhythm.
+The type page keeps its identity card; a record keeps its own sheet.
+Sections are matte cards at 22px; the danger section
 carries an Ember edge. Space settings carries a third section for the space's attachments:
 the used and unused totals in plain figures and the owner's `Collect unused` action.
 
-**The Dated Header.** The Schedule and the Calendar wear one glass header, and the
-Journal's day rail is the same card without a title. Its line is fixed: the page's name in
-the display voice, then its controls, then one mono line that closes the panel — the
-month's or week's count, or the space's zone and today. On a fine pointer the leading
-switch takes the start of the row and the filter and the door take its end. A phone gives
-the switch the whole row and splits the row beneath between the filter and the door, so
-both rows share the leading and trailing edges and no pill is left hanging at a ragged
-margin. The controls are one size: each is a pill in the same frame, the frame supplying
-the height, whether it holds a range switch, a shape switch, a filter with its count or
-the door to the other reading of the dated layer. The filter and the door are the row's
-thumb-zone pair, so a left-handed phone reverses their DOM order in `ThumbRow` and the
-door sits at the thumb edge; the switch keeps its reading order in both modes.
+**The Page Header.** The signed-in pages wear one glass card: the Calendar, the Schedule, the
+Overview, a journal day, Types & properties, Library, Members, Trash, Space settings, Account
+settings, All spaces and Changelog. Its grammar is fixed: a title row with the page's name in the
+display voice, an optional mark and role annotation, and the page's chips and main button at the
+thumb edge — the view or range switch or the tabs, then the create action or the door, with the
+button at the far edge; one optional sentence running full width; the filter, when the page has
+one, on the row beneath, at the thumb edge; and one mono line that closes the card — the month's or
+week's count, the space's zone and today, or a page's own count. The Overview and Members keep their one action
+below the sentence. The controls are one size: each is a pill in the same frame, the frame
+supplying the height, whether it holds a range switch, a shape switch, a filter with its count, a
+tab, the create action or the door. The chips and main button, the filter and the below-sentence
+actions are all thumb-zone rows: `ThumbRow` puts them at the trailing edge for a right-handed
+reader and reverses their DOM order to the leading edge for a left-handed one. On a phone the chips
+and main button take the row beneath the title at the thumb edge, the filter follows on the row
+beneath, and the title keeps the full measure. The Calendar and the Schedule keep the card sticky
+under the shell; the quiet surfaces let it scroll, so a page's own anchors keep their scroll
+margin. The type page keeps its identity card because its view controls are a second surface; a
+record keeps its own sheet; a record's day rail is the same card without a title or closing line.
 
 **The Calendars.** The space Calendar and a type's Calendar are the same matte card with
 the same range controls, weekday rule, chip cap and glass day panel. The space Calendar
@@ -812,8 +822,10 @@ opens washes the neutral ground behind its own blur, never the themed glass, bec
 sit behind it. An image opens the
 one lightbox: the picture at reading size, its caption, Escape and focus back on the tile.
 
-**Quiet surfaces.** Schema, members, settings, trash, auth and account settings share one
-page header and one section rhythm. Sections are matte cards at 22px; the danger section
+**Quiet surfaces.** Schema, the library, members, settings, trash, the Overview, a journal day,
+account settings, All spaces and Changelog share one glass page header and one section rhythm.
+The type page keeps its identity card; a record keeps its own sheet.
+Sections are matte cards at 22px; the danger section
 carries an Ember edge. The signed-out screen is a glass top bar, the form, and a glass
 margin panel explaining the file-backed model.
 

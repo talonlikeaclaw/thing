@@ -73,7 +73,7 @@ export function MembersPage() {
       <PageHeader
         title="Members"
         sentence="Owner manages the space and people; editor creates and edits content; viewer reads only."
-        meta={`${detail.members.length} ${detail.members.length === 1 ? "member" : "members"}`}
+        line={`${detail.members.length} ${detail.members.length === 1 ? "member" : "members"}`}
         actions={
           owner ? (
             <Button variant="ghost" render={<a href="#invites" />}>

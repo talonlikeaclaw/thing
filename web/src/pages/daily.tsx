@@ -13,7 +13,7 @@ import {
 import type { Filter } from "@/api/types";
 import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
 import { DayDue, useDayDue } from "@/components/day-due";
-import { DayStrip, useDayHotkeys } from "@/components/day-strip";
+import { DayRail, useDayHotkeys } from "@/components/day-strip";
 import { ErrorState } from "@/components/error-state";
 import { Button } from "@/components/ui/controls";
 import { EmptyState, PageHeader } from "@/components/ui/page";
@@ -431,7 +431,13 @@ export function DailyDayPage() {
           { label: day },
         ]}
       />
-      <DayStrip spaceId={space.data.id} day={day} today={today} />
+      <PageHeader
+        className="mb-4"
+        title={longDayLabel(day)}
+        controls={<DayRail spaceId={space.data.id} day={day} today={today} />}
+        controlsClassName="w-full"
+        line={<time dateTime={day}>{day}</time>}
+      />
 
       {/*
         The day card is the note's own frame, one surface either side of the
@@ -458,10 +464,7 @@ export function DailyDayPage() {
                 {readSettled ? "Not written" : "Reading"}
               </span>
             </div>
-            <h1 className="display mt-1 text-title">{day}</h1>
-            <p className="mt-2 flex flex-wrap items-baseline gap-x-2 font-mono text-[length:var(--text-small)] text-faint">
-              <time dateTime={day}>{longDayLabel(day)}</time>
-            </p>
+            <h2 className="display mt-1 text-title">{day}</h2>
           </div>
 
           <section

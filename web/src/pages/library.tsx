@@ -103,7 +103,7 @@ export function LibraryPage() {
       <PageHeader
         title="Library"
         sentence="Every file and photo in this space."
-        meta={`${data.items.length} ${data.items.length === 1 ? "file" : "files"} · ${formatBytes(data.total_bytes)}`}
+        line={`${data.items.length} ${data.items.length === 1 ? "file" : "files"} · ${formatBytes(data.total_bytes)}`}
       />
       <LibraryGrid spaceId={detail.id} items={data.items} types={typeList} />
     </div>

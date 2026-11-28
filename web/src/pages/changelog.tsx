@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { CHANGELOG, type ChangelogSection } from "@/content/changelog";
 import { ThumbRow } from "@/components/handedness";
 import { Button } from "@/components/ui/controls";
+import { PageHeader } from "@/components/ui/page";
 import { cn } from "@/lib/cn";
 import { useRouteMeta } from "@/lib/route";
 
@@ -94,17 +95,13 @@ export function ChangelogPage() {
   useRouteMeta("Changelog");
   return (
     <div className="settle mx-auto max-w-[86rem]">
-      <header className="px-1 pb-6">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <h1 className="display text-display">What changed</h1>
-          <span className="label tnum text-faint">v{__APP_VERSION__}</span>
-        </div>
-        <p className="mt-2 max-w-[60ch] text-[13px] text-muted">
-          Release notes for thing.
-        </p>
-      </header>
+      <PageHeader
+        title="What changed"
+        sentence="Release notes for thing."
+        line={`v${__APP_VERSION__}`}
+      />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem] xl:items-start xl:gap-12">
+      <div className="mt-4 grid gap-6 xl:grid-cols-[minmax(0,1fr)_15rem] xl:items-start xl:gap-12">
         <nav
           aria-label="Versions"
           className="glass hidden rounded-[22px] p-4 xl:sticky xl:top-[calc(var(--shell-header-h)+0.5rem)] xl:col-start-2 xl:row-start-1 xl:block"

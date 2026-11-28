@@ -2,39 +2,129 @@ import type { ReactNode } from "react";
 
 import { ThumbRow } from "@/components/handedness";
 import { cn } from "@/lib/cn";
+import { useCompactWidth } from "@/lib/media";
 
 interface PageHeaderProps {
   title: string;
+  /** The title's mark, when the page has one. */
+  icon?: ReactNode;
   /** One factual sentence; not a description of the page's own layout. */
   sentence?: ReactNode;
   /** A mono annotation at the title's trailing edge: a role, a count, a key. */
   meta?: ReactNode;
-  /** At most one primary action. It follows the thumb edge. */
-  actions?: ReactNode;
+  /** The title row's trailing cluster: the page's chips and its main button; the chips first, the button at the edge. */
+  titleActions?: ReactNode | ReactNode[];
+  /** The row beneath the title: the filter, the page's buttons, or a day rail. Give it the full row to reach the thumb edge. */
+  controls?: ReactNode;
+  /** A page action below the sentence; canonical order with the primary at the thumb edge. */
+  actions?: ReactNode | ReactNode[];
+  /** The header's closing mono line: a count, a zone, a date. */
+  line?: ReactNode;
+  /** The line is a read in progress rather than the page's own fact. */
+  settling?: boolean;
+  /** Float under the shell while the page scrolls. Dates use it; forms and hashes do not. */
+  sticky?: boolean;
   className?: string;
+  controlsClassName?: string;
+  actionsClassName?: string;
 }
 
-/** The one page header every quiet surface shares. */
-export function PageHeader({ title, sentence, meta, actions, className }: PageHeaderProps) {
+/**
+ * The one page header: a glass card with the page's name, chips and main
+ * button on the title row, its filter beneath at the thumb edge, and one
+ * closing factual line. The Calendar, the Schedule and every quiet surface
+ * read the same way; the type page keeps its own identity card because its
+ * controls are a second surface.
+ */
+export function PageHeader({
+  title,
+  icon,
+  sentence,
+  meta,
+  titleActions,
+  controls,
+  actions,
+  line,
+  settling = false,
+  sticky = false,
+  className,
+  controlsClassName,
+  actionsClassName,
+}: PageHeaderProps) {
+  const compact = useCompactWidth();
+  const titleActionItems = Array.isArray(titleActions)
+    ? titleActions
+    : titleActions
+      ? [titleActions]
+      : [];
+  const actionItems = Array.isArray(actions) ? actions : actions ? [actions] : [];
+
   return (
-    <header className={cn("border-b rule pb-[var(--space-4)]", className)}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-[var(--space-4)] gap-y-[var(--space-1)]">
-        <h1 className="display text-display break-words">{title}</h1>
-        {meta ? <span className="label tnum shrink-0">{meta}</span> : null}
+    <header
+      className={cn(
+        "glass rounded-[22px] px-4 py-3 sm:px-5 sm:py-4",
+        sticky && "lg:sticky lg:top-[calc(var(--shell-header-h)+0.5rem)] lg:z-20",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-[var(--space-4)] gap-y-[var(--space-2)]">
+        <div className="flex min-w-0 flex-1 items-center gap-[var(--space-3)]">
+          {icon}
+          <h1 className="display text-display break-words">{title}</h1>
+        </div>
+        {meta || titleActionItems.length > 0 ? (
+          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-[var(--space-3)] max-sm:w-full">
+            {meta ? <span className="label tnum shrink-0">{meta}</span> : null}
+            {titleActionItems.length > 0 ? (
+              <ThumbRow
+                className={cn(
+                  "flex-wrap items-center gap-[var(--space-2)]",
+                  compact && "w-full",
+                )}
+              >
+                {titleActionItems}
+              </ThumbRow>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-      {sentence || actions ? (
-        <div className="mt-[var(--space-2)] flex flex-wrap items-end justify-between gap-x-[var(--space-5)] gap-y-[var(--space-3)]">
-          {sentence ? (
-            <p className="max-w-[62ch] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
-              {sentence}
-            </p>
+      {sentence ? (
+        <p className="mt-[var(--space-2)] max-w-[62ch] text-[length:var(--text-small)] leading-[var(--text-small--line-height)] text-muted">
+          {sentence}
+        </p>
+      ) : null}
+      {controls || actionItems.length > 0 ? (
+        <div className="mt-[var(--space-3)] flex flex-wrap items-center justify-between gap-[var(--space-2)]">
+          {controls ? (
+            <ThumbRow
+              className={cn(
+                "flex-wrap items-center gap-[var(--space-2)]",
+                controlsClassName,
+              )}
+            >
+              {controls}
+            </ThumbRow>
           ) : null}
-          {actions ? (
-            <ThumbRow className="max-lg:w-full shrink-0 flex-wrap items-center gap-[var(--space-2)]">
-              {actions}
+          {actionItems.length > 0 ? (
+            <ThumbRow
+              className={cn(
+                "flex-wrap items-center gap-[var(--space-2)]",
+                compact && "w-full",
+                actionsClassName,
+              )}
+            >
+              {actionItems}
             </ThumbRow>
           ) : null}
         </div>
+      ) : null}
+      {line ? (
+        <p
+          className="mt-2.5 flex flex-wrap items-baseline gap-x-[var(--space-2)] gap-y-[var(--space-1)] font-mono text-[12px] text-faint"
+          aria-live={settling ? undefined : "polite"}
+        >
+          {line}
+        </p>
       ) : null}
     </header>
   );
